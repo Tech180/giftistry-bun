@@ -89,7 +89,7 @@ export const authMiddleware = new Elysia()
 
 export const authRoutes = (useCases: AuthUseCases) => new Elysia({ prefix: '/api/auth' })
   .use(rateLimit({ windowMs: 60000, max: 5 }))
-  .post('/signup', async ({ set, body: { Giftistry: { username, email, password, firstName, lastName } } }) => {
+  .post('/signup', async ({ set, body: { Giftistry: { Auth: { username, email, password, firstName, lastName } } } }) => {
     const user = await useCases.signup.execute(username, email, password, firstName ?? undefined, lastName ?? undefined);
     const token = await createToken({ userId: user.Id });
     
@@ -99,17 +99,24 @@ export const authRoutes = (useCases: AuthUseCases) => new Elysia({ prefix: '/api
     
     return { success: true, User: user, Token: token };
   }, {
+    detail: {
+      tags: ['Authentication'],
+      summary: 'Register a new user',
+      description: 'Creates a new user profile and sets the JWT session cookie.'
+    },
     body: t.Object({
       Giftistry: t.Object({
-        username: t.String({ minLength: 3, maxLength: 50 }),
-        email: t.String({ format: 'email' }),
-        firstName: t.Optional(t.Nullable(t.String({ minLength: 1, maxLength: 100 }))),
-        lastName: t.Optional(t.Nullable(t.String({ minLength: 1, maxLength: 100 }))),
-        password: t.String({ minLength: 6 }),
+        Auth: t.Object({
+          username: t.String({ minLength: 3, maxLength: 50 }),
+          email: t.String({ format: 'email' }),
+          firstName: t.Optional(t.Nullable(t.String({ minLength: 1, maxLength: 100 }))),
+          lastName: t.Optional(t.Nullable(t.String({ minLength: 1, maxLength: 100 }))),
+          password: t.String({ minLength: 6 }),
+        })
       })
     })
   })
-  .post('/login', async ({ set, body: { Giftistry: { email, password } } }) => {
+  .post('/login', async ({ set, body: { Giftistry: { Auth: { email, password } } } }) => {
     const user = await useCases.login.execute(email, password);
     const token = await createToken({ userId: user.Id });
     
@@ -119,10 +126,17 @@ export const authRoutes = (useCases: AuthUseCases) => new Elysia({ prefix: '/api
     
     return { success: true, User: user, Token: token };
   }, {
+    detail: {
+      tags: ['Authentication'],
+      summary: 'Authenticate a user',
+      description: 'Verifies email/password and sets the HTTP-only JWT session cookie.'
+    },
     body: t.Object({
       Giftistry: t.Object({
-        email: t.String(),
-        password: t.String(),
+        Auth: t.Object({
+          email: t.String(),
+          password: t.String(),
+        })
       })
     })
   })
@@ -130,14 +144,27 @@ export const authRoutes = (useCases: AuthUseCases) => new Elysia({ prefix: '/api
   .get('/me', async ({ getAuthUser }) => {
     const authUser = await getAuthUser();
     return { success: true, User: authUser };
+  }, {
+    detail: {
+      tags: ['Authentication'],
+      summary: 'Get active user profile',
+      description: 'Extracts the JWT from cookie/bearer token and returns the authenticated user context.',
+      security: [{ bearerAuth: [] }]
+    }
   })
   .post('/logout', async ({ set }) => {
     const isProduction = process.env.NODE_ENV === 'production';
     const secureFlag = isProduction ? 'Secure; ' : '';
     set.headers['Set-Cookie'] = `jwt=; HttpOnly; ${secureFlag}SameSite=Strict; Path=/; Max-Age=0`;
     return { success: true };
+  }, {
+    detail: {
+      tags: ['Authentication'],
+      summary: 'Logout user',
+      description: 'Clears the JWT session cookie.'
+    }
   })
-  .put('/profile', async ({ getAuthUser, body: { Giftistry: { username, firstName, lastName } } }) => {
+  .put('/profile', async ({ getAuthUser, body: { Giftistry: { Auth: { username, firstName, lastName } } } }) => {
     const authUser = await getAuthUser();
     const user = await useCases.updateProfile.execute(authUser.userId, {
       username,
@@ -147,11 +174,19 @@ export const authRoutes = (useCases: AuthUseCases) => new Elysia({ prefix: '/api
     
     return { success: true, User: user };
   }, {
+    detail: {
+      tags: ['Authentication'],
+      summary: 'Update user profile details',
+      description: 'Updates username, first name, or last name of the active user profile.',
+      security: [{ bearerAuth: [] }]
+    },
     body: t.Object({
       Giftistry: t.Object({
-        username: t.Optional(t.String({ minLength: 3, maxLength: 50 })),
-        firstName: t.Optional(t.Nullable(t.String({ minLength: 1, maxLength: 100 }))),
-        lastName: t.Optional(t.Nullable(t.String({ minLength: 1, maxLength: 100 }))),
+        Auth: t.Object({
+          username: t.Optional(t.String({ minLength: 3, maxLength: 50 })),
+          firstName: t.Optional(t.Nullable(t.String({ minLength: 1, maxLength: 100 }))),
+          lastName: t.Optional(t.Nullable(t.String({ minLength: 1, maxLength: 100 }))),
+        })
       })
     })
   });

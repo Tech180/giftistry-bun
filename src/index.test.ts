@@ -46,9 +46,11 @@ describe("Giftistry Integration Tests", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           Giftistry: {
-            username: ownerUsername,
-            email: ownerEmail,
-            password: testPassword
+            Auth: {
+              username: ownerUsername,
+              email: ownerEmail,
+              password: testPassword
+            }
           }
         }),
       })
@@ -72,8 +74,10 @@ describe("Giftistry Integration Tests", () => {
         },
         body: JSON.stringify({
           Giftistry: {
-            firstName: "John",
-            lastName: "Doe"
+            Auth: {
+              firstName: "John",
+              lastName: "Doe"
+            }
           }
         }),
       })
@@ -88,9 +92,11 @@ describe("Giftistry Integration Tests", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           Giftistry: {
-            username: collaboratorUsername,
-            email: collaboratorEmail,
-            password: testPassword
+            Auth: {
+              username: collaboratorUsername,
+              email: collaboratorEmail,
+              password: testPassword
+            }
           }
         }),
       })
@@ -108,9 +114,11 @@ describe("Giftistry Integration Tests", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           Giftistry: {
-            username: unrelatedUsername,
-            email: unrelatedEmail,
-            password: testPassword
+            Auth: {
+              username: unrelatedUsername,
+              email: unrelatedEmail,
+              password: testPassword
+            }
           }
         }),
       })
@@ -131,9 +139,11 @@ describe("Giftistry Integration Tests", () => {
         },
         body: JSON.stringify({
           Giftistry: {
-            title: "My Birthday Wishlist",
-            expiresAt: new Date(Date.now() + 1000 * 60 * 60).toISOString(),
-            allowGroupFunds: true
+            Lists: {
+              title: "My Birthday Wishlist",
+              expiresAt: new Date(Date.now() + 1000 * 60 * 60).toISOString(),
+              allowGroupFunds: true
+            }
           }
         }),
       })
@@ -166,8 +176,10 @@ describe("Giftistry Integration Tests", () => {
         },
         body: JSON.stringify({
           Giftistry: {
-            email: collaboratorEmail,
-            role: "collaborator"
+            Lists: {
+              email: collaboratorEmail,
+              role: "collaborator"
+            }
           }
         }),
       })
@@ -187,9 +199,11 @@ describe("Giftistry Integration Tests", () => {
         },
         body: JSON.stringify({
           Giftistry: {
-            name: "PlayStation 5 Pro",
-            description: "For gaming",
-            isHiddenIdea: false
+            Items: {
+              name: "PlayStation 5 Pro",
+              description: "For gaming",
+              isHiddenIdea: false
+            }
           }
         }),
       })
@@ -211,8 +225,10 @@ describe("Giftistry Integration Tests", () => {
         },
         body: JSON.stringify({
           Giftistry: {
-            name: "Secret Surprise",
-            isHiddenIdea: true
+            Items: {
+              name: "Secret Surprise",
+              isHiddenIdea: true
+            }
           }
         }),
       })
@@ -230,9 +246,11 @@ describe("Giftistry Integration Tests", () => {
         },
         body: JSON.stringify({
           Giftistry: {
-            name: "Secret Book",
-            description: "Surprise book!",
-            isHiddenIdea: true
+            Items: {
+              name: "Secret Book",
+              description: "Surprise book!",
+              isHiddenIdea: true
+            }
           }
         }),
       })
@@ -254,7 +272,9 @@ describe("Giftistry Integration Tests", () => {
         },
         body: JSON.stringify({
           Giftistry: {
-            url: "https://www.amazon.com/PlayStation-5-Pro"
+            Items: {
+              url: "https://www.amazon.com/PlayStation-5-Pro"
+            }
           }
         }),
       })
@@ -272,8 +292,10 @@ describe("Giftistry Integration Tests", () => {
         },
         body: JSON.stringify({
           Giftistry: {
-            amount: 50.00,
-            claimedByName: "Santa Claus"
+            Items: {
+              amount: 50.00,
+              claimedByName: "Santa Claus"
+            }
           }
         }),
       })
@@ -291,7 +313,9 @@ describe("Giftistry Integration Tests", () => {
         },
         body: JSON.stringify({
           Giftistry: {
-            amount: 10.00
+            Items: {
+              amount: 10.00
+            }
           }
         }),
       })
@@ -309,8 +333,10 @@ describe("Giftistry Integration Tests", () => {
         },
         body: JSON.stringify({
           Giftistry: {
-            content: "Surprise gift discussion!",
-            isOwnerVisible: false
+            Comments: {
+              content: "Surprise gift discussion!",
+              isOwnerVisible: false
+            }
           }
         }),
       })
@@ -328,8 +354,10 @@ describe("Giftistry Integration Tests", () => {
         },
         body: JSON.stringify({
           Giftistry: {
-            content: "Oops",
-            isOwnerVisible: false
+            Comments: {
+              content: "Oops",
+              isOwnerVisible: false
+            }
           }
         }),
       })
@@ -461,8 +489,10 @@ describe("Giftistry Integration Tests", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           Giftistry: {
-            email: ownerEmail,
-            password: testPassword
+            Auth: {
+              email: ownerEmail,
+              password: testPassword
+            }
           }
         })
       })
@@ -488,8 +518,10 @@ describe("Giftistry Integration Tests", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           Giftistry: {
-            email: ownerEmail,
-            password: testPassword
+            Auth: {
+              email: ownerEmail,
+              password: testPassword
+            }
           }
         })
       })
@@ -544,8 +576,10 @@ describe("Giftistry Integration Tests", () => {
           },
           body: JSON.stringify({
             Giftistry: {
-              email: "invalid_rate_limit_test@example.com",
-              password: "wrongpassword"
+              Auth: {
+                email: "invalid_rate_limit_test@example.com",
+                password: "wrongpassword"
+              }
             }
           })
         })
@@ -562,8 +596,10 @@ describe("Giftistry Integration Tests", () => {
         },
         body: JSON.stringify({
           Giftistry: {
-            email: "invalid_rate_limit_test@example.com",
-            password: "wrongpassword"
+            Auth: {
+              email: "invalid_rate_limit_test@example.com",
+              password: "wrongpassword"
+            }
           }
         })
       })
@@ -571,5 +607,19 @@ describe("Giftistry Integration Tests", () => {
     expect(res6.status).toBe(429);
     const json6 = await res6.json();
     expect(json6.Result.Timeframe).toBe("60s");
+  });
+
+  test("27. Fetch Swagger JSON returns valid OpenAPI specification", async () => {
+    const res = await app.handle(
+      new Request("http://localhost/docs/json", {
+        method: "GET"
+      })
+    );
+    expect(res.status).toBe(200);
+    const spec = await res.json();
+    expect(spec.openapi).toContain("3.");
+    expect(spec.info.title).toBe("Giftistry API Documentation");
+    expect(spec.paths["/api/auth/signup"]).toBeDefined();
+    expect(spec.paths["/api/auth/login"]).toBeDefined();
   });
 });

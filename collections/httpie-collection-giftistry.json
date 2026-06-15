@@ -10,8 +10,8 @@
   "entry": {
     "name": "Giftistry",
     "icon": {
-      "name": "default",
-      "color": "pink"
+      "color": "pink",
+      "name": "default"
     },
     "auth": {
       "type": "none"
@@ -25,7 +25,7 @@
         "queryParams": [],
         "pathParams": [],
         "auth": {
-          "type": "none"
+          "type": "inherited"
         },
         "body": {
           "type": "text",
@@ -33,7 +33,7 @@
             "name": ""
           },
           "text": {
-            "value": "{\n  \"Giftistry\": {\n    \"username\": \"johndoe\",\n    \"email\": \"user@example.com\",\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"password\": \"securepassword123\"\n  }\n}",
+            "value": "{\n  \"Giftistry\": {\n    \"Auth\": {\n      \"username\": \"johndoe\",\n      \"email\": \"user@example.com\",\n      \"firstName\": \"John\",\n      \"lastName\": \"Doe\",\n      \"password\": \"securepassword123\"\n    }\n  }\n}",
             "format": "application/json"
           },
           "form": {
@@ -54,7 +54,7 @@
         "queryParams": [],
         "pathParams": [],
         "auth": {
-          "type": "none"
+          "type": "inherited"
         },
         "body": {
           "type": "text",
@@ -62,7 +62,71 @@
             "name": ""
           },
           "text": {
-            "value": "{\n  \"Giftistry\": {\n    \"email\": \"user@example.com\",\n    \"password\": \"securepassword123\"\n  }\n}",
+            "value": "{\n  \"Giftistry\": {\n    \"Auth\": {\n      \"email\": \"user@example.com\",\n      \"password\": \"securepassword123\"\n    }\n  }\n}",
+            "format": "application/json"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          }
+        }
+      },
+      {
+        "name": "User: Get Profile (/me)",
+        "url": "http://localhost:3001/api/auth/me",
+        "method": "GET",
+        "headers": [
+          {
+            "name": "Authorization",
+            "value": "Bearer <token>",
+            "enabled": true
+          }
+        ],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "file": {
+            "name": ""
+          },
+          "text": {
+            "value": "",
+            "format": "application/json"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          }
+        }
+      },
+      {
+        "name": "User: Logout",
+        "url": "http://localhost:3001/api/auth/logout",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "file": {
+            "name": ""
+          },
+          "text": {
+            "value": "",
             "format": "application/json"
           },
           "form": {
@@ -89,7 +153,7 @@
         "queryParams": [],
         "pathParams": [],
         "auth": {
-          "type": "none"
+          "type": "inherited"
         },
         "body": {
           "type": "text",
@@ -97,7 +161,42 @@
             "name": ""
           },
           "text": {
-            "value": "{\n  \"Giftistry\": {\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\"\n  }\n}",
+            "value": "{\n  \"Giftistry\": {\n    \"Auth\": {\n      \"username\": \"johndoe2\",\n      \"firstName\": \"John\",\n      \"lastName\": \"Doe\"\n    }\n  }\n}",
+            "format": "application/json"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          }
+        }
+      },
+      {
+        "name": "List: Fetch Expired",
+        "url": "http://localhost:3001/api/wishlists/expired",
+        "method": "GET",
+        "headers": [
+          {
+            "name": "Authorization",
+            "value": "Bearer <token>",
+            "enabled": true
+          }
+        ],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "file": {
+            "name": ""
+          },
+          "text": {
+            "value": "",
             "format": "application/json"
           },
           "form": {
@@ -124,7 +223,7 @@
         "queryParams": [],
         "pathParams": [],
         "auth": {
-          "type": "none"
+          "type": "inherited"
         },
         "body": {
           "type": "text",
@@ -132,7 +231,7 @@
             "name": ""
           },
           "text": {
-            "value": "{\n  \"Giftistry\": {\n    \"title\": \"My Birthday Wishlist\",\n    \"expiresAt\": \"2026-12-31T23:59:59.000Z\",\n    \"allowGroupFunds\": true\n  }\n}",
+            "value": "{\n  \"Giftistry\": {\n    \"Lists\": {\n      \"title\": \"My Birthday Wishlist\",\n      \"expiresAt\": \"2026-12-31T23:59:59.000Z\",\n      \"allowGroupFunds\": true\n    }\n  }\n}",
             "format": "application/json"
           },
           "form": {
@@ -146,8 +245,8 @@
         }
       },
       {
-        "name": "List: Fetch Items",
-        "url": "http://localhost:3001/api/wishlists/:list_id/items",
+        "name": "List: Fetch All",
+        "url": "http://localhost:3001/api/wishlists",
         "method": "GET",
         "headers": [
           {
@@ -156,250 +255,10 @@
             "enabled": true
           }
         ],
-        "queryParams": [],
-        "pathParams": [
-          {
-            "name": "list_id",
-            "value": "",
-            "enabled": true
-          }
-        ],
-        "auth": {
-          "type": "none"
-        },
-        "body": {
-          "type": "none",
-          "file": {
-            "name": ""
-          },
-          "text": {
-            "value": "",
-            "format": "application/json"
-          },
-          "form": {
-            "isMultipart": false,
-            "fields": []
-          },
-          "graphql": {
-            "query": "",
-            "variables": ""
-          }
-        }
-      },
-      {
-        "name": "List: Add Item",
-        "url": "http://localhost:3001/api/wishlists/:list_id/items",
-        "method": "POST",
-        "headers": [
-          {
-            "name": "Authorization",
-            "value": "Bearer <token>",
-            "enabled": true
-          }
-        ],
-        "queryParams": [],
-        "pathParams": [
-          {
-            "name": "list_id",
-            "value": "",
-            "enabled": true
-          }
-        ],
-        "auth": {
-          "type": "none"
-        },
-        "body": {
-          "type": "text",
-          "file": {
-            "name": ""
-          },
-          "text": {
-            "value": "{\n  \"Giftistry\": {\n    \"name\": \"PlayStation 5 Pro\",\n    \"description\": \"The enhanced version of PS5\",\n    \"priorityId\": null,\n    \"isHiddenIdea\": false\n  }\n}",
-            "format": "application/json"
-          },
-          "form": {
-            "isMultipart": false,
-            "fields": []
-          },
-          "graphql": {
-            "query": "",
-            "variables": ""
-          }
-        }
-      },
-      {
-        "name": "Item: Add Retailer Link",
-        "url": "http://localhost:3001/api/items/:item_id/links",
-        "method": "POST",
-        "headers": [
-          {
-            "name": "Authorization",
-            "value": "Bearer <token>",
-            "enabled": true
-          }
-        ],
-        "queryParams": [],
-        "pathParams": [
-          {
-            "name": "item_id",
-            "value": "",
-            "enabled": true
-          }
-        ],
-        "auth": {
-          "type": "none"
-        },
-        "body": {
-          "type": "text",
-          "file": {
-            "name": ""
-          },
-          "text": {
-            "value": "{\n  \"Giftistry\": {\n    \"url\": \"https://www.amazon.com/PlayStation-5-Pro\"\n  }\n}",
-            "format": "application/json"
-          },
-          "form": {
-            "isMultipart": false,
-            "fields": []
-          },
-          "graphql": {
-            "query": "",
-            "variables": ""
-          }
-        }
-      },
-      {
-        "name": "Item: Claim/Fund",
-        "url": "http://localhost:3001/api/items/:item_id/claims",
-        "method": "POST",
-        "headers": [
-          {
-            "name": "Authorization",
-            "value": "Bearer <token>",
-            "enabled": true
-          }
-        ],
-        "queryParams": [],
-        "pathParams": [
-          {
-            "name": "item_id",
-            "value": "",
-            "enabled": true
-          }
-        ],
-        "auth": {
-          "type": "none"
-        },
-        "body": {
-          "type": "text",
-          "file": {
-            "name": ""
-          },
-          "text": {
-            "value": "{\n  \"Giftistry\": {\n    \"amount\": 150.00,\n    \"claimedByName\": \"Alice Smith\"\n  }\n}",
-            "format": "application/json"
-          },
-          "form": {
-            "isMultipart": false,
-            "fields": []
-          },
-          "graphql": {
-            "query": "",
-            "variables": ""
-          }
-        }
-      },
-      {
-        "name": "List: Add Comment",
-        "url": "http://localhost:3001/api/wishlists/:list_id/comments",
-        "method": "POST",
-        "headers": [
-          {
-            "name": "Authorization",
-            "value": "Bearer <token>",
-            "enabled": true
-          }
-        ],
-        "queryParams": [],
-        "pathParams": [
-          {
-            "name": "list_id",
-            "value": "",
-            "enabled": true
-          }
-        ],
-        "auth": {
-          "type": "none"
-        },
-        "body": {
-          "type": "text",
-          "file": {
-            "name": ""
-          },
-          "text": {
-            "value": "{\n  \"Giftistry\": {\n    \"content\": \"I am getting the console for them!\",\n    \"commenterName\": \"Alice Smith\",\n    \"isOwnerVisible\": false,\n    \"isRollover\": false\n  }\n}",
-            "format": "application/json"
-          },
-          "form": {
-            "isMultipart": false,
-            "fields": []
-          },
-          "graphql": {
-            "query": "",
-            "variables": ""
-          }
-        }
-      },
-      {
-        "name": "List: Fetch Comments",
-        "url": "http://localhost:3001/api/wishlists/:list_id/comments",
-        "method": "GET",
-        "headers": [
-          {
-            "name": "Authorization",
-            "value": "Bearer <token>",
-            "enabled": true
-          }
-        ],
-        "queryParams": [],
-        "pathParams": [
-          {
-            "name": "list_id",
-            "value": "",
-            "enabled": true
-          }
-        ],
-        "auth": {
-          "type": "none"
-        },
-        "body": {
-          "type": "none",
-          "file": {
-            "name": ""
-          },
-          "text": {
-            "value": "",
-            "format": "application/json"
-          },
-          "form": {
-            "isMultipart": false,
-            "fields": []
-          },
-          "graphql": {
-            "query": "",
-            "variables": ""
-          }
-        }
-      },
-      {
-        "name": "Health Check",
-        "url": "http://localhost:3001/health",
-        "method": "GET",
-        "headers": [],
         "queryParams": [],
         "pathParams": [],
         "auth": {
-          "type": "none"
+          "type": "inherited"
         },
         "body": {
           "type": "none",
@@ -440,7 +299,7 @@
           }
         ],
         "auth": {
-          "type": "none"
+          "type": "inherited"
         },
         "body": {
           "type": "text",
@@ -448,7 +307,48 @@
             "name": ""
           },
           "text": {
-            "value": "{\n  \"Giftistry\": {\n    \"email\": \"collaborator@example.com\",\n    \"role\": \"collaborator\"\n  }\n}",
+            "value": "{\n  \"Giftistry\": {\n    \"Lists\": {\n      \"email\": \"collaborator@example.com\",\n      \"role\": \"collaborator\"\n    }\n  }\n}",
+            "format": "application/json"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          }
+        }
+      },
+      {
+        "name": "List: Fetch Details",
+        "url": "http://localhost:3001/api/wishlists/:list_id",
+        "method": "GET",
+        "headers": [
+          {
+            "name": "Authorization",
+            "value": "Bearer <token>",
+            "enabled": true
+          }
+        ],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "list_id",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "file": {
+            "name": ""
+          },
+          "text": {
+            "value": "",
             "format": "application/json"
           },
           "form": {
@@ -481,7 +381,7 @@
           }
         ],
         "auth": {
-          "type": "none"
+          "type": "inherited"
         },
         "body": {
           "type": "none",
@@ -503,8 +403,289 @@
         }
       },
       {
-        "name": "User: Get Profile (/me)",
-        "url": "http://localhost:3001/api/auth/me",
+        "name": "List: Fetch Items",
+        "url": "http://localhost:3001/api/wishlists/:list_id/items",
+        "method": "GET",
+        "headers": [
+          {
+            "name": "Authorization",
+            "value": "Bearer <token>",
+            "enabled": true
+          }
+        ],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "list_id",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "file": {
+            "name": ""
+          },
+          "text": {
+            "value": "",
+            "format": "application/json"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          }
+        }
+      },
+      {
+        "name": "List: Add Item",
+        "url": "http://localhost:3001/api/wishlists/:list_id/items",
+        "method": "POST",
+        "headers": [
+          {
+            "name": "Authorization",
+            "value": "Bearer <token>",
+            "enabled": true
+          }
+        ],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "list_id",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "file": {
+            "name": ""
+          },
+          "text": {
+            "value": "{\n  \"Giftistry\": {\n    \"Items\": {\n      \"name\": \"PlayStation 5 Pro\",\n      \"description\": \"The enhanced version of PS5\",\n      \"priorityId\": null,\n      \"isHiddenIdea\": false\n    }\n  }\n}",
+            "format": "application/json"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          }
+        }
+      },
+      {
+        "name": "List: Fetch Comments",
+        "url": "http://localhost:3001/api/wishlists/:list_id/comments",
+        "method": "GET",
+        "headers": [
+          {
+            "name": "Authorization",
+            "value": "Bearer <token>",
+            "enabled": true
+          }
+        ],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "list_id",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "file": {
+            "name": ""
+          },
+          "text": {
+            "value": "",
+            "format": "application/json"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          }
+        }
+      },
+      {
+        "name": "List: Add Comment",
+        "url": "http://localhost:3001/api/wishlists/:list_id/comments",
+        "method": "POST",
+        "headers": [
+          {
+            "name": "Authorization",
+            "value": "Bearer <token>",
+            "enabled": true
+          }
+        ],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "list_id",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "file": {
+            "name": ""
+          },
+          "text": {
+            "value": "{\n  \"Giftistry\": {\n    \"Comments\": {\n      \"content\": \"I am getting the console for them!\",\n      \"commenterName\": \"Alice Smith\",\n      \"isOwnerVisible\": false,\n      \"isRollover\": false\n    }\n  }\n}",
+            "format": "application/json"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          }
+        }
+      },
+      {
+        "name": "Item: Add Retailer Link",
+        "url": "http://localhost:3001/api/items/:item_id/links",
+        "method": "POST",
+        "headers": [
+          {
+            "name": "Authorization",
+            "value": "Bearer <token>",
+            "enabled": true
+          }
+        ],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "item_id",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "file": {
+            "name": ""
+          },
+          "text": {
+            "value": "{\n  \"Giftistry\": {\n    \"Items\": {\n      \"url\": \"https://www.amazon.com/PlayStation-5-Pro\"\n    }\n  }\n}",
+            "format": "application/json"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          }
+        }
+      },
+      {
+        "name": "Item: Claim/Fund",
+        "url": "http://localhost:3001/api/items/:item_id/claims",
+        "method": "POST",
+        "headers": [
+          {
+            "name": "Authorization",
+            "value": "Bearer <token>",
+            "enabled": true
+          }
+        ],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "item_id",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "file": {
+            "name": ""
+          },
+          "text": {
+            "value": "{\n  \"Giftistry\": {\n    \"Items\": {\n      \"amount\": 150.00,\n      \"claimedByName\": \"Alice Smith\"\n    }\n  }\n}",
+            "format": "application/json"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          }
+        }
+      },
+      {
+        "name": "Priority: Create",
+        "url": "http://localhost:3001/api/priorities",
+        "method": "POST",
+        "headers": [
+          {
+            "name": "Authorization",
+            "value": "Bearer <token>",
+            "enabled": true
+          }
+        ],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "file": {
+            "name": ""
+          },
+          "text": {
+            "value": "{\n  \"Giftistry\": {\n    \"Priorities\": {\n      \"label\": \"High\",\n      \"weight\": 3\n    }\n  }\n}",
+            "format": "application/json"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          }
+        }
+      },
+      {
+        "name": "Priority: Fetch All",
+        "url": "http://localhost:3001/api/priorities",
         "method": "GET",
         "headers": [
           {
@@ -516,7 +697,7 @@
         "queryParams": [],
         "pathParams": [],
         "auth": {
-          "type": "none"
+          "type": "inherited"
         },
         "body": {
           "type": "none",
@@ -538,14 +719,14 @@
         }
       },
       {
-        "name": "User: Logout",
-        "url": "http://localhost:3001/api/auth/logout",
-        "method": "POST",
+        "name": "Health Check",
+        "url": "http://localhost:3001/health",
+        "method": "GET",
         "headers": [],
         "queryParams": [],
         "pathParams": [],
         "auth": {
-          "type": "none"
+          "type": "inherited"
         },
         "body": {
           "type": "none",

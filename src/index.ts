@@ -1,5 +1,6 @@
 import { Elysia, StatusMap } from 'elysia';
 import { cors } from '@elysiajs/cors';
+import { swagger } from '@elysiajs/swagger';
 import { env } from './common/consts/env.consts';
 import { handleError } from './common/middlewares/error.middleware';
 import { authModule } from './modules/auth/auth.module';
@@ -35,6 +36,25 @@ export const app = new Elysia()
     credentials: true,
     origin: () => true
   }))
+  .use(swagger({
+    path: '/docs',
+    documentation: {
+      info: {
+        title: 'Giftistry API Documentation',
+        version: '0.0.1',
+        description: 'Interactive OpenAPI specification for the Giftistry application'
+      },
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: 'http',
+            scheme: 'bearer',
+            bearerFormat: 'JWT'
+          }
+        }
+      }
+    }
+  }))
   .derive({ as: 'global' }, () => ({
     correlationId: crypto.randomUUID()
   }))
@@ -63,9 +83,9 @@ export const app = new Elysia()
       return responseValue;
     }
 
-    const isError = responseValue && typeof responseValue === 'object' && 
-      (('status' in responseValue && responseValue.status === 'error') || 
-       ('Status' in responseValue && responseValue.Status === 'error'));
+    const isError = responseValue && typeof responseValue === 'object' &&
+      (('status' in responseValue && responseValue.status === 'error') ||
+        ('Status' in responseValue && responseValue.Status === 'error'));
     const status = isError ? 'Error' : 'Success';
     const code = numericStatus;
     let payload = responseValue;
@@ -73,7 +93,7 @@ export const app = new Elysia()
     if (isError) {
       // If error payload is returned by handleRoute or middleware, convert its message property to Message
       const { Status, status, Code, code, Message, message, ...rest } = responseValue as any;
-      payload = { 
+      payload = {
         Message: Message || message,
         ...rest
       };
