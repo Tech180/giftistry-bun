@@ -13,7 +13,8 @@ export class ClaimItemUseCase {
     itemId: string,
     userId: string | null,
     amount: number | null,
-    claimedByName: string | null
+    claimedByName: string | null,
+    anonymous: boolean = false
   ): Promise<Claim> {
     const item = await this.itemRepo.findById(itemId);
     if (!item) {
@@ -50,17 +51,17 @@ export class ClaimItemUseCase {
       const totalClaimed = claims.reduce((sum, c) => sum + Number(c.Amount || 0), 0);
       
       if (itemPrice > 0 && totalClaimed + amount > itemPrice) {
-        const remaining = Math.max(0, itemPrice - totalClaimed);
+         const remaining = Math.max(0, itemPrice - totalClaimed);
         throw new AppError(`Claim amount exceeds the item price. Remaining: $${remaining.toFixed(2)}`, 400, 'BAD_REQUEST');
       }
 
-      return await this.itemRepo.createClaim(itemId, userId, amount, claimedByName);
+      return await this.itemRepo.createClaim(itemId, userId, amount, claimedByName, anonymous);
     } else {
       // Full purchase claim
       if (claims.length > 0) {
         throw new AppError('Item is already fully or partially claimed', 409, 'ALREADY_CLAIMED');
       }
-      return await this.itemRepo.createClaim(itemId, userId, null, claimedByName);
+      return await this.itemRepo.createClaim(itemId, userId, null, claimedByName, anonymous);
     }
   }
 }

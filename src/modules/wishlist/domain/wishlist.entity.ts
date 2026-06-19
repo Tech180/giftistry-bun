@@ -14,6 +14,7 @@ export interface Wishlist {
   IsActive: boolean;
   CreatedAt?: Date;
   Category?: string;
+  RevealSuggestions?: boolean;
   OwnerUsername?: string;
   OwnerFirstName?: string;
   Role?: 'owner' | 'collaborator' | 'viewer';

@@ -9,6 +9,7 @@ import { AddItemLinkUseCase } from './application/add-item-link.use-case';
 import { DeleteItemUseCase } from './application/delete-item.use-case';
 import { UpdateItemUseCase } from './application/update-item.use-case';
 import { GetFieldDefinitionsUseCase } from './application/get-field-definitions.use-case';
+import { UnclaimItemUseCase } from './application/unclaim-item.use-case';
 import { itemRoutes } from './presentation/item.routes';
 
 const itemRepo = new PostgresItemRepository();
@@ -21,6 +22,7 @@ const addItemLinkUseCase = new AddItemLinkUseCase(itemRepo);
 const deleteItemUseCase = new DeleteItemUseCase(itemRepo);
 const updateItemUseCase = new UpdateItemUseCase(itemRepo);
 const getFieldDefinitionsUseCase = new GetFieldDefinitionsUseCase(fieldRepo);
+const unclaimItemUseCase = new UnclaimItemUseCase(itemRepo);
 
 export const itemModule = new Elysia()
   .use(itemRoutes({
@@ -31,6 +33,7 @@ export const itemModule = new Elysia()
     deleteItem: deleteItemUseCase,
     updateItem: updateItemUseCase,
     getFieldDefinitions: getFieldDefinitionsUseCase,
+    unclaimItem: unclaimItemUseCase,
   }));
 
 export { itemRepo as sharedPostgresItemRepository };

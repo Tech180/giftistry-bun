@@ -5,6 +5,7 @@ import type { AddItemLinkUseCase } from '../application/add-item-link.use-case';
 import type { DeleteItemUseCase } from '../application/delete-item.use-case';
 import type { UpdateItemUseCase } from '../application/update-item.use-case';
 import type { GetFieldDefinitionsUseCase } from '../application/get-field-definitions.use-case';
+import type { UnclaimItemUseCase } from '../application/unclaim-item.use-case';
 
 export interface ItemUseCases {
   addItem: AddItemUseCase;
@@ -14,4 +15,5 @@ export interface ItemUseCases {
   deleteItem: DeleteItemUseCase;
   updateItem: UpdateItemUseCase;
   getFieldDefinitions: GetFieldDefinitionsUseCase;
+  unclaimItem: UnclaimItemUseCase;
 }

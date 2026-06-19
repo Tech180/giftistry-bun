@@ -16,7 +16,7 @@ export class PostgresCommentRepository implements CommentRepository {
       VALUES (${listId}, ${userId}, ${commenterName}, ${content}, ${isOwnerVisible}, ${isRollover})
       RETURNING id as "Id", list_id as "ListId", user_id as "UserId", commenter_name as "CommenterName", 
                 content as "Content", is_owner_visible as "IsOwnerVisible", is_rollover as "IsRollover", 
-                created_at as "CreatedAt"
+                is_deleted as "IsDeleted", created_at as "CreatedAt"
     `;
     if (!row) throw new Error('Failed to create comment');
     return {
@@ -27,6 +27,7 @@ export class PostgresCommentRepository implements CommentRepository {
       Content: row.Content,
       IsOwnerVisible: row.IsOwnerVisible,
       IsRollover: row.IsRollover,
+      IsDeleted: row.IsDeleted,
       CreatedAt: new Date(row.CreatedAt),
     };
   }
@@ -35,7 +36,7 @@ export class PostgresCommentRepository implements CommentRepository {
     const rows = await sql<any[]>`
       SELECT id as "Id", list_id as "ListId", user_id as "UserId", commenter_name as "CommenterName", 
              content as "Content", is_owner_visible as "IsOwnerVisible", is_rollover as "IsRollover", 
-             created_at as "CreatedAt"
+             is_deleted as "IsDeleted", created_at as "CreatedAt"
       FROM comments
       WHERE list_id = ${listId}
       ORDER BY created_at ASC
@@ -48,7 +49,17 @@ export class PostgresCommentRepository implements CommentRepository {
       Content: row.Content,
       IsOwnerVisible: row.IsOwnerVisible,
       IsRollover: row.IsRollover,
+      IsDeleted: row.IsDeleted,
       CreatedAt: new Date(row.CreatedAt),
     }));
+  }
+
+  async deleteByIdAndUserId(commentId: string, userId: string): Promise<boolean> {
+    const result = await sql`
+      UPDATE comments
+      SET is_deleted = TRUE, content = 'Comment was deleted.'
+      WHERE id = ${commentId} AND user_id = ${userId}
+    `;
+    return result.count > 0;
   }
 }

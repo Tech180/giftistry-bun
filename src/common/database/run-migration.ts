@@ -8,6 +8,26 @@ export async function up() {
     ALTER TABLE lists ADD COLUMN IF NOT EXISTS category VARCHAR(255) DEFAULT 'generic';
   `;
 
+  // 0b. Add reveal_suggestions to lists table
+  await sql`
+    ALTER TABLE lists ADD COLUMN IF NOT EXISTS reveal_suggestions BOOLEAN DEFAULT TRUE;
+  `;
+
+  // 0c. Add is_suggestion to items table
+  await sql`
+    ALTER TABLE items ADD COLUMN IF NOT EXISTS is_suggestion BOOLEAN DEFAULT FALSE;
+  `;
+
+  // 0d. Add anonymous to claims table
+  await sql`
+    ALTER TABLE claims ADD COLUMN IF NOT EXISTS anonymous BOOLEAN DEFAULT FALSE;
+  `;
+
+  // 0e. Add is_deleted to comments table
+  await sql`
+    ALTER TABLE comments ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE;
+  `;
+
   // 1. Create Definitions Table
   await sql`
     CREATE TABLE IF NOT EXISTS item_field_definitions (

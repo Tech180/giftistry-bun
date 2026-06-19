@@ -6,5 +6,6 @@ export interface Comment {
   Content: string;
   IsOwnerVisible: boolean;
   IsRollover: boolean;
+  IsDeleted?: boolean;
   CreatedAt?: Date;
 }

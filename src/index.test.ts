@@ -1068,4 +1068,293 @@ describe("Giftistry Integration Tests", () => {
     const listAfterBody = await listAfterRes.json() as any;
     expect(listAfterBody.Result.some((p: any) => p.Id === priorityId)).toBe(false);
   });
+
+  test("33. Suggestions and Anonymous Claims Lifecycle", async () => {
+    // 1. Create a wishlist with revealSuggestions = true and expires in 1.5 seconds
+    const listRes = await app.handle(
+      new Request("http://localhost/api/wishlists", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${ownerToken}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Lists: {
+              title: "Suggestion Test Wishlist",
+              expiresAt: new Date(Date.now() + 1500).toISOString(),
+              allowGroupFunds: false,
+              category: "generic",
+              revealSuggestions: true
+            }
+          }
+        })
+      })
+    );
+    expect(listRes.status).toBe(200);
+    const listBody = await listRes.json() as any;
+    const testListId = listBody.Result.Id;
+
+    // Share list with collaborator
+    const shareRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${testListId}/shares`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${ownerToken}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Lists: {
+              email: collaboratorEmail,
+              role: "collaborator"
+            }
+          }
+        })
+      })
+    );
+    expect(shareRes.status).toBe(200);
+
+    // 2. Collaborator suggests an item
+    const suggestRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${testListId}/items`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${collaboratorToken}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              name: "Collaborator Suggestion Item",
+              description: "Hope they like it!",
+              priorityId: null,
+              category: "generic"
+            }
+          }
+        })
+      })
+    );
+    expect(suggestRes.status).toBe(200);
+    const suggestBody = await suggestRes.json() as any;
+    const testItemId = suggestBody.Result.Id;
+    expect(suggestBody.Result.IsSuggestion).toBe(true);
+
+    // 3. Owner gets list items -> Suggestion must not be present because active
+    const ownerGetActiveRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${testListId}/items`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${ownerToken}` }
+      })
+    );
+    expect(ownerGetActiveRes.status).toBe(200);
+    const ownerActiveBody = await ownerGetActiveRes.json() as any;
+    expect(ownerActiveBody.Result.some((item: any) => item.Id === testItemId)).toBe(false);
+
+    // 4. Collaborator claims the item anonymously
+    const claimRes = await app.handle(
+      new Request(`http://localhost/api/items/${testItemId}/claims`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${collaboratorToken}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              claimedByName: "Collab Guy",
+              anonymous: true
+            }
+          }
+        })
+      })
+    );
+    expect(claimRes.status).toBe(200);
+    const claimBody = await claimRes.json() as any;
+    expect(claimBody.Result.Anonymous).toBe(true);
+
+    // 5. Unrelated user gets the items -> should see 'Anonymous' instead of 'Collab Guy'
+    // Share list with unrelated user as viewer first
+    const shareUnrelatedRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${testListId}/shares`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${ownerToken}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Lists: {
+              email: unrelatedEmail,
+              role: "viewer"
+            }
+          }
+        })
+      })
+    );
+    expect(shareUnrelatedRes.status).toBe(200);
+
+    const unrelatedGetRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${testListId}/items`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${unrelatedToken}` }
+      })
+    );
+    expect(unrelatedGetRes.status).toBe(200);
+    const unrelatedBody = await unrelatedGetRes.json() as any;
+    const itemForUnrelated = unrelatedBody.Result.find((item: any) => item.Id === testItemId);
+    expect(itemForUnrelated).toBeDefined();
+    expect(itemForUnrelated.Claims[0].ClaimedByName).toBe("Anonymous");
+
+    // 6. Wait for expiration
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // 7. Owner gets list items -> Suggestion must be visible now since expired, and revealSuggestions is true
+    const ownerGetExpiredRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${testListId}/items`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${ownerToken}` }
+      })
+    );
+    expect(ownerGetExpiredRes.status).toBe(200);
+    const ownerExpiredBody = await ownerGetExpiredRes.json() as any;
+    const itemForOwner = ownerExpiredBody.Result.find((item: any) => item.Id === testItemId);
+    expect(itemForOwner).toBeDefined();
+    expect(itemForOwner.SuggestedByUsername).toBe(collaboratorUsername);
+
+    // Clean up temporary wishlist lists (DB cascade deletes items, claims and shares)
+    await sql`DELETE FROM lists WHERE id = ${testListId}`;
+  });
+
+  test("34. Claim and Unclaim Lifecycle", async () => {
+    // 1. Create a wishlist
+    const createListRes = await app.handle(
+      new Request("http://localhost/api/wishlists", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${ownerToken}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Lists: {
+              title: "Unclaim Test List",
+              expiresAt: new Date(Date.now() + 86400000).toISOString(),
+              allowGroupFunds: false,
+              category: "Tech"
+            }
+          }
+        })
+      })
+    );
+    expect(createListRes.status).toBe(200);
+    const { Result: { Id: testListId } } = await createListRes.json() as any;
+
+    // 2. Add an item as owner
+    const addItemRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${testListId}/items`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${ownerToken}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              name: "Unclaimable Item",
+              category: "Tech"
+            }
+          }
+        })
+      })
+    );
+    expect(addItemRes.status).toBe(200);
+    const { Result: { Id: testItemId } } = await addItemRes.json() as any;
+
+    // 3. Share list with viewer
+    const shareRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${testListId}/shares`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${ownerToken}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Lists: {
+              email: collaboratorEmail,
+              role: "viewer"
+            }
+          }
+        })
+      })
+    );
+    expect(shareRes.status).toBe(200);
+
+    // 4. Viewer claims the item
+    const claimRes = await app.handle(
+      new Request(`http://localhost/api/items/${testItemId}/claims`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${collaboratorToken}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              claimedByName: "Claimer Friend"
+            }
+          }
+        })
+      })
+    );
+    expect(claimRes.status).toBe(200);
+
+    // Verify it is claimed
+    const getItemsRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${testListId}/items`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${collaboratorToken}` }
+      })
+    );
+    expect(getItemsRes.status).toBe(200);
+    const items = await getItemsRes.json() as any;
+    const claimedItem = items.Result.find((i: any) => i.Id === testItemId);
+    expect(claimedItem.IsClaimed).toBe(true);
+    expect(claimedItem.Claims.length).toBe(1);
+
+    // 5. Owner tries to unclaim (should fail)
+    const ownerUnclaimRes = await app.handle(
+      new Request(`http://localhost/api/items/${testItemId}/claims`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${ownerToken}` }
+      })
+    );
+    expect(ownerUnclaimRes.status).toBe(403);
+
+    // 6. Viewer unclaims the item
+    const viewerUnclaimRes = await app.handle(
+      new Request(`http://localhost/api/items/${testItemId}/claims`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${collaboratorToken}` }
+      })
+    );
+    expect(viewerUnclaimRes.status).toBe(200);
+
+    // Verify it is unclaimed
+    const getItemsRes2 = await app.handle(
+      new Request(`http://localhost/api/wishlists/${testListId}/items`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${collaboratorToken}` }
+      })
+    );
+    expect(getItemsRes2.status).toBe(200);
+    const items2 = await getItemsRes2.json() as any;
+    const unclaimedItem = items2.Result.find((i: any) => i.Id === testItemId);
+    expect(unclaimedItem.IsClaimed).toBe(false);
+    expect(unclaimedItem.Claims.length).toBe(0);
+
+    // Cleanup
+    await sql`DELETE FROM lists WHERE id = ${testListId}`;
+  });
 });

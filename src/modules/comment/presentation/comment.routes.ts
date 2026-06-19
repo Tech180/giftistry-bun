@@ -57,4 +57,21 @@ export const commentRoutes = (useCases: CommentUseCases) => new Elysia({ prefix:
         })
       })
     })
+  })
+  .delete('/wishlists/:listId/comments/:commentId', async ({ getAuthUser, checkListAccess, params: { listId, commentId } }) => {
+    await checkListAccess('viewer');
+    const user = await getAuthUser();
+
+    const deleted = await useCases.deleteComment.execute(commentId, user.userId);
+    if (!deleted) {
+      throw new AppError('Comment not found or you do not have permission to delete it', 403, 'FORBIDDEN');
+    }
+    return { success: true };
+  }, {
+    detail: {
+      tags: ['Comments'],
+      summary: 'Delete own comment',
+      description: 'Delete a comment. Only the comment author can delete their own comments.',
+      security: [{ bearerAuth: [] }]
+    }
   });

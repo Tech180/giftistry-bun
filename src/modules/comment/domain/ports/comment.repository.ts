@@ -11,4 +11,5 @@ export interface CommentRepository {
   ): Promise<Comment>;
   
   findByListId(listId: string): Promise<Comment[]>;
+  deleteByIdAndUserId(commentId: string, userId: string): Promise<boolean>;
 }

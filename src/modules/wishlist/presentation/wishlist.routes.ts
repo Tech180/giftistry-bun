@@ -17,14 +17,15 @@ export const wishlistRoutes = (useCases: WishlistUseCases) => new Elysia({ prefi
       security: [{ bearerAuth: [] }]
     }
   })
-  .post('/wishlists', async ({ getAuthUser, body: { Giftistry: { Lists: { title, expiresAt, allowGroupFunds, category } } } }) => {
+  .post('/wishlists', async ({ getAuthUser, body: { Giftistry: { Lists: { title, expiresAt, allowGroupFunds, category, revealSuggestions } } } }) => {
     const user = await getAuthUser();
     const wishlist = await useCases.createWishlist.execute(
       user.userId,
       title,
       expiresAt,
       allowGroupFunds ?? false,
-      category
+      category,
+      revealSuggestions
     );
     return { success: true, data: wishlist };
   }, {
@@ -41,6 +42,7 @@ export const wishlistRoutes = (useCases: WishlistUseCases) => new Elysia({ prefi
           expiresAt: t.Optional(t.Nullable(t.String())),
           allowGroupFunds: t.Optional(t.Boolean()),
           category: t.Optional(t.String()),
+          revealSuggestions: t.Optional(t.Boolean()),
         })
       })
     })
@@ -79,15 +81,12 @@ export const wishlistRoutes = (useCases: WishlistUseCases) => new Elysia({ prefi
   })
   .get('/priorities', async ({ getAuthUser, query }) => {
     const user = await getAuthUser();
-    let targetUserId = user.userId;
 
     if (query?.wishlistId) {
       await getListAccessContext(user.userId, { listId: query.wishlistId });
-      const wishlist = await useCases.getWishlist.execute(query.wishlistId);
-      targetUserId = wishlist.UserId;
     }
 
-    const priorities = await useCases.listPriorities.execute(targetUserId);
+    const priorities = await useCases.listPriorities.execute(user.userId, query?.wishlistId);
     return { success: true, data: priorities };
   }, {
     query: t.Optional(t.Object({
@@ -137,8 +136,11 @@ export const wishlistRoutes = (useCases: WishlistUseCases) => new Elysia({ prefi
     })
   })
   .get('/wishlists/:listId', async ({ params: { listId }, checkListAccess }) => {
-    await checkListAccess('viewer');
+    const access = await checkListAccess('viewer');
     const wishlist = await useCases.getWishlist.execute(listId);
+    if (wishlist) {
+      wishlist.Role = access.role;
+    }
     return { success: true, data: wishlist };
   }, {
     detail: {
@@ -160,9 +162,9 @@ export const wishlistRoutes = (useCases: WishlistUseCases) => new Elysia({ prefi
       security: [{ bearerAuth: [] }]
     }
   })
-  .put('/wishlists/:listId', async ({ params: { listId }, checkListAccess, body: { Giftistry: { Lists: { title, expiresAt, allowGroupFunds, category } } } }) => {
+  .put('/wishlists/:listId', async ({ params: { listId }, checkListAccess, body: { Giftistry: { Lists: { title, expiresAt, allowGroupFunds, category, revealSuggestions } } } }) => {
     await checkListAccess('owner');
-    const updated = await useCases.updateWishlist.execute(listId, title, expiresAt, allowGroupFunds ?? false, category);
+    const updated = await useCases.updateWishlist.execute(listId, title, expiresAt, allowGroupFunds ?? false, category, revealSuggestions);
     return { success: true, data: updated };
   }, {
     detail: {
@@ -178,6 +180,7 @@ export const wishlistRoutes = (useCases: WishlistUseCases) => new Elysia({ prefi
           expiresAt: t.Optional(t.Nullable(t.String())),
           allowGroupFunds: t.Optional(t.Boolean()),
           category: t.Optional(t.String()),
+          revealSuggestions: t.Optional(t.Boolean()),
         })
       })
     })

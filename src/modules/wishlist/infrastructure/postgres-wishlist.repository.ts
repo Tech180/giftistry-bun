@@ -5,11 +5,13 @@ import { sql } from '@/common/database/connection';
 export class PostgresWishlistRepository implements WishlistRepository {
   async findById(id: string): Promise<Wishlist | null> {
     const [row] = await sql<any[]>`
-      SELECT id as "Id", user_id as "UserId", title as "Title", expires_at as "ExpiresAt", 
-             allow_group_funds as "AllowGroupFunds", is_active as "IsActive", 
-             category as "Category", created_at as "CreatedAt"
-      FROM lists
-      WHERE id = ${id}
+      SELECT l.id as "Id", l.user_id as "UserId", l.title as "Title", l.expires_at as "ExpiresAt", 
+             l.allow_group_funds as "AllowGroupFunds", l.is_active as "IsActive", 
+             l.category as "Category", l.reveal_suggestions as "RevealSuggestions", l.created_at as "CreatedAt",
+             u.username as "OwnerUsername", u.first_name as "OwnerFirstName"
+      FROM lists l
+      LEFT JOIN users u ON l.user_id = u.id
+      WHERE l.id = ${id}
     `;
     if (!row) return null;
     return {
@@ -21,6 +23,9 @@ export class PostgresWishlistRepository implements WishlistRepository {
       IsActive: row.IsActive,
       CreatedAt: new Date(row.CreatedAt),
       Category: row.Category,
+      RevealSuggestions: row.RevealSuggestions,
+      OwnerUsername: row.OwnerUsername,
+      OwnerFirstName: row.OwnerFirstName,
     };
   }
 
@@ -29,6 +34,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
       SELECT l.id as "Id", l.user_id as "UserId", l.title as "Title", l.expires_at as "ExpiresAt", 
              l.allow_group_funds as "AllowGroupFunds", l.is_active as "IsActive", 
              l.created_at as "CreatedAt", l.category as "Category",
+             l.reveal_suggestions as "RevealSuggestions",
              u.username as "OwnerUsername", u.first_name as "OwnerFirstName",
              COALESCE(ls.role, 'owner') as "Role"
       FROM lists l
@@ -47,19 +53,20 @@ export class PostgresWishlistRepository implements WishlistRepository {
       IsActive: row.IsActive,
       CreatedAt: new Date(row.CreatedAt),
       Category: row.Category,
+      RevealSuggestions: row.RevealSuggestions,
       OwnerUsername: row.OwnerUsername,
       OwnerFirstName: row.OwnerFirstName,
       Role: row.Role,
     }));
   }
 
-  async create(userId: string, title: string, expiresAt: Date | null, allowGroupFunds: boolean, category: string = 'generic'): Promise<Wishlist> {
+  async create(userId: string, title: string, expiresAt: Date | null, allowGroupFunds: boolean, category: string = 'generic', revealSuggestions: boolean = true): Promise<Wishlist> {
     const [row] = await sql<any[]>`
-      INSERT INTO lists (user_id, title, expires_at, allow_group_funds, category)
-      VALUES (${userId}, ${title}, ${expiresAt}, ${allowGroupFunds}, ${category})
+      INSERT INTO lists (user_id, title, expires_at, allow_group_funds, category, reveal_suggestions)
+      VALUES (${userId}, ${title}, ${expiresAt}, ${allowGroupFunds}, ${category}, ${revealSuggestions})
       RETURNING id as "Id", user_id as "UserId", title as "Title", expires_at as "ExpiresAt", 
                 allow_group_funds as "AllowGroupFunds", is_active as "IsActive", 
-                category as "Category", created_at as "CreatedAt"
+                category as "Category", reveal_suggestions as "RevealSuggestions", created_at as "CreatedAt"
     `;
     if (!row) throw new Error('Failed to create wishlist');
     return {
@@ -71,6 +78,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
       IsActive: row.IsActive,
       CreatedAt: new Date(row.CreatedAt),
       Category: row.Category,
+      RevealSuggestions: row.RevealSuggestions,
     };
   }
 
@@ -82,15 +90,16 @@ export class PostgresWishlistRepository implements WishlistRepository {
     `;
   }
 
-  async update(id: string, title: string, expiresAt: Date | null, allowGroupFunds: boolean, category?: string): Promise<Wishlist> {
+  async update(id: string, title: string, expiresAt: Date | null, allowGroupFunds: boolean, category?: string, revealSuggestions?: boolean): Promise<Wishlist> {
     const [row] = await sql<any[]>`
       UPDATE lists
       SET title = ${title}, expires_at = ${expiresAt}, allow_group_funds = ${allowGroupFunds},
-          category = COALESCE(${category || null}, category)
+          category = COALESCE(${category || null}, category),
+          reveal_suggestions = COALESCE(${revealSuggestions ?? null}, reveal_suggestions)
       WHERE id = ${id}
       RETURNING id as "Id", user_id as "UserId", title as "Title", expires_at as "ExpiresAt", 
                 allow_group_funds as "AllowGroupFunds", is_active as "IsActive", 
-                category as "Category", created_at as "CreatedAt"
+                category as "Category", reveal_suggestions as "RevealSuggestions", created_at as "CreatedAt"
     `;
     if (!row) throw new Error('Failed to update wishlist');
     return {
@@ -102,6 +111,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
       IsActive: row.IsActive,
       CreatedAt: new Date(row.CreatedAt),
       Category: row.Category,
+      RevealSuggestions: row.RevealSuggestions,
     };
   }
 
@@ -126,7 +136,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
     const rows = await sql<any[]>`
       SELECT id as "Id", user_id as "UserId", title as "Title", expires_at as "ExpiresAt", 
              allow_group_funds as "AllowGroupFunds", is_active as "IsActive", 
-             category as "Category", created_at as "CreatedAt"
+             category as "Category", reveal_suggestions as "RevealSuggestions", created_at as "CreatedAt"
       FROM lists
       WHERE is_active = true AND expires_at < CURRENT_TIMESTAMP
     `;
@@ -139,6 +149,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
       IsActive: row.IsActive,
       CreatedAt: new Date(row.CreatedAt),
       Category: row.Category,
+      RevealSuggestions: row.RevealSuggestions,
     }));
   }
 
@@ -185,6 +196,58 @@ export class PostgresWishlistRepository implements WishlistRepository {
       Label: row.Label,
       Weight: row.Weight,
     };
+  }
+
+  async findPrioritiesByWishlistForUser(wishlistId: string, userId: string, isOwner: boolean, hasExpired: boolean, revealSuggestions: boolean): Promise<Priority[]> {
+    const ownedPriorities = await this.findPrioritiesByUserId(userId);
+    
+    let rows: any[] = [];
+    if (isOwner) {
+      const shouldReveal = hasExpired && revealSuggestions;
+      if (shouldReveal) {
+        rows = await sql<any[]>`
+          SELECT DISTINCT p.id as "Id", p.user_id as "UserId", p.label as "Label", p.weight as "Weight"
+          FROM priorities p
+          JOIN items i ON i.priority_id = p.id
+          WHERE i.list_id = ${wishlistId}
+        `;
+      } else {
+        rows = await sql<any[]>`
+          SELECT DISTINCT p.id as "Id", p.user_id as "UserId", p.label as "Label", p.weight as "Weight"
+          FROM priorities p
+          JOIN items i ON i.priority_id = p.id
+          WHERE i.list_id = ${wishlistId}
+            AND i.is_hidden_idea = false
+            AND i.is_suggestion = false
+            AND (i.suggested_by_user_id IS NULL OR i.suggested_by_user_id = ${userId})
+        `;
+      }
+    } else {
+      const ownerQuery = sql<any[]>`
+        SELECT id as "Id", user_id as "UserId", label as "Label", weight as "Weight"
+        FROM priorities
+        WHERE user_id = (SELECT user_id FROM lists WHERE id = ${wishlistId})
+      `;
+      
+      const itemQuery = sql<any[]>`
+        SELECT DISTINCT p.id as "Id", p.user_id as "UserId", p.label as "Label", p.weight as "Weight"
+        FROM priorities p
+        JOIN items i ON i.priority_id = p.id
+        WHERE i.list_id = ${wishlistId}
+      `;
+      
+      const [owners, items] = await Promise.all([ownerQuery, itemQuery]);
+      rows = [...owners, ...items];
+    }
+    
+    const allPriorities = [...ownedPriorities, ...rows];
+    const unique = Array.from(new Map(allPriorities.map(p => [p.Id, p])).values());
+    return unique.map(row => ({
+      Id: row.Id,
+      UserId: row.UserId,
+      Label: row.Label,
+      Weight: Number(row.Weight),
+    }));
   }
 
   async deletePriority(id: string, userId: string): Promise<void> {

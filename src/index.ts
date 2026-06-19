@@ -1,4 +1,4 @@
-import { Elysia, StatusMap } from 'elysia';
+import { Elysia, StatusMap, t } from 'elysia';
 import { cors } from '@elysiajs/cors';
 import { swagger } from '@elysiajs/swagger';
 import { env } from './common/consts/env.consts';
@@ -8,6 +8,9 @@ import { wishlistModule } from './modules/wishlist/wishlist.module';
 import { itemModule } from './modules/item/item.module';
 import { commentModule } from './modules/comment/comment.module';
 import { sql } from './common/database/connection';
+import { verifyToken } from '@/common/utils/token';
+import { PostgresUserRepository } from '@/modules/auth/infrastructure/postgres-user.repository';
+import { getListAccessContext } from '@/common/middlewares/list-access.middleware';
 
 function getNumericStatus(status: any, defaultStatus = 200): number {
   if (typeof status === 'number') return status;
@@ -31,6 +34,9 @@ function cleanHeaders(headers: any): Record<string, string> {
   }
   return result;
 }
+
+const userRepoForWs = new PostgresUserRepository();
+const rooms = new Map<string, Map<string, { username: string; userId: string }>>();
 
 export const app = new Elysia()
   .use(cors({
@@ -123,6 +129,97 @@ export const app = new Elysia()
   .use(wishlistModule)
   .use(itemModule)
   .use(commentModule)
+  .ws('/ws/wishlist/:listId', {
+    query: t.Object({
+      token: t.String()
+    }),
+    async open(ws) {
+      const { listId } = ws.data.params;
+      const { token } = ws.data.query;
+      
+      const payload = await verifyToken(token);
+      if (!payload) {
+        ws.close();
+        return;
+      }
+      
+      const user = await userRepoForWs.findById(payload.userId);
+      if (!user) {
+        ws.close();
+        return;
+      }
+      
+      try {
+        await getListAccessContext(user.Id, { listId });
+      } catch (err) {
+        ws.close();
+        return;
+      }
+      
+      const wsId = crypto.randomUUID();
+      (ws.data as any).wsId = wsId;
+      (ws.data as any).user = user;
+      
+      ws.subscribe(listId);
+      
+      if (!rooms.has(listId)) {
+        rooms.set(listId, new Map());
+      }
+      
+      const name = user.FirstName ? `${user.FirstName} ${user.LastName}` : user.Username;
+      rooms.get(listId)!.set(wsId, { username: name, userId: user.Id });
+      
+      const onlineUsers = Array.from(rooms.get(listId)!.values()).map(u => u.username);
+      
+      // Broadcast presence updates
+      ws.publish(listId, JSON.stringify({
+        type: 'presence',
+        users: onlineUsers
+      }));
+      
+      ws.send(JSON.stringify({
+        type: 'presence',
+        users: onlineUsers
+      }));
+    },
+    message(ws, message: any) {
+      const { listId } = ws.data.params;
+      try {
+        const data = typeof message === 'string' ? JSON.parse(message) : message;
+        if (data && data.type === 'typing') {
+          const user = (ws.data as any).user;
+          if (user) {
+            const name = user.FirstName ? `${user.FirstName} ${user.LastName}` : user.Username;
+            ws.publish(listId, JSON.stringify({
+              type: 'typing',
+              userId: user.Id,
+              username: name,
+              isTyping: !!data.isTyping
+            }));
+          }
+        }
+      } catch (err) {
+        console.error('Error handling ws message:', err);
+      }
+    },
+    close(ws) {
+      const { listId } = ws.data.params;
+      const wsId = (ws.data as any).wsId;
+      if (rooms.has(listId)) {
+        const currentRoom = rooms.get(listId)!;
+        currentRoom.delete(wsId);
+        if (currentRoom.size === 0) {
+          rooms.delete(listId);
+        } else {
+          const onlineUsers = Array.from(currentRoom.values()).map(u => u.username);
+          ws.publish(listId, JSON.stringify({
+            type: 'presence',
+            users: onlineUsers
+          }));
+        }
+      }
+    }
+  })
   .get('/health', () => ({ Status: 'ok', Database: 'connected', Version: '0.1.0' }));
 
 if (process.env.NODE_ENV !== 'test') {

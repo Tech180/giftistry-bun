@@ -16,7 +16,8 @@ export class AddItemUseCase {
     linkUrl: string | null = null,
     price: number | null = null,
     websiteName: string | null = null,
-    category: string = 'uncategorized'
+    category: string = 'uncategorized',
+    isSuggestion: boolean = false
   ): Promise<Item> {
     if (!listId) {
       throw new AppError('List ID is required', 400, 'BAD_REQUEST');
@@ -37,7 +38,7 @@ export class AddItemUseCase {
       }
     }
 
-    const item = await this.itemRepo.create(listId, priorityId, suggestedByUserId, name, description, isHiddenIdea, category);
+    const item = await this.itemRepo.create(listId, priorityId, suggestedByUserId, name, description, isHiddenIdea, category, isSuggestion);
 
     if (linkUrl) {
       const link = await this.itemRepo.createLink(

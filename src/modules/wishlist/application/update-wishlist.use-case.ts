@@ -5,7 +5,7 @@ import { AppError } from '@/common/middlewares/error.middleware';
 export class UpdateWishlistUseCase {
   constructor(private wishlistRepo: WishlistRepository) {}
 
-  async execute(listId: string, title: string, expiresAtStr?: string | null, allowGroupFunds: boolean = false, category?: string): Promise<Wishlist> {
+  async execute(listId: string, title: string, expiresAtStr?: string | null, allowGroupFunds: boolean = false, category?: string, revealSuggestions?: boolean): Promise<Wishlist> {
     if (!title) {
       throw new AppError('Wishlist title is required', 400, 'BAD_REQUEST');
     }
@@ -23,6 +23,6 @@ export class UpdateWishlistUseCase {
       }
     }
 
-    return await this.wishlistRepo.update(listId, title, expiresAt, allowGroupFunds, category);
+    return await this.wishlistRepo.update(listId, title, expiresAt, allowGroupFunds, category, revealSuggestions);
   }
 }

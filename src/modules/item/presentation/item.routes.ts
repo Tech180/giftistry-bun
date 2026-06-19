@@ -90,17 +90,20 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
       throw new AppError('Forbidden: Owner cannot add hidden ideas to their own list', 403, 'FORBIDDEN');
     }
 
+    const isSuggestion = role !== 'owner';
+
     const item = await useCases.addItem.execute(
       listId,
       name,
       description ?? null,
       priorityId ?? null,
-      resolvedHidden,
+      resolvedHidden || isSuggestion,
       user.userId,
       linkUrl ?? null,
       price !== undefined && price !== null ? Number(price) : null,
       websiteName ?? null,
-      category ?? 'uncategorized'
+      category ?? 'uncategorized',
+      isSuggestion
     );
     return { success: true, data: item };
   }, {
@@ -121,6 +124,7 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
           price: t.Optional(t.Nullable(t.Numeric())),
           websiteName: t.Optional(t.Nullable(t.String())),
           category: t.Optional(t.Nullable(t.String())),
+          isSuggestion: t.Optional(t.Boolean()),
         })
       })
     })
@@ -144,7 +148,7 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
       })
     })
   })
-  .post('/items/:itemId/claims', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: { amount, claimedByName } } } }) => {
+  .post('/items/:itemId/claims', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: { amount, claimedByName, anonymous } } } }) => {
     const { role } = await checkListAccess('viewer');
     if (role === 'owner') {
       throw new AppError('Forbidden: List owner cannot claim items on their own list', 403, 'FORBIDDEN');
@@ -154,7 +158,8 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
       itemId,
       user.userId,
       amount ?? null,
-      claimedByName ?? null
+      claimedByName ?? null,
+      anonymous ?? false
     );
     return { success: true, data: claim };
   }, {
@@ -169,9 +174,26 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
         Items: t.Object({
           amount: t.Optional(t.Nullable(t.Numeric())),
           claimedByName: t.Optional(t.Nullable(t.String())),
+          anonymous: t.Optional(t.Boolean()),
         })
       })
     })
+  })
+  .delete('/items/:itemId/claims', async ({ getAuthUser, checkListAccess, params: { itemId } }) => {
+    const { role } = await checkListAccess('viewer');
+    if (role === 'owner') {
+      throw new AppError('Forbidden: List owner cannot unclaim items', 403, 'FORBIDDEN');
+    }
+    const user = await getAuthUser();
+    await useCases.unclaimItem.execute(itemId, user.userId);
+    return { success: true, message: 'Item unclaimed successfully' };
+  }, {
+    detail: {
+      tags: ['Items'],
+      summary: 'Unclaim item in wishlist',
+      description: 'Remove a claim made by the current user.',
+      security: [{ bearerAuth: [] }]
+    }
   })
   .post('/items/extract-metadata', async ({ body: { Giftistry: { Items: { url } } } }) => {
     try {

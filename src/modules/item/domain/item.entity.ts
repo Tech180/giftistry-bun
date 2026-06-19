@@ -3,9 +3,11 @@ export interface Item {
   ListId: string;
   PriorityId: string | null;
   SuggestedByUserId: string | null;
+  SuggestedByUsername?: string | null;
   Name: string;
   Description: string | null;
   IsHiddenIdea: boolean;
+  IsSuggestion?: boolean;
   Category: string;
   CreatedAt?: Date;
 }
@@ -25,5 +27,6 @@ export interface Claim {
   UserId: string | null;
   Amount: number | null;
   ClaimedByName: string | null;
+  Anonymous?: boolean;
   ClaimedAt?: Date;
 }
