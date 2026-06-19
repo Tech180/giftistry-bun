@@ -2,12 +2,17 @@ import type { WishlistRepository } from '../domain/ports/wishlist.repository';
 import type { Wishlist } from '../domain/wishlist.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
 
-export class CreateWishlistUseCase {
+export class UpdateWishlistUseCase {
   constructor(private wishlistRepo: WishlistRepository) {}
 
-  async execute(userId: string, title: string, expiresAtStr?: string | null, allowGroupFunds: boolean = false, category?: string): Promise<Wishlist> {
+  async execute(listId: string, title: string, expiresAtStr?: string | null, allowGroupFunds: boolean = false, category?: string): Promise<Wishlist> {
     if (!title) {
       throw new AppError('Wishlist title is required', 400, 'BAD_REQUEST');
+    }
+
+    const existing = await this.wishlistRepo.findById(listId);
+    if (!existing) {
+      throw new AppError('Wishlist not found', 404, 'NOT_FOUND');
     }
 
     let expiresAt: Date | null = null;
@@ -18,6 +23,6 @@ export class CreateWishlistUseCase {
       }
     }
 
-    return await this.wishlistRepo.create(userId, title, expiresAt, allowGroupFunds, category);
+    return await this.wishlistRepo.update(listId, title, expiresAt, allowGroupFunds, category);
   }
 }

@@ -1,12 +1,13 @@
 {
   "name": "giftistry-api",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "bun --hot src/index.ts",
     "start": "NODE_ENV=production bun src/index.ts",
-    "test": "bun test"
+    "test": "bun test",
+    "dev:all": "concurrently \"bun run dev\" \"cd ../giftistry-react && npm start\""
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.1",
@@ -15,6 +16,7 @@
     "postgres": "^3.4.4"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "concurrently": "^9.2.1"
   }
 }

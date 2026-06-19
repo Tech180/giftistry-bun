@@ -6,7 +6,7 @@ export class PostgresItemRepository implements ItemRepository {
   async findById(id: string): Promise<Item | null> {
     const [row] = await sql<any[]>`
       SELECT id as "Id", list_id as "ListId", priority_id as "PriorityId", suggested_by_user_id as "SuggestedByUserId", name as "Name", 
-             description as "Description", is_hidden_idea as "IsHiddenIdea", created_at as "CreatedAt"
+             description as "Description", is_hidden_idea as "IsHiddenIdea", category as "Category", created_at as "CreatedAt"
       FROM items
       WHERE id = ${id}
     `;
@@ -19,6 +19,7 @@ export class PostgresItemRepository implements ItemRepository {
       Name: row.Name,
       Description: row.Description,
       IsHiddenIdea: row.IsHiddenIdea,
+      Category: row.Category,
       CreatedAt: new Date(row.CreatedAt),
     };
   }
@@ -26,7 +27,7 @@ export class PostgresItemRepository implements ItemRepository {
   async findByListId(listId: string): Promise<Item[]> {
     const rows = await sql<any[]>`
       SELECT id as "Id", list_id as "ListId", priority_id as "PriorityId", suggested_by_user_id as "SuggestedByUserId", name as "Name", 
-             description as "Description", is_hidden_idea as "IsHiddenIdea", created_at as "CreatedAt"
+             description as "Description", is_hidden_idea as "IsHiddenIdea", category as "Category", created_at as "CreatedAt"
       FROM items
       WHERE list_id = ${listId}
       ORDER BY created_at DESC
@@ -39,6 +40,7 @@ export class PostgresItemRepository implements ItemRepository {
       Name: row.Name,
       Description: row.Description,
       IsHiddenIdea: row.IsHiddenIdea,
+      Category: row.Category,
       CreatedAt: new Date(row.CreatedAt),
     }));
   }
@@ -49,13 +51,14 @@ export class PostgresItemRepository implements ItemRepository {
     suggestedByUserId: string | null,
     name: string,
     description: string | null,
-    isHiddenIdea: boolean
+    isHiddenIdea: boolean,
+    category: string = 'uncategorized'
   ): Promise<Item> {
     const [row] = await sql<any[]>`
-      INSERT INTO items (list_id, priority_id, suggested_by_user_id, name, description, is_hidden_idea)
-      VALUES (${listId}, ${priorityId}, ${suggestedByUserId}, ${name}, ${description}, ${isHiddenIdea})
+      INSERT INTO items (list_id, priority_id, suggested_by_user_id, name, description, is_hidden_idea, category)
+      VALUES (${listId}, ${priorityId}, ${suggestedByUserId}, ${name}, ${description}, ${isHiddenIdea}, ${category})
       RETURNING id as "Id", list_id as "ListId", priority_id as "PriorityId", suggested_by_user_id as "SuggestedByUserId", name as "Name", 
-                description as "Description", is_hidden_idea as "IsHiddenIdea", created_at as "CreatedAt"
+                description as "Description", is_hidden_idea as "IsHiddenIdea", category as "Category", created_at as "CreatedAt"
     `;
     if (!row) throw new Error('Failed to create item');
     return {
@@ -66,6 +69,7 @@ export class PostgresItemRepository implements ItemRepository {
       Name: row.Name,
       Description: row.Description,
       IsHiddenIdea: row.IsHiddenIdea,
+      Category: row.Category,
       CreatedAt: new Date(row.CreatedAt),
     };
   }
@@ -180,5 +184,44 @@ export class PostgresItemRepository implements ItemRepository {
       ClaimedByName: row.ClaimedByName,
       ClaimedAt: new Date(row.ClaimedAt),
     }));
+  }
+
+  async update(
+    id: string,
+    name: string,
+    description: string | null,
+    priorityId: string | null,
+    category: string
+  ): Promise<Item> {
+    const [row] = await sql<any[]>`
+      UPDATE items
+      SET name = ${name},
+          description = ${description},
+          priority_id = ${priorityId},
+          category = ${category}
+      WHERE id = ${id}
+      RETURNING id as "Id", list_id as "ListId", priority_id as "PriorityId", suggested_by_user_id as "SuggestedByUserId", name as "Name", 
+                description as "Description", is_hidden_idea as "IsHiddenIdea", category as "Category", created_at as "CreatedAt"
+    `;
+    if (!row) throw new Error('Item not found or failed to update');
+    return {
+      Id: row.Id,
+      ListId: row.ListId,
+      PriorityId: row.PriorityId,
+      SuggestedByUserId: row.SuggestedByUserId,
+      Name: row.Name,
+      Description: row.Description,
+      IsHiddenIdea: row.IsHiddenIdea,
+      Category: row.Category,
+      CreatedAt: new Date(row.CreatedAt),
+    };
+  }
+
+  async delete(id: string): Promise<void> {
+    await sql.begin(async (sql) => {
+      await sql`DELETE FROM claims WHERE item_id = ${id}`;
+      await sql`DELETE FROM item_links WHERE item_id = ${id}`;
+      await sql`DELETE FROM items WHERE id = ${id}`;
+    });
   }
 }

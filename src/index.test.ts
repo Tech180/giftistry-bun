@@ -622,4 +622,450 @@ describe("Giftistry Integration Tests", () => {
     expect(spec.paths["/api/auth/signup"]).toBeDefined();
     expect(spec.paths["/api/auth/login"]).toBeDefined();
   });
+
+  test("28. Wishlist Rollover copies unpurchased items and rollover comments", async () => {
+    // 1. Create a list that we'll expire
+    const createListRes = await app.handle(
+      new Request("http://localhost/api/wishlists", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${ownerToken}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Lists: {
+              title: "Holiday List 2026",
+              expiresAt: new Date(Date.now() - 1000).toISOString(),
+              allowGroupFunds: false
+            }
+          }
+        }),
+      })
+    );
+    expect(createListRes.status).toBe(200);
+    const createListBody = await createListRes.json() as any;
+    const oldListId = createListBody.Result.Id;
+
+    // Share oldListId with collaborator
+    const shareRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${oldListId}/shares`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${ownerToken}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Lists: {
+              email: collaboratorEmail,
+              role: "collaborator"
+            }
+          }
+        }),
+      })
+    );
+    expect(shareRes.status).toBe(200);
+
+    // 2. Add an item that will be claimed (purchased)
+    const item1Res = await app.handle(
+      new Request(`http://localhost/api/wishlists/${oldListId}/items`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${ownerToken}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: { name: "Claimed Item", isHiddenIdea: false }
+          }
+        }),
+      })
+    );
+    const item1Id = (await item1Res.json() as any).Result.Id;
+
+    // Claim item 1
+    const claimRes = await app.handle(
+      new Request(`http://localhost/api/items/${item1Id}/claims`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${collaboratorToken}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: { amount: null, claimedByName: "Santa" }
+          }
+        }),
+      })
+    );
+    expect(claimRes.status).toBe(200);
+
+    // 3. Add an item that will NOT be claimed (unpurchased)
+    const item2Res = await app.handle(
+      new Request(`http://localhost/api/wishlists/${oldListId}/items`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${ownerToken}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: { name: "Unclaimed Item", description: "Please buy me", isHiddenIdea: false }
+          }
+        }),
+      })
+    );
+    const item2Id = (await item2Res.json() as any).Result.Id;
+
+    // Add a link to the unclaimed item
+    const linkRes = await app.handle(
+      new Request(`http://localhost/api/items/${item2Id}/links`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${ownerToken}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: { url: "https://example.com/unclaimed" }
+          }
+        }),
+      })
+    );
+    expect(linkRes.status).toBe(200);
+
+    // 4. Add comments: one with rollover=true, one with rollover=false
+    const c1Res = await app.handle(
+      new Request(`http://localhost/api/wishlists/${oldListId}/comments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${collaboratorToken}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Comments: { content: "I should carry over", isOwnerVisible: true, isRollover: true }
+          }
+        }),
+      })
+    );
+    expect(c1Res.status).toBe(200);
+
+    const c2Res = await app.handle(
+      new Request(`http://localhost/api/wishlists/${oldListId}/comments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${collaboratorToken}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Comments: { content: "I should NOT carry over", isOwnerVisible: true, isRollover: false }
+          }
+        }),
+      })
+    );
+    expect(c2Res.status).toBe(200);
+
+    // 5. Trigger rollover!
+    const rolloverRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${oldListId}/rollover`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${ownerToken}`
+        }
+      })
+    );
+    expect(rolloverRes.status).toBe(200);
+    const rolloverBody = await rolloverRes.json() as any;
+    const newListId = rolloverBody.Result.Id;
+
+    // 6. Verify old list is deactivated
+    const oldListRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${oldListId}`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${ownerToken}`
+        }
+      })
+    );
+    const oldListBody = await oldListRes.json() as any;
+    expect(oldListBody.Result.IsActive).toBe(false);
+
+    // 7. Verify new list has the correct items
+    const newItemsRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${newListId}/items`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${ownerToken}`
+        }
+      })
+    );
+    const newItemsBody = await newItemsRes.json() as any;
+    expect(newItemsBody.Result.length).toBe(1);
+    expect(newItemsBody.Result[0].Name).toBe("Unclaimed Item");
+    expect(newItemsBody.Result[0].Description).toBe("Please buy me");
+    expect(newItemsBody.Result[0].Links.length).toBe(1);
+    expect(newItemsBody.Result[0].Links[0].Url).toBe("https://example.com/unclaimed");
+
+    // 8. Verify new list comments
+    const newCommentsRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${newListId}/comments`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${collaboratorToken}`
+        }
+      })
+    );
+    const newCommentsBody = await newCommentsRes.json() as any;
+    expect(newCommentsBody.Result.length).toBe(1);
+    expect(newCommentsBody.Result[0].Content).toBe("I should carry over");
+  });
+
+  test("29. Delete Item removes item and associated links/claims", async () => {
+    // 1. Create a dummy item
+    const createRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${ownerToken}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: { name: "Temp Item to Delete", description: "Transient" }
+          }
+        })
+      })
+    );
+    expect(createRes.status).toBe(200);
+    const createBody = await createRes.json() as any;
+    const tempItemId = createBody.Result.Id;
+
+    // 2. Add a link to it
+    const linkRes = await app.handle(
+      new Request(`http://localhost/api/items/${tempItemId}/links`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${ownerToken}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: { url: "https://example.com/delete-me" }
+          }
+        })
+      })
+    );
+    expect(linkRes.status).toBe(200);
+
+    // 3. Delete the item!
+    const deleteRes = await app.handle(
+      new Request(`http://localhost/api/items/${tempItemId}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${ownerToken}`
+        }
+      })
+    );
+    expect(deleteRes.status).toBe(200);
+
+    // 4. Verify it's gone
+    const verifyListRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${ownerToken}`
+        }
+      })
+    );
+    const verifyListBody = await verifyListRes.json() as any;
+    const found = verifyListBody.Result.some((it: any) => it.Id === tempItemId);
+    expect(found).toBe(false);
+  });
+
+  test("30. Owner deletes wishlist (cascades list, items, claims, comments)", async () => {
+    // 1. Create a dummy wishlist
+    const createListRes = await app.handle(
+      new Request("http://localhost/api/wishlists", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${ownerToken}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Lists: {
+              title: "Wishlist to Delete",
+              expiresAt: null,
+              allowGroupFunds: false
+            }
+          }
+        }),
+      })
+    );
+    expect(createListRes.status).toBe(200);
+    const deleteListId = (await createListRes.json() as any).Result.Id;
+
+    // 2. Add an item
+    const addItemRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${deleteListId}/items`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${ownerToken}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: { name: "Item to cascade delete", description: "Transient item" }
+          }
+        })
+      })
+    );
+    expect(addItemRes.status).toBe(200);
+
+    // 3. Add a comment
+    const commentRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${deleteListId}/comments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${ownerToken}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Comments: { content: "Transient comment", isOwnerVisible: true }
+          }
+        })
+      })
+    );
+    expect(commentRes.status).toBe(200);
+
+    // 4. Delete the wishlist!
+    const deleteRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${deleteListId}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${ownerToken}`
+        }
+      })
+    );
+    expect(deleteRes.status).toBe(200);
+
+    // 5. Verify the wishlist cannot be retrieved (will fail listAccessMiddleware checking)
+    const getRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${deleteListId}`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${ownerToken}`
+        }
+      })
+    );
+    expect(getRes.status).toBe(404);
+  });
+
+  test("31. Fetch dynamic optional field definitions for Clothing", async () => {
+    const res = await app.handle(
+      new Request("http://localhost/api/items/field-definitions?category=clothing", {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${ownerToken}`
+        }
+      })
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.Meta.Status).toBe("Success");
+    expect(Array.isArray(body.Result)).toBe(true);
+    
+    // Check we have the seeded fields (like pantsSize, shirtSize)
+    const keys = body.Result.map((d: any) => d.FieldKey);
+    expect(keys).toContain("pantsSize");
+    expect(keys).toContain("shirtSize");
+    expect(keys).toContain("waistFit");
+    
+    // Check that waistFit has dependencies
+    const waistFit = body.Result.find((d: any) => d.FieldKey === "waistFit");
+    expect(waistFit).toBeDefined();
+    expect(waistFit.Dependencies).toBeDefined();
+    expect(waistFit.Dependencies.length).toBeGreaterThan(0);
+    expect(waistFit.Dependencies[0].TriggerFieldKey).toBe("pantsSize");
+  });
+
+  test("32. Create, query, and delete priority category", async () => {
+    // 1. Create a priority category
+    const createRes = await app.handle(
+      new Request("http://localhost/api/priorities", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${ownerToken}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Priorities: {
+              label: "Super Crucial Category",
+              weight: 8
+            }
+          }
+        })
+      })
+    );
+    expect(createRes.status).toBe(200);
+    const createBody = await createRes.json() as any;
+    expect(createBody.Meta.Status).toBe("Success");
+    const priorityId = createBody.Result.Id;
+    expect(priorityId).toBeDefined();
+
+    // 2. Query priorities using GET /priorities
+    const listRes = await app.handle(
+      new Request("http://localhost/api/priorities", {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${ownerToken}`
+        }
+      })
+    );
+    expect(listRes.status).toBe(200);
+    const listBody = await listRes.json() as any;
+    expect(listBody.Meta.Status).toBe("Success");
+    expect(listBody.Result.some((p: any) => p.Id === priorityId)).toBe(true);
+
+    // 3. Try to delete with collaborator (forbidden)
+    const deleteCollabRes = await app.handle(
+      new Request(`http://localhost/api/priorities/${priorityId}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${collaboratorToken}`
+        }
+      })
+    );
+    expect(deleteCollabRes.status).toBe(403);
+
+    // 4. Delete with owner (success)
+    const deleteOwnerRes = await app.handle(
+      new Request(`http://localhost/api/priorities/${priorityId}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${ownerToken}`
+        }
+      })
+    );
+    expect(deleteOwnerRes.status).toBe(200);
+    const deleteOwnerBody = await deleteOwnerRes.json() as any;
+    expect(deleteOwnerBody.Meta.Status).toBe("Success");
+
+    // 5. Verify it is gone
+    const listAfterRes = await app.handle(
+      new Request("http://localhost/api/priorities", {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${ownerToken}`
+        }
+      })
+    );
+    const listAfterBody = await listAfterRes.json() as any;
+    expect(listAfterBody.Result.some((p: any) => p.Id === priorityId)).toBe(false);
+  });
 });

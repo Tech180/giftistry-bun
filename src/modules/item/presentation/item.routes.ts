@@ -4,6 +4,68 @@ import { listAccessMiddleware } from '@/common/middlewares/list-access.middlewar
 import { AppError } from '@/common/middlewares/error.middleware';
 import type { ItemUseCases } from './item-use-cases.interface';
 
+function decodeHtmlEntities(str: string): string {
+  if (!str) return '';
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&#([0-9]+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)));
+}
+
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  digital_tech: [
+    'tech', 'computer', 'cell', 'phone', 'laptop', 'keyboard', 'mouse', 
+    'audio', 'headphone', 'camera', 'tablet', 'smartwatch', 'electronic', 
+    'monitor', 'cable', 'usb', 'charger', 'software', 'video game', 
+    'console', 'playstation', 'xbox', 'nintendo', 'switch', 'gamepad', 
+    'gpu', 'cpu', 'ram', 'ssd'
+  ],
+  cash_funds: [
+    'gift card', 'giftcard', 'voucher', 'cash', 'fund', 'donation', 
+    'ticket', 'coupon'
+  ],
+  home_kitchen: [
+    'kitchen', 'home', 'pillow', 'sheet', 'blanket', 'furniture', 'cook', 
+    'bake', 'mug', 'plate', 'fork', 'spoon', 'knife', 'blender', 'toaster', 
+    'vacuum', 'towel', 'candle', 'decor', 'bed', 'couch', 'table', 'chair', 
+    'lamp', 'rug', 'curtain', 'cleaning', 'pan', 'pot'
+  ],
+  baby_kids: [
+    'baby', 'kids', 'toy', 'diaper', 'pacifier', 'stroller', 'crib', 
+    'lego', 'doll', 'plush', 'toddler', 'maternity', 'nursery', 'playmobil'
+  ],
+  apparel_accessories: [
+    'apparel', 'accessory', 'clothing', 'shirt', 'pants', 'shoe', 'sock', 
+    'dress', 'jacket', 'coat', 'hat', 'cap', 'ring', 'necklace', 'watch', 
+    'bag', 'backpack', 'wallet', 'belt', 'glove', 'scarf', 'boot', 'sneaker', 
+    'sweater', 'underwear', 'skirt', 't-shirt', 'jeans', 'trousers', 'shorts', 
+    'blouse', 'earring', 'jewelry'
+  ],
+  health_wellness: [
+    'health', 'wellness', 'vitamin', 'supplement', 'skin', 'makeup', 
+    'cosmetic', 'soap', 'lotion', 'shampoo', 'massage', 'gym', 'workout', 
+    'fitness', 'yoga', 'dumbbells', 'protein', 'perfume', 'cologne', 
+    'toothbrush', 'clipper'
+  ],
+  outdoors_travel: [
+    'outdoor', 'travel', 'camp', 'hike', 'tent', 'suitcase', 'luggage', 
+    'travel bag', 'hammock', 'binocular', 'grill', 'patio', 'climbing', 
+    'backpacking', 'passport', 'cooler'
+  ],
+  hobbies_entertainment: [
+    'hobby', 'entertainment', 'game', 'book', 'dvd', 'movie', 'music', 
+    'instrument', 'art', 'craft', 'paint', 'yarn', 'tool', 'drill', 
+    'hammer', 'board game', 'puzzle', 'collectible', 'vinyl', 'guitar', 
+    'piano', 'novel'
+  ]
+};
+
 export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api' })
   .use(authMiddleware)
   .use(listAccessMiddleware)
@@ -20,7 +82,7 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
       security: [{ bearerAuth: [] }]
     }
   })
-  .post('/wishlists/:listId/items', async ({ getAuthUser, checkListAccess, params: { listId }, body: { Giftistry: { Items: { name, description, priorityId, isHiddenIdea } } } }) => {
+  .post('/wishlists/:listId/items', async ({ getAuthUser, checkListAccess, params: { listId }, body: { Giftistry: { Items: { name, description, priorityId, isHiddenIdea, linkUrl, price, websiteName, category } } } }) => {
     const { role } = await checkListAccess('collaborator');
     const user = await getAuthUser();
     const resolvedHidden = isHiddenIdea ?? false;
@@ -34,7 +96,11 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
       description ?? null,
       priorityId ?? null,
       resolvedHidden,
-      user.userId
+      user.userId,
+      linkUrl ?? null,
+      price !== undefined && price !== null ? Number(price) : null,
+      websiteName ?? null,
+      category ?? 'uncategorized'
     );
     return { success: true, data: item };
   }, {
@@ -51,6 +117,10 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
           description: t.Optional(t.Nullable(t.String())),
           priorityId: t.Optional(t.Nullable(t.String())),
           isHiddenIdea: t.Optional(t.Boolean()),
+          linkUrl: t.Optional(t.Nullable(t.String())),
+          price: t.Optional(t.Nullable(t.Numeric())),
+          websiteName: t.Optional(t.Nullable(t.String())),
+          category: t.Optional(t.Nullable(t.String())),
         })
       })
     })
@@ -102,4 +172,186 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
         })
       })
     })
+  })
+  .post('/items/extract-metadata', async ({ body: { Giftistry: { Items: { url } } } }) => {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+      });
+      if (!res.ok) {
+        return { success: false, message: 'Failed to fetch webpage' };
+      }
+
+      const html = await res.text();
+
+      // Extract Title
+      const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i) ||
+                         html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i) ||
+                         html.match(/<meta[^>]*name=["']twitter:title["'][^>]*content=["']([^"']+)["']/i);
+      let title = titleMatch ? decodeHtmlEntities(titleMatch[1]?.trim() ?? '') : '';
+
+      // Check if title is generic or blocked
+      const lowerTitle = title.toLowerCase();
+      const isGeneric = !title || 
+                        lowerTitle === 'amazon' || 
+                        lowerTitle === 'amazon.com' || 
+                        lowerTitle === 'robot check' || 
+                        lowerTitle.includes('captcha') || 
+                        lowerTitle === 'walmart' || 
+                        lowerTitle === 'target';
+
+      if (isGeneric) {
+        try {
+          const urlObj = new URL(url);
+          const segments = urlObj.pathname.split('/').filter(Boolean);
+          // Find a segment that represents a product slug (usually longer and has hyphens/underscores)
+          const slug = segments.find(s => s.includes('-') || s.includes('_')) || segments[0];
+          if (slug && slug.length > 2) {
+            // Clean slug
+            const cleanSlug = slug
+              .replace(/[-_]+/g, ' ')
+              .replace(/\.[a-z0-9]+$/i, '') // Remove extension if any (e.g. .html)
+              .trim();
+            // Capitalize words
+            title = cleanSlug
+              .split(' ')
+              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(' ');
+          }
+        } catch (_) {}
+      }
+
+      // Extract Price
+      const priceMatch = html.match(/<meta[^>]*property=["']product:price:amount["'][^>]*content=["']([^"']+)["']/i) ||
+                         html.match(/<meta[^>]*property=["']og:price:amount["'][^>]*content=["']([^"']+)["']/i) ||
+                         html.match(/itemprop=["']price["'][^>]*content=["']([^"']+)["']/i);
+      const priceVal = priceMatch ? Number(priceMatch[1]) : null;
+      const price = priceVal && !isNaN(priceVal) ? priceVal : null;
+
+      // Extract Description
+      const descMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i) ||
+                        html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:description["']/i) ||
+                        html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i) ||
+                        html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']description["']/i) ||
+                        html.match(/<meta[^>]*name=["']twitter:description["'][^>]*content=["']([^"']+)["']/i);
+      const description = descMatch ? decodeHtmlEntities(descMatch[1]?.trim() ?? '') : '';
+
+      // Extract Color
+      const colorMatch = html.match(/<meta[^>]*property=["']product:color["'][^>]*content=["']([^"']+)["']/i) ||
+                         html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']product:color["']/i) ||
+                         html.match(/<meta[^>]*name=["']color["'][^>]*content=["']([^"']+)["']/i) ||
+                         html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']color["']/i) ||
+                         html.match(/itemprop=["']color["'][^>]*content=["']([^"']+)["']/i);
+      const color = colorMatch ? decodeHtmlEntities(colorMatch[1]?.trim() ?? '') : '';
+
+      // Extract Size
+      const sizeMatch = html.match(/<meta[^>]*property=["']product:size["'][^>]*content=["']([^"']+)["']/i) ||
+                        html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']product:size["']/i) ||
+                        html.match(/<meta[^>]*name=["']size["'][^>]*content=["']([^"']+)["']/i) ||
+                        html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']size["']/i) ||
+                        html.match(/itemprop=["']size["'][^>]*content=["']([^"']+)["']/i);
+      const size = sizeMatch ? decodeHtmlEntities(sizeMatch[1]?.trim() ?? '') : '';
+
+      // Auto-detect Category
+      let category: string | null = null;
+      try {
+        const urlObj = new URL(url);
+        const host = urlObj.hostname.toLowerCase();
+        const path = urlObj.pathname.toLowerCase();
+        const textToScan = `${host} ${path} ${title.toLowerCase()}`;
+
+        for (const [cat, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+          const escapedKeywords = keywords.map(kw => kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+          const regex = new RegExp(`\\b(${escapedKeywords})\\b`, 'i');
+          if (regex.test(textToScan)) {
+            category = cat;
+            break;
+          }
+        }
+      } catch (_) {}
+
+      return {
+        success: true,
+        data: {
+          title,
+          price,
+          description: description || null,
+          color: color || null,
+          size: size || null,
+          category: category || null
+        }
+      };
+    } catch (e) {
+      return { success: false, message: e instanceof Error ? e.message : 'Error extracting metadata' };
+    }
+  }, {
+    detail: {
+      tags: ['Items'],
+      summary: 'Extract metadata from link',
+      description: 'Scrapes webpage metadata like title and price from a URL to autopopulate the item creation form.',
+      security: [{ bearerAuth: [] }]
+    },
+    body: t.Object({
+      Giftistry: t.Object({
+        Items: t.Object({
+          url: t.String(),
+        })
+      })
+    })
+  })
+  .put('/items/:itemId', async ({ checkListAccess, params: { itemId }, body: { Giftistry: { Items: { name, description, priorityId, category } } } }) => {
+    await checkListAccess('collaborator');
+    const item = await useCases.updateItem.execute(
+      itemId,
+      name,
+      description ?? null,
+      priorityId ?? null,
+      category ?? 'uncategorized'
+    );
+    return { success: true, data: item };
+  }, {
+    detail: {
+      tags: ['Items'],
+      summary: 'Update item in wishlist',
+      description: 'Update a gift item by ID. Requires owner or collaborator role.',
+      security: [{ bearerAuth: [] }]
+    },
+    body: t.Object({
+      Giftistry: t.Object({
+        Items: t.Object({
+          name: t.String(),
+          description: t.Optional(t.Nullable(t.String())),
+          priorityId: t.Optional(t.Nullable(t.String())),
+          category: t.Optional(t.Nullable(t.String())),
+        })
+      })
+    })
+  })
+  .get('/items/field-definitions', async ({ query: { category } }) => {
+    const definitions = await useCases.getFieldDefinitions.execute(category || '');
+    return { success: true, data: definitions };
+  }, {
+    detail: {
+      tags: ['Items'],
+      summary: 'Get dynamic optional field definitions for a category',
+      description: 'Fetch all field definitions and dependencies for a category.',
+      security: [{ bearerAuth: [] }]
+    },
+    query: t.Object({
+      category: t.String()
+    })
+  })
+  .delete('/items/:itemId', async ({ checkListAccess, params: { itemId } }) => {
+    await checkListAccess('collaborator');
+    await useCases.deleteItem.execute(itemId);
+    return { success: true };
+  }, {
+    detail: {
+      tags: ['Items'],
+      summary: 'Delete item from wishlist',
+      description: 'Delete a gift item by ID. Requires owner or collaborator role.',
+      security: [{ bearerAuth: [] }]
+    }
   });

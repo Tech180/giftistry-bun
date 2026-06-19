@@ -1,0 +1,112 @@
+import { sql } from './connection';
+
+export async function up() {
+  console.log('[INFO] Running migrations for dynamic item fields...');
+
+  // 0. Add Category to lists table
+  await sql`
+    ALTER TABLE lists ADD COLUMN IF NOT EXISTS category VARCHAR(255) DEFAULT 'generic';
+  `;
+
+  // 1. Create Definitions Table
+  await sql`
+    CREATE TABLE IF NOT EXISTS item_field_definitions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      category VARCHAR(255) NOT NULL,
+      field_key VARCHAR(255) NOT NULL,
+      label VARCHAR(255) NOT NULL,
+      placeholder VARCHAR(255),
+      display_order INTEGER NOT NULL DEFAULT 0,
+      UNIQUE(category, field_key)
+    );
+  `;
+
+  // 2. Create Dependencies Table
+  await sql`
+    CREATE TABLE IF NOT EXISTS item_field_dependencies (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      dependent_field_id UUID NOT NULL REFERENCES item_field_definitions(id) ON DELETE CASCADE,
+      trigger_field_key VARCHAR(255) NOT NULL,
+      trigger_value VARCHAR(255) NOT NULL,
+      UNIQUE(dependent_field_id, trigger_field_key, trigger_value)
+    );
+  `;
+
+  console.log('[INFO] Tables created. Seeding initial dynamic fields...');
+
+  // 3. Clear existing definitions to avoid duplicates during re-runs
+  await sql`TRUNCATE item_field_definitions CASCADE;`;
+
+  // 4. Seed Clothing fields
+  const [pants] = await sql`
+    INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
+    VALUES ('clothing', 'pantsSize', 'Pants Size', 'e.g. 32x30', 1)
+    RETURNING id;
+  `;
+
+  const [waistFit] = await sql`
+    INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
+    VALUES ('clothing', 'waistFit', 'Waist Fit', 'e.g. Slim, Regular, Relaxed', 2)
+    RETURNING id;
+  `;
+
+  await sql`
+    INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
+    VALUES ('clothing', 'shirtSize', 'Shirt Size', 'e.g. Medium, 15.5', 3);
+  `;
+
+  await sql`
+    INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
+    VALUES ('clothing', 'shoesSize', 'Shoes Size', 'e.g. 10.5', 4);
+  `;
+
+  await sql`
+    INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
+    VALUES ('clothing', 'socksSize', 'Socks Size', 'e.g. 9-11', 5);
+  `;
+
+  await sql`
+    INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
+    VALUES ('clothing', 'preferredColor', 'Preferred Color', 'e.g. Navy Blue, Matte Black', 6);
+  `;
+
+  // 5. Seed Tech fields
+  const [model] = await sql`
+    INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
+    VALUES ('tech', 'modelNumber', 'Model / Version', 'e.g. iPhone 15 Pro', 1)
+    RETURNING id;
+  `;
+
+  const [storage] = await sql`
+    INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
+    VALUES ('tech', 'storageCapacity', 'Storage Capacity', 'e.g. 256GB, 1TB', 2)
+    RETURNING id;
+  `;
+
+  await sql`
+    INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
+    VALUES ('tech', 'preferredColor', 'Preferred Color', 'e.g. Space Gray, Silver', 3);
+  `;
+
+  // 6. Seed Dependencies
+  // waistFit depends on pantsSize having value 'any'
+  await sql`
+    INSERT INTO item_field_dependencies (dependent_field_id, trigger_field_key, trigger_value)
+    VALUES (${waistFit.id}, 'pantsSize', 'any');
+  `;
+
+  // storageCapacity depends on modelNumber having value 'any'
+  await sql`
+    INSERT INTO item_field_dependencies (dependent_field_id, trigger_field_key, trigger_value)
+    VALUES (${storage.id}, 'modelNumber', 'any');
+  `;
+
+  console.log('[INFO] Migration and seeding completed successfully!');
+}
+
+if (require.main === module || (import.meta.url && import.meta.url.includes(process.argv[1]))) {
+  up().then(() => process.exit(0)).catch((err) => {
+    console.error('[ERROR] Migration failed:', err);
+    process.exit(1);
+  });
+}

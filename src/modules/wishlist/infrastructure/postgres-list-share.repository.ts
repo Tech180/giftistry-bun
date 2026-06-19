@@ -48,4 +48,19 @@ export class PostgresListShareRepository implements ListShareRepository {
     `;
     return item ? item.listId : null;
   }
+
+  async findSharesByListId(listId: string): Promise<ListShare[]> {
+    const rows = await sql<any[]>`
+      SELECT id as "Id", list_id as "ListId", user_id as "UserId", role as "Role", created_at as "CreatedAt"
+      FROM list_shares
+      WHERE list_id = ${listId}
+    `;
+    return rows.map(row => ({
+      Id: row.Id,
+      ListId: row.ListId,
+      UserId: row.UserId,
+      Role: row.Role as 'viewer' | 'collaborator',
+      CreatedAt: new Date(row.CreatedAt),
+    }));
+  }
 }

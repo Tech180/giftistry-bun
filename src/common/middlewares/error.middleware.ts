@@ -11,8 +11,12 @@ export class AppError extends Error {
 }
 
 export const handleError = ({ code, error, set, correlationId }: any) => {
-  console.error(`[ERROR] [CorrelationId: ${correlationId || 'N/A'}] Unhandled API Error:`, error);
   if (error instanceof AppError) {
+    if (error.statusCode >= 500) {
+      console.error(`[ERROR] [CorrelationId: ${correlationId || 'N/A'}] Unhandled API Error:`, error);
+    } else {
+      console.warn(`[WARN] [CorrelationId: ${correlationId || 'N/A'}] Client Error (${error.statusCode}/${error.errorCode}): ${error.message}`);
+    }
     set.status = error.statusCode;
     return {
       Status: 'error',
@@ -23,6 +27,11 @@ export const handleError = ({ code, error, set, correlationId }: any) => {
   }
 
   const statusCode = error.status || error.statusCode || (code === 'NOT_FOUND' ? 404 : 500);
+  if (statusCode >= 500) {
+    console.error(`[ERROR] [CorrelationId: ${correlationId || 'N/A'}] Unhandled API Error:`, error);
+  } else {
+    console.warn(`[WARN] [CorrelationId: ${correlationId || 'N/A'}] Client Error (${statusCode}): ${error.message || error}`);
+  }
   set.status = statusCode;
   return {
     Status: 'error',

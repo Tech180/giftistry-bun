@@ -7,6 +7,7 @@ import { authModule } from './modules/auth/auth.module';
 import { wishlistModule } from './modules/wishlist/wishlist.module';
 import { itemModule } from './modules/item/item.module';
 import { commentModule } from './modules/comment/comment.module';
+import { sql } from './common/database/connection';
 
 function getNumericStatus(status: any, defaultStatus = 200): number {
   if (typeof status === 'number') return status;

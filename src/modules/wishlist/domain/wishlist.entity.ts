@@ -13,4 +13,8 @@ export interface Wishlist {
   AllowGroupFunds: boolean;
   IsActive: boolean;
   CreatedAt?: Date;
+  Category?: string;
+  OwnerUsername?: string;
+  OwnerFirstName?: string;
+  Role?: 'owner' | 'collaborator' | 'viewer';
 }
