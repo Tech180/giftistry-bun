@@ -82,7 +82,7 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
       security: [{ bearerAuth: [] }]
     }
   })
-  .post('/wishlists/:listId/items', async ({ getAuthUser, checkListAccess, params: { listId }, body: { Giftistry: { Items: { name, description, priorityId, isHiddenIdea, linkUrl, price, websiteName, category } } } }) => {
+  .post('/wishlists/:listId/items', async ({ getAuthUser, checkListAccess, params: { listId }, body: { Giftistry: { Items: { name, description, priorityId, isHiddenIdea, linkUrl, price, websiteName, category, priority } } } }) => {
     const { role } = await checkListAccess('collaborator');
     const user = await getAuthUser();
     const resolvedHidden = isHiddenIdea ?? false;
@@ -103,7 +103,8 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
       price !== undefined && price !== null ? Number(price) : null,
       websiteName ?? null,
       category ?? 'uncategorized',
-      isSuggestion
+      isSuggestion,
+      priority !== undefined && priority !== null ? Number(priority) : null
     );
     return { success: true, data: item };
   }, {
@@ -125,6 +126,7 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
           websiteName: t.Optional(t.Nullable(t.String())),
           category: t.Optional(t.Nullable(t.String())),
           isSuggestion: t.Optional(t.Boolean()),
+          priority: t.Optional(t.Nullable(t.Numeric())),
         })
       })
     })
@@ -148,7 +150,7 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
       })
     })
   })
-  .post('/items/:itemId/claims', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: { amount, claimedByName, anonymous } } } }) => {
+  .post('/items/:itemId/claims', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: { amount, claimedByName, anonymous, quantity, selection } } } }) => {
     const { role } = await checkListAccess('viewer');
     if (role === 'owner') {
       throw new AppError('Forbidden: List owner cannot claim items on their own list', 403, 'FORBIDDEN');
@@ -159,7 +161,9 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
       user.userId,
       amount ?? null,
       claimedByName ?? null,
-      anonymous ?? false
+      anonymous ?? false,
+      quantity ?? 1,
+      selection ?? null
     );
     return { success: true, data: claim };
   }, {
@@ -175,6 +179,8 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
           amount: t.Optional(t.Nullable(t.Numeric())),
           claimedByName: t.Optional(t.Nullable(t.String())),
           anonymous: t.Optional(t.Boolean()),
+          quantity: t.Optional(t.Numeric()),
+          selection: t.Optional(t.Nullable(t.String())),
         })
       })
     })
@@ -260,13 +266,50 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
                         html.match(/<meta[^>]*name=["']twitter:description["'][^>]*content=["']([^"']+)["']/i);
       const description = descMatch ? decodeHtmlEntities(descMatch[1]?.trim() ?? '') : '';
 
+      // Extract from JSON-LD
+      let jsonLdColor: string | null = null;
+      let jsonLdSize: string | null = null;
+      try {
+        const jsonLdMatches = html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
+        for (const match of jsonLdMatches) {
+          try {
+            const content = match[1]?.trim();
+            if (content) {
+              const parsed = JSON.parse(content);
+              const extractDetails = (obj: any) => {
+                if (!obj || typeof obj !== 'object') return;
+                if (obj.color && typeof obj.color === 'string') jsonLdColor = obj.color;
+                if (obj.size && typeof obj.size === 'string') jsonLdSize = obj.size;
+                if (obj.color && typeof obj.color === 'object' && obj.color.name) jsonLdColor = String(obj.color.name);
+                if (obj.size && typeof obj.size === 'object' && obj.size.name) jsonLdSize = String(obj.size.name);
+
+                if (Array.isArray(obj.offers)) {
+                  for (const offer of obj.offers) {
+                    if (offer.color && typeof offer.color === 'string') jsonLdColor = offer.color;
+                    if (offer.size && typeof offer.size === 'string') jsonLdSize = offer.size;
+                  }
+                } else if (obj.offers && typeof obj.offers === 'object') {
+                  if (obj.offers.color && typeof obj.offers.color === 'string') jsonLdColor = obj.offers.color;
+                  if (obj.offers.size && typeof obj.offers.size === 'string') jsonLdSize = obj.offers.size;
+                }
+              };
+              if (Array.isArray(parsed)) {
+                parsed.forEach(extractDetails);
+              } else {
+                extractDetails(parsed);
+              }
+            }
+          } catch (_) {}
+        }
+      } catch (_) {}
+
       // Extract Color
       const colorMatch = html.match(/<meta[^>]*property=["']product:color["'][^>]*content=["']([^"']+)["']/i) ||
                          html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']product:color["']/i) ||
                          html.match(/<meta[^>]*name=["']color["'][^>]*content=["']([^"']+)["']/i) ||
                          html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']color["']/i) ||
                          html.match(/itemprop=["']color["'][^>]*content=["']([^"']+)["']/i);
-      const color = colorMatch ? decodeHtmlEntities(colorMatch[1]?.trim() ?? '') : '';
+      const color = jsonLdColor || (colorMatch ? decodeHtmlEntities(colorMatch[1]?.trim() ?? '') : '');
 
       // Extract Size
       const sizeMatch = html.match(/<meta[^>]*property=["']product:size["'][^>]*content=["']([^"']+)["']/i) ||
@@ -274,7 +317,7 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
                         html.match(/<meta[^>]*name=["']size["'][^>]*content=["']([^"']+)["']/i) ||
                         html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']size["']/i) ||
                         html.match(/itemprop=["']size["'][^>]*content=["']([^"']+)["']/i);
-      const size = sizeMatch ? decodeHtmlEntities(sizeMatch[1]?.trim() ?? '') : '';
+      const size = jsonLdSize || (sizeMatch ? decodeHtmlEntities(sizeMatch[1]?.trim() ?? '') : '');
 
       // Auto-detect Category
       let category: string | null = null;
@@ -323,14 +366,15 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
       })
     })
   })
-  .put('/items/:itemId', async ({ checkListAccess, params: { itemId }, body: { Giftistry: { Items: { name, description, priorityId, category } } } }) => {
+  .put('/items/:itemId', async ({ checkListAccess, params: { itemId }, body: { Giftistry: { Items: { name, description, priorityId, category, priority } } } }) => {
     await checkListAccess('collaborator');
     const item = await useCases.updateItem.execute(
       itemId,
       name,
       description ?? null,
       priorityId ?? null,
-      category ?? 'uncategorized'
+      category ?? 'uncategorized',
+      priority !== undefined && priority !== null ? Number(priority) : null
     );
     return { success: true, data: item };
   }, {
@@ -347,6 +391,7 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
           description: t.Optional(t.Nullable(t.String())),
           priorityId: t.Optional(t.Nullable(t.String())),
           category: t.Optional(t.Nullable(t.String())),
+          priority: t.Optional(t.Nullable(t.Numeric())),
         })
       })
     })

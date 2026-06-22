@@ -11,7 +11,8 @@ export interface ItemRepository {
     description: string | null,
     isHiddenIdea: boolean,
     category: string,
-    isSuggestion?: boolean
+    isSuggestion?: boolean,
+    priority?: number | null
   ): Promise<Item>;
   
   createLink(
@@ -33,7 +34,9 @@ export interface ItemRepository {
     userId: string | null,
     amount: number | null,
     claimedByName: string | null,
-    anonymous?: boolean
+    anonymous?: boolean,
+    quantity?: number,
+    selection?: string | null
   ): Promise<Claim>;
   findClaimsByItemId(itemId: string): Promise<Claim[]>;
   findClaimsByListId(listId: string): Promise<Claim[]>;
@@ -42,7 +45,8 @@ export interface ItemRepository {
     name: string,
     description: string | null,
     priorityId: string | null,
-    category: string
+    category: string,
+    priority?: number | null
   ): Promise<Item>;
   delete(id: string): Promise<void>;
   deleteClaim(itemId: string, userId: string): Promise<void>;

@@ -14,7 +14,9 @@ export class ClaimItemUseCase {
     userId: string | null,
     amount: number | null,
     claimedByName: string | null,
-    anonymous: boolean = false
+    anonymous: boolean = false,
+    quantity: number = 1,
+    selection: string | null = null
   ): Promise<Claim> {
     const item = await this.itemRepo.findById(itemId);
     if (!item) {
@@ -31,7 +33,49 @@ export class ClaimItemUseCase {
     }
 
     const claims = await this.itemRepo.findClaimsByItemId(itemId);
-    
+
+    // Parse multi-count properties from item description JSON
+    let isMultiCount = false;
+    let desiredQuantity = 1;
+    let variations: any[] = [];
+    if (item.Description) {
+      try {
+        if (item.Description.startsWith('{') && item.Description.endsWith('}')) {
+          const parsed = JSON.parse(item.Description);
+          if (parsed && typeof parsed === 'object') {
+            if (parsed.multiCount) {
+              isMultiCount = true;
+              desiredQuantity = Number(parsed.desiredQuantity) || 1;
+              variations = parsed.variations || [];
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (isMultiCount) {
+      // Validate multi-count limits
+      const totalClaimedQty = claims.reduce((sum, c) => sum + (c.Quantity || 1), 0);
+      if (totalClaimedQty + quantity > desiredQuantity) {
+        const remaining = Math.max(0, desiredQuantity - totalClaimedQty);
+        throw new AppError(`Claim quantity exceeds remaining available items. Remaining: ${remaining}`, 400, 'BAD_REQUEST');
+      }
+
+      if (selection) {
+        const matchVar = variations.find(v => v.name === selection);
+        if (matchVar) {
+          const varLimit = Number(matchVar.quantity) || 0;
+          const varClaimed = claims.filter(c => c.Selection === selection).reduce((sum, c) => sum + (c.Quantity || 1), 0);
+          if (varClaimed + quantity > varLimit) {
+            const remainingVar = Math.max(0, varLimit - varClaimed);
+            throw new AppError(`Claim quantity exceeds remaining available for variation "${selection}". Remaining: ${remainingVar}`, 400, 'BAD_REQUEST');
+          }
+        }
+      }
+      
+      return await this.itemRepo.createClaim(itemId, userId, null, claimedByName, anonymous, quantity, selection);
+    }
+
     // Check if fully claimed by a standard purchase (amount = null)
     const isFullyClaimed = claims.some(c => c.Amount === null);
     if (isFullyClaimed) {
@@ -55,13 +99,13 @@ export class ClaimItemUseCase {
         throw new AppError(`Claim amount exceeds the item price. Remaining: $${remaining.toFixed(2)}`, 400, 'BAD_REQUEST');
       }
 
-      return await this.itemRepo.createClaim(itemId, userId, amount, claimedByName, anonymous);
+      return await this.itemRepo.createClaim(itemId, userId, amount, claimedByName, anonymous, 1, null);
     } else {
       // Full purchase claim
       if (claims.length > 0) {
         throw new AppError('Item is already fully or partially claimed', 409, 'ALREADY_CLAIMED');
       }
-      return await this.itemRepo.createClaim(itemId, userId, null, claimedByName, anonymous);
+      return await this.itemRepo.createClaim(itemId, userId, null, claimedByName, anonymous, 1, null);
     }
   }
 }

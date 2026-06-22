@@ -23,9 +23,22 @@ export async function up() {
     ALTER TABLE claims ADD COLUMN IF NOT EXISTS anonymous BOOLEAN DEFAULT FALSE;
   `;
 
+  // 0f. Add quantity and selection to claims table
+  await sql`
+    ALTER TABLE claims ADD COLUMN IF NOT EXISTS quantity INTEGER DEFAULT 1 NOT NULL;
+  `;
+  await sql`
+    ALTER TABLE claims ADD COLUMN IF NOT EXISTS selection VARCHAR(255) DEFAULT NULL;
+  `;
+
   // 0e. Add is_deleted to comments table
   await sql`
     ALTER TABLE comments ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE;
+  `;
+
+  // 0g. Add priority to items table
+  await sql`
+    ALTER TABLE items ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT NULL;
   `;
 
   // 1. Create Definitions Table

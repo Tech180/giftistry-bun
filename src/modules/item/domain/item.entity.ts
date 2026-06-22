@@ -9,6 +9,7 @@ export interface Item {
   IsHiddenIdea: boolean;
   IsSuggestion?: boolean;
   Category: string;
+  Priority?: number | null;
   CreatedAt?: Date;
 }
 
@@ -29,4 +30,6 @@ export interface Claim {
   ClaimedByName: string | null;
   Anonymous?: boolean;
   ClaimedAt?: Date;
+  Quantity?: number;
+  Selection?: string | null;
 }

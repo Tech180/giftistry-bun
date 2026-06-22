@@ -8,7 +8,7 @@ export class PostgresItemRepository implements ItemRepository {
       SELECT i.id as "Id", i.list_id as "ListId", i.priority_id as "PriorityId", i.suggested_by_user_id as "SuggestedByUserId", 
              u.username as "SuggestedByUsername", i.name as "Name", 
              i.description as "Description", i.is_hidden_idea as "IsHiddenIdea", i.is_suggestion as "IsSuggestion", 
-             i.category as "Category", i.created_at as "CreatedAt"
+             i.category as "Category", i.priority as "Priority", i.created_at as "CreatedAt"
       FROM items i
       LEFT JOIN users u ON i.suggested_by_user_id = u.id
       WHERE i.id = ${id}
@@ -25,6 +25,7 @@ export class PostgresItemRepository implements ItemRepository {
       IsHiddenIdea: row.IsHiddenIdea,
       IsSuggestion: row.IsSuggestion,
       Category: row.Category,
+      Priority: row.Priority ? Number(row.Priority) : null,
       CreatedAt: new Date(row.CreatedAt),
     };
   }
@@ -34,7 +35,7 @@ export class PostgresItemRepository implements ItemRepository {
       SELECT i.id as "Id", i.list_id as "ListId", i.priority_id as "PriorityId", i.suggested_by_user_id as "SuggestedByUserId", 
              u.username as "SuggestedByUsername", i.name as "Name", 
              i.description as "Description", i.is_hidden_idea as "IsHiddenIdea", i.is_suggestion as "IsSuggestion", 
-             i.category as "Category", i.created_at as "CreatedAt"
+             i.category as "Category", i.priority as "Priority", i.created_at as "CreatedAt"
       FROM items i
       LEFT JOIN users u ON i.suggested_by_user_id = u.id
       WHERE i.list_id = ${listId}
@@ -51,6 +52,7 @@ export class PostgresItemRepository implements ItemRepository {
       IsHiddenIdea: row.IsHiddenIdea,
       IsSuggestion: row.IsSuggestion,
       Category: row.Category,
+      Priority: row.Priority ? Number(row.Priority) : null,
       CreatedAt: new Date(row.CreatedAt),
     }));
   }
@@ -63,13 +65,14 @@ export class PostgresItemRepository implements ItemRepository {
     description: string | null,
     isHiddenIdea: boolean,
     category: string = 'uncategorized',
-    isSuggestion: boolean = false
+    isSuggestion: boolean = false,
+    priority: number | null = null
   ): Promise<Item> {
     const [row] = await sql<any[]>`
-      INSERT INTO items (list_id, priority_id, suggested_by_user_id, name, description, is_hidden_idea, category, is_suggestion)
-      VALUES (${listId}, ${priorityId}, ${suggestedByUserId}, ${name}, ${description}, ${isHiddenIdea}, ${category}, ${isSuggestion})
+      INSERT INTO items (list_id, priority_id, suggested_by_user_id, name, description, is_hidden_idea, category, is_suggestion, priority)
+      VALUES (${listId}, ${priorityId}, ${suggestedByUserId}, ${name}, ${description}, ${isHiddenIdea}, ${category}, ${isSuggestion}, ${priority})
       RETURNING id as "Id", list_id as "ListId", priority_id as "PriorityId", suggested_by_user_id as "SuggestedByUserId", name as "Name", 
-                description as "Description", is_hidden_idea as "IsHiddenIdea", is_suggestion as "IsSuggestion", category as "Category", created_at as "CreatedAt"
+                description as "Description", is_hidden_idea as "IsHiddenIdea", is_suggestion as "IsSuggestion", category as "Category", priority as "Priority", created_at as "CreatedAt"
     `;
     if (!row) throw new Error('Failed to create item');
     return {
@@ -82,6 +85,7 @@ export class PostgresItemRepository implements ItemRepository {
       IsHiddenIdea: row.IsHiddenIdea,
       IsSuggestion: row.IsSuggestion,
       Category: row.Category,
+      Priority: row.Priority ? Number(row.Priority) : null,
       CreatedAt: new Date(row.CreatedAt),
     };
   }
@@ -145,13 +149,16 @@ export class PostgresItemRepository implements ItemRepository {
     userId: string | null,
     amount: number | null,
     claimedByName: string | null,
-    anonymous: boolean = false
+    anonymous: boolean = false,
+    quantity: number = 1,
+    selection: string | null = null
   ): Promise<Claim> {
     const [row] = await sql<any[]>`
-      INSERT INTO claims (item_id, user_id, amount, claimed_by_name, anonymous)
-      VALUES (${itemId}, ${userId}, ${amount}, ${claimedByName}, ${anonymous})
+      INSERT INTO claims (item_id, user_id, amount, claimed_by_name, anonymous, quantity, selection)
+      VALUES (${itemId}, ${userId}, ${amount}, ${claimedByName}, ${anonymous}, ${quantity}, ${selection})
       RETURNING id as "Id", item_id as "ItemId", user_id as "UserId", amount as "Amount", 
-                claimed_by_name as "ClaimedByName", anonymous as "Anonymous", claimed_at as "ClaimedAt"
+                claimed_by_name as "ClaimedByName", anonymous as "Anonymous", claimed_at as "ClaimedAt",
+                quantity as "Quantity", selection as "Selection"
     `;
     if (!row) throw new Error('Failed to create claim');
     return {
@@ -162,13 +169,16 @@ export class PostgresItemRepository implements ItemRepository {
       ClaimedByName: row.ClaimedByName,
       Anonymous: row.Anonymous,
       ClaimedAt: new Date(row.ClaimedAt),
+      Quantity: row.Quantity ? Number(row.Quantity) : 1,
+      Selection: row.Selection,
     };
   }
 
   async findClaimsByItemId(itemId: string): Promise<Claim[]> {
     const rows = await sql<any[]>`
       SELECT id as "Id", item_id as "ItemId", user_id as "UserId", amount as "Amount", 
-             claimed_by_name as "ClaimedByName", anonymous as "Anonymous", claimed_at as "ClaimedAt"
+             claimed_by_name as "ClaimedByName", anonymous as "Anonymous", claimed_at as "ClaimedAt",
+             quantity as "Quantity", selection as "Selection"
       FROM claims
       WHERE item_id = ${itemId}
     `;
@@ -180,13 +190,16 @@ export class PostgresItemRepository implements ItemRepository {
       ClaimedByName: row.ClaimedByName,
       Anonymous: row.Anonymous,
       ClaimedAt: new Date(row.ClaimedAt),
+      Quantity: row.Quantity ? Number(row.Quantity) : 1,
+      Selection: row.Selection,
     }));
   }
 
   async findClaimsByListId(listId: string): Promise<Claim[]> {
     const rows = await sql<any[]>`
       SELECT c.id as "Id", c.item_id as "ItemId", c.user_id as "UserId", c.amount as "Amount", 
-             c.claimed_by_name as "ClaimedByName", c.anonymous as "Anonymous", c.claimed_at as "ClaimedAt"
+             c.claimed_by_name as "ClaimedByName", c.anonymous as "Anonymous", c.claimed_at as "ClaimedAt",
+             c.quantity as "Quantity", c.selection as "Selection"
       FROM claims c
       JOIN items i ON c.item_id = i.id
       WHERE i.list_id = ${listId}
@@ -199,6 +212,8 @@ export class PostgresItemRepository implements ItemRepository {
       ClaimedByName: row.ClaimedByName,
       Anonymous: row.Anonymous,
       ClaimedAt: new Date(row.ClaimedAt),
+      Quantity: row.Quantity ? Number(row.Quantity) : 1,
+      Selection: row.Selection,
     }));
   }
 
@@ -207,17 +222,19 @@ export class PostgresItemRepository implements ItemRepository {
     name: string,
     description: string | null,
     priorityId: string | null,
-    category: string
+    category: string,
+    priority: number | null = null
   ): Promise<Item> {
     const [row] = await sql<any[]>`
       UPDATE items
       SET name = ${name},
           description = ${description},
           priority_id = ${priorityId},
-          category = ${category}
+          category = ${category},
+          priority = ${priority}
       WHERE id = ${id}
       RETURNING id as "Id", list_id as "ListId", priority_id as "PriorityId", suggested_by_user_id as "SuggestedByUserId", name as "Name", 
-                description as "Description", is_hidden_idea as "IsHiddenIdea", is_suggestion as "IsSuggestion", category as "Category", created_at as "CreatedAt"
+                description as "Description", is_hidden_idea as "IsHiddenIdea", is_suggestion as "IsSuggestion", category as "Category", priority as "Priority", created_at as "CreatedAt"
     `;
     if (!row) throw new Error('Item not found or failed to update');
     return {
@@ -230,6 +247,7 @@ export class PostgresItemRepository implements ItemRepository {
       IsHiddenIdea: row.IsHiddenIdea,
       IsSuggestion: row.IsSuggestion,
       Category: row.Category,
+      Priority: row.Priority ? Number(row.Priority) : null,
       CreatedAt: new Date(row.CreatedAt),
     };
   }

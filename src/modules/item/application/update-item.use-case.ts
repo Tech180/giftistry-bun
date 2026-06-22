@@ -10,7 +10,8 @@ export class UpdateItemUseCase {
     name: string,
     description: string | null = null,
     priorityId: string | null = null,
-    category: string = 'uncategorized'
+    category: string = 'uncategorized',
+    priority: number | null = null
   ): Promise<Item> {
     if (!itemId) {
       throw new AppError('Item ID is required', 400, 'BAD_REQUEST');
@@ -24,6 +25,6 @@ export class UpdateItemUseCase {
       throw new AppError('Item not found', 404, 'NOT_FOUND');
     }
 
-    return await this.itemRepo.update(itemId, name, description, priorityId, category);
+    return await this.itemRepo.update(itemId, name, description, priorityId, category, priority);
   }
 }
