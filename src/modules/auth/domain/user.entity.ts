@@ -6,4 +6,7 @@ export interface User {
   LastName: string;
   AuthHash: string;
   CreatedAt?: Date;
+  Bio?: string;
+  Theme?: string;
+  Avatar?: string | null;
 }

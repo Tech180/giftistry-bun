@@ -5,7 +5,7 @@ import { sql } from '@/common/database/connection';
 export class PostgresUserRepository implements UserRepository {
   async findByEmail(email: string): Promise<User | null> {
     const [row] = await sql<any[]>`
-      SELECT id as "Id", username as "Username", email as "Email", first_name as "FirstName", last_name as "LastName", auth_hash as "AuthHash", created_at as "CreatedAt"
+      SELECT id as "Id", username as "Username", email as "Email", first_name as "FirstName", last_name as "LastName", auth_hash as "AuthHash", created_at as "CreatedAt", bio as "Bio", theme as "Theme", avatar as "Avatar"
       FROM users
       WHERE email = ${email}
     `;
@@ -18,12 +18,15 @@ export class PostgresUserRepository implements UserRepository {
       LastName: row.LastName,
       AuthHash: row.AuthHash,
       CreatedAt: new Date(row.CreatedAt),
+      Bio: row.Bio,
+      Theme: row.Theme,
+      Avatar: row.Avatar,
     };
   }
 
   async findByUsername(username: string): Promise<User | null> {
     const [row] = await sql<any[]>`
-      SELECT id as "Id", username as "Username", email as "Email", first_name as "FirstName", last_name as "LastName", auth_hash as "AuthHash", created_at as "CreatedAt"
+      SELECT id as "Id", username as "Username", email as "Email", first_name as "FirstName", last_name as "LastName", auth_hash as "AuthHash", created_at as "CreatedAt", bio as "Bio", theme as "Theme", avatar as "Avatar"
       FROM users
       WHERE username = ${username}
     `;
@@ -36,12 +39,15 @@ export class PostgresUserRepository implements UserRepository {
       LastName: row.LastName,
       AuthHash: row.AuthHash,
       CreatedAt: new Date(row.CreatedAt),
+      Bio: row.Bio,
+      Theme: row.Theme,
+      Avatar: row.Avatar,
     };
   }
 
   async findById(id: string): Promise<User | null> {
     const [row] = await sql<any[]>`
-      SELECT id as "Id", username as "Username", email as "Email", first_name as "FirstName", last_name as "LastName", auth_hash as "AuthHash", created_at as "CreatedAt"
+      SELECT id as "Id", username as "Username", email as "Email", first_name as "FirstName", last_name as "LastName", auth_hash as "AuthHash", created_at as "CreatedAt", bio as "Bio", theme as "Theme", avatar as "Avatar"
       FROM users
       WHERE id = ${id}
     `;
@@ -54,6 +60,9 @@ export class PostgresUserRepository implements UserRepository {
       LastName: row.LastName,
       AuthHash: row.AuthHash,
       CreatedAt: new Date(row.CreatedAt),
+      Bio: row.Bio,
+      Theme: row.Theme,
+      Avatar: row.Avatar,
     };
   }
 
@@ -61,7 +70,7 @@ export class PostgresUserRepository implements UserRepository {
     const [row] = await sql<any[]>`
       INSERT INTO users (username, email, first_name, last_name, auth_hash)
       VALUES (${username}, ${email}, ${firstName}, ${lastName}, ${authHash})
-      RETURNING id as "Id", username as "Username", email as "Email", first_name as "FirstName", last_name as "LastName", auth_hash as "AuthHash", created_at as "CreatedAt"
+      RETURNING id as "Id", username as "Username", email as "Email", first_name as "FirstName", last_name as "LastName", auth_hash as "AuthHash", created_at as "CreatedAt", bio as "Bio", theme as "Theme", avatar as "Avatar"
     `;
     if (!row) {
       throw new Error('Failed to create user');
@@ -74,10 +83,13 @@ export class PostgresUserRepository implements UserRepository {
       LastName: row.LastName,
       AuthHash: row.AuthHash,
       CreatedAt: new Date(row.CreatedAt),
+      Bio: row.Bio,
+      Theme: row.Theme,
+      Avatar: row.Avatar,
     };
   }
 
-  async update(id: string, updates: { username?: string; firstName?: string; lastName?: string }): Promise<User> {
+  async update(id: string, updates: { username?: string; firstName?: string; lastName?: string; bio?: string; theme?: string; avatar?: string | null }): Promise<User> {
     const user = await this.findById(id);
     if (!user) {
       throw new Error('User not found');
@@ -85,12 +97,15 @@ export class PostgresUserRepository implements UserRepository {
     const username = updates.username !== undefined ? updates.username : user.Username;
     const firstName = updates.firstName !== undefined ? updates.firstName : user.FirstName;
     const lastName = updates.lastName !== undefined ? updates.lastName : user.LastName;
+    const bio = updates.bio !== undefined ? updates.bio : (user.Bio || '');
+    const theme = updates.theme !== undefined ? updates.theme : (user.Theme || 'default');
+    const avatar = updates.avatar !== undefined ? updates.avatar : (user.Avatar || null);
 
     const [row] = await sql<any[]>`
       UPDATE users
-      SET username = ${username}, first_name = ${firstName}, last_name = ${lastName}
+      SET username = ${username}, first_name = ${firstName}, last_name = ${lastName}, bio = ${bio}, theme = ${theme}, avatar = ${avatar}
       WHERE id = ${id}
-      RETURNING id as "Id", username as "Username", email as "Email", first_name as "FirstName", last_name as "LastName", auth_hash as "AuthHash", created_at as "CreatedAt"
+      RETURNING id as "Id", username as "Username", email as "Email", first_name as "FirstName", last_name as "LastName", auth_hash as "AuthHash", created_at as "CreatedAt", bio as "Bio", theme as "Theme", avatar as "Avatar"
     `;
     if (!row) {
       throw new Error('Failed to update user');
@@ -103,6 +118,9 @@ export class PostgresUserRepository implements UserRepository {
       LastName: row.LastName,
       AuthHash: row.AuthHash,
       CreatedAt: new Date(row.CreatedAt),
+      Bio: row.Bio,
+      Theme: row.Theme,
+      Avatar: row.Avatar,
     };
   }
 }

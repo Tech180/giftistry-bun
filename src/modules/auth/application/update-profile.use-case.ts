@@ -5,7 +5,7 @@ import { AppError } from '@/common/middlewares/error.middleware';
 export class UpdateProfileUseCase {
   constructor(private userRepo: UserRepository) {}
 
-  async execute(userId: string, updates: { username?: string; firstName?: string; lastName?: string }): Promise<Omit<User, 'AuthHash'>> {
+  async execute(userId: string, updates: { username?: string; firstName?: string; lastName?: string; bio?: string; theme?: string; avatar?: string | null }): Promise<Omit<User, 'AuthHash'>> {
     if (updates.username) {
       const existingUser = await this.userRepo.findByUsername(updates.username);
       if (existingUser && existingUser.Id !== userId) {
@@ -21,6 +21,9 @@ export class UpdateProfileUseCase {
       FirstName: user.FirstName,
       LastName: user.LastName,
       CreatedAt: user.CreatedAt,
+      Bio: user.Bio,
+      Theme: user.Theme,
+      Avatar: user.Avatar,
     };
   }
 }

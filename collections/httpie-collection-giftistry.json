@@ -10,8 +10,8 @@
   "entry": {
     "name": "Giftistry",
     "icon": {
-      "color": "pink",
-      "name": "default"
+      "name": "default",
+      "color": "pink"
     },
     "auth": {
       "type": "none"

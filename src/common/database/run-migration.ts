@@ -3,6 +3,21 @@ import { sql } from './connection';
 export async function up() {
   console.log('[INFO] Running migrations for dynamic item fields...');
 
+  // Add fields to users table
+  await sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT DEFAULT '';
+  `;
+  await sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS theme VARCHAR(255) DEFAULT 'default';
+  `;
+  await sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar TEXT DEFAULT NULL;
+  `;
+  await sql`
+    ALTER TABLE users ALTER COLUMN avatar TYPE TEXT;
+  `;
+
+
   // 0. Add Category to lists table
   await sql`
     ALTER TABLE lists ADD COLUMN IF NOT EXISTS category VARCHAR(255) DEFAULT 'generic';

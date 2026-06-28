@@ -1,4 +1,5 @@
 import { Elysia, StatusMap, t } from 'elysia';
+import path from 'path';
 import { cors } from '@elysiajs/cors';
 import { swagger } from '@elysiajs/swagger';
 import { env } from './common/consts/env.consts';
@@ -218,6 +219,57 @@ export const app = new Elysia()
           }));
         }
       }
+    }
+  })
+  .get('/api/themes/:theme/:appearance/css', async ({ params, set }) => {
+    const { theme, appearance } = params;
+    if (appearance !== 'light' && appearance !== 'dark') {
+      set.status = 400;
+      return { status: 'error', message: 'Invalid appearance. Must be light or dark.' };
+    }
+
+    const builtInThemes = ['default', 'cyberpunk', 'neon', 'mystic', 'burnt-forest', 'halloween', 'christmas'];
+    if (builtInThemes.includes(theme)) {
+      try {
+        const filePath = path.join(import.meta.dir, '../../theming-engine/dist/css/themes', `${theme}-${appearance}.css`);
+        const file = Bun.file(filePath);
+        if (await file.exists()) {
+          return new Response(await file.text(), {
+            headers: { 'Content-Type': 'text/css' }
+          });
+        }
+      } catch (err: any) {
+        console.error('Failed to read theme file:', err);
+      }
+    }
+
+    // Dynamic Compilation Fallback (Simulates database retrieval of user-generated theme tokens)
+    try {
+      const dbTokens = {
+        primary: '#ff00ff',
+        primaryHover: '#cc00cc',
+        accent: '#00ffff',
+        bg: '#121212',
+        surface: '#1e1e1e',
+        surfaceHover: '#2d2d2d',
+        surfaceGlass: 'rgba(30, 30, 30, 0.5)',
+        border: '#333333',
+        text: '#ffffff',
+        textMuted: '#aaaaaa',
+        radius: '12px',
+        shadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+        bgGradient: 'linear-gradient(135deg, #121212 0%, #1e1e1e 100%)',
+      };
+
+      const { compileDynamicThemeCss } = await import('../../theming-engine/src/dynamic-compiler');
+      const cssContent = await compileDynamicThemeCss(theme, appearance as 'light' | 'dark', dbTokens);
+
+      return new Response(cssContent, {
+        headers: { 'Content-Type': 'text/css' }
+      });
+    } catch (err: any) {
+      set.status = 500;
+      return { status: 'error', message: `Failed to compile theme: ${err.message}` };
     }
   })
   .get('/health', () => ({ Status: 'ok', Database: 'connected', Version: '0.1.0' }));

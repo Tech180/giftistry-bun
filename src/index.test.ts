@@ -1357,4 +1357,86 @@ describe("Giftistry Integration Tests", () => {
     // Cleanup
     await sql`DELETE FROM lists WHERE id = ${testListId}`;
   });
+
+  test("35. Public user preview profile endpoint", async () => {
+    // Update owner's profile with bio, theme, avatar
+    const updateRes = await app.handle(
+      new Request("http://localhost/api/auth/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${ownerToken}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Auth: {
+              username: ownerUsername,
+              bio: "I love mechanical keyboards.",
+              theme: "neon",
+              avatar: "owner_avatar_url"
+            }
+          }
+        })
+      })
+    );
+    expect(updateRes.status).toBe(200);
+
+    // Get public preview profile
+    const previewRes = await app.handle(
+      new Request(`http://localhost/api/users/${ownerUserId}/preview`, {
+        method: "GET"
+      })
+    );
+    expect(previewRes.status).toBe(200);
+    const body = await previewRes.json() as any;
+    expect(body.Meta.Status).toBe("Success");
+    expect(body.Result.User.Username).toBe(ownerUsername);
+    expect(body.Result.User.Bio).toBe("I love mechanical keyboards.");
+    expect(body.Result.User.Theme).toBe("neon");
+    expect(body.Result.User.Avatar).toBe("owner_avatar_url");
+    expect(body.Result.User.CreatedAt).toBeDefined();
+
+    // Verify requesting non-existent user returns 404
+    const fakeRes = await app.handle(
+      new Request("http://localhost/api/users/00000000-0000-0000-0000-000000000000/preview", {
+        method: "GET"
+      })
+    );
+    expect(fakeRes.status).toBe(404);
+  });
+
+  test("36. Dynamic stylesheet serving endpoint", async () => {
+    // 1. Request static built-in theme (e.g. cyberpunk-dark)
+    const resStatic = await app.handle(
+      new Request("http://localhost/api/themes/cyberpunk/dark/css", {
+        method: "GET"
+      })
+    );
+    expect(resStatic.status).toBe(200);
+    expect(resStatic.headers.get("Content-Type")).toBe("text/css");
+    const cssStatic = await resStatic.text();
+    expect(cssStatic).toContain('[data-theme="cyberpunk"][data-appearance="dark"]');
+    expect(cssStatic).toContain("--theme-bg");
+
+    // 2. Request user-generated theme (triggers dynamic in-memory compilation)
+    const resDynamic = await app.handle(
+      new Request("http://localhost/api/themes/user-theme-999/dark/css", {
+        method: "GET"
+      })
+    );
+    expect(resDynamic.status).toBe(200);
+    expect(resDynamic.headers.get("Content-Type")).toBe("text/css");
+    const cssDynamic = await resDynamic.text();
+    expect(cssDynamic).toContain('[data-theme="user-theme-999"][data-appearance="dark"]');
+    expect(cssDynamic).toContain("--theme-primary: #FF00FFFF;");
+    expect(cssDynamic).toContain("--theme-radius: 0.75rem;");
+
+    // 3. Request invalid appearance returns 400
+    const resInvalid = await app.handle(
+      new Request("http://localhost/api/themes/cyberpunk/invalid-appearance/css", {
+        method: "GET"
+      })
+    );
+    expect(resInvalid.status).toBe(400);
+  });
 });
