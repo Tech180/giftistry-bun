@@ -8,6 +8,7 @@ import { authModule } from './modules/auth/auth.module';
 import { wishlistModule } from './modules/wishlist/wishlist.module';
 import { itemModule } from './modules/item/item.module';
 import { commentModule } from './modules/comment/comment.module';
+import { systemRoutes } from './modules/system/system.routes';
 import { sql } from './common/database/connection';
 import { verifyToken } from '@/common/utils/token';
 import { PostgresUserRepository } from '@/modules/auth/infrastructure/postgres-user.repository';
@@ -130,6 +131,7 @@ export const app = new Elysia()
   .use(wishlistModule)
   .use(itemModule)
   .use(commentModule)
+  .use(systemRoutes)
   .ws('/ws/wishlist/:listId', {
     query: t.Object({
       token: t.String()
@@ -221,6 +223,24 @@ export const app = new Elysia()
       }
     }
   })
+  .get('/api/themes/core/css', async ({ set }) => {
+    try {
+      const filePath = path.join(import.meta.dir, '../../theming-engine/dist/css/variables.css');
+      const file = Bun.file(filePath);
+      if (await file.exists()) {
+        return new Response(await file.text(), {
+          headers: { 'Content-Type': 'text/css' }
+        });
+      } else {
+        console.warn(`[WARNING] Core variables.css file not found at: ${filePath}`);
+        set.status = 404;
+        return { status: 'error', message: 'Core variables stylesheet not found.' };
+      }
+    } catch (err: any) {
+      set.status = 500;
+      return { status: 'error', message: `Failed to load core variables: ${err.message}` };
+    }
+  })
   .get('/api/themes/:theme/:appearance/css', async ({ params, set }) => {
     const { theme, appearance } = params;
     if (appearance !== 'light' && appearance !== 'dark') {
@@ -237,6 +257,8 @@ export const app = new Elysia()
           return new Response(await file.text(), {
             headers: { 'Content-Type': 'text/css' }
           });
+        } else {
+          console.warn(`[WARNING] Built-in theme file not found: ${filePath}. Please make sure to run the build command inside the theming-engine directory.`);
         }
       } catch (err: any) {
         console.error('Failed to read theme file:', err);

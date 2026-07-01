@@ -20,8 +20,11 @@ export class SignupUseCase {
       throw new AppError('User with this username already exists', 409, 'USER_EXISTS');
     }
 
+    const userCount = await this.userRepo.count();
+    const isAdmin = userCount === 0;
+
     const authHash = await Bun.password.hash(password);
-    const user = await this.userRepo.create(username, email, firstName || '', lastName || '', authHash);
+    const user = await this.userRepo.create(username, email, firstName || '', lastName || '', authHash, isAdmin);
 
     return {
       Id: user.Id,
@@ -30,6 +33,12 @@ export class SignupUseCase {
       FirstName: user.FirstName,
       LastName: user.LastName,
       CreatedAt: user.CreatedAt,
+      Bio: user.Bio,
+      Theme: user.Theme,
+      Avatar: user.Avatar,
+      EmailVerified: user.EmailVerified,
+      TwoFactorEnabled: user.TwoFactorEnabled,
+      IsAdmin: user.IsAdmin,
     };
   }
 }

@@ -1,6 +1,7 @@
 import { Elysia, t } from 'elysia';
 import { authMiddleware } from '@/modules/auth/auth.module';
 import { listAccessMiddleware, getListAccessContext } from '@/common/middlewares/list-access.middleware';
+import { AppError } from '@/common/middlewares/error.middleware';
 import type { WishlistUseCases } from './wishlist-use-cases.interface';
 
 export const wishlistRoutes = (useCases: WishlistUseCases) => new Elysia({ prefix: '/api' })
@@ -19,6 +20,9 @@ export const wishlistRoutes = (useCases: WishlistUseCases) => new Elysia({ prefi
   })
   .post('/wishlists', async ({ getAuthUser, body: { Giftistry: { Lists: { title, expiresAt, allowGroupFunds, category, revealSuggestions } } } }) => {
     const user = await getAuthUser();
+    if (!user.EmailVerified) {
+      throw new AppError('Forbidden: You must verify your email before creating lists.', 403, 'FORBIDDEN');
+    }
     const wishlist = await useCases.createWishlist.execute(
       user.userId,
       title,
@@ -115,7 +119,11 @@ export const wishlistRoutes = (useCases: WishlistUseCases) => new Elysia({ prefi
     }
   })
   .use(listAccessMiddleware)
-  .post('/wishlists/:listId/shares', async ({ params: { listId }, checkListAccess, body: { Giftistry: { Lists: { email, role } } } }) => {
+  .post('/wishlists/:listId/shares', async ({ params: { listId }, getAuthUser, checkListAccess, body: { Giftistry: { Lists: { email, role } } } }) => {
+    const user = await getAuthUser();
+    if (!user.EmailVerified) {
+      throw new AppError('Forbidden: You must verify your email before sharing lists.', 403, 'FORBIDDEN');
+    }
     await checkListAccess('owner');
     const share = await useCases.shareWishlist.execute(listId, email, role);
     return { success: true, data: share };

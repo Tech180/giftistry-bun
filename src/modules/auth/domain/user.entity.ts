@@ -9,4 +9,8 @@ export interface User {
   Bio?: string;
   Theme?: string;
   Avatar?: string | null;
+  EmailVerified?: boolean;
+  TwoFactorEnabled?: boolean;
+  TwoFactorRecoveryCodes?: string | null;
+  IsAdmin?: boolean;
 }

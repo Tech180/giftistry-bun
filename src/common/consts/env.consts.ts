@@ -10,4 +10,10 @@ export const env = {
   PGPASSWORD: Bun.env.PGPASSWORD || '',
   PGDATABASE: Bun.env.PGDATABASE || 'giftistry',
   N8N: Bun.env.N8N || '',
+  SMTP_HOST: Bun.env.SMTP_HOST || '127.0.0.1',
+  SMTP_PORT: Number(Bun.env.SMTP_PORT || 1025),
+  SMTP_USER: Bun.env.SMTP_USER || '',
+  SMTP_PASS: Bun.env.SMTP_PASS || '',
+  SMTP_SECURE: Bun.env.SMTP_SECURE === 'true',
+  SMTP_FROM: Bun.env.SMTP_FROM || 'noreply@giftistry.local',
 };

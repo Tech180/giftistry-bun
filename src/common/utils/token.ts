@@ -1,8 +1,8 @@
 import { env } from '../consts/env.consts';
 
-export async function createToken(payload: { userId: string }): Promise<string> {
+export async function createToken(payload: Record<string, any>, expiresInMs: number = 24 * 60 * 60 * 1000): Promise<string> {
   const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const data = btoa(JSON.stringify({ ...payload, exp: Date.now() + 24 * 60 * 60 * 1000 }));
+  const data = btoa(JSON.stringify({ ...payload, exp: Date.now() + expiresInMs }));
   const message = `${header}.${data}`;
   
   const encoder = new TextEncoder();
@@ -22,7 +22,7 @@ export async function createToken(payload: { userId: string }): Promise<string> 
   return `${message}.${signatureBase64}`;
 }
 
-export async function verifyToken(token: string): Promise<{ userId: string } | null> {
+export async function verifyToken(token: string): Promise<Record<string, any> | null> {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
@@ -50,9 +50,7 @@ export async function verifyToken(token: string): Promise<{ userId: string } | n
       return null; // Expired
     }
     
-    return {
-      userId: payload.userId,
-    };
+    return payload;
   } catch (error) {
     return null;
   }

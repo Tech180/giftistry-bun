@@ -17,6 +17,42 @@ export async function up() {
     ALTER TABLE users ALTER COLUMN avatar TYPE TEXT;
   `;
 
+  // Add authentication overhaul columns to users
+  await sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE;
+  `;
+  await sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_token VARCHAR(255) DEFAULT NULL;
+  `;
+  await sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_expires TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+  `;
+  await sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_enabled BOOLEAN DEFAULT FALSE;
+  `;
+  await sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_secret VARCHAR(255) DEFAULT NULL;
+  `;
+  await sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_recovery_codes TEXT DEFAULT NULL;
+  `;
+  await sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;
+  `;
+
+  // Create user_passkeys table
+  await sql`
+    CREATE TABLE IF NOT EXISTS user_passkeys (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      credential_id TEXT UNIQUE NOT NULL,
+      public_key TEXT NOT NULL,
+      counter BIGINT NOT NULL DEFAULT 0,
+      backed_up BOOLEAN DEFAULT FALSE,
+      transports VARCHAR(255) DEFAULT '[]'
+    );
+  `;
+
 
   // 0. Add Category to lists table
   await sql`
