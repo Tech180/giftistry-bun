@@ -6,7 +6,9 @@ import { PostgresUserRepository } from '../infrastructure/postgres-user.reposito
 import { PostgresPasskeyRepository } from '../infrastructure/postgres-passkey.repository';
 import { SmtpEmailService } from '@/common/services/email.service';
 import { rateLimit } from '@/common/middlewares/rate-limit.middleware';
+import { isAvatarColor } from '@/common/utils/avatar.util';
 import { sql } from '@/common/database/connection';
+import { writeAuditLog } from '@/common/services/audit-log.service';
 import { generateSecret, generateURI, verify, generate } from 'otplib';
 import {
   generateRegistrationOptions,
@@ -27,6 +29,19 @@ const getCookie = (cookieHeader: string | undefined, name: string): string | nul
   const match = cookieHeader.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
   return match ? decodeURIComponent(match[1]) : null;
 };
+
+async function countEnabledAdmins(excludeUserId?: string): Promise<number> {
+  const rows = excludeUserId
+    ? await sql<any[]>`
+        SELECT COUNT(*)::integer as count FROM users
+        WHERE is_admin = true AND is_disabled = false AND id != ${excludeUserId}
+      `
+    : await sql<any[]>`
+        SELECT COUNT(*)::integer as count FROM users
+        WHERE is_admin = true AND is_disabled = false
+      `;
+  return rows[0]?.count ?? 0;
+}
 
 export const authMiddleware = new Elysia()
   .derive({ as: 'global' }, async ({ headers }) => {
@@ -58,6 +73,16 @@ export const authMiddleware = new Elysia()
           throw new AppError('Unauthorized: User not found', 401, 'UNAUTHORIZED');
         }
 
+        if (user.IsDisabled) {
+          throw new AppError('Your account has been disabled', 403, 'FORBIDDEN');
+        }
+
+        if (payload.sessionVersion !== undefined && user.SessionVersion !== undefined && payload.sessionVersion !== user.SessionVersion) {
+          throw new AppError('Session expired. Please log in again.', 401, 'UNAUTHORIZED');
+        }
+
+        userRepo.updateLastOnline(user.Id).catch(console.error);
+
         return {
           userId: user.Id,
           email: user.Email,
@@ -73,6 +98,10 @@ export const authMiddleware = new Elysia()
           EmailVerified: user.EmailVerified,
           TwoFactorEnabled: user.TwoFactorEnabled,
           IsAdmin: user.IsAdmin,
+          IsOwner: user.IsOwner,
+          IsDisabled: user.IsDisabled,
+          ForcePasswordChange: user.ForcePasswordChange,
+          Policy: user.PolicyJson,
         };
       },
       getOptionalAuthUser: async () => {
@@ -92,6 +121,8 @@ export const authMiddleware = new Elysia()
         const user = await userRepo.findById(payload.userId);
         if (!user) return null;
 
+        userRepo.updateLastOnline(user.Id).catch(console.error);
+
         return {
           userId: user.Id,
           email: user.Email,
@@ -107,14 +138,25 @@ export const authMiddleware = new Elysia()
           EmailVerified: user.EmailVerified,
           TwoFactorEnabled: user.TwoFactorEnabled,
           IsAdmin: user.IsAdmin,
+          IsOwner: user.IsOwner,
         };
       }
     };
   });
 
 export const authRoutes = (useCases: AuthUseCases) => new Elysia()
-  .get('/api/users/:userId/preview', async ({ params: { userId } }) => {
-    const preview = await useCases.userPreview.execute(userId);
+  .use(authMiddleware)
+  .get('/api/users/:userId/preview', async ({ params: { userId }, getOptionalAuthUser }) => {
+    let viewerId: string | undefined;
+    try {
+      const viewer = await getOptionalAuthUser();
+      if (viewer) {
+        viewerId = viewer.userId;
+      }
+    } catch (e) {
+      // Ignore auth errors for preview
+    }
+    const preview = await useCases.userPreview.execute(userId, viewerId);
     if (!preview) {
       throw new AppError('User not found', 404, 'NOT_FOUND');
     }
@@ -126,6 +168,94 @@ export const authRoutes = (useCases: AuthUseCases) => new Elysia()
       description: 'Returns public user profile information like display name, username, bio, join date, theme, and avatar.'
     }
   })
+
+  // Get custom themes for active user
+  .get('/api/themes/custom', async ({ getAuthUser }) => {
+    const authUser = await getAuthUser();
+    const themes = await sql`
+      SELECT id as "Id", name as "Name", colors as "Colors", advanced as "Advanced"
+      FROM user_custom_themes
+      WHERE user_id = ${authUser.userId}
+      ORDER BY created_at DESC
+    `;
+    return { success: true, Themes: themes };
+  }, {
+    detail: {
+      tags: ['Themes'],
+      summary: 'Get custom themes of active user',
+      description: 'Returns all database-persisted custom themes created by the authenticated user.',
+      security: [{ bearerAuth: [] }]
+    }
+  })
+
+  // Upsert custom theme
+  .post('/api/themes/custom', async ({ getAuthUser, body: { Giftistry: { Theme } } }) => {
+    const authUser = await getAuthUser();
+    const { assertUserCan } = await import('@/common/services/user-policy.service');
+    await assertUserCan(authUser.userId, 'canUseCustomThemes');
+    const [saved] = await sql`
+      INSERT INTO user_custom_themes (id, user_id, name, colors, advanced)
+      VALUES (${Theme.id}, ${authUser.userId}, ${Theme.name}, ${JSON.stringify(Theme.colors)}, ${JSON.stringify(Theme.advanced || {})})
+      ON CONFLICT (id) DO UPDATE
+      SET name = EXCLUDED.name, colors = EXCLUDED.colors, advanced = EXCLUDED.advanced
+      RETURNING id as "Id", name as "Name", colors as "Colors", advanced as "Advanced"
+    `;
+    return { success: true, Theme: saved };
+  }, {
+    detail: {
+      tags: ['Themes'],
+      summary: 'Create or update a custom theme',
+      description: 'Persists custom theme details in the database.',
+      security: [{ bearerAuth: [] }]
+    },
+    body: t.Object({
+      Giftistry: t.Object({
+        Theme: t.Object({
+          id: t.String(),
+          name: t.String(),
+          colors: t.Object({
+            primary: t.String(),
+            bg: t.String(),
+            surface: t.String(),
+            border: t.String(),
+            text: t.String(),
+            'text-muted': t.Optional(t.String()),
+          }),
+          advanced: t.Optional(t.Object({
+            shadows: t.Optional(t.Object({
+              sm: t.Optional(t.String()),
+              md: t.Optional(t.String()),
+              lg: t.Optional(t.String()),
+            })),
+            fonts: t.Optional(t.Object({
+              sans: t.Optional(t.String()),
+            })),
+            radius: t.Optional(t.Object({
+              default: t.Optional(t.String()),
+            })),
+          })),
+        })
+      })
+    })
+  })
+
+  // Delete custom theme
+  .delete('/api/themes/custom/:id', async ({ getAuthUser, params: { id } }) => {
+    const authUser = await getAuthUser();
+    await sql`
+      DELETE FROM user_custom_themes
+      WHERE id = ${id} AND user_id = ${authUser.userId}
+    `;
+    return { success: true };
+  }, {
+    detail: {
+      tags: ['Themes'],
+      summary: 'Delete a custom theme',
+      description: 'Removes a custom theme by ID from the database.',
+      security: [{ bearerAuth: [] }]
+    }
+  })
+
   .group('/api/auth', (group) => group
     .use(rateLimit({ windowMs: 60000, max: 5 }))
     .post('/signup', async ({ set, body: { Giftistry: { Auth: { username, email, password, firstName, lastName } } } }) => {
@@ -142,7 +272,7 @@ export const authRoutes = (useCases: AuthUseCases) => new Elysia()
       // Send verification email asynchronously
       emailService.sendVerificationEmail(user.Email, user.Username, verificationToken).catch(console.error);
 
-      const token = await createToken({ userId: user.Id });
+      const token = await createToken({ userId: user.Id, sessionVersion: user.SessionVersion ?? 0 });
       
       const isProduction = process.env.NODE_ENV === 'production';
       const secureFlag = isProduction ? 'Secure; ' : '';
@@ -184,7 +314,7 @@ export const authRoutes = (useCases: AuthUseCases) => new Elysia()
         return { success: true, Require2FA: true, Ticket: ticket, Code: autoCode };
       }
 
-      const token = await createToken({ userId: user.Id });
+      const token = await createToken({ userId: user.Id, sessionVersion: user.SessionVersion ?? 0 });
       
       const isProduction = process.env.NODE_ENV === 'production';
       const secureFlag = isProduction ? 'Secure; ' : '';
@@ -285,7 +415,7 @@ export const authRoutes = (useCases: AuthUseCases) => new Elysia()
 
 
 
-      const token = await createToken({ userId: user.Id });
+      const token = await createToken({ userId: user.Id, sessionVersion: user.SessionVersion ?? 0 });
       const secureFlag = process.env.NODE_ENV === 'production' ? 'Secure; ' : '';
       set.headers['Set-Cookie'] = `jwt=${token}; HttpOnly; ${secureFlag}SameSite=Strict; Path=/; Max-Age=86400`;
       
@@ -348,7 +478,7 @@ export const authRoutes = (useCases: AuthUseCases) => new Elysia()
         throw new AppError('Invalid 2FA code', 401, 'UNAUTHORIZED');
       }
 
-      const token = await createToken({ userId: user.Id });
+      const token = await createToken({ userId: user.Id, sessionVersion: user.SessionVersion ?? 0 });
       const secureFlag = process.env.NODE_ENV === 'production' ? 'Secure; ' : '';
       set.headers['Set-Cookie'] = `jwt=${token}; HttpOnly; ${secureFlag}SameSite=Strict; Path=/; Max-Age=86400`;
 
@@ -359,154 +489,6 @@ export const authRoutes = (useCases: AuthUseCases) => new Elysia()
           Auth: t.Object({
             ticket: t.String(),
             code: t.String(),
-          })
-        })
-      })
-    })
-
-    // SSO Routes
-    .get('/sso/github', ({ set }) => {
-      const clientId = process.env.GITHUB_CLIENT_ID || 'mock_github_client';
-      const redirectUri = encodeURIComponent(process.env.GITHUB_REDIRECT_URI || 'http://localhost:8080/api/auth/sso/github/callback');
-      const url = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=user:email`;
-      set.redirect = url;
-    })
-    .get('/sso/github/callback', async ({ query: { code, mock }, set }) => {
-      let email = 'github_user@example.com';
-      let username = 'github_user';
-      let firstName = 'GitHub';
-      let lastName = 'User';
-
-      const isMock = mock === 'true' || !process.env.GITHUB_CLIENT_ID;
-
-      if (!isMock && code) {
-        try {
-          // Exchange code for token
-          const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
-            body: JSON.stringify({
-              client_id: process.env.GITHUB_CLIENT_ID,
-              client_secret: process.env.GITHUB_CLIENT_SECRET,
-              code,
-            }),
-          });
-          const tokenData = await tokenRes.json() as any;
-          const accessToken = tokenData.access_token;
-
-          if (accessToken) {
-            // Fetch user profile
-            const userRes = await fetch('https://api.github.com/user', {
-              headers: { 'Authorization': `Bearer ${accessToken}`, 'User-Agent': 'Giftistry' }
-            });
-            const userData = await userRes.json() as any;
-            username = userData.login || username;
-            
-            if (userData.name) {
-              const parts = userData.name.split(' ');
-              firstName = parts[0] || firstName;
-              lastName = parts.slice(1).join(' ') || lastName;
-            }
-
-            // Fetch user emails
-            const emailsRes = await fetch('https://api.github.com/user/emails', {
-              headers: { 'Authorization': `Bearer ${accessToken}`, 'User-Agent': 'Giftistry' }
-            });
-            const emailsData = await emailsRes.json() as any[];
-            const primaryEmailObj = emailsData.find(e => e.primary) || emailsData[0];
-            if (primaryEmailObj) {
-              email = primaryEmailObj.email;
-            }
-          }
-        } catch (e) {
-          console.error('[SSO] GitHub OAuth failed, falling back to mock mode', e);
-        }
-      }
-
-      // Check if user exists by email
-      let user = await userRepo.findByEmail(email);
-      if (!user) {
-        // Create user with a random password since they use SSO
-        const randomPassword = crypto.randomUUID();
-        const hash = await Bun.password.hash(randomPassword, { algorithm: 'bcrypt', cost: 10 });
-        user = await userRepo.create(username, email, firstName, lastName, hash);
-      }
-
-      // SSO implicitly verifies the email
-      await userRepo.update(user.Id, { emailVerified: true });
-
-      const token = await createToken({ userId: user.Id });
-      const secureFlag = process.env.NODE_ENV === 'production' ? 'Secure; ' : '';
-      set.headers['Set-Cookie'] = `jwt=${token}; HttpOnly; ${secureFlag}SameSite=Strict; Path=/; Max-Age=86400`;
-
-      // Redirect back to frontend dashboard
-      set.redirect = 'http://localhost:3000/dashboard';
-    })
-
-    .post('/sso/email-otp', async ({ body: { Giftistry: { Auth: { email } } } }) => {
-      // Find or create user
-      let user = await userRepo.findByEmail(email);
-      if (!user) {
-        const username = `user_${Date.now()}`;
-        const randomPassword = crypto.randomUUID();
-        const hash = await Bun.password.hash(randomPassword, { algorithm: 'bcrypt', cost: 10 });
-        user = await userRepo.create(username, email, '', '', hash);
-      }
-
-      const otpToken = Math.floor(100000 + Math.random() * 900000).toString(); // 6 digit OTP
-      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
-
-      await userRepo.update(user.Id, {
-        emailVerificationToken: otpToken,
-        emailVerificationExpires: expiresAt
-      });
-
-      await emailService.sendMagicLinkEmail(email, otpToken);
-
-      return { success: true };
-    }, {
-      body: t.Object({
-        Giftistry: t.Object({
-          Auth: t.Object({
-            email: t.String()
-          })
-        })
-      })
-    })
-
-    .post('/sso/email-verify', async ({ set, body: { Giftistry: { Auth: { email, token } } } }) => {
-      const [userRow] = await sql<any[]>`
-        SELECT id, email_verification_expires FROM users 
-        WHERE email = ${email} AND email_verification_token = ${token}
-      `;
-      if (!userRow) {
-        throw new AppError('Invalid email login OTP code', 400, 'BAD_REQUEST');
-      }
-      if (new Date(userRow.email_verification_expires) < new Date()) {
-        throw new AppError('Login code has expired', 400, 'BAD_REQUEST');
-      }
-
-      // Mark email as verified & clear token
-      const user = await userRepo.update(userRow.id, {
-        emailVerified: true,
-        emailVerificationToken: null,
-        emailVerificationExpires: null
-      });
-
-      const sessionToken = await createToken({ userId: user.Id });
-      const secureFlag = process.env.NODE_ENV === 'production' ? 'Secure; ' : '';
-      set.headers['Set-Cookie'] = `jwt=${sessionToken}; HttpOnly; ${secureFlag}SameSite=Strict; Path=/; Max-Age=86400`;
-
-      return { success: true, User: user, Token: sessionToken };
-    }, {
-      body: t.Object({
-        Giftistry: t.Object({
-          Auth: t.Object({
-            email: t.String(),
-            token: t.String()
           })
         })
       })
@@ -566,8 +548,8 @@ export const authRoutes = (useCases: AuthUseCases) => new Elysia()
     .put('/profile', async ({ getAuthUser, body: { Giftistry: { Auth: { username, firstName, lastName, bio, theme, avatar } } } }) => {
       const authUser = await getAuthUser();
 
-      // Backend avatar validation
-      if (avatar) {
+      // Backend avatar validation: image data URL or hsl color
+      if (avatar !== undefined && avatar !== null) {
         if (avatar.startsWith('data:')) {
           const matches = avatar.match(/^data:(image\/[a-z+]+);base64,(.+)$/);
           if (!matches) {
@@ -586,6 +568,8 @@ export const authRoutes = (useCases: AuthUseCases) => new Elysia()
           if (sizeInBytes > maxSize) {
             throw new AppError('Image size exceeds the 2MB limit.', 400, 'BAD_REQUEST');
           }
+        } else if (!isAvatarColor(avatar)) {
+          throw new AppError('Invalid avatar format. Use an uploaded image or hsl color.', 400, 'BAD_REQUEST');
         }
       }
 
@@ -595,7 +579,7 @@ export const authRoutes = (useCases: AuthUseCases) => new Elysia()
         lastName: lastName ?? undefined,
         bio: bio ?? undefined,
         theme: theme ?? undefined,
-        avatar: avatar ?? undefined,
+        avatar: avatar !== undefined ? avatar : undefined,
       });
       
       return { success: true, User: user };
@@ -620,6 +604,8 @@ export const authRoutes = (useCases: AuthUseCases) => new Elysia()
       })
     })
 
+    // Custom theme routes moved to root level of authRoutes
+
     // Resend Email Verification Token
     .post('/resend-verification', async ({ getAuthUser }) => {
       const authUser = await getAuthUser();
@@ -633,6 +619,105 @@ export const authRoutes = (useCases: AuthUseCases) => new Elysia()
 
       await emailService.sendVerificationEmail(authUser.email, authUser.Username, token);
       return { success: true };
+    })
+
+    .post('/account/disable', async ({ getAuthUser, request }) => {
+      const authUser = await getAuthUser();
+
+      if (authUser.IsOwner) {
+        throw new AppError('Cannot disable the server owner. Transfer ownership or delete the server first.', 400, 'BAD_REQUEST');
+      }
+
+      const [target] = await sql<any[]>`
+        SELECT id, is_admin, is_disabled FROM users WHERE id = ${authUser.userId}
+      `;
+      if (!target) throw new AppError('User not found', 404, 'NOT_FOUND');
+
+      if (target.is_admin && !target.is_disabled) {
+        const others = await countEnabledAdmins(authUser.userId);
+        if (others === 0) {
+          throw new AppError('Cannot disable the last administrator', 400, 'BAD_REQUEST');
+        }
+      }
+
+      await sql`
+        UPDATE users SET
+          is_disabled = true,
+          session_version = session_version + 1
+        WHERE id = ${authUser.userId}
+      `;
+
+      await writeAuditLog({
+        actorId: authUser.userId,
+        targetId: authUser.userId,
+        action: 'auth.account.disable',
+        ip: request.headers.get('x-forwarded-for'),
+      });
+
+      return { success: true };
+    }, {
+      detail: {
+        tags: ['Authentication'],
+        summary: 'Disable own account',
+        security: [{ bearerAuth: [] }],
+      },
+    })
+
+    .delete('/account', async ({ getAuthUser, body: { Giftistry: { Auth: { password } } }, request, set }) => {
+      const authUser = await getAuthUser();
+
+      if (authUser.IsOwner) {
+        throw new AppError('Cannot delete the server owner. Transfer ownership or delete the server first.', 400, 'BAD_REQUEST');
+      }
+
+      if (!password) {
+        throw new AppError('Password is required', 400, 'BAD_REQUEST');
+      }
+
+      const [target] = await sql<any[]>`
+        SELECT id, auth_hash, is_admin, is_disabled FROM users WHERE id = ${authUser.userId}
+      `;
+      if (!target) throw new AppError('User not found', 404, 'NOT_FOUND');
+
+      const isMatch = await Bun.password.verify(password, target.auth_hash);
+      if (!isMatch) {
+        throw new AppError('Invalid password', 401, 'UNAUTHORIZED');
+      }
+
+      if (target.is_admin && !target.is_disabled) {
+        const others = await countEnabledAdmins(authUser.userId);
+        if (others === 0) {
+          throw new AppError('Cannot delete the last administrator', 400, 'BAD_REQUEST');
+        }
+      }
+
+      await writeAuditLog({
+        actorId: authUser.userId,
+        targetId: authUser.userId,
+        action: 'auth.account.delete',
+        ip: request.headers.get('x-forwarded-for'),
+      });
+
+      await sql`DELETE FROM users WHERE id = ${authUser.userId}`;
+
+      const isProduction = process.env.NODE_ENV === 'production';
+      const secureFlag = isProduction ? 'Secure; ' : '';
+      set.headers['Set-Cookie'] = `jwt=; HttpOnly; ${secureFlag}SameSite=Strict; Path=/; Max-Age=0`;
+
+      return { success: true };
+    }, {
+      detail: {
+        tags: ['Authentication'],
+        summary: 'Delete own account',
+        security: [{ bearerAuth: [] }],
+      },
+      body: t.Object({
+        Giftistry: t.Object({
+          Auth: t.Object({
+            password: t.String(),
+          }),
+        }),
+      }),
     })
 
     .post('/2fa/setup', async ({ getAuthUser }) => {

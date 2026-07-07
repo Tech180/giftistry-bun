@@ -15,6 +15,12 @@ export interface SystemConfig {
   smtpPass?: string;
   smtpSecure?: boolean;
   smtpFrom?: string;
+  aiEnabled?: boolean;
+  aiProvider?: 'gemini' | 'openai' | 'anthropic' | 'local' | 'openrouter';
+  aiApiKey?: string;
+  aiModel?: string;
+  aiPrompt?: string;
+  aiEndpoint?: string;
 }
 
 export function loadConfig(): SystemConfig {
@@ -31,6 +37,12 @@ export function loadConfig(): SystemConfig {
         smtpPass: data.smtpPass || '',
         smtpSecure: data.smtpSecure !== undefined ? Boolean(data.smtpSecure) : undefined,
         smtpFrom: data.smtpFrom || '',
+        aiEnabled: data.aiEnabled !== undefined ? Boolean(data.aiEnabled) : undefined,
+        aiProvider: data.aiProvider || 'gemini',
+        aiApiKey: data.aiApiKey || '',
+        aiModel: data.aiModel || '',
+        aiPrompt: data.aiPrompt || '',
+        aiEndpoint: data.aiEndpoint || '',
       };
     } catch {
       // ignore

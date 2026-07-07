@@ -20,7 +20,7 @@ export const commentRoutes = (useCases: CommentUseCases) => new Elysia({ prefix:
       security: [{ bearerAuth: [] }]
     }
   })
-  .post('/wishlists/:listId/comments', async ({ getAuthUser, checkListAccess, params: { listId }, body: { Giftistry: { Comments: { content, commenterName, isOwnerVisible, isRollover } } } }) => {
+  .post('/wishlists/:listId/comments', async ({ getAuthUser, checkListAccess, params: { listId }, body: { Giftistry: { Comments: { content, commenterName, isOwnerVisible, isRollover, parentId, imageUrl } } } }) => {
     const { role } = await checkListAccess('viewer');
     const user = await getAuthUser();
     
@@ -29,7 +29,28 @@ export const commentRoutes = (useCases: CommentUseCases) => new Elysia({ prefix:
       throw new AppError('Forbidden: List owner cannot post non-owner-visible comments on their own list', 403, 'FORBIDDEN');
     }
 
-    const resolvedCommenterName = commenterName || user.email.split('@')[0];
+    if (imageUrl) {
+      if (!imageUrl.startsWith('data:')) {
+        throw new AppError('Invalid image format. Must be a base64 Data URL.', 400, 'BAD_REQUEST');
+      }
+      const matches = imageUrl.match(/^data:(image\/[a-z+]+);base64,(.+)$/);
+      if (!matches) {
+        throw new AppError('Invalid base64 Data URL encoding.', 400, 'BAD_REQUEST');
+      }
+      const mimeType = matches[1];
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(mimeType)) {
+        throw new AppError(`Invalid image format: ${mimeType}. Allowed formats: JPEG, PNG, GIF, WEBP.`, 400, 'BAD_REQUEST');
+      }
+      const base64Data = matches[2];
+      const estimatedSize = base64Data.length * 0.75;
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (estimatedSize > maxSize) {
+        throw new AppError('Image size exceeds the 10MB limit.', 400, 'BAD_REQUEST');
+      }
+    }
+
+    const resolvedCommenterName = commenterName?.trim() || user.Username;
     
     const comment = await useCases.addComment.execute(
       listId,
@@ -37,7 +58,9 @@ export const commentRoutes = (useCases: CommentUseCases) => new Elysia({ prefix:
       resolvedCommenterName,
       content,
       resolvedOwnerVisible,
-      isRollover ?? false
+      isRollover ?? false,
+      parentId || null,
+      imageUrl || null
     );
     return { success: true, data: comment };
   }, {
@@ -54,6 +77,26 @@ export const commentRoutes = (useCases: CommentUseCases) => new Elysia({ prefix:
           commenterName: t.Optional(t.Nullable(t.String())),
           isOwnerVisible: t.Optional(t.Boolean()),
           isRollover: t.Optional(t.Boolean()),
+          parentId: t.Optional(t.Nullable(t.String())),
+          imageUrl: t.Optional(t.Nullable(t.String())),
+        })
+      })
+    })
+  })
+  .post('/comments/:commentId/react', async ({ getAuthUser, params: { commentId }, body: { Giftistry: { Comments: { reaction } } } }) => {
+    const user = await getAuthUser();
+    const result = await useCases.toggleReaction.execute(commentId, user.userId, user.Username, reaction);
+    return { success: true, data: result };
+  }, {
+    detail: {
+      tags: ['Comments'],
+      summary: 'Toggle emoji/gif reaction on a comment',
+      security: [{ bearerAuth: [] }]
+    },
+    body: t.Object({
+      Giftistry: t.Object({
+        Comments: t.Object({
+          reaction: t.String(),
         })
       })
     })

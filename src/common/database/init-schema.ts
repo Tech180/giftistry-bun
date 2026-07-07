@@ -37,6 +37,7 @@ export async function initializeSchema(dbSql: typeof sql = sql) {
         bio TEXT DEFAULT '',
         theme VARCHAR(100) DEFAULT 'default',
         avatar TEXT DEFAULT NULL,
+        birthday DATE DEFAULT NULL,
         email_verified BOOLEAN DEFAULT FALSE,
         email_verification_token VARCHAR(255) DEFAULT NULL,
         email_verification_expires TIMESTAMP WITH TIME ZONE DEFAULT NULL,
@@ -44,6 +45,19 @@ export async function initializeSchema(dbSql: typeof sql = sql) {
         two_factor_secret VARCHAR(255) DEFAULT NULL,
         two_factor_recovery_codes TEXT DEFAULT NULL,
         is_admin BOOLEAN DEFAULT FALSE,
+        is_owner BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        last_online TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+
+  await dbSql`
+    CREATE TABLE user_custom_themes (
+        id VARCHAR(100) PRIMARY KEY,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name VARCHAR(100) NOT NULL,
+        colors JSONB NOT NULL,
+        advanced JSONB NOT NULL DEFAULT '{}',
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     )
   `;
@@ -80,6 +94,8 @@ export async function initializeSchema(dbSql: typeof sql = sql) {
         is_active BOOLEAN DEFAULT TRUE,
         category VARCHAR(255) DEFAULT 'generic',
         reveal_suggestions BOOLEAN DEFAULT TRUE,
+        ai_enabled BOOLEAN DEFAULT FALSE,
+        visibility VARCHAR(50) DEFAULT 'private' CHECK (visibility IN ('private', 'friends', 'link')),
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     )
   `;
@@ -90,8 +106,91 @@ export async function initializeSchema(dbSql: typeof sql = sql) {
         list_id UUID REFERENCES lists(id) ON DELETE CASCADE,
         user_id UUID REFERENCES users(id) ON DELETE CASCADE,
         role VARCHAR(50) CHECK (role IN ('viewer', 'collaborator')),
+        granted_via VARCHAR(50) DEFAULT 'direct',
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(list_id, user_id)
+    )
+  `;
+
+  await dbSql`
+    CREATE TABLE friend_requests (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        receiver_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        status VARCHAR(50) NOT NULL DEFAULT 'pending'
+          CHECK (status IN ('pending', 'accepted', 'declined', 'cancelled')),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(sender_id, receiver_id)
+    )
+  `;
+
+  await dbSql`
+    CREATE TABLE friends (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_a_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        user_b_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_a_id, user_b_id),
+        CHECK (user_a_id < user_b_id)
+    )
+  `;
+
+  await dbSql`
+    CREATE TABLE list_email_invites (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        list_id UUID NOT NULL REFERENCES lists(id) ON DELETE CASCADE,
+        email VARCHAR(255) NOT NULL,
+        role VARCHAR(50) NOT NULL DEFAULT 'viewer'
+          CHECK (role IN ('viewer', 'collaborator')),
+        token_hash VARCHAR(255) NOT NULL,
+        invited_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+        accepted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+
+  await dbSql`
+    CREATE TABLE list_link_tokens (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        list_id UUID NOT NULL REFERENCES lists(id) ON DELETE CASCADE,
+        token_hash VARCHAR(255) NOT NULL UNIQUE,
+        role VARCHAR(50) NOT NULL DEFAULT 'viewer'
+          CHECK (role IN ('viewer', 'collaborator')),
+        created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        expires_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+        max_uses INTEGER DEFAULT NULL,
+        use_count INTEGER DEFAULT 0,
+        revoked_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+        password_hash VARCHAR(255) DEFAULT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+
+  await dbSql`
+    CREATE TABLE notifications (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        type VARCHAR(100) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        body TEXT DEFAULT '',
+        metadata JSONB DEFAULT '{}',
+        read_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+
+  await dbSql`
+    CREATE TABLE user_notification_prefs (
+        user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        email_alerts BOOLEAN DEFAULT TRUE,
+        marketing BOOLEAN DEFAULT FALSE,
+        friend_requests BOOLEAN DEFAULT TRUE,
+        list_shares BOOLEAN DEFAULT TRUE,
+        item_claims BOOLEAN DEFAULT TRUE,
+        comments BOOLEAN DEFAULT TRUE,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     )
   `;
 
@@ -146,7 +245,34 @@ export async function initializeSchema(dbSql: typeof sql = sql) {
         is_owner_visible BOOLEAN DEFAULT TRUE,
         is_rollover BOOLEAN DEFAULT FALSE,
         is_deleted BOOLEAN DEFAULT FALSE,
+        parent_id UUID REFERENCES comments(id) ON DELETE CASCADE,
+        image_url TEXT DEFAULT NULL,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+
+  await dbSql`
+    CREATE TABLE comment_reactions (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        comment_id UUID NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        username VARCHAR(100) NOT NULL,
+        reaction VARCHAR(50) NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(comment_id, user_id, reaction)
+    )
+  `;
+
+  await dbSql`
+    CREATE TABLE item_reviews (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        item_id UUID UNIQUE NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+        summary TEXT,
+        pros TEXT[] NOT NULL DEFAULT '{}',
+        cons TEXT[] NOT NULL DEFAULT '{}',
+        reviews JSONB NOT NULL DEFAULT '[]',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     )
   `;
 

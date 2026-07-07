@@ -30,7 +30,7 @@ describe("Homelab Setup Wizard Endpoints", () => {
   });
 
   test("System status returns uninitialized when no users exist", async () => {
-    // Delete all users to simulate fresh install
+    // Simulates a fresh install on the isolated test database only.
     await sql`DELETE FROM user_passkeys`;
     await sql`DELETE FROM users`;
 

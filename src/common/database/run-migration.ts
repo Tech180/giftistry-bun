@@ -92,6 +92,25 @@ export async function up() {
     ALTER TABLE items ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT NULL;
   `;
 
+  // 0h. Add ai_enabled to lists table
+  await sql`
+    ALTER TABLE lists ADD COLUMN IF NOT EXISTS ai_enabled BOOLEAN DEFAULT FALSE;
+  `;
+
+  // Create item_reviews table
+  await sql`
+    CREATE TABLE IF NOT EXISTS item_reviews (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      item_id UUID UNIQUE NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+      summary TEXT,
+      pros TEXT[] NOT NULL DEFAULT '{}',
+      cons TEXT[] NOT NULL DEFAULT '{}',
+      reviews JSONB NOT NULL DEFAULT '[]',
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+
   // 1. Create Definitions Table
   await sql`
     CREATE TABLE IF NOT EXISTS item_field_definitions (

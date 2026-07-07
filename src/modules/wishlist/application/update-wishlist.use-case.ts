@@ -1,11 +1,12 @@
 import type { WishlistRepository } from '../domain/ports/wishlist.repository';
 import type { Wishlist } from '../domain/wishlist.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
+import { AIReviewService } from '@/common/services/ai-review.service';
 
 export class UpdateWishlistUseCase {
   constructor(private wishlistRepo: WishlistRepository) {}
 
-  async execute(listId: string, title: string, expiresAtStr?: string | null, allowGroupFunds: boolean = false, category?: string, revealSuggestions?: boolean): Promise<Wishlist> {
+  async execute(listId: string, title: string, expiresAtStr?: string | null, allowGroupFunds: boolean = false, category?: string, revealSuggestions?: boolean, aiEnabled?: boolean): Promise<Wishlist> {
     if (!title) {
       throw new AppError('Wishlist title is required', 400, 'BAD_REQUEST');
     }
@@ -23,6 +24,12 @@ export class UpdateWishlistUseCase {
       }
     }
 
-    return await this.wishlistRepo.update(listId, title, expiresAt, allowGroupFunds, category, revealSuggestions);
+    if (aiEnabled && !existing.AiEnabled) {
+      AIReviewService.backfillListReviews(listId).catch(err => {
+        console.error('[AI Review] Failed to trigger backfill on wishlist update:', err);
+      });
+    }
+
+    return await this.wishlistRepo.update(listId, title, expiresAt, allowGroupFunds, category, revealSuggestions, aiEnabled);
   }
 }

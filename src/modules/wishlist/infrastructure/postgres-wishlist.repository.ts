@@ -7,8 +7,9 @@ export class PostgresWishlistRepository implements WishlistRepository {
     const [row] = await sql<any[]>`
       SELECT l.id as "Id", l.user_id as "UserId", l.title as "Title", l.expires_at as "ExpiresAt", 
              l.allow_group_funds as "AllowGroupFunds", l.is_active as "IsActive", 
-             l.category as "Category", l.reveal_suggestions as "RevealSuggestions", l.created_at as "CreatedAt",
-             u.username as "OwnerUsername", u.first_name as "OwnerFirstName"
+             l.category as "Category", l.reveal_suggestions as "RevealSuggestions", l.ai_enabled as "AiEnabled",
+             l.created_at as "CreatedAt",
+             u.username as "OwnerUsername", u.first_name as "OwnerFirstName", u.avatar as "OwnerAvatar"
       FROM lists l
       LEFT JOIN users u ON l.user_id = u.id
       WHERE l.id = ${id}
@@ -24,8 +25,10 @@ export class PostgresWishlistRepository implements WishlistRepository {
       CreatedAt: new Date(row.CreatedAt),
       Category: row.Category,
       RevealSuggestions: row.RevealSuggestions,
+      AiEnabled: row.AiEnabled,
       OwnerUsername: row.OwnerUsername,
       OwnerFirstName: row.OwnerFirstName,
+      OwnerAvatar: row.OwnerAvatar ?? null,
     };
   }
 
@@ -34,16 +37,57 @@ export class PostgresWishlistRepository implements WishlistRepository {
       SELECT l.id as "Id", l.user_id as "UserId", l.title as "Title", l.expires_at as "ExpiresAt", 
              l.allow_group_funds as "AllowGroupFunds", l.is_active as "IsActive", 
              l.created_at as "CreatedAt", l.category as "Category",
-             l.reveal_suggestions as "RevealSuggestions",
-             u.username as "OwnerUsername", u.first_name as "OwnerFirstName",
-             COALESCE(ls.role, 'owner') as "Role"
+             l.reveal_suggestions as "RevealSuggestions", l.ai_enabled as "AiEnabled",
+             u.username as "OwnerUsername", u.first_name as "OwnerFirstName", u.avatar as "OwnerAvatar",
+             CASE
+               WHEN l.user_id = ${userId} THEN 'owner'
+               WHEN ls.role IS NOT NULL THEN ls.role
+               ELSE 'viewer'
+             END as "Role"
       FROM lists l
       LEFT JOIN list_shares ls ON l.id = ls.list_id AND ls.user_id = ${userId}
       LEFT JOIN users u ON l.user_id = u.id
       WHERE l.user_id = ${userId}
-         OR l.id IN (SELECT list_id FROM list_shares WHERE user_id = ${userId})
+         OR (
+           l.id IN (SELECT list_id FROM list_shares WHERE user_id = ${userId})
+           AND u.is_disabled = false
+         )
       ORDER BY l.created_at DESC
     `;
+
+    if (rows.length === 0) return [];
+
+    const listIds = rows.map(r => r.Id);
+    const shares = await sql<any[]>`
+      SELECT ls.id as "Id", ls.list_id as "ListId", ls.user_id as "UserId", ls.role as "Role",
+             ls.granted_via as "GrantedVia", ls.created_at as "CreatedAt",
+             u.username as "Username", u.first_name as "FirstName", u.last_name as "LastName",
+             u.email as "Email", u.avatar as "Avatar"
+      FROM list_shares ls
+      JOIN users u ON ls.user_id = u.id
+      WHERE ls.list_id = ANY(${listIds})
+      ORDER BY ls.created_at ASC
+    `;
+
+    const sharesByListId = new Map<string, any[]>();
+    shares.forEach(share => {
+      const listShares = sharesByListId.get(share.ListId) || [];
+      listShares.push({
+        Id: share.Id,
+        ListId: share.ListId,
+        UserId: share.UserId,
+        Role: share.Role,
+        GrantedVia: share.GrantedVia,
+        CreatedAt: share.CreatedAt ? new Date(share.CreatedAt) : undefined,
+        Username: share.Username,
+        FirstName: share.FirstName,
+        LastName: share.LastName,
+        Email: share.Email,
+        Avatar: share.Avatar ?? null,
+      });
+      sharesByListId.set(share.ListId, listShares);
+    });
+
     return rows.map(row => ({
       Id: row.Id,
       UserId: row.UserId,
@@ -54,19 +98,23 @@ export class PostgresWishlistRepository implements WishlistRepository {
       CreatedAt: new Date(row.CreatedAt),
       Category: row.Category,
       RevealSuggestions: row.RevealSuggestions,
+      AiEnabled: row.AiEnabled,
       OwnerUsername: row.OwnerUsername,
       OwnerFirstName: row.OwnerFirstName,
+      OwnerAvatar: row.OwnerAvatar ?? null,
       Role: row.Role,
+      Shares: sharesByListId.get(row.Id) || [],
     }));
   }
 
-  async create(userId: string, title: string, expiresAt: Date | null, allowGroupFunds: boolean, category: string = 'generic', revealSuggestions: boolean = true): Promise<Wishlist> {
+  async create(userId: string, title: string, expiresAt: Date | null, allowGroupFunds: boolean, category: string = 'generic', revealSuggestions: boolean = true, aiEnabled: boolean = false): Promise<Wishlist> {
     const [row] = await sql<any[]>`
-      INSERT INTO lists (user_id, title, expires_at, allow_group_funds, category, reveal_suggestions)
-      VALUES (${userId}, ${title}, ${expiresAt}, ${allowGroupFunds}, ${category}, ${revealSuggestions})
+      INSERT INTO lists (user_id, title, expires_at, allow_group_funds, category, reveal_suggestions, ai_enabled)
+      VALUES (${userId}, ${title}, ${expiresAt}, ${allowGroupFunds}, ${category}, ${revealSuggestions}, ${aiEnabled})
       RETURNING id as "Id", user_id as "UserId", title as "Title", expires_at as "ExpiresAt", 
                 allow_group_funds as "AllowGroupFunds", is_active as "IsActive", 
-                category as "Category", reveal_suggestions as "RevealSuggestions", created_at as "CreatedAt"
+                category as "Category", reveal_suggestions as "RevealSuggestions", ai_enabled as "AiEnabled",
+                created_at as "CreatedAt"
     `;
     if (!row) throw new Error('Failed to create wishlist');
     return {
@@ -79,6 +127,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
       CreatedAt: new Date(row.CreatedAt),
       Category: row.Category,
       RevealSuggestions: row.RevealSuggestions,
+      AiEnabled: row.AiEnabled,
     };
   }
 
@@ -90,16 +139,18 @@ export class PostgresWishlistRepository implements WishlistRepository {
     `;
   }
 
-  async update(id: string, title: string, expiresAt: Date | null, allowGroupFunds: boolean, category?: string, revealSuggestions?: boolean): Promise<Wishlist> {
+  async update(id: string, title: string, expiresAt: Date | null, allowGroupFunds: boolean, category?: string, revealSuggestions?: boolean, aiEnabled?: boolean): Promise<Wishlist> {
     const [row] = await sql<any[]>`
       UPDATE lists
       SET title = ${title}, expires_at = ${expiresAt}, allow_group_funds = ${allowGroupFunds},
           category = COALESCE(${category || null}, category),
-          reveal_suggestions = COALESCE(${revealSuggestions ?? null}, reveal_suggestions)
+          reveal_suggestions = COALESCE(${revealSuggestions ?? null}, reveal_suggestions),
+          ai_enabled = COALESCE(${aiEnabled ?? null}, ai_enabled)
       WHERE id = ${id}
       RETURNING id as "Id", user_id as "UserId", title as "Title", expires_at as "ExpiresAt", 
                 allow_group_funds as "AllowGroupFunds", is_active as "IsActive", 
-                category as "Category", reveal_suggestions as "RevealSuggestions", created_at as "CreatedAt"
+                category as "Category", reveal_suggestions as "RevealSuggestions", ai_enabled as "AiEnabled",
+                created_at as "CreatedAt"
     `;
     if (!row) throw new Error('Failed to update wishlist');
     return {
@@ -112,6 +163,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
       CreatedAt: new Date(row.CreatedAt),
       Category: row.Category,
       RevealSuggestions: row.RevealSuggestions,
+      AiEnabled: row.AiEnabled,
     };
   }
 
@@ -136,7 +188,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
     const rows = await sql<any[]>`
       SELECT id as "Id", user_id as "UserId", title as "Title", expires_at as "ExpiresAt", 
              allow_group_funds as "AllowGroupFunds", is_active as "IsActive", 
-             category as "Category", reveal_suggestions as "RevealSuggestions", created_at as "CreatedAt"
+             category as "Category", reveal_suggestions as "RevealSuggestions", ai_enabled as "AiEnabled", created_at as "CreatedAt"
       FROM lists
       WHERE is_active = true AND expires_at < CURRENT_TIMESTAMP
     `;
@@ -150,6 +202,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
       CreatedAt: new Date(row.CreatedAt),
       Category: row.Category,
       RevealSuggestions: row.RevealSuggestions,
+      AiEnabled: row.AiEnabled,
     }));
   }
 

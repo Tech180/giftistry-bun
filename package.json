@@ -1,6 +1,6 @@
 {
   "name": "giftistry-api",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +8,9 @@
     "dev": "bun --hot src/index.ts",
     "prestart": "cd ../theming-engine && bun run build",
     "start": "NODE_ENV=production bun src/index.ts",
+    "pretest": "bun run scripts/ensure-test-database.ts",
     "test": "bun test",
+    "reset-database": "bun run scripts/reset-database.ts",
     "dev:all": "concurrently \"bun run dev\" \"cd ../giftistry-react && npm start\""
   },
   "dependencies": {

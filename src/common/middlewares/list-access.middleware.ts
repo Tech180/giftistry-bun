@@ -1,10 +1,12 @@
 import { Elysia } from 'elysia';
 import { PostgresListShareRepository } from '@/modules/wishlist/infrastructure/postgres-list-share.repository';
+import { PostgresFriendRepository } from '@/modules/friends/infrastructure/postgres-friend.repository';
 import { AppError } from './error.middleware';
 import { sql } from '../database/connection';
 import { authMiddleware } from '@/modules/auth/presentation/auth.routes';
 
 const listShareRepo = new PostgresListShareRepository();
+const friendRepo = new PostgresFriendRepository();
 
 export async function getListAccessContext(userId: string, target: { listId?: string; itemId?: string }) {
   let listId = target.listId;
@@ -15,15 +17,30 @@ export async function getListAccessContext(userId: string, target: { listId?: st
     throw new AppError('List or Item not found', 404, 'NOT_FOUND');
   }
 
-  // Fetch list details to check existence and expiration
   const [list] = await sql<any[]>`
-    SELECT id, expires_at as "expiresAt", is_active as "isActive" FROM lists WHERE id = ${listId}
+    SELECT l.id, l.user_id as "userId",
+           l.expires_at as "expiresAt", l.is_active as "isActive",
+           owner.is_disabled as "ownerDisabled"
+    FROM lists l
+    JOIN users owner ON owner.id = l.user_id
+    WHERE l.id = ${listId}
   `;
   if (!list) {
     throw new AppError('List not found', 404, 'NOT_FOUND');
   }
 
-  const role = await listShareRepo.getRole(listId, userId);
+  if (list.ownerDisabled) {
+    throw new AppError('This wishlist is unavailable because the owner account is disabled', 403, 'FORBIDDEN');
+  }
+
+  let role = await listShareRepo.getRole(listId, userId);
+
+  if (!role) {
+    if (list.userId === userId) {
+      role = 'owner';
+    }
+  }
+
   if (!role) {
     throw new AppError('Forbidden: You do not have access to this wishlist', 403, 'FORBIDDEN');
   }

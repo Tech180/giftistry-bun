@@ -3,6 +3,7 @@ import { authMiddleware } from '@/modules/auth/auth.module';
 import { listAccessMiddleware } from '@/common/middlewares/list-access.middleware';
 import { AppError } from '@/common/middlewares/error.middleware';
 import type { ItemUseCases } from './item-use-cases.interface';
+import { sql } from '@/common/database/connection';
 
 function decodeHtmlEntities(str: string): string {
   if (!str) return '';
@@ -130,6 +131,33 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
         })
       })
     })
+  })
+  .get('/items/:itemId/reviews', async ({ checkListAccess, params: { itemId } }) => {
+    await checkListAccess('viewer');
+    const [reviews] = await sql<any[]>`
+      SELECT summary, pros, cons, reviews
+      FROM item_reviews
+      WHERE item_id = ${itemId}
+    `;
+    if (!reviews) {
+      return { success: true, data: null };
+    }
+    return {
+      success: true,
+      data: {
+        summary: reviews.summary,
+        pros: reviews.pros,
+        cons: reviews.cons,
+        reviews: typeof reviews.reviews === 'string' ? JSON.parse(reviews.reviews) : reviews.reviews
+      }
+    };
+  }, {
+    detail: {
+      tags: ['Items'],
+      summary: 'Get AI reviews for an item',
+      description: 'Fetch the AI-generated pros, cons, summary, and representative reviews for a wishlist item.',
+      security: [{ bearerAuth: [] }]
+    }
   })
   .post('/items/:itemId/links', async ({ checkListAccess, params: { itemId }, body: { Giftistry: { Items: { url } } } }) => {
     await checkListAccess('collaborator');

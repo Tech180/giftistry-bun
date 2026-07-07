@@ -8,11 +8,17 @@ import { authModule } from './modules/auth/auth.module';
 import { wishlistModule } from './modules/wishlist/wishlist.module';
 import { itemModule } from './modules/item/item.module';
 import { commentModule } from './modules/comment/comment.module';
+import { friendsModule } from './modules/friends/friends.module';
+import { notificationsModule } from './modules/notifications/notifications.module';
+import { invitesModule } from './modules/invites/invites.module';
 import { systemRoutes } from './modules/system/system.routes';
+import { adminModule } from './modules/admin/admin.module';
+import { runMigrations } from './common/database/migrations';
 import { sql } from './common/database/connection';
 import { verifyToken } from '@/common/utils/token';
 import { PostgresUserRepository } from '@/modules/auth/infrastructure/postgres-user.repository';
 import { getListAccessContext } from '@/common/middlewares/list-access.middleware';
+import { authMiddleware } from '@/modules/auth/presentation/auth.routes';
 
 function getNumericStatus(status: any, defaultStatus = 200): number {
   if (typeof status === 'number') return status;
@@ -37,8 +43,49 @@ function cleanHeaders(headers: any): Record<string, string> {
   return result;
 }
 
+function createCachedCssResponse(content: string, request: Request): Response {
+  const etag = `W/"${Bun.hash(content).toString(36)}"`;
+  if (request.headers.get('If-None-Match') === etag) {
+    return new Response(null, { status: 304, headers: { ETag: etag } });
+  }
+  const isProd = process.env.NODE_ENV === 'production';
+  return new Response(content, {
+    headers: {
+      'Content-Type': 'text/css',
+      'Cache-Control': isProd ? 'public, max-age=31536000, immutable' : 'public, max-age=60',
+      'ETag': etag,
+    },
+  });
+}
+
 const userRepoForWs = new PostgresUserRepository();
 const rooms = new Map<string, Map<string, { username: string; userId: string }>>();
+
+function getOnlineUsers(listId: string): { userId: string; username: string }[] {
+  const room = rooms.get(listId);
+  if (!room) return [];
+
+  const uniqueUsers = new Map<string, string>();
+  for (const entry of room.values()) {
+    if (!uniqueUsers.has(entry.userId)) {
+      uniqueUsers.set(entry.userId, entry.username);
+    }
+  }
+
+  return Array.from(uniqueUsers.entries()).map(([userId, username]) => ({ userId, username }));
+}
+
+function publishPresence(listId: string, ws?: { publish: (topic: string, data: string) => void; send?: (data: string) => void }) {
+  const users = getOnlineUsers(listId);
+  const payload = JSON.stringify({ type: 'presence', users });
+
+  if (ws?.publish) {
+    ws.publish(listId, payload);
+  }
+  if (ws?.send) {
+    ws.send(payload);
+  }
+}
 
 export const app = new Elysia()
   .use(cors({
@@ -131,7 +178,11 @@ export const app = new Elysia()
   .use(wishlistModule)
   .use(itemModule)
   .use(commentModule)
+  .use(friendsModule)
+  .use(notificationsModule)
+  .use(invitesModule)
   .use(systemRoutes)
+  .use(adminModule)
   .ws('/ws/wishlist/:listId', {
     query: t.Object({
       token: t.String()
@@ -169,21 +220,10 @@ export const app = new Elysia()
         rooms.set(listId, new Map());
       }
       
-      const name = user.FirstName ? `${user.FirstName} ${user.LastName}` : user.Username;
+      const name = user.Username;
       rooms.get(listId)!.set(wsId, { username: name, userId: user.Id });
-      
-      const onlineUsers = Array.from(rooms.get(listId)!.values()).map(u => u.username);
-      
-      // Broadcast presence updates
-      ws.publish(listId, JSON.stringify({
-        type: 'presence',
-        users: onlineUsers
-      }));
-      
-      ws.send(JSON.stringify({
-        type: 'presence',
-        users: onlineUsers
-      }));
+
+      publishPresence(listId, ws);
     },
     message(ws, message: any) {
       const { listId } = ws.data.params;
@@ -192,11 +232,10 @@ export const app = new Elysia()
         if (data && data.type === 'typing') {
           const user = (ws.data as any).user;
           if (user) {
-            const name = user.FirstName ? `${user.FirstName} ${user.LastName}` : user.Username;
             ws.publish(listId, JSON.stringify({
               type: 'typing',
               userId: user.Id,
-              username: name,
+              username: user.Username,
               isTyping: !!data.isTyping
             }));
           }
@@ -214,23 +253,18 @@ export const app = new Elysia()
         if (currentRoom.size === 0) {
           rooms.delete(listId);
         } else {
-          const onlineUsers = Array.from(currentRoom.values()).map(u => u.username);
-          ws.publish(listId, JSON.stringify({
-            type: 'presence',
-            users: onlineUsers
-          }));
+          publishPresence(listId, ws);
         }
       }
     }
   })
-  .get('/api/themes/core/css', async ({ set }) => {
+  .get('/api/themes/core/css', async ({ set, request }) => {
     try {
       const filePath = path.join(import.meta.dir, '../../theming-engine/dist/css/variables.css');
       const file = Bun.file(filePath);
       if (await file.exists()) {
-        return new Response(await file.text(), {
-          headers: { 'Content-Type': 'text/css' }
-        });
+        const content = await file.text();
+        return createCachedCssResponse(content, request);
       } else {
         console.warn(`[WARNING] Core variables.css file not found at: ${filePath}`);
         set.status = 404;
@@ -241,22 +275,26 @@ export const app = new Elysia()
       return { status: 'error', message: `Failed to load core variables: ${err.message}` };
     }
   })
-  .get('/api/themes/:theme/:appearance/css', async ({ params, set }) => {
+  .get('/api/themes/:theme/:appearance/css', async ({ params, set, request }) => {
     const { theme, appearance } = params;
     if (appearance !== 'light' && appearance !== 'dark') {
       set.status = 400;
       return { status: 'error', message: 'Invalid appearance. Must be light or dark.' };
     }
 
-    const builtInThemes = ['default', 'cyberpunk', 'neon', 'mystic', 'burnt-forest', 'halloween', 'christmas'];
+    const builtInThemes = [
+      'default', 'cyberpunk', 'neon', 'mystic', 'burnt-forest',
+      'halloween', 'christmas',
+      'valentines', 'st-patricks', 'earth-day', 'independence', 'thanksgiving',
+      'paper', 'paper-mario', 'retro-80s', 'pixel', 'matrix', 'terminal', 'vaporwave', 'arcade',
+    ];
     if (builtInThemes.includes(theme)) {
       try {
         const filePath = path.join(import.meta.dir, '../../theming-engine/dist/css/themes', `${theme}-${appearance}.css`);
         const file = Bun.file(filePath);
         if (await file.exists()) {
-          return new Response(await file.text(), {
-            headers: { 'Content-Type': 'text/css' }
-          });
+          const content = await file.text();
+          return createCachedCssResponse(content, request);
         } else {
           console.warn(`[WARNING] Built-in theme file not found: ${filePath}. Please make sure to run the build command inside the theming-engine directory.`);
         }
@@ -267,7 +305,11 @@ export const app = new Elysia()
 
     // Dynamic Compilation Fallback (Simulates database retrieval of user-generated theme tokens)
     try {
-      const dbTokens = {
+      const [customTheme] = await sql<any[]>`
+        SELECT name, colors, advanced FROM user_custom_themes WHERE id = ${theme}
+      `;
+
+      let dbTokens = {
         primary: '#ff00ff',
         primaryHover: '#cc00cc',
         accent: '#00ffff',
@@ -283,18 +325,76 @@ export const app = new Elysia()
         bgGradient: 'linear-gradient(135deg, #121212 0%, #1e1e1e 100%)',
       };
 
+      if (customTheme) {
+        let colors = customTheme.colors;
+        if (typeof colors === 'string') {
+          try {
+            colors = JSON.parse(colors);
+          } catch (e) {}
+        }
+        let advanced = customTheme.advanced;
+        if (typeof advanced === 'string') {
+          try {
+            advanced = JSON.parse(advanced);
+          } catch (e) {}
+        }
+        if (!advanced || typeof advanced !== 'object') {
+          advanced = {};
+        }
+        
+        dbTokens = {
+          primary: colors.primary || dbTokens.primary,
+          primaryHover: colors.primaryHover || `${colors.primary || dbTokens.primary}dd`,
+          accent: colors.primary || dbTokens.accent,
+          bg: colors.bg || dbTokens.bg,
+          surface: colors.surface || dbTokens.surface,
+          surfaceHover: colors.surfaceHover || `${colors.surface || dbTokens.surface}f0`,
+          surfaceGlass: `rgba(30, 30, 30, 0.5)`,
+          border: colors.border || dbTokens.border,
+          text: colors.text || dbTokens.text,
+          textMuted: colors['text-muted'] || colors.textMuted || colors.text || dbTokens.textMuted,
+          radius: advanced.radius?.default || dbTokens.radius,
+          shadow: advanced.shadows?.md || dbTokens.shadow,
+          bgGradient: `linear-gradient(135deg, ${colors.bg || dbTokens.bg} 0%, ${colors.surface || dbTokens.surface} 100%)`,
+        };
+      }
+
       const { compileDynamicThemeCss } = await import('../../theming-engine/src/dynamic-compiler');
       const cssContent = await compileDynamicThemeCss(theme, appearance as 'light' | 'dark', dbTokens);
 
-      return new Response(cssContent, {
-        headers: { 'Content-Type': 'text/css' }
-      });
+      return createCachedCssResponse(cssContent, request);
     } catch (err: any) {
       set.status = 500;
       return { status: 'error', message: `Failed to compile theme: ${err.message}` };
     }
   })
-  .get('/health', () => ({ Status: 'ok', Database: 'connected', Version: '0.1.0' }));
+  .get('/health', () => ({ Status: 'ok', Database: 'connected', Version: '0.1.0' }))
+  .use(authMiddleware)
+  .post('/api/reports', async ({ getAuthUser, body: { Giftistry: { Report } } }) => {
+    const user = await getAuthUser();
+    await sql`
+      INSERT INTO content_reports (reporter_id, target_type, target_id, reason)
+      VALUES (${user.Id}, ${Report.targetType}, ${Report.targetId}, ${Report.reason ?? ''})
+    `;
+    return { success: true };
+  }, {
+    body: t.Object({
+      Giftistry: t.Object({
+        Report: t.Object({
+          targetType: t.Union([t.Literal('comment'), t.Literal('wishlist'), t.Literal('user')]),
+          targetId: t.String(),
+          reason: t.Optional(t.String()),
+        }),
+      }),
+    }),
+  });
+
+await runMigrations().catch((err) => {
+  console.error('[ERROR] Migration failed:', err);
+  if (process.env.NODE_ENV !== 'test') {
+    process.exit(1);
+  }
+});
 
 if (process.env.NODE_ENV !== 'test') {
   app.listen(env.PORT);

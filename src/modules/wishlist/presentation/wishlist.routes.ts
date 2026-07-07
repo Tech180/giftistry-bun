@@ -3,8 +3,9 @@ import { authMiddleware } from '@/modules/auth/auth.module';
 import { listAccessMiddleware, getListAccessContext } from '@/common/middlewares/list-access.middleware';
 import { AppError } from '@/common/middlewares/error.middleware';
 import type { WishlistUseCases } from './wishlist-use-cases.interface';
+import type { InvitesUseCases } from '@/modules/invites/presentation/invites-use-cases.interface';
 
-export const wishlistRoutes = (useCases: WishlistUseCases) => new Elysia({ prefix: '/api' })
+export const wishlistRoutes = (useCases: WishlistUseCases, inviteUseCases?: InvitesUseCases) => new Elysia({ prefix: '/api' })
   .use(authMiddleware)
   // Get all expired active lists (useful for n8n cron job)
   .get('/wishlists/expired', async () => {
@@ -18,7 +19,7 @@ export const wishlistRoutes = (useCases: WishlistUseCases) => new Elysia({ prefi
       security: [{ bearerAuth: [] }]
     }
   })
-  .post('/wishlists', async ({ getAuthUser, body: { Giftistry: { Lists: { title, expiresAt, allowGroupFunds, category, revealSuggestions } } } }) => {
+  .post('/wishlists', async ({ getAuthUser, body: { Giftistry: { Lists: { title, expiresAt, allowGroupFunds, category, revealSuggestions, aiEnabled } } } }) => {
     const user = await getAuthUser();
     if (!user.EmailVerified) {
       throw new AppError('Forbidden: You must verify your email before creating lists.', 403, 'FORBIDDEN');
@@ -29,7 +30,8 @@ export const wishlistRoutes = (useCases: WishlistUseCases) => new Elysia({ prefi
       expiresAt,
       allowGroupFunds ?? false,
       category,
-      revealSuggestions
+      revealSuggestions,
+      aiEnabled ?? false
     );
     return { success: true, data: wishlist };
   }, {
@@ -47,6 +49,7 @@ export const wishlistRoutes = (useCases: WishlistUseCases) => new Elysia({ prefi
           allowGroupFunds: t.Optional(t.Boolean()),
           category: t.Optional(t.String()),
           revealSuggestions: t.Optional(t.Boolean()),
+          aiEnabled: t.Optional(t.Boolean()),
         })
       })
     })
@@ -143,6 +146,59 @@ export const wishlistRoutes = (useCases: WishlistUseCases) => new Elysia({ prefi
       })
     })
   })
+  .get('/wishlists/:listId/shares', async ({ params: { listId }, checkListAccess }) => {
+    await checkListAccess('viewer');
+    const shares = await useCases.listListShares.execute(listId);
+    return { success: true, data: shares };
+  }, {
+    detail: {
+      tags: ['Wishlists'],
+      summary: 'List wishlist shares',
+      description: 'List users with access to a wishlist. Available to anyone who can view the list.',
+      security: [{ bearerAuth: [] }]
+    }
+  })
+  .patch('/wishlists/:listId/shares/:shareId', async ({ params: { listId, shareId }, checkListAccess, body: { role } }) => {
+    await checkListAccess('owner');
+    const share = await useCases.updateListShare.execute(listId, shareId, role);
+    return { success: true, data: share };
+  }, {
+    body: t.Object({
+      role: t.Union([t.Literal('viewer'), t.Literal('collaborator')]),
+    }),
+    detail: {
+      tags: ['Wishlists'],
+      summary: 'Update share role',
+      security: [{ bearerAuth: [] }]
+    }
+  })
+  .delete('/wishlists/:listId/shares/:shareId', async ({ params: { listId, shareId }, checkListAccess }) => {
+    await checkListAccess('owner');
+    await useCases.removeListShare.execute(listId, shareId);
+    return { success: true };
+  }, {
+    detail: {
+      tags: ['Wishlists'],
+      summary: 'Remove share',
+      security: [{ bearerAuth: [] }]
+    }
+  })
+  .post('/wishlists/:listId/shares/bulk', async ({ params: { listId }, getAuthUser, checkListAccess, body: { friendIds, role } }) => {
+    const user = await getAuthUser();
+    await checkListAccess('owner');
+    const shares = await useCases.bulkShareWishlist.execute(listId, user.userId, friendIds, role);
+    return { success: true, data: shares };
+  }, {
+    body: t.Object({
+      friendIds: t.Array(t.String()),
+      role: t.Union([t.Literal('viewer'), t.Literal('collaborator')]),
+    }),
+    detail: {
+      tags: ['Wishlists'],
+      summary: 'Bulk share wishlist with friends',
+      security: [{ bearerAuth: [] }]
+    }
+  })
   .get('/wishlists/:listId', async ({ params: { listId }, checkListAccess }) => {
     const access = await checkListAccess('viewer');
     const wishlist = await useCases.getWishlist.execute(listId);
@@ -170,9 +226,9 @@ export const wishlistRoutes = (useCases: WishlistUseCases) => new Elysia({ prefi
       security: [{ bearerAuth: [] }]
     }
   })
-  .put('/wishlists/:listId', async ({ params: { listId }, checkListAccess, body: { Giftistry: { Lists: { title, expiresAt, allowGroupFunds, category, revealSuggestions } } } }) => {
+  .put('/wishlists/:listId', async ({ params: { listId }, checkListAccess, body: { Giftistry: { Lists: { title, expiresAt, allowGroupFunds, category, revealSuggestions, aiEnabled } } } }) => {
     await checkListAccess('owner');
-    const updated = await useCases.updateWishlist.execute(listId, title, expiresAt, allowGroupFunds ?? false, category, revealSuggestions);
+    const updated = await useCases.updateWishlist.execute(listId, title, expiresAt, allowGroupFunds ?? false, category, revealSuggestions, aiEnabled);
     return { success: true, data: updated };
   }, {
     detail: {
@@ -189,6 +245,7 @@ export const wishlistRoutes = (useCases: WishlistUseCases) => new Elysia({ prefi
           allowGroupFunds: t.Optional(t.Boolean()),
           category: t.Optional(t.String()),
           revealSuggestions: t.Optional(t.Boolean()),
+          aiEnabled: t.Optional(t.Boolean()),
         })
       })
     })
@@ -216,4 +273,57 @@ export const wishlistRoutes = (useCases: WishlistUseCases) => new Elysia({ prefi
       description: 'Rollover an expired active wishlist. Deactivates the old one and creates a new active one with unpurchased items.',
       security: [{ bearerAuth: [] }]
     }
-  });
+  })
+  .use(inviteUseCases ? new Elysia()
+    .post('/wishlists/:listId/link-invites', async ({ params: { listId }, getAuthUser, checkListAccess, body }) => {
+      await checkListAccess('owner');
+      const user = await getAuthUser();
+      const result = await inviteUseCases.createLinkInvite.execute(
+        listId,
+        user.userId,
+        body.role ?? 'viewer',
+        body.expiresAt ?? null,
+        body.maxUses ?? null,
+        body.password ?? null
+      );
+      return { success: true, data: result };
+    }, {
+      body: t.Object({
+        role: t.Optional(t.Union([t.Literal('viewer'), t.Literal('collaborator')])),
+        expiresAt: t.Optional(t.Nullable(t.String())),
+        maxUses: t.Optional(t.Nullable(t.Numeric())),
+        password: t.Optional(t.Nullable(t.String())),
+      }),
+      detail: { tags: ['Invites'], summary: 'Create link invite', security: [{ bearerAuth: [] }] }
+    })
+    .get('/wishlists/:listId/link-invites', async ({ params: { listId }, checkListAccess }) => {
+      await checkListAccess('owner');
+      const invites = await inviteUseCases.listLinkInvites.execute(listId);
+      return { success: true, data: invites };
+    }, {
+      detail: { tags: ['Invites'], summary: 'List link invites', security: [{ bearerAuth: [] }] }
+    })
+    .delete('/wishlists/:listId/link-invites/:inviteId', async ({ params: { listId, inviteId }, checkListAccess }) => {
+      await checkListAccess('owner');
+      await inviteUseCases.revokeLinkInvite.execute(listId, inviteId);
+      return { success: true };
+    }, {
+      detail: { tags: ['Invites'], summary: 'Revoke link invite', security: [{ bearerAuth: [] }] }
+    })
+    .post('/wishlists/:listId/email-invites', async ({ params: { listId }, getAuthUser, checkListAccess, body: { Giftistry: { Lists: { email, role } } } }) => {
+      await checkListAccess('owner');
+      const user = await getAuthUser();
+      const result = await inviteUseCases.createEmailInvite.execute(listId, email, role, user.userId);
+      return { success: true, data: result };
+    }, {
+      body: t.Object({
+        Giftistry: t.Object({
+          Lists: t.Object({
+            email: t.String({ format: 'email' }),
+            role: t.Union([t.Literal('viewer'), t.Literal('collaborator')]),
+          })
+        })
+      }),
+      detail: { tags: ['Invites'], summary: 'Create email invite', security: [{ bearerAuth: [] }] }
+    })
+  : new Elysia());

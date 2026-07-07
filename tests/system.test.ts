@@ -37,6 +37,7 @@ describe("System Administration Settings Endpoints", () => {
   });
 
   test("Bootstrap first user as Admin", async () => {
+    // Empty test database so the first signup becomes admin.
     await sql`DELETE FROM user_passkeys`;
     await sql`DELETE FROM users`;
 

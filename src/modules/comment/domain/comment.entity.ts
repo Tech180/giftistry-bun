@@ -7,5 +7,8 @@ export interface Comment {
   IsOwnerVisible: boolean;
   IsRollover: boolean;
   IsDeleted?: boolean;
+  ParentId?: string | null;
+  ImageUrl?: string | null;
+  Reactions?: { userId: string; username: string; reaction: string }[];
   CreatedAt?: Date;
 }

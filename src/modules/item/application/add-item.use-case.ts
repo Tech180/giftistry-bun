@@ -2,6 +2,7 @@ import type { ItemRepository } from '../domain/ports/item.repository';
 import type { Item } from '../domain/item.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { env } from '@/common/consts/env.consts';
+import { AIReviewService } from '@/common/services/ai-review.service';
 
 export class AddItemUseCase {
   constructor(private itemRepo: ItemRepository) {}
@@ -53,6 +54,11 @@ export class AddItemUseCase {
       // Fire and forget background scraper
       this.triggerBackgroundScraping(link.Id, linkUrl, price).catch(err => {
         console.error('Background scraper trigger failed:', err);
+      });
+
+      // Fire and forget background AI review extraction
+      AIReviewService.extractAndSaveReviews(item.Id, listId, linkUrl).catch(err => {
+        console.error('Background AI review extraction trigger failed:', err);
       });
     }
 

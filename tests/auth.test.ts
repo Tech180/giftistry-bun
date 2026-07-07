@@ -225,7 +225,7 @@ describe("Authentication & Global Endpoints", () => {
               username: testUsername,
               bio: "I love mechanical keyboards.",
               theme: "neon",
-              avatar: "owner_avatar_url"
+              avatar: "hsl(200, 70%, 45%)"
             }
           }
         })
@@ -252,6 +252,49 @@ describe("Authentication & Global Endpoints", () => {
     );
     expect(resStatic.status).toBe(200);
     expect(resStatic.headers.get("Content-Type")).toBe("text/css");
+    expect(resStatic.headers.get("ETag")).toMatch(/^W\/"/);
+    expect(resStatic.headers.get("Cache-Control")).toBe("public, max-age=60");
+
+    const etag = resStatic.headers.get("ETag");
+    const res304 = await app.handle(
+      new Request("http://localhost/api/themes/cyberpunk/dark/css", {
+        method: "GET",
+        headers: { "If-None-Match": etag! }
+      })
+    );
+    expect(res304.status).toBe(304);
+    expect(res304.headers.get("ETag")).toBe(etag);
+
+    const resIndependence = await app.handle(
+      new Request("http://localhost/api/themes/independence/light/css", {
+        method: "GET"
+      })
+    );
+    expect(resIndependence.status).toBe(200);
+    const independenceCss = await resIndependence.text();
+    expect(independenceCss).toContain("--theme-primary: #d62828");
+    expect(independenceCss).not.toContain("#ff00ff");
+
+    const resMatrix = await app.handle(
+      new Request("http://localhost/api/themes/matrix/dark/css", {
+        method: "GET"
+      })
+    );
+    expect(resMatrix.status).toBe(200);
+    const matrixCss = await resMatrix.text();
+    expect(matrixCss).toContain("--theme-primary: #00ff41");
+    expect(matrixCss).not.toContain("#ff00ff");
+
+    const resPaperMario = await app.handle(
+      new Request("http://localhost/api/themes/paper-mario/light/css", {
+        method: "GET"
+      })
+    );
+    expect(resPaperMario.status).toBe(200);
+    const paperMarioCss = await resPaperMario.text();
+    expect(paperMarioCss).toContain("--theme-bg: #87CEEB");
+    expect(paperMarioCss).toContain("--theme-primary: #E3001B");
+    expect(paperMarioCss).not.toContain("#ff00ff");
 
     const resDynamic = await app.handle(
       new Request("http://localhost/api/themes/user-theme-999/dark/css", {
@@ -260,6 +303,30 @@ describe("Authentication & Global Endpoints", () => {
     );
     expect(resDynamic.status).toBe(200);
     expect(resDynamic.headers.get("Content-Type")).toBe("text/css");
+    expect(resDynamic.headers.get("ETag")).toMatch(/^W\/"/);
+    expect(resDynamic.headers.get("Cache-Control")).toBe("public, max-age=60");
+  });
+
+  test("Core stylesheet serving endpoint with caching", async () => {
+    const resCore = await app.handle(
+      new Request("http://localhost/api/themes/core/css", {
+        method: "GET"
+      })
+    );
+    expect(resCore.status).toBe(200);
+    expect(resCore.headers.get("Content-Type")).toBe("text/css");
+    expect(resCore.headers.get("ETag")).toMatch(/^W\/"/);
+    expect(resCore.headers.get("Cache-Control")).toBe("public, max-age=60");
+
+    const etag = resCore.headers.get("ETag");
+    const res304 = await app.handle(
+      new Request("http://localhost/api/themes/core/css", {
+        method: "GET",
+        headers: { "If-None-Match": etag! }
+      })
+    );
+    expect(res304.status).toBe(304);
+    expect(res304.headers.get("ETag")).toBe(etag);
   });
 
   test("Email Verification Flow & Restriction", async () => {
@@ -542,6 +609,97 @@ describe("Authentication & Global Endpoints", () => {
       })
     );
     expect(disableRes.status).toBe(200);
+  });
+
+  test("Custom Themes Database Sync & CSS Serving", async () => {
+    // 1. Get custom themes (initially empty)
+    const getRes1 = await app.handle(
+      new Request("http://localhost/api/themes/custom", {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${token}` }
+      })
+    );
+    expect(getRes1.status).toBe(200);
+    const getBody1 = await getRes1.json() as any;
+    expect(getBody1.Result.Themes.length).toBe(0);
+
+    // 2. Create a custom theme
+    const themeId = "custom-test-12345";
+    const postRes = await app.handle(
+      new Request("http://localhost/api/themes/custom", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Theme: {
+              id: themeId,
+              name: "Super Custom Theme",
+              colors: {
+                primary: "#112233",
+                bg: "#445566",
+                surface: "#778899",
+                border: "#aabbcc",
+                text: "#ddeeff"
+              },
+              advanced: {
+                radius: { default: "15px" }
+              }
+            }
+          }
+        })
+      })
+    );
+    expect(postRes.status).toBe(200);
+    const postBody = await postRes.json() as any;
+    expect(postBody.Result.Theme.Name).toBe("Super Custom Theme");
+
+    // 3. Get custom themes again (contains our new theme)
+    const getRes2 = await app.handle(
+      new Request("http://localhost/api/themes/custom", {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${token}` }
+      })
+    );
+    expect(getRes2.status).toBe(200);
+    const getBody2 = await getRes2.json() as any;
+    expect(getBody2.Result.Themes.length).toBe(1);
+    expect(getBody2.Result.Themes[0].Id).toBe(themeId);
+
+    // 4. Test compiler served stylesheet for custom theme ID
+    const cssRes = await app.handle(
+      new Request(`http://localhost/api/themes/${themeId}/dark/css`, {
+        method: "GET"
+      })
+    );
+    expect(cssRes.status).toBe(200);
+    expect(cssRes.headers.get("Content-Type")).toBe("text/css");
+    const cssContent = await cssRes.text();
+    expect(cssContent).toContain("--theme-primary: #112233");
+    expect(cssContent).toContain("--theme-bg: #445566");
+    expect(cssContent).toContain("--theme-radius: 0.9375rem");
+
+    // 5. Delete custom theme
+    const deleteRes = await app.handle(
+      new Request(`http://localhost/api/themes/custom/${themeId}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      })
+    );
+    expect(deleteRes.status).toBe(200);
+
+    // 6. Get custom themes (empty again)
+    const getRes3 = await app.handle(
+      new Request("http://localhost/api/themes/custom", {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${token}` }
+      })
+    );
+    expect(getRes3.status).toBe(200);
+    const getBody3 = await getRes3.json() as any;
+    expect(getBody3.Result.Themes.length).toBe(0);
   });
 });
 

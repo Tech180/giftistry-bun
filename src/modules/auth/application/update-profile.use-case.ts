@@ -24,6 +24,10 @@ export class UpdateProfileUseCase {
       Bio: user.Bio,
       Theme: user.Theme,
       Avatar: user.Avatar,
+      Birthday: user.Birthday,
+      EmailVerified: user.EmailVerified,
+      TwoFactorEnabled: user.TwoFactorEnabled,
+      IsAdmin: user.IsAdmin,
     };
   }
 }

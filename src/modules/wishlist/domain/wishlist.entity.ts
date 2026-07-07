@@ -1,3 +1,5 @@
+import type { ListShareWithUser } from './list-share.entity';
+
 export interface Priority {
   Id: string;
   UserId: string;
@@ -15,7 +17,10 @@ export interface Wishlist {
   CreatedAt?: Date;
   Category?: string;
   RevealSuggestions?: boolean;
+  AiEnabled?: boolean;
   OwnerUsername?: string;
   OwnerFirstName?: string;
+  OwnerAvatar?: string | null;
   Role?: 'owner' | 'collaborator' | 'viewer';
+  Shares?: ListShareWithUser[];
 }

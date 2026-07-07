@@ -4,7 +4,6 @@ import { loadConfig } from '../database/connection';
 
 export interface EmailService {
   sendVerificationEmail(email: string, username: string, token: string): Promise<void>;
-  sendMagicLinkEmail(email: string, token: string): Promise<void>;
 }
 
 export class SmtpEmailService implements EmailService {
@@ -76,40 +75,6 @@ ${verificationUrl}`,
     }
   }
 
-  async sendMagicLinkEmail(email: string, token: string): Promise<void> {
-    const { transporter, from } = this.getTransporter();
-    const magicLinkUrl = `http://localhost:3000/login/callback?token=${token}`;
-    
-    try {
-      await transporter.sendMail({
-        from,
-        to: email,
-        subject: 'Your Giftistry Magic Login Link',
-        text: `Hello,
-
-Use the one-time link below to log into your account:
-
-${magicLinkUrl}`,
-        html: `<p>Hello,</p><p>Use the one-time link below to log into your account:</p><a href="${magicLinkUrl}">${magicLinkUrl}</a>`,
-      });
-      console.log(`[SMTP] Magic link email sent successfully to ${email}`);
-    } catch (err) {
-      console.warn(`[SMTP-WARN] Failed to send email via SMTP, falling back to mock:`, err);
-      console.log(`
-┌────────────────────────────────────────────────────────┐
-│               [FALLBACK MOCK EMAIL SERVICE]            │
-├────────────────────────────────────────────────────────┤
-│ To: ${email.padEnd(50 - email.length)} │
-│ Subject: Your Giftistry Magic Login Link               │
-├────────────────────────────────────────────────────────┤
-│ Hello,                                                 │
-│ Use the one-time link below to log into your account:  │
-│                                                        │
-│ ${magicLinkUrl} │
-└────────────────────────────────────────────────────────┘
-      `);
-    }
-  }
 }
 
 export class MockEmailService implements EmailService {
@@ -130,20 +95,4 @@ export class MockEmailService implements EmailService {
     `);
   }
 
-  async sendMagicLinkEmail(email: string, token: string): Promise<void> {
-    const magicLinkUrl = `http://localhost:3000/login/callback?token=${token}`;
-    console.log(`
-┌────────────────────────────────────────────────────────┐
-│               [MOCK EMAIL SERVICE]                     │
-├────────────────────────────────────────────────────────┤
-│ To: ${email.padEnd(50 - email.length)} │
-│ Subject: Your Giftistry Magic Login Link               │
-├────────────────────────────────────────────────────────┤
-│ Hello,                                                 │
-│ Use the one-time link below to log into your account:  │
-│                                                        │
-│ ${magicLinkUrl} │
-└────────────────────────────────────────────────────────┘
-    `);
-  }
 }

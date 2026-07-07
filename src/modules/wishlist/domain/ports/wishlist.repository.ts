@@ -3,9 +3,9 @@ import type { Wishlist, Priority } from '../wishlist.entity';
 export interface WishlistRepository {
   findById(id: string): Promise<Wishlist | null>;
   findByUserId(userId: string): Promise<Wishlist[]>;
-  create(userId: string, title: string, expiresAt: Date | null, allowGroupFunds: boolean, category?: string, revealSuggestions?: boolean): Promise<Wishlist>;
+  create(userId: string, title: string, expiresAt: Date | null, allowGroupFunds: boolean, category?: string, revealSuggestions?: boolean, aiEnabled?: boolean): Promise<Wishlist>;
   updateActive(id: string, isActive: boolean): Promise<void>;
-  update(id: string, title: string, expiresAt: Date | null, allowGroupFunds: boolean, category?: string, revealSuggestions?: boolean): Promise<Wishlist>;
+  update(id: string, title: string, expiresAt: Date | null, allowGroupFunds: boolean, category?: string, revealSuggestions?: boolean, aiEnabled?: boolean): Promise<Wishlist>;
   delete(id: string): Promise<void>;
   findExpiredActive(): Promise<Wishlist[]>;
   

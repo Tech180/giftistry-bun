@@ -62,6 +62,76 @@ describe("Wishlist Lifecycle & Shares", () => {
     expect(body.Result.Role).toBe("collaborator");
   });
 
+  test("Owner lists wishlist shares", async () => {
+    const res = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/shares`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.Result.length).toBeGreaterThanOrEqual(1);
+    expect(body.Result[0].Email).toBe(collaborator.email);
+  });
+
+  test("Owner updates share role to viewer", async () => {
+    const listRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/shares`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    const listBody = await listRes.json() as any;
+    const shareId = listBody.Result[0].Id;
+
+    const res = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/shares/${shareId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${owner.token}`
+        },
+        body: JSON.stringify({ role: "viewer" })
+      })
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.Result.Role).toBe("viewer");
+  });
+
+  test("Owner removes share", async () => {
+    const listRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/shares`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    const listBody = await listRes.json() as any;
+    const shareId = listBody.Result[0].Id;
+
+    const res = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/shares/${shareId}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    expect(res.status).toBe(200);
+
+    const verifyRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/shares`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    const verifyBody = await verifyRes.json() as any;
+    expect(verifyBody.Result.length).toBe(0);
+  });
+
+  test("Re-share for collaborator access tests", async () => {
+    await shareTestWishlist(owner.token, listId, collaborator.email, "collaborator");
+  });
+
   test("Collaborator cannot deactivate wishlist", async () => {
     const res = await app.handle(
       new Request(`http://localhost/api/wishlists/${listId}/deactivate`, {
@@ -201,5 +271,174 @@ describe("Wishlist Lifecycle & Shares", () => {
       })
     );
     expect(deleteRes.status).toBe(200);
+  });
+
+  describe("Password-Protected Link Invites", () => {
+    let unpasswordedToken: string;
+    let passwordedToken: string;
+    let passwordedInviteId: string;
+
+    test("Owner generates unpassworded link invite", async () => {
+      const res = await app.handle(
+        new Request(`http://localhost/api/wishlists/${listId}/link-invites`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${owner.token}`
+          },
+          body: JSON.stringify({ role: "viewer" })
+        })
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json() as any;
+      expect(body.Result.token).toBeDefined();
+      unpasswordedToken = body.Result.token;
+    });
+
+    test("Unrelated user gets unpassworded invite details", async () => {
+      const res = await app.handle(
+        new Request(`http://localhost/api/invites/link/${unpasswordedToken}`, {
+          method: "GET",
+          headers: { "Authorization": `Bearer ${unrelated.token}` }
+        })
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json() as any;
+      expect(body.Result.PasswordProtected).toBe(false);
+      expect(body.Result.Role).toBe("viewer");
+    });
+
+    test("Unrelated user accepts unpassworded invite", async () => {
+      const res = await app.handle(
+        new Request(`http://localhost/api/invites/link/${unpasswordedToken}/accept`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${unrelated.token}`
+          },
+          body: JSON.stringify({})
+        })
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json() as any;
+      expect(body.Result.ListId).toBe(listId);
+      expect(body.Result.Role).toBe("viewer");
+    });
+
+    test("Owner generates password-protected link invite", async () => {
+      const res = await app.handle(
+        new Request(`http://localhost/api/wishlists/${listId}/link-invites`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${owner.token}`
+          },
+          body: JSON.stringify({
+            role: "collaborator",
+            password: "superSecurePassword123"
+          })
+        })
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json() as any;
+      expect(body.Result.token).toBeDefined();
+      expect(body.Result.invite.PasswordProtected).toBe(true);
+      passwordedToken = body.Result.token;
+      passwordedInviteId = body.Result.invite.Id;
+    });
+
+    test("Unrelated user gets passworded invite details", async () => {
+      const anotherUnrelated = await createTestUser(`wl_another_${Date.now()}`, `wl_another_${Date.now()}@example.com`);
+      
+      const res = await app.handle(
+        new Request(`http://localhost/api/invites/link/${passwordedToken}`, {
+          method: "GET",
+          headers: { "Authorization": `Bearer ${anotherUnrelated.token}` }
+        })
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json() as any;
+      expect(body.Result.PasswordProtected).toBe(true);
+      expect(body.Result.Role).toBe("collaborator");
+
+      await cleanUpUser(anotherUnrelated.userId);
+    });
+
+    test("Unrelated user fails to accept passworded invite with wrong password", async () => {
+      const anotherUnrelated = await createTestUser(`wl_another_${Date.now()}`, `wl_another_${Date.now()}@example.com`);
+
+      const res = await app.handle(
+        new Request(`http://localhost/api/invites/link/${passwordedToken}/accept`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${anotherUnrelated.token}`
+          },
+          body: JSON.stringify({ password: "wrongPassword" })
+        })
+      );
+      expect(res.status).toBe(401);
+
+      await cleanUpUser(anotherUnrelated.userId);
+    });
+
+    test("Unrelated user accepts passworded invite with correct password", async () => {
+      const anotherUnrelated = await createTestUser(`wl_another_${Date.now()}`, `wl_another_${Date.now()}@example.com`);
+
+      const res = await app.handle(
+        new Request(`http://localhost/api/invites/link/${passwordedToken}/accept`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${anotherUnrelated.token}`
+          },
+          body: JSON.stringify({ password: "superSecurePassword123" })
+        })
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json() as any;
+      expect(body.Result.ListId).toBe(listId);
+      expect(body.Result.Role).toBe("collaborator");
+
+      await cleanUpUser(anotherUnrelated.userId);
+    });
+
+    test("Owner lists link invites", async () => {
+      const res = await app.handle(
+        new Request(`http://localhost/api/wishlists/${listId}/link-invites`, {
+          method: "GET",
+          headers: { "Authorization": `Bearer ${owner.token}` }
+        })
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json() as any;
+      expect(body.Result.length).toBeGreaterThanOrEqual(1);
+    });
+
+    test("Owner revokes passworded invite", async () => {
+      const res = await app.handle(
+        new Request(`http://localhost/api/wishlists/${listId}/link-invites/${passwordedInviteId}`, {
+          method: "DELETE",
+          headers: { "Authorization": `Bearer ${owner.token}` }
+        })
+      );
+      expect(res.status).toBe(200);
+
+      // Verify acceptance now fails
+      const anotherUnrelated = await createTestUser(`wl_another_${Date.now()}`, `wl_another_${Date.now()}@example.com`);
+      const acceptRes = await app.handle(
+        new Request(`http://localhost/api/invites/link/${passwordedToken}/accept`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${anotherUnrelated.token}`
+          },
+          body: JSON.stringify({ password: "superSecurePassword123" })
+        })
+      );
+      expect(acceptRes.status).toBe(404);
+
+      await cleanUpUser(anotherUnrelated.userId);
+    });
   });
 });

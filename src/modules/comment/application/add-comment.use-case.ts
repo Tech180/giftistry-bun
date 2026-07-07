@@ -2,6 +2,7 @@ import type { CommentRepository } from '../domain/ports/comment.repository';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
 import type { Comment } from '../domain/comment.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
+import { assertUserCan } from '@/common/services/user-policy.service';
 
 export class AddCommentUseCase {
   constructor(
@@ -15,7 +16,9 @@ export class AddCommentUseCase {
     commenterName: string,
     content: string,
     isOwnerVisible: boolean = true,
-    isRollover: boolean = false
+    isRollover: boolean = false,
+    parentId?: string | null,
+    imageUrl?: string | null
   ): Promise<Comment> {
     if (!listId) {
       throw new AppError('List ID is required', 400, 'BAD_REQUEST');
@@ -32,6 +35,13 @@ export class AddCommentUseCase {
       throw new AppError('Wishlist not found', 404, 'NOT_FOUND');
     }
 
+    if (userId) {
+      await assertUserCan(userId, 'canUseComments');
+      if (imageUrl) {
+        await assertUserCan(userId, 'canUploadImages');
+      }
+    }
+
     // If the commenter is the owner of the list, they can't post a non-owner-visible comment!
     // That would be posting a comment to themselves that they cannot see, which makes no sense.
     const isOwner = userId === wishlist.UserId;
@@ -43,7 +53,9 @@ export class AddCommentUseCase {
       commenterName,
       content,
       finalIsOwnerVisible,
-      isRollover
+      isRollover,
+      parentId,
+      imageUrl
     );
   }
 }
