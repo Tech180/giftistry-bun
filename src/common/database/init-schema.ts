@@ -211,6 +211,19 @@ export async function initializeSchema(dbSql: typeof sql = sql) {
   `;
 
   await dbSql`
+    CREATE TABLE item_audiences (
+        item_id UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (item_id, user_id)
+    )
+  `;
+
+  await dbSql`
+    CREATE INDEX idx_item_audiences_user_id ON item_audiences(user_id)
+  `;
+
+  await dbSql`
     CREATE TABLE item_links (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         item_id UUID REFERENCES items(id) ON DELETE CASCADE,

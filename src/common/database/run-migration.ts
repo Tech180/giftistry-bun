@@ -97,6 +97,19 @@ export async function up() {
     ALTER TABLE lists ADD COLUMN IF NOT EXISTS ai_enabled BOOLEAN DEFAULT FALSE;
   `;
 
+  // Item audience restriction (per-item visibility to specific list participants)
+  await sql`
+    CREATE TABLE IF NOT EXISTS item_audiences (
+      item_id UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (item_id, user_id)
+    );
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_item_audiences_user_id ON item_audiences(user_id);
+  `;
+
   // Create item_reviews table
   await sql`
     CREATE TABLE IF NOT EXISTS item_reviews (

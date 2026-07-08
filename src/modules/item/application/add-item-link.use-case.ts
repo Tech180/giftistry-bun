@@ -1,19 +1,25 @@
 import type { ItemRepository } from '../domain/ports/item.repository';
 import type { ItemLink } from '../domain/item.entity';
+import type { AssertItemVisibleUseCase } from './assert-item-visible.use-case';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { env } from '@/common/consts/env.consts';
 import { AIReviewService } from '@/common/services/ai-review.service';
 
 export class AddItemLinkUseCase {
-  constructor(private itemRepo: ItemRepository) {}
+  constructor(
+    private itemRepo: ItemRepository,
+    private assertItemVisible: AssertItemVisibleUseCase
+  ) {}
 
-  async execute(itemId: string, url: string): Promise<ItemLink> {
+  async execute(itemId: string, url: string, currentUserId: string): Promise<ItemLink> {
     if (!itemId) {
       throw new AppError('Item ID is required', 400, 'BAD_REQUEST');
     }
     if (!url) {
       throw new AppError('URL is required', 400, 'BAD_REQUEST');
     }
+
+    await this.assertItemVisible.execute(itemId, currentUserId);
 
     const item = await this.itemRepo.findById(itemId);
     if (!item) {

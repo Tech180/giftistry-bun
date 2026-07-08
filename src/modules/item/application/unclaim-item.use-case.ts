@@ -1,8 +1,12 @@
 import type { ItemRepository } from '../domain/ports/item.repository';
+import type { AssertItemVisibleUseCase } from './assert-item-visible.use-case';
 import { AppError } from '@/common/middlewares/error.middleware';
 
 export class UnclaimItemUseCase {
-  constructor(private itemRepo: ItemRepository) {}
+  constructor(
+    private itemRepo: ItemRepository,
+    private assertItemVisible: AssertItemVisibleUseCase
+  ) {}
 
   async execute(itemId: string, userId: string): Promise<void> {
     if (!itemId) {
@@ -11,6 +15,8 @@ export class UnclaimItemUseCase {
     if (!userId) {
       throw new AppError('User ID is required', 400, 'BAD_REQUEST');
     }
+
+    await this.assertItemVisible.execute(itemId, userId);
 
     const item = await this.itemRepo.findById(itemId);
     if (!item) {

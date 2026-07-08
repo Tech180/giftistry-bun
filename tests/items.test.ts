@@ -431,3 +431,259 @@ describe("Items, Links & Claims", () => {
     await cleanUpWishlist(testListId);
   });
 });
+
+describe("Item Audience Restriction", () => {
+  let owner: any;
+  let collaboratorA: any;
+  let collaboratorB: any;
+  let listId: string;
+  let restrictedItemId: string;
+
+  beforeAll(async () => {
+    const timestamp = Date.now();
+    owner = await createTestUser(`aud_owner_${timestamp}`, `aud_owner_${timestamp}@example.com`);
+    collaboratorA = await createTestUser(`aud_collab_a_${timestamp}`, `aud_collab_a_${timestamp}@example.com`);
+    collaboratorB = await createTestUser(`aud_collab_b_${timestamp}`, `aud_collab_b_${timestamp}@example.com`);
+
+    listId = await createTestWishlist(owner.token, "Audience Test Wishlist");
+    await shareTestWishlist(owner.token, listId, collaboratorA.email, "collaborator");
+    await shareTestWishlist(owner.token, listId, collaboratorB.email, "collaborator");
+  });
+
+  afterAll(async () => {
+    await cleanUpWishlist(listId);
+    await cleanUpUser(owner.userId);
+    await cleanUpUser(collaboratorA.userId);
+    await cleanUpUser(collaboratorB.userId);
+  });
+
+  test("Owner creates restricted item for collaborator A only", async () => {
+    const res = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${owner.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              name: "Private Gift for A",
+              sharedWithUserIds: [collaboratorA.userId]
+            }
+          }
+        }),
+      })
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.Result.Name).toBe("Private Gift for A");
+    expect(body.Result.SharedWith?.length).toBe(1);
+    expect(body.Result.SharedWith[0].UserId).toBe(collaboratorA.userId);
+    restrictedItemId = body.Result.Id;
+  });
+
+  test("Owner and collaborator A see restricted item; collaborator B does not", async () => {
+    const ownerRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    const ownerBody = await ownerRes.json() as any;
+    expect(ownerBody.Result.some((i: any) => i.Name === "Private Gift for A")).toBe(true);
+
+    const collabARes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${collaboratorA.token}` }
+      })
+    );
+    const collabABody = await collabARes.json() as any;
+    expect(collabABody.Result.some((i: any) => i.Name === "Private Gift for A")).toBe(true);
+
+    const collabBRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${collaboratorB.token}` }
+      })
+    );
+    const collabBBody = await collabBRes.json() as any;
+    expect(collabBBody.Result.some((i: any) => i.Name === "Private Gift for A")).toBe(false);
+  });
+
+  test("Owner creates Only Me item hidden from collaborators", async () => {
+    const res = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${owner.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              name: "Owner Secret Item",
+              sharedWithUserIds: [owner.userId]
+            }
+          }
+        }),
+      })
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.Result.Name).toBe("Owner Secret Item");
+    expect(body.Result.SharedWith?.length).toBe(1);
+    expect(body.Result.SharedWith[0].UserId).toBe(owner.userId);
+
+    const ownerRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    const ownerBody = await ownerRes.json() as any;
+    expect(ownerBody.Result.some((i: any) => i.Name === "Owner Secret Item")).toBe(true);
+
+    for (const token of [collaboratorA.token, collaboratorB.token]) {
+      const listRes = await app.handle(
+        new Request(`http://localhost/api/wishlists/${listId}/items`, {
+          method: "GET",
+          headers: { "Authorization": `Bearer ${token}` }
+        })
+      );
+      const listBody = await listRes.json() as any;
+      expect(listBody.Result.some((i: any) => i.Name === "Owner Secret Item")).toBe(false);
+    }
+  });
+
+  test("Collaborator B cannot claim restricted item", async () => {
+    const res = await app.handle(
+      new Request(`http://localhost/api/items/${restrictedItemId}/claims`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${collaboratorB.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              claimedByName: "Should Fail"
+            }
+          }
+        }),
+      })
+    );
+    expect(res.status).toBe(404);
+  });
+
+  test("Owner creates everyone item without sharedWithUserIds (backward compatible)", async () => {
+    const res = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${owner.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              name: "Public Item For All"
+            }
+          }
+        }),
+      })
+    );
+    expect(res.status).toBe(200);
+
+    for (const token of [owner.token, collaboratorA.token, collaboratorB.token]) {
+      const listRes = await app.handle(
+        new Request(`http://localhost/api/wishlists/${listId}/items`, {
+          method: "GET",
+          headers: { "Authorization": `Bearer ${token}` }
+        })
+      );
+      const body = await listRes.json() as any;
+      expect(body.Result.some((i: any) => i.Name === "Public Item For All")).toBe(true);
+    }
+  });
+
+  test("Update audience on edit changes visibility", async () => {
+    const updateRes = await app.handle(
+      new Request(`http://localhost/api/items/${restrictedItemId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${owner.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              name: "Private Gift for A",
+              sharedWithUserIds: [collaboratorB.userId]
+            }
+          }
+        }),
+      })
+    );
+    expect(updateRes.status).toBe(200);
+
+    const collabBRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${collaboratorB.token}` }
+      })
+    );
+    const collabBBody = await collabBRes.json() as any;
+    expect(collabBBody.Result.some((i: any) => i.Id === restrictedItemId)).toBe(true);
+
+    const collabARes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${collaboratorA.token}` }
+      })
+    );
+    const collabABody = await collabARes.json() as any;
+    expect(collabABody.Result.some((i: any) => i.Id === restrictedItemId)).toBe(false);
+  });
+
+  test("Collaborator creates restricted suggestion hidden from owner", async () => {
+    const res = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${collaboratorA.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              name: "Secret Suggestion for B",
+              isHiddenIdea: true,
+              sharedWithUserIds: [collaboratorB.userId]
+            }
+          }
+        }),
+      })
+    );
+    expect(res.status).toBe(200);
+
+    const ownerRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    const ownerBody = await ownerRes.json() as any;
+    expect(ownerBody.Result.some((i: any) => i.Name === "Secret Suggestion for B")).toBe(false);
+
+    const collabBRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${collaboratorB.token}` }
+      })
+    );
+    const collabBBody = await collabBRes.json() as any;
+    expect(collabBBody.Result.some((i: any) => i.Name === "Secret Suggestion for B")).toBe(true);
+  });
+});

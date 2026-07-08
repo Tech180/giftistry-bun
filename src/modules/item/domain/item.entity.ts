@@ -1,3 +1,5 @@
+import type { ItemAudienceUser } from './item-audience.entity';
+
 export interface Item {
   Id: string;
   ListId: string;
@@ -11,6 +13,7 @@ export interface Item {
   Category: string;
   Priority?: number | null;
   CreatedAt?: Date;
+  SharedWith?: ItemAudienceUser[];
 }
 
 export interface ItemLink {

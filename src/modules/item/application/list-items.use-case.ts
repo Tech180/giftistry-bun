@@ -1,11 +1,15 @@
 import type { ItemRepository } from '../domain/ports/item.repository';
+import type { ItemAudienceRepository } from '../domain/ports/item-audience.repository';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
+import type { ItemAudienceUser } from '../domain/item-audience.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
+import { canUserViewItem, isItemSuggestion } from './item-visibility.service';
 
 export class ListItemsUseCase {
   constructor(
     private itemRepo: ItemRepository,
-    private wishlistRepo: WishlistRepository
+    private wishlistRepo: WishlistRepository,
+    private audienceRepo: ItemAudienceRepository
   ) {}
 
   async execute(listId: string, currentUserId: string | null) {
@@ -15,61 +19,52 @@ export class ListItemsUseCase {
     }
 
     const items = await this.itemRepo.findByListId(listId);
-    
+    const audienceMap = await this.audienceRepo.findByListId(listId);
+
     const isOwner = currentUserId === wishlist.UserId;
     const hasExpired = wishlist.ExpiresAt ? new Date() > wishlist.ExpiresAt : false;
 
-    // Map items and attach links and claims based on permissions
     const itemsWithDetails = await Promise.all(
       items.map(async (item) => {
-        // Rule 1: Hide collaborator suggestions and hidden ideas from the owner
-        const isSuggestion = item.IsSuggestion || (item.SuggestedByUserId !== null && item.SuggestedByUserId !== wishlist.UserId);
-        let otherUsersCanSee = true;
-        if (item.Description) {
-          try {
-            if (item.Description.startsWith('{') && item.Description.endsWith('}')) {
-              const parsed = JSON.parse(item.Description);
-              if (parsed && typeof parsed === 'object' && parsed.otherUsersCanSee === false) {
-                otherUsersCanSee = false;
-              }
-            }
-          } catch (_) {
-            // Plain text description
-          }
+        const audienceUsers = audienceMap.get(item.Id) ?? [];
+        const audienceUserIds = audienceUsers.map(user => user.UserId);
+
+        if (
+          !currentUserId ||
+          !canUserViewItem({
+            item,
+            wishlist,
+            currentUserId,
+            audienceUserIds,
+          })
+        ) {
+          return null;
         }
 
-        const shouldHideSuggestion = isOwner && (
-          !hasExpired || !wishlist.RevealSuggestions
-        );
-
-        if (isOwner && (item.IsHiddenIdea || isSuggestion) && shouldHideSuggestion) {
-          return null; // Will filter out
-        }
-
-        if (!isOwner && isSuggestion && !otherUsersCanSee && item.SuggestedByUserId !== currentUserId) {
-          return null; // Hide private recommendation from other users
-        }
+        const isSuggestion = isItemSuggestion(item, wishlist.UserId);
 
         const [links, claims] = await Promise.all([
           this.itemRepo.findLinksByItemId(item.Id),
           this.itemRepo.findClaimsByItemId(item.Id),
         ]);
 
-        // Rule 2: Hide claim details from owner unless the list has expired
         const shouldHideClaims = isOwner && !hasExpired;
-        
-        const claimsResult = shouldHideClaims 
-          ? [] 
+
+        const claimsResult = shouldHideClaims
+          ? []
           : claims.map(c => {
               if (c.Anonymous && c.UserId !== currentUserId) {
                 return {
                   ...c,
                   UserId: null,
-                  ClaimedByName: 'Anonymous'
+                  ClaimedByName: 'Anonymous',
                 };
               }
               return c;
             });
+
+        const sharedWith: ItemAudienceUser[] | undefined =
+          audienceUsers.length > 0 ? audienceUsers : undefined;
 
         return {
           Id: item.Id,
@@ -81,7 +76,10 @@ export class ListItemsUseCase {
           Description: item.Description,
           IsHiddenIdea: item.IsHiddenIdea,
           IsSuggestion: isSuggestion,
+          Category: item.Category,
+          Priority: item.Priority,
           CreatedAt: item.CreatedAt,
+          SharedWith: sharedWith,
           Links: links,
           Claims: claimsResult,
           IsClaimed: shouldHideClaims ? false : claims.length > 0,

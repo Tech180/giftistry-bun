@@ -22,11 +22,13 @@ import { sharedPostgresFriendRepository } from '@/modules/friends/friends.module
 import { wishlistRoutes } from './presentation/wishlist.routes';
 import { invitesUseCases } from '@/modules/invites/invites.module';
 import { PostgresItemRepository } from '@/modules/item/infrastructure/postgres-item.repository';
+import { PostgresItemAudienceRepository } from '@/modules/item/infrastructure/postgres-item-audience.repository';
 import { PostgresCommentRepository } from '@/modules/comment/infrastructure/postgres-comment.repository';
 
 const wishlistRepo = new PostgresWishlistRepository();
 const listShareRepo = new PostgresListShareRepository();
 const itemRepo = new PostgresItemRepository();
+const itemAudienceRepo = new PostgresItemAudienceRepository();
 const commentRepo = new PostgresCommentRepository();
 
 const createWishlistUseCase = new CreateWishlistUseCase(wishlistRepo);
@@ -43,7 +45,7 @@ const updateWishlistUseCase = new UpdateWishlistUseCase(wishlistRepo);
 const deleteWishlistUseCase = new DeleteWishlistUseCase(wishlistRepo);
 const listListSharesUseCase = new ListListSharesUseCase(listShareRepo);
 const updateListShareUseCase = new UpdateListShareUseCase(listShareRepo);
-const removeListShareUseCase = new RemoveListShareUseCase(listShareRepo);
+const removeListShareUseCase = new RemoveListShareUseCase(listShareRepo, itemAudienceRepo);
 const bulkShareWishlistUseCase = new BulkShareWishlistUseCase(listShareRepo, sharedPostgresFriendRepository, sharedPostgresUserRepository);
 
 export const wishlistModule = new Elysia()
@@ -67,3 +69,4 @@ export const wishlistModule = new Elysia()
   }, invitesUseCases));
 
 export { wishlistRepo as sharedPostgresWishlistRepository };
+export { listShareRepo as sharedPostgresListShareRepository };

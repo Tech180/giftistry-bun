@@ -1,11 +1,15 @@
 import type { ItemRepository } from '../domain/ports/item.repository';
+import type { ItemAudienceRepository } from '../domain/ports/item-audience.repository';
 import type { Item } from '../domain/item.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { env } from '@/common/consts/env.consts';
 import { AIReviewService } from '@/common/services/ai-review.service';
 
 export class AddItemUseCase {
-  constructor(private itemRepo: ItemRepository) {}
+  constructor(
+    private itemRepo: ItemRepository,
+    private audienceRepo: ItemAudienceRepository
+  ) {}
 
   async execute(
     listId: string,
@@ -19,7 +23,8 @@ export class AddItemUseCase {
     websiteName: string | null = null,
     category: string = 'uncategorized',
     isSuggestion: boolean = false,
-    priority: number | null = null
+    priority: number | null = null,
+    sharedWithUserIds: string[] = []
   ): Promise<Item> {
     if (!listId) {
       throw new AppError('List ID is required', 400, 'BAD_REQUEST');
@@ -42,6 +47,8 @@ export class AddItemUseCase {
 
     const item = await this.itemRepo.create(listId, priorityId, suggestedByUserId, name, description, isHiddenIdea, category, isSuggestion, priority);
 
+    const sharedWith = await this.audienceRepo.setAudience(item.Id, sharedWithUserIds);
+
     if (linkUrl) {
       const link = await this.itemRepo.createLink(
         item.Id,
@@ -62,7 +69,10 @@ export class AddItemUseCase {
       });
     }
 
-    return item;
+    return {
+      ...item,
+      SharedWith: sharedWith.length > 0 ? sharedWith : undefined,
+    };
   }
 
   private async triggerBackgroundScraping(linkId: string, url: string, userPrice: number | null): Promise<void> {

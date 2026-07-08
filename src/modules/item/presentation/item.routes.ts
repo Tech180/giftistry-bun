@@ -83,7 +83,7 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
       security: [{ bearerAuth: [] }]
     }
   })
-  .post('/wishlists/:listId/items', async ({ getAuthUser, checkListAccess, params: { listId }, body: { Giftistry: { Items: { name, description, priorityId, isHiddenIdea, linkUrl, price, websiteName, category, priority } } } }) => {
+  .post('/wishlists/:listId/items', async ({ getAuthUser, checkListAccess, params: { listId }, body: { Giftistry: { Items: { name, description, priorityId, isHiddenIdea, linkUrl, price, websiteName, category, priority, sharedWithUserIds } } } }) => {
     const { role } = await checkListAccess('collaborator');
     const user = await getAuthUser();
     const resolvedHidden = isHiddenIdea ?? false;
@@ -92,6 +92,14 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
     }
 
     const isSuggestion = role !== 'owner';
+    const isOwner = role === 'owner';
+
+    const validatedAudience = await useCases.validateItemAudience.execute(
+      listId,
+      sharedWithUserIds,
+      user.userId,
+      isOwner
+    );
 
     const item = await useCases.addItem.execute(
       listId,
@@ -105,7 +113,8 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
       websiteName ?? null,
       category ?? 'uncategorized',
       isSuggestion,
-      priority !== undefined && priority !== null ? Number(priority) : null
+      priority !== undefined && priority !== null ? Number(priority) : null,
+      validatedAudience
     );
     return { success: true, data: item };
   }, {
@@ -128,6 +137,7 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
           category: t.Optional(t.Nullable(t.String())),
           isSuggestion: t.Optional(t.Boolean()),
           priority: t.Optional(t.Nullable(t.Numeric())),
+          sharedWithUserIds: t.Optional(t.Array(t.String())),
         })
       })
     })
@@ -159,9 +169,10 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
       security: [{ bearerAuth: [] }]
     }
   })
-  .post('/items/:itemId/links', async ({ checkListAccess, params: { itemId }, body: { Giftistry: { Items: { url } } } }) => {
+  .post('/items/:itemId/links', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: { url } } } }) => {
     await checkListAccess('collaborator');
-    const link = await useCases.addItemLink.execute(itemId, url);
+    const user = await getAuthUser();
+    const link = await useCases.addItemLink.execute(itemId, url, user.userId);
     return { success: true, data: link };
   }, {
     detail: {
@@ -394,15 +405,31 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
       })
     })
   })
-  .put('/items/:itemId', async ({ checkListAccess, params: { itemId }, body: { Giftistry: { Items: { name, description, priorityId, category, priority } } } }) => {
-    await checkListAccess('collaborator');
+  .put('/items/:itemId', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: { name, description, priorityId, category, priority, sharedWithUserIds } } } }) => {
+    const access = await checkListAccess('collaborator');
+    const user = await getAuthUser();
+    const isOwner = access.role === 'owner';
+
+    let validatedAudience: string[] | undefined;
+    if (sharedWithUserIds !== undefined) {
+      validatedAudience = await useCases.validateItemAudience.execute(
+        access.listId,
+        sharedWithUserIds,
+        user.userId,
+        isOwner,
+        itemId
+      );
+    }
+
     const item = await useCases.updateItem.execute(
       itemId,
+      user.userId,
       name,
       description ?? null,
       priorityId ?? null,
       category ?? 'uncategorized',
-      priority !== undefined && priority !== null ? Number(priority) : null
+      priority !== undefined && priority !== null ? Number(priority) : null,
+      validatedAudience
     );
     return { success: true, data: item };
   }, {
@@ -420,6 +447,7 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
           priorityId: t.Optional(t.Nullable(t.String())),
           category: t.Optional(t.Nullable(t.String())),
           priority: t.Optional(t.Nullable(t.Numeric())),
+          sharedWithUserIds: t.Optional(t.Array(t.String())),
         })
       })
     })
@@ -438,9 +466,10 @@ export const itemRoutes = (useCases: ItemUseCases) => new Elysia({ prefix: '/api
       category: t.String()
     })
   })
-  .delete('/items/:itemId', async ({ checkListAccess, params: { itemId } }) => {
+  .delete('/items/:itemId', async ({ getAuthUser, checkListAccess, params: { itemId } }) => {
     await checkListAccess('collaborator');
-    await useCases.deleteItem.execute(itemId);
+    const user = await getAuthUser();
+    await useCases.deleteItem.execute(itemId, user.userId);
     return { success: true };
   }, {
     detail: {

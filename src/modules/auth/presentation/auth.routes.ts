@@ -304,14 +304,7 @@ export const authRoutes = (useCases: AuthUseCases) => new Elysia()
       if (user.TwoFactorEnabled) {
         // Issue a short-lived 2FA ticket (valid for 5 minutes / 300,000 ms)
         const ticket = await createToken({ userId: user.Id, action: '2fa_login' }, 300 * 1000);
-        let autoCode: string | undefined = undefined;
-        if (process.env.NODE_ENV !== 'production') {
-          const [curr] = await sql<any[]>`SELECT two_factor_secret FROM users WHERE id = ${user.Id}`;
-          if (curr && curr.two_factor_secret) {
-            autoCode = await generate({ secret: curr.two_factor_secret });
-          }
-        }
-        return { success: true, Require2FA: true, Ticket: ticket, Code: autoCode };
+        return { success: true, Require2FA: true, Ticket: ticket };
       }
 
       const token = await createToken({ userId: user.Id, sessionVersion: user.SessionVersion ?? 0 });

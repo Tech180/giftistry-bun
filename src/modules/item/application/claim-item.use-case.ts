@@ -1,12 +1,14 @@
 import type { ItemRepository } from '../domain/ports/item.repository';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
 import type { Claim } from '../domain/item.entity';
+import type { AssertItemVisibleUseCase } from './assert-item-visible.use-case';
 import { AppError } from '@/common/middlewares/error.middleware';
 
 export class ClaimItemUseCase {
   constructor(
     private itemRepo: ItemRepository,
-    private wishlistRepo: WishlistRepository
+    private wishlistRepo: WishlistRepository,
+    private assertItemVisible: AssertItemVisibleUseCase
   ) {}
 
   async execute(
@@ -18,6 +20,12 @@ export class ClaimItemUseCase {
     quantity: number = 1,
     selection: string | null = null
   ): Promise<Claim> {
+    if (!userId) {
+      throw new AppError('Authentication required', 401, 'UNAUTHORIZED');
+    }
+
+    await this.assertItemVisible.execute(itemId, userId);
+
     const item = await this.itemRepo.findById(itemId);
     if (!item) {
       throw new AppError('Item not found', 404, 'NOT_FOUND');

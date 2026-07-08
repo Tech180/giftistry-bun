@@ -6,6 +6,7 @@ import type { DeleteItemUseCase } from '../application/delete-item.use-case';
 import type { UpdateItemUseCase } from '../application/update-item.use-case';
 import type { GetFieldDefinitionsUseCase } from '../application/get-field-definitions.use-case';
 import type { UnclaimItemUseCase } from '../application/unclaim-item.use-case';
+import type { ValidateItemAudienceUseCase } from '../application/validate-item-audience.use-case';
 
 export interface ItemUseCases {
   addItem: AddItemUseCase;
@@ -16,4 +17,5 @@ export interface ItemUseCases {
   updateItem: UpdateItemUseCase;
   getFieldDefinitions: GetFieldDefinitionsUseCase;
   unclaimItem: UnclaimItemUseCase;
+  validateItemAudience: ValidateItemAudienceUseCase;
 }
