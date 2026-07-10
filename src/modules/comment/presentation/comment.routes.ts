@@ -1,12 +1,14 @@
 import { Elysia, t } from 'elysia';
-import { authMiddleware } from '@/modules/auth/auth.module';
-import { listAccessMiddleware } from '@/common/middlewares/list-access.middleware';
+import type { RouteMiddleware } from '@/common/types/route-middleware';
 import { AppError } from '@/common/middlewares/error.middleware';
 import type { CommentUseCases } from './comment-use-cases.interface';
 
-export const commentRoutes = (useCases: CommentUseCases) => new Elysia({ prefix: '/api' })
-  .use(authMiddleware)
-  .use(listAccessMiddleware)
+export const commentRoutes = (
+  useCases: CommentUseCases,
+  middleware: RouteMiddleware
+) => new Elysia({ prefix: '/api' })
+  .use(middleware.auth)
+  .use(middleware.listAccess)
   .get('/wishlists/:listId/comments', async ({ getAuthUser, checkListAccess, params: { listId } }) => {
     await checkListAccess('viewer');
     const user = await getAuthUser();

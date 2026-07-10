@@ -3,13 +3,15 @@ import type { FriendRepository } from '@/modules/friends/domain/ports/friend.rep
 import type { UserRepository } from '@/modules/auth/domain/ports/user.repository';
 import type { ListShare, ShareRole } from '../domain/list-share.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
-import { createNotification } from '@/modules/notifications/services/create-notification.service';
+import type { EventBus } from '@/common/domain/events/event-bus.port';
+import { WishlistSharedEvent } from '../domain/events/wishlist-shared.event';
 
 export class BulkShareWishlistUseCase {
   constructor(
     private listShareRepo: ListShareRepository,
     private friendRepo: FriendRepository,
-    private userRepo: UserRepository
+    private userRepo: UserRepository,
+    private eventBus: EventBus
   ) {}
 
   async execute(
@@ -43,13 +45,15 @@ export class BulkShareWishlistUseCase {
       const share = await this.listShareRepo.addShare(listId, friendId, role, 'bulk');
       shares.push(share);
 
-      createNotification(
-        friendId,
-        'list_shared',
-        'Wishlist shared with you',
-        'A friend shared a wishlist with you.',
-        { listId, role, sharedBy: ownerId }
-      ).catch(err => console.error('[Notifications] Failed to create list_shared notification:', err));
+      void this.eventBus.publish(
+        new WishlistSharedEvent(
+          friendId,
+          listId,
+          role,
+          'A friend shared a wishlist with you.',
+          ownerId
+        )
+      ).catch(err => console.error('[Notifications] Failed to publish list_shared event:', err));
     }
 
     return shares;

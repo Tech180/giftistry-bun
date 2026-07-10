@@ -3,7 +3,7 @@ import type { ItemAudienceRepository } from '../domain/ports/item-audience.repos
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
 import type { ItemAudienceUser } from '../domain/item-audience.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
-import { canUserViewItem, isItemSuggestion } from './item-visibility.service';
+import { canUserViewItem, isItemSuggestion } from '../domain/item-visibility.service';
 
 export class ListItemsUseCase {
   constructor(

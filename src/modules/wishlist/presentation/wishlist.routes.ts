@@ -1,12 +1,16 @@
 import { Elysia, t } from 'elysia';
-import { authMiddleware } from '@/modules/auth/auth.module';
-import { listAccessMiddleware, getListAccessContext } from '@/common/middlewares/list-access.middleware';
+import type { RouteMiddleware } from '@/common/types/route-middleware';
+import { getListAccessContext } from '@/common/middlewares/list-access.middleware';
 import { AppError } from '@/common/middlewares/error.middleware';
 import type { WishlistUseCases } from './wishlist-use-cases.interface';
 import type { InvitesUseCases } from '@/modules/invites/presentation/invites-use-cases.interface';
 
-export const wishlistRoutes = (useCases: WishlistUseCases, inviteUseCases?: InvitesUseCases) => new Elysia({ prefix: '/api' })
-  .use(authMiddleware)
+export const wishlistRoutes = (
+  useCases: WishlistUseCases,
+  inviteUseCases: InvitesUseCases | undefined,
+  middleware: RouteMiddleware
+) => new Elysia({ prefix: '/api' })
+  .use(middleware.auth)
   // Get all expired active lists (useful for n8n cron job)
   .get('/wishlists/expired', async () => {
     const expired = await useCases.listExpiredWishlists.execute();
@@ -121,7 +125,7 @@ export const wishlistRoutes = (useCases: WishlistUseCases, inviteUseCases?: Invi
       security: [{ bearerAuth: [] }]
     }
   })
-  .use(listAccessMiddleware)
+  .use(middleware.listAccess)
   .post('/wishlists/:listId/shares', async ({ params: { listId }, getAuthUser, checkListAccess, body: { Giftistry: { Lists: { email, role } } } }) => {
     const user = await getAuthUser();
     if (!user.EmailVerified) {

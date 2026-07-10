@@ -4,6 +4,7 @@ import { AppError } from './error.middleware';
 interface RateLimitConfig {
   windowMs: number;
   max: number;
+  paths?: string[];
 }
 
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
@@ -19,10 +20,12 @@ setInterval(() => {
 }, 60000); // Clean up every minute
 
 export function rateLimit(config: RateLimitConfig) {
+  const paths = config.paths ?? ['/signup', '/login'];
+
   return new Elysia()
     .onBeforeHandle({ as: 'global' }, ({ request, set }) => {
       const path = new URL(request.url).pathname;
-      if (!path.endsWith('/signup') && !path.endsWith('/login')) {
+      if (!paths.some((p) => path.endsWith(p))) {
         return;
       }
 

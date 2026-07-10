@@ -2,13 +2,15 @@ import type { ItemRepository } from '../domain/ports/item.repository';
 import type { ItemAudienceRepository } from '../domain/ports/item-audience.repository';
 import type { Item } from '../domain/item.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
-import { env } from '@/common/consts/env.consts';
-import { AIReviewService } from '@/common/services/ai-review.service';
+import type { EnrichLinkMetadataUseCase } from './enrich-link-metadata.use-case';
+import type { ExtractItemReviewsUseCase } from './extract-item-reviews.use-case';
 
 export class AddItemUseCase {
   constructor(
     private itemRepo: ItemRepository,
-    private audienceRepo: ItemAudienceRepository
+    private audienceRepo: ItemAudienceRepository,
+    private enrichLinkMetadata: EnrichLinkMetadataUseCase,
+    private extractItemReviews: ExtractItemReviewsUseCase
   ) {}
 
   async execute(
@@ -58,13 +60,11 @@ export class AddItemUseCase {
         null
       );
 
-      // Fire and forget background scraper
-      this.triggerBackgroundScraping(link.Id, linkUrl, price).catch(err => {
-        console.error('Background scraper trigger failed:', err);
+      this.enrichLinkMetadata.execute(link.Id, linkUrl, price).catch((err) => {
+        console.error('Background metadata enrichment failed:', err);
       });
 
-      // Fire and forget background AI review extraction
-      AIReviewService.extractAndSaveReviews(item.Id, listId, linkUrl).catch(err => {
+      this.extractItemReviews.execute(item.Id, listId, linkUrl).catch((err) => {
         console.error('Background AI review extraction trigger failed:', err);
       });
     }
@@ -73,54 +73,5 @@ export class AddItemUseCase {
       ...item,
       SharedWith: sharedWith.length > 0 ? sharedWith : undefined,
     };
-  }
-
-  private async triggerBackgroundScraping(linkId: string, url: string, userPrice: number | null): Promise<void> {
-    const n8nWebhook = env.N8N;
-    if (n8nWebhook) {
-      fetch(n8nWebhook, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ LinkId: linkId, Url: url })
-      }).catch(err => {
-        console.error('Failed to trigger n8n scraping webhook:', err);
-      });
-      return;
-    }
-
-    // Fallback: local non-blocking scraper inside Bun
-    try {
-      const res = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-      });
-      if (!res.ok) return;
-
-      const html = await res.text();
-      
-      // Extract OG Image
-      const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i) ||
-                           html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i);
-      const extractedImageUrl = ogImageMatch ? ogImageMatch[1] ?? null : null;
-
-      // Extract Price
-      let extractedPrice: number | null = null;
-      if (userPrice === null) {
-        const priceMatch = html.match(/<meta[^>]*property=["']product:price:amount["'][^>]*content=["']([^"']+)["']/i) ||
-                           html.match(/<meta[^>]*property=["']og:price:amount["'][^>]*content=["']([^"']+)["']/i) ||
-                           html.match(/itemprop=["']price["'][^>]*content=["']([^"']+)["']/i);
-        const priceVal = priceMatch ? Number(priceMatch[1]) : null;
-        extractedPrice = priceVal && !isNaN(priceVal) ? priceVal : null;
-      }
-
-      const finalPrice = userPrice !== null ? userPrice : extractedPrice;
-
-      if (finalPrice !== null || extractedImageUrl !== null) {
-        await this.itemRepo.updateLinkMetadata(linkId, finalPrice, extractedImageUrl);
-      }
-    } catch (error) {
-      console.error('Background native scraping failed:', error);
-    }
   }
 }

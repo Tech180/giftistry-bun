@@ -1,17 +1,20 @@
 import type { ListLinkTokenRepository } from '../domain/ports/list-link-token.repository';
 import type { ListEmailInviteRepository } from '../domain/ports/list-email-invite.repository';
 import type { ListShareRepository } from '@/modules/wishlist/domain/ports/list-share.repository';
+import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
 import type { UserRepository } from '@/modules/auth/domain/ports/user.repository';
 import type { ListShare } from '@/modules/wishlist/domain/list-share.entity';
 import { hashInviteToken } from '@/common/utils/invite-token';
 import { AppError } from '@/common/middlewares/error.middleware';
-import { createNotification } from '@/modules/notifications/services/create-notification.service';
-import { sql } from '@/common/database/connection';
+import type { EventBus } from '@/common/domain/events/event-bus.port';
+import { InviteAcceptedEvent } from '../domain/events/invite-accepted.event';
 
 export class AcceptLinkInviteUseCase {
   constructor(
     private linkTokenRepo: ListLinkTokenRepository,
-    private listShareRepo: ListShareRepository
+    private listShareRepo: ListShareRepository,
+    private wishlistRepo: WishlistRepository,
+    private eventBus: EventBus
   ) {}
 
   async execute(userId: string, token: string, password?: string): Promise<ListShare> {
@@ -37,24 +40,30 @@ export class AcceptLinkInviteUseCase {
       }
     }
 
-    const [list] = await sql<any[]>`SELECT user_id as "userId" FROM lists WHERE id = ${linkInvite.ListId}`;
-    if (!list) {
+    const wishlist = await this.wishlistRepo.findById(linkInvite.ListId);
+    if (!wishlist) {
       throw new AppError('Wishlist not found', 404, 'NOT_FOUND');
     }
-    if (list.userId === userId) {
+    if (wishlist.UserId === userId) {
       throw new AppError('You already own this wishlist', 400, 'BAD_REQUEST');
     }
 
     const share = await this.listShareRepo.addShare(linkInvite.ListId, userId, linkInvite.Role, 'link');
     await this.linkTokenRepo.incrementUseCount(linkInvite.Id);
 
-    createNotification(
-      list.userId,
-      'invite_accepted',
-      'Invite accepted',
-      'Someone accepted your wishlist invite link.',
-      { listId: linkInvite.ListId, userId, type: 'link' }
-    ).catch(err => console.error('[Notifications] Failed to create invite_accepted notification:', err));
+    void this.eventBus
+      .publish(
+        new InviteAcceptedEvent(
+          wishlist.UserId,
+          linkInvite.ListId,
+          userId,
+          'link',
+          'Someone accepted your wishlist invite link.'
+        )
+      )
+      .catch(err =>
+        console.error('[Notifications] Failed to publish invite_accepted event:', err)
+      );
 
     return share;
   }
@@ -64,7 +73,9 @@ export class AcceptEmailInviteUseCase {
   constructor(
     private emailInviteRepo: ListEmailInviteRepository,
     private listShareRepo: ListShareRepository,
-    private userRepo: UserRepository
+    private userRepo: UserRepository,
+    private wishlistRepo: WishlistRepository,
+    private eventBus: EventBus
   ) {}
 
   async execute(userId: string, token: string): Promise<ListShare> {
@@ -82,24 +93,30 @@ export class AcceptEmailInviteUseCase {
       throw new AppError('This invite was sent to a different email address', 403, 'FORBIDDEN');
     }
 
-    const [list] = await sql<any[]>`SELECT user_id as "userId" FROM lists WHERE id = ${emailInvite.ListId}`;
-    if (!list) {
+    const wishlist = await this.wishlistRepo.findById(emailInvite.ListId);
+    if (!wishlist) {
       throw new AppError('Wishlist not found', 404, 'NOT_FOUND');
     }
-    if (list.userId === userId) {
+    if (wishlist.UserId === userId) {
       throw new AppError('You already own this wishlist', 400, 'BAD_REQUEST');
     }
 
     const share = await this.listShareRepo.addShare(emailInvite.ListId, userId, emailInvite.Role, 'email');
     await this.emailInviteRepo.markAccepted(emailInvite.Id);
 
-    createNotification(
-      list.userId,
-      'invite_accepted',
-      'Invite accepted',
-      'Someone accepted your wishlist email invite.',
-      { listId: emailInvite.ListId, userId, type: 'email' }
-    ).catch(err => console.error('[Notifications] Failed to create invite_accepted notification:', err));
+    void this.eventBus
+      .publish(
+        new InviteAcceptedEvent(
+          wishlist.UserId,
+          emailInvite.ListId,
+          userId,
+          'email',
+          'Someone accepted your wishlist email invite.'
+        )
+      )
+      .catch(err =>
+        console.error('[Notifications] Failed to publish invite_accepted event:', err)
+      );
 
     return share;
   }

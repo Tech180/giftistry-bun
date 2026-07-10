@@ -1,5 +1,14 @@
-import type { UserRepository } from '../domain/ports/user.repository';
+import type {
+  UserRepository,
+  CustomTheme,
+  CustomThemeInput,
+  EmailVerificationLookup,
+  TwoFactorSecrets,
+  AdminAccountStatus,
+  DeleteAccountStatus,
+} from '../domain/ports/user.repository';
 import type { User } from '../domain/user.entity';
+import type { UserSearchResult } from '@/modules/friends/domain/friend.entity';
 import { generateAvatarColor } from '@/common/utils/avatar.util';
 import { mergeUserPolicy } from '@/common/types/user-policy';
 import { sql } from '@/common/database/connection';
@@ -15,33 +24,44 @@ const USER_SELECT = `
   policy_json as "PolicyJson", last_login_at as "LastLoginAt"
 `;
 
-function mapUserRow(row: any): User {
+function mapUserRow(row: Record<string, unknown>): User {
   return {
-    Id: row.Id,
-    Username: row.Username,
-    Email: row.Email,
-    FirstName: row.FirstName,
-    LastName: row.LastName,
-    AuthHash: row.AuthHash,
-    CreatedAt: row.CreatedAt ? new Date(row.CreatedAt) : undefined,
-    Bio: row.Bio,
-    Theme: row.Theme,
-    Avatar: row.Avatar,
-    Birthday: row.Birthday ? (row.Birthday instanceof Date ? row.Birthday.toISOString().split('T')[0] : String(row.Birthday)) : null,
-    EmailVerified: row.EmailVerified,
-    TwoFactorEnabled: row.TwoFactorEnabled,
-    IsAdmin: row.IsAdmin,
-    IsOwner: row.IsOwner,
-    LastOnline: row.LastOnline ? new Date(row.LastOnline) : null,
-    IsDisabled: row.IsDisabled,
-    IsHidden: row.IsHidden,
-    LockedUntil: row.LockedUntil ? new Date(row.LockedUntil) : null,
-    FailedLoginCount: row.FailedLoginCount,
-    ForcePasswordChange: row.ForcePasswordChange,
-    LoginAttemptsBeforeLockout: row.LoginAttemptsBeforeLockout,
-    SessionVersion: row.SessionVersion,
+    Id: row.Id as string,
+    Username: row.Username as string,
+    Email: row.Email as string,
+    FirstName: row.FirstName as string,
+    LastName: row.LastName as string,
+    AuthHash: row.AuthHash as string,
+    CreatedAt: row.CreatedAt ? new Date(row.CreatedAt as string | Date) : undefined,
+    Bio: row.Bio as string | undefined,
+    Theme: row.Theme as string | undefined,
+    Avatar: row.Avatar as string | null | undefined,
+    Birthday: row.Birthday
+      ? (row.Birthday instanceof Date ? row.Birthday.toISOString().split('T')[0] : String(row.Birthday))
+      : null,
+    EmailVerified: row.EmailVerified as boolean | undefined,
+    TwoFactorEnabled: row.TwoFactorEnabled as boolean | undefined,
+    IsAdmin: row.IsAdmin as boolean | undefined,
+    IsOwner: row.IsOwner as boolean | undefined,
+    LastOnline: row.LastOnline ? new Date(row.LastOnline as string | Date) : null,
+    IsDisabled: row.IsDisabled as boolean | undefined,
+    IsHidden: row.IsHidden as boolean | undefined,
+    LockedUntil: row.LockedUntil ? new Date(row.LockedUntil as string | Date) : null,
+    FailedLoginCount: row.FailedLoginCount as number | undefined,
+    ForcePasswordChange: row.ForcePasswordChange as boolean | undefined,
+    LoginAttemptsBeforeLockout: row.LoginAttemptsBeforeLockout as number | undefined,
+    SessionVersion: row.SessionVersion as number | undefined,
     PolicyJson: mergeUserPolicy(typeof row.PolicyJson === 'string' ? JSON.parse(row.PolicyJson) : row.PolicyJson),
-    LastLoginAt: row.LastLoginAt ? new Date(row.LastLoginAt) : null,
+    LastLoginAt: row.LastLoginAt ? new Date(row.LastLoginAt as string | Date) : null,
+  };
+}
+
+function mapCustomThemeRow(row: Record<string, unknown>): CustomTheme {
+  return {
+    Id: row.Id as string,
+    Name: row.Name as string,
+    Colors: row.Colors as Record<string, string>,
+    Advanced: (row.Advanced as Record<string, unknown>) || {},
   };
 }
 
@@ -147,5 +167,179 @@ export class PostgresUserRepository implements UserRepository {
 
   async updateLastOnline(id: string): Promise<void> {
     await sql`UPDATE users SET last_online = CURRENT_TIMESTAMP WHERE id = ${id}`;
+  }
+
+  async updateLockout(id: string, failedLoginCount: number, lockedUntil: Date | null): Promise<void> {
+    await sql`
+      UPDATE users SET failed_login_count = ${failedLoginCount}, locked_until = ${lockedUntil}
+      WHERE id = ${id}
+    `;
+  }
+
+  async resetLockoutAndRecordLogin(id: string): Promise<void> {
+    await sql`
+      UPDATE users SET failed_login_count = 0, locked_until = NULL, last_login_at = CURRENT_TIMESTAMP
+      WHERE id = ${id}
+    `;
+  }
+
+  async findByEmailVerificationToken(token: string): Promise<EmailVerificationLookup | null> {
+    const [row] = await sql<any[]>`
+      SELECT id, email_verification_expires FROM users WHERE email_verification_token = ${token}
+    `;
+    if (!row) return null;
+    return {
+      id: row.id,
+      emailVerificationExpires: new Date(row.email_verification_expires),
+    };
+  }
+
+  async setDefaultUserPolicy(id: string, policyJson: string): Promise<void> {
+    await sql`
+      UPDATE users SET policy_json = ${policyJson}::jsonb
+      WHERE id = ${id}
+    `;
+  }
+
+  async countEnabledAdmins(excludeUserId?: string): Promise<number> {
+    const rows = excludeUserId
+      ? await sql<any[]>`
+          SELECT COUNT(*)::integer as count FROM users
+          WHERE is_admin = true AND is_disabled = false AND id != ${excludeUserId}
+        `
+      : await sql<any[]>`
+          SELECT COUNT(*)::integer as count FROM users
+          WHERE is_admin = true AND is_disabled = false
+        `;
+    return rows[0]?.count ?? 0;
+  }
+
+  async getAccountStatusForDisable(id: string): Promise<AdminAccountStatus | null> {
+    const [row] = await sql<any[]>`
+      SELECT id, is_admin, is_disabled FROM users WHERE id = ${id}
+    `;
+    if (!row) return null;
+    return {
+      id: row.id,
+      isAdmin: row.is_admin,
+      isDisabled: row.is_disabled,
+    };
+  }
+
+  async getAccountStatusForDelete(id: string): Promise<DeleteAccountStatus | null> {
+    const [row] = await sql<any[]>`
+      SELECT id, auth_hash, is_admin, is_disabled FROM users WHERE id = ${id}
+    `;
+    if (!row) return null;
+    return {
+      id: row.id,
+      authHash: row.auth_hash,
+      isAdmin: row.is_admin,
+      isDisabled: row.is_disabled,
+    };
+  }
+
+  async disableAccount(id: string): Promise<void> {
+    await sql`
+      UPDATE users SET
+        is_disabled = true,
+        session_version = session_version + 1
+      WHERE id = ${id}
+    `;
+  }
+
+  async deleteAccount(id: string): Promise<void> {
+    await sql`DELETE FROM users WHERE id = ${id}`;
+  }
+
+  async getTwoFactorSecrets(id: string): Promise<TwoFactorSecrets | null> {
+    const [row] = await sql<any[]>`
+      SELECT two_factor_secret, two_factor_recovery_codes FROM users WHERE id = ${id}
+    `;
+    if (!row) return null;
+    return {
+      twoFactorSecret: row.two_factor_secret,
+      twoFactorRecoveryCodes: row.two_factor_recovery_codes,
+    };
+  }
+
+  async countMutualFriends(viewerId: string, userId: string): Promise<number> {
+    const [row] = await sql<any[]>`
+      SELECT COUNT(*)::integer as count
+      FROM (
+        SELECT CASE WHEN f1.user_a_id = ${viewerId} THEN f1.user_b_id ELSE f1.user_a_id END as friend_id
+        FROM friends f1
+        WHERE f1.user_a_id = ${viewerId} OR f1.user_b_id = ${viewerId}
+      ) fa
+      JOIN (
+        SELECT CASE WHEN f2.user_a_id = ${userId} THEN f2.user_b_id ELSE f2.user_a_id END as friend_id
+        FROM friends f2
+        WHERE f2.user_a_id = ${userId} OR f2.user_b_id = ${userId}
+      ) fb ON fa.friend_id = fb.friend_id
+    `;
+    return row?.count ?? 0;
+  }
+
+  async listCustomThemes(userId: string): Promise<CustomTheme[]> {
+    const rows = await sql<any[]>`
+      SELECT id as "Id", name as "Name", colors as "Colors", advanced as "Advanced"
+      FROM user_custom_themes
+      WHERE user_id = ${userId}
+      ORDER BY created_at DESC
+    `;
+    return rows.map(mapCustomThemeRow);
+  }
+
+  async saveCustomTheme(userId: string, theme: CustomThemeInput): Promise<CustomTheme> {
+    const [row] = await sql<any[]>`
+      INSERT INTO user_custom_themes (id, user_id, name, colors, advanced)
+      VALUES (${theme.id}, ${userId}, ${theme.name}, ${JSON.stringify(theme.colors)}, ${JSON.stringify(theme.advanced || {})})
+      ON CONFLICT (id) DO UPDATE
+      SET name = EXCLUDED.name, colors = EXCLUDED.colors, advanced = EXCLUDED.advanced
+      RETURNING id as "Id", name as "Name", colors as "Colors", advanced as "Advanced"
+    `;
+    return mapCustomThemeRow(row);
+  }
+
+  async deleteCustomTheme(userId: string, themeId: string): Promise<void> {
+    await sql`
+      DELETE FROM user_custom_themes
+      WHERE id = ${themeId} AND user_id = ${userId}
+    `;
+  }
+
+  async searchUsers(query: string, excludeId: string): Promise<UserSearchResult[]> {
+    const pattern = `%${query}%`;
+    const rows = await sql<any[]>`
+      SELECT id as "Id", username as "Username", first_name as "FirstName",
+             last_name as "LastName", avatar as "Avatar"
+      FROM users
+      WHERE id != ${excludeId}
+        AND is_hidden = false
+        AND is_disabled = false
+        AND (
+          username ILIKE ${pattern}
+          OR first_name ILIKE ${pattern}
+          OR last_name ILIKE ${pattern}
+          OR email ILIKE ${pattern}
+        )
+      ORDER BY username ASC
+      LIMIT 20
+    `;
+    return rows.map(row => ({
+      Id: row.Id,
+      Username: row.Username,
+      FirstName: row.FirstName,
+      LastName: row.LastName,
+      Avatar: row.Avatar ?? null,
+    }));
+  }
+
+  async isUserDisabled(userId: string): Promise<boolean | null> {
+    const [row] = await sql<{ is_disabled: boolean }[]>`
+      SELECT is_disabled FROM users WHERE id = ${userId}
+    `;
+    if (!row) return null;
+    return row.is_disabled;
   }
 }

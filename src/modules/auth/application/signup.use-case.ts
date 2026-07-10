@@ -1,19 +1,30 @@
 import type { UserRepository } from '../domain/ports/user.repository';
-import type { User } from '../domain/user.entity';
+import type { EmailSender } from '../domain/ports/email-sender.port';
+import type { SafeUser } from '../domain/user.entity';
+import { toSafeUser } from '../domain/user.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
-import { getSitePolicy } from '@/common/services/site-policy.service';
+import type { GetSitePolicyUseCase } from '@/common/application/get-site-policy.use-case';
 import { mergeUserPolicy } from '@/common/types/user-policy';
-import { sql } from '@/common/database/connection';
 
 export class SignupUseCase {
-  constructor(private userRepo: UserRepository) {}
+  constructor(
+    private userRepo: UserRepository,
+    private getSitePolicy: GetSitePolicyUseCase,
+    private emailSender: EmailSender
+  ) {}
 
-  async execute(username: string, email: string, password: string, firstName?: string, lastName?: string): Promise<Omit<User, 'AuthHash'>> {
+  async execute(
+    username: string,
+    email: string,
+    password: string,
+    firstName?: string,
+    lastName?: string
+  ): Promise<SafeUser> {
     if (!username || !email || !password) {
       throw new AppError('Username, email, and password are required', 400, 'BAD_REQUEST');
     }
 
-    const sitePolicy = await getSitePolicy();
+    const sitePolicy = await this.getSitePolicy.execute();
     if (sitePolicy.registrationMode === 'disabled') {
       throw new AppError('Registration is currently disabled', 403, 'FORBIDDEN');
     }
@@ -43,12 +54,17 @@ export class SignupUseCase {
     const authHash = await Bun.password.hash(password);
     const user = await this.userRepo.create(username, email, firstName || '', lastName || '', authHash, isAdmin, isOwner);
 
-    await sql`
-      UPDATE users SET policy_json = ${JSON.stringify(mergeUserPolicy(sitePolicy.defaultUserPolicy))}::jsonb
-      WHERE id = ${user.Id}
-    `;
+    await this.userRepo.setDefaultUserPolicy(user.Id, JSON.stringify(mergeUserPolicy(sitePolicy.defaultUserPolicy)));
 
-    const { AuthHash: _authHash, ...safeUser } = user;
-    return safeUser;
+    const verificationToken = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await this.userRepo.update(user.Id, {
+      emailVerificationToken: verificationToken,
+      emailVerificationExpires: expiresAt,
+    });
+
+    this.emailSender.sendVerificationEmail(user.Email, user.Username, verificationToken).catch(console.error);
+
+    return toSafeUser(user);
   }
 }

@@ -311,4 +311,18 @@ export class PostgresWishlistRepository implements WishlistRepository {
       DELETE FROM priorities WHERE id = ${id} AND user_id = ${userId}
     `;
   }
+
+  async countListsByUser(userId: string): Promise<{ active: number; archived: number }> {
+    const [row] = await sql<any[]>`
+      SELECT
+        COUNT(CASE WHEN is_active = true THEN 1 END)::integer as active,
+        COUNT(CASE WHEN is_active = false THEN 1 END)::integer as archived
+      FROM lists
+      WHERE user_id = ${userId}
+    `;
+    return {
+      active: row?.active ?? 0,
+      archived: row?.archived ?? 0,
+    };
+  }
 }

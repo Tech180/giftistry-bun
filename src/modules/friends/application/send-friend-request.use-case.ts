@@ -1,19 +1,23 @@
 import type { FriendRepository } from '../domain/ports/friend.repository';
 import type { FriendRequestRepository } from '../domain/ports/friend-request.repository';
+import type { UserRepository } from '@/modules/auth/domain/ports/user.repository';
 import type { FriendRequest } from '../domain/friend.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
-import { createNotification } from '@/modules/notifications/services/create-notification.service';
-import { assertUserCan } from '@/common/services/user-policy.service';
-import { sql } from '@/common/database/connection';
+import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
+import type { EventBus } from '@/common/domain/events/event-bus.port';
+import { FriendRequestSentEvent } from '../domain/events/friend-request-sent.event';
 
 export class SendFriendRequestUseCase {
   constructor(
     private friendRequestRepo: FriendRequestRepository,
-    private friendRepo: FriendRepository
+    private friendRepo: FriendRepository,
+    private userRepo: UserRepository,
+    private eventBus: EventBus,
+    private assertUserCan: AssertUserCanUseCase
   ) {}
 
   async execute(senderId: string, receiverId: string): Promise<FriendRequest> {
-    await assertUserCan(senderId, 'canSendFriendRequests');
+    await this.assertUserCan.execute(senderId, 'canSendFriendRequests');
     if (senderId === receiverId) {
       throw new AppError('You cannot send a friend request to yourself', 400, 'BAD_REQUEST');
     }
@@ -33,29 +37,22 @@ export class SendFriendRequestUseCase {
       throw new AppError('This user already sent you a friend request', 400, 'BAD_REQUEST');
     }
 
-    const [receiver] = await sql<{ is_disabled: boolean }[]>`
-      SELECT is_disabled FROM users WHERE id = ${receiverId}
-    `;
-    if (!receiver) {
+    const isDisabled = await this.userRepo.isUserDisabled(receiverId);
+    if (isDisabled === null) {
       throw new AppError('User not found', 404, 'NOT_FOUND');
     }
-    if (receiver.is_disabled) {
+    if (isDisabled) {
       throw new AppError('This user cannot receive friend requests', 400, 'BAD_REQUEST');
     }
 
     const request = await this.friendRequestRepo.create(senderId, receiverId);
 
-    // Fetch the sender's username to personalize the notification description
-    const [sender] = await sql<{ username: string }[]>`SELECT username FROM users WHERE id = ${senderId}`;
-    const senderUsername = sender?.username || 'Someone';
+    const sender = await this.userRepo.findById(senderId);
+    const senderUsername = sender?.Username || 'Someone';
 
-    createNotification(
-      receiverId,
-      'friend_request',
-      'New friend request',
-      `${senderUsername} has sent you a friend request.`,
-      { requestId: request.Id, senderId }
-    ).catch(err => console.error('[Notifications] Failed to create friend_request notification:', err));
+    void this.eventBus.publish(
+      new FriendRequestSentEvent(receiverId, senderId, request.Id, senderUsername)
+    ).catch(err => console.error('[Notifications] Failed to publish friend_request event:', err));
 
     return request;
   }

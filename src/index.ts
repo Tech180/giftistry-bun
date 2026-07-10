@@ -4,21 +4,11 @@ import { cors } from '@elysiajs/cors';
 import { swagger } from '@elysiajs/swagger';
 import { env } from './common/consts/env.consts';
 import { handleError } from './common/middlewares/error.middleware';
-import { authModule } from './modules/auth/auth.module';
-import { wishlistModule } from './modules/wishlist/wishlist.module';
-import { itemModule } from './modules/item/item.module';
-import { commentModule } from './modules/comment/comment.module';
-import { friendsModule } from './modules/friends/friends.module';
-import { notificationsModule } from './modules/notifications/notifications.module';
-import { invitesModule } from './modules/invites/invites.module';
-import { systemRoutes } from './modules/system/system.routes';
-import { adminModule } from './modules/admin/admin.module';
+import { createAppContainer } from './app.container';
 import { runMigrations } from './common/database/migrations';
 import { sql } from './common/database/connection';
 import { verifyToken } from '@/common/utils/token';
-import { PostgresUserRepository } from '@/modules/auth/infrastructure/postgres-user.repository';
 import { getListAccessContext } from '@/common/middlewares/list-access.middleware';
-import { authMiddleware } from '@/modules/auth/presentation/auth.routes';
 
 function getNumericStatus(status: any, defaultStatus = 200): number {
   if (typeof status === 'number') return status;
@@ -58,7 +48,8 @@ function createCachedCssResponse(content: string, request: Request): Response {
   });
 }
 
-const userRepoForWs = new PostgresUserRepository();
+const container = createAppContainer();
+const { authModule, wishlistModule, itemModule, commentModule, friendsModule, notificationsModule, invitesModule, systemModule, adminModule, authMiddleware, userRepo: userRepoForWs } = container;
 const rooms = new Map<string, Map<string, { username: string; userId: string }>>();
 
 function getOnlineUsers(listId: string): { userId: string; username: string }[] {
@@ -175,13 +166,13 @@ export const app = new Elysia()
     });
   })
   .use(authModule)
+  .use(notificationsModule)
   .use(wishlistModule)
   .use(itemModule)
   .use(commentModule)
   .use(friendsModule)
-  .use(notificationsModule)
   .use(invitesModule)
-  .use(systemRoutes)
+  .use(systemModule)
   .use(adminModule)
   .ws('/ws/wishlist/:listId', {
     query: t.Object({

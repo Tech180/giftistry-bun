@@ -2,13 +2,14 @@ import type { ListShareRepository } from '../domain/ports/list-share.repository'
 import type { UserRepository } from '@/modules/auth/domain/ports/user.repository';
 import type { ListShare } from '../domain/list-share.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
-
-import { createNotification } from '@/modules/notifications/services/create-notification.service';
+import type { EventBus } from '@/common/domain/events/event-bus.port';
+import { WishlistSharedEvent } from '../domain/events/wishlist-shared.event';
 
 export class ShareWishlistUseCase {
   constructor(
     private listShareRepo: ListShareRepository,
-    private userRepo: UserRepository
+    private userRepo: UserRepository,
+    private eventBus: EventBus
   ) {}
 
   async execute(listId: string, email: string, role: 'viewer' | 'collaborator'): Promise<ListShare> {
@@ -26,13 +27,9 @@ export class ShareWishlistUseCase {
 
     const share = await this.listShareRepo.addShare(listId, user.Id, role);
 
-    createNotification(
-      user.Id,
-      'list_shared',
-      'Wishlist shared with you',
-      'A wishlist has been shared with you.',
-      { listId, role }
-    ).catch(err => console.error('[Notifications] Failed to create list_shared notification:', err));
+    void this.eventBus.publish(
+      new WishlistSharedEvent(user.Id, listId, role, 'A wishlist has been shared with you.')
+    ).catch(err => console.error('[Notifications] Failed to publish list_shared event:', err));
 
     return share;
   }

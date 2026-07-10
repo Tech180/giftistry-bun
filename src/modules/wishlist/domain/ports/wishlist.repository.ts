@@ -14,4 +14,5 @@ export interface WishlistRepository {
   findPrioritiesByWishlistForUser(wishlistId: string, userId: string, isOwner: boolean, hasExpired: boolean, revealSuggestions: boolean): Promise<Priority[]>;
   findPriorityById(id: string): Promise<Priority | null>;
   deletePriority(id: string, userId: string): Promise<void>;
+  countListsByUser(userId: string): Promise<{ active: number; archived: number }>;
 }

@@ -2,10 +2,13 @@ import type { ListLinkTokenRepository } from '../domain/ports/list-link-token.re
 import type { ListLinkTokenPublic } from '../domain/invite.entity';
 import type { ShareRole } from '@/modules/wishlist/domain/list-share.entity';
 import { generateInviteToken } from '@/common/utils/invite-token';
-import { assertUserCan } from '@/common/services/user-policy.service';
+import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
 
 export class CreateLinkInviteUseCase {
-  constructor(private linkTokenRepo: ListLinkTokenRepository) {}
+  constructor(
+    private linkTokenRepo: ListLinkTokenRepository,
+    private assertUserCan: AssertUserCanUseCase
+  ) {}
 
   async execute(
     listId: string,
@@ -15,7 +18,7 @@ export class CreateLinkInviteUseCase {
     maxUses?: number | null,
     password?: string | null
   ): Promise<{ invite: ListLinkTokenPublic; token: string }> {
-    await assertUserCan(createdBy, 'canSharePublicLinks');
+    await this.assertUserCan.execute(createdBy, 'canSharePublicLinks');
     const { token, hash } = generateInviteToken();
     const expires = expiresAt ? new Date(expiresAt) : null;
     const passwordHash = password ? await Bun.password.hash(password) : null;

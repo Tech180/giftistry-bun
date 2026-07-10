@@ -2,7 +2,7 @@ import type { ItemRepository } from '../domain/ports/item.repository';
 import type { ItemAudienceRepository } from '../domain/ports/item-audience.repository';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
 import { AppError } from '@/common/middlewares/error.middleware';
-import { canUserViewItem } from './item-visibility.service';
+import { canUserViewItem } from '../domain/item-visibility.service';
 
 export class AssertItemVisibleUseCase {
   constructor(

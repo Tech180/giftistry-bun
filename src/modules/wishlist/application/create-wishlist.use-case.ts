@@ -1,21 +1,24 @@
 import type { WishlistRepository } from '../domain/ports/wishlist.repository';
 import type { Wishlist } from '../domain/wishlist.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
-import { assertCanCreateWishlist } from '@/common/services/user-policy.service';
+import type { AssertCanCreateWishlistUseCase, AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
 
 export class CreateWishlistUseCase {
-  constructor(private wishlistRepo: WishlistRepository) {}
+  constructor(
+    private wishlistRepo: WishlistRepository,
+    private assertCanCreateWishlist: AssertCanCreateWishlistUseCase,
+    private assertUserCan: AssertUserCanUseCase
+  ) {}
 
   async execute(userId: string, title: string, expiresAtStr?: string | null, allowGroupFunds: boolean = false, category?: string, revealSuggestions: boolean = true, aiEnabled: boolean = false): Promise<Wishlist> {
     if (!title) {
       throw new AppError('Wishlist title is required', 400, 'BAD_REQUEST');
     }
 
-    await assertCanCreateWishlist(userId);
+    await this.assertCanCreateWishlist.execute(userId);
 
     if (aiEnabled) {
-      const { assertUserCan } = await import('@/common/services/user-policy.service');
-      await assertUserCan(userId, 'canUseAiFeatures');
+      await this.assertUserCan.execute(userId, 'canUseAiFeatures');
     }
 
     let expiresAt: Date | null = null;

@@ -1,13 +1,16 @@
 import type { CommentRepository } from '../domain/ports/comment.repository';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
 import type { Comment } from '../domain/comment.entity';
+import { CommentEntity } from '../domain/comment.entity';
+import { WishlistEntity } from '@/modules/wishlist/domain/wishlist.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
-import { assertUserCan } from '@/common/services/user-policy.service';
+import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
 
 export class AddCommentUseCase {
   constructor(
     private commentRepo: CommentRepository,
-    private wishlistRepo: WishlistRepository
+    private wishlistRepo: WishlistRepository,
+    private assertUserCan: AssertUserCanUseCase
   ) {}
 
   async execute(
@@ -36,16 +39,23 @@ export class AddCommentUseCase {
     }
 
     if (userId) {
-      await assertUserCan(userId, 'canUseComments');
+      await this.assertUserCan.execute(userId, 'canUseComments');
       if (imageUrl) {
-        await assertUserCan(userId, 'canUploadImages');
+        await this.assertUserCan.execute(userId, 'canUploadImages');
       }
     }
 
-    // If the commenter is the owner of the list, they can't post a non-owner-visible comment!
-    // That would be posting a comment to themselves that they cannot see, which makes no sense.
-    const isOwner = userId === wishlist.UserId;
-    const finalIsOwnerVisible = isOwner ? true : isOwnerVisible;
+    const wishlistEntity = WishlistEntity.from(wishlist);
+    const isOwner = userId !== null && wishlistEntity.isOwner(userId);
+    const finalIsOwnerVisible = CommentEntity.from({
+      Id: '',
+      ListId: listId,
+      UserId: userId,
+      CommenterName: commenterName,
+      Content: content,
+      IsOwnerVisible: isOwnerVisible,
+      IsRollover: isRollover,
+    }).resolveOwnerVisibility(isOwner, isOwnerVisible);
 
     return await this.commentRepo.create(
       listId,
