@@ -2,6 +2,7 @@ import { Elysia, t } from 'elysia';
 import type { RouteMiddleware } from '@/common/types/route-middleware';
 import { rateLimit } from '@/common/middlewares/rate-limit.middleware';
 import { AppError } from '@/common/middlewares/error.middleware';
+import { getListAccessContext } from '@/common/middlewares/list-access.middleware';
 import type { ItemUseCases } from './item-use-cases.interface';
 
 export const itemRoutes = (
@@ -23,10 +24,10 @@ export const itemRoutes = (
       security: [{ bearerAuth: [] }]
     }
   })
-  .post('/wishlists/:listId/items', async ({ getAuthUser, checkListAccess, params: { listId }, body: { Giftistry: { Items: { name, description, priorityId, isHiddenIdea, linkUrl, price, websiteName, category, priority, sharedWithUserIds } } } }) => {
+  .post('/wishlists/:listId/items', async ({ getAuthUser, checkListAccess, params: { listId }, body: { Giftistry: { Items: { Name, Description, PriorityId, IsHiddenIdea, LinkUrl, Price, WebsiteName, Category, Priority, SharedWithUserIds } } } }) => {
     const { role } = await checkListAccess('collaborator');
     const user = await getAuthUser();
-    const resolvedHidden = isHiddenIdea ?? false;
+    const resolvedHidden = IsHiddenIdea ?? false;
     if (role === 'owner' && resolvedHidden) {
       throw new AppError('Forbidden: Owner cannot add hidden ideas to their own list', 403, 'FORBIDDEN');
     }
@@ -36,24 +37,24 @@ export const itemRoutes = (
 
     const validatedAudience = await useCases.validateItemAudience.execute(
       listId,
-      sharedWithUserIds,
+      SharedWithUserIds,
       user.userId,
       isOwner
     );
 
     const item = await useCases.addItem.execute(
       listId,
-      name,
-      description ?? null,
-      priorityId ?? null,
+      Name,
+      Description ?? null,
+      PriorityId ?? null,
       resolvedHidden || isSuggestion,
       user.userId,
-      linkUrl ?? null,
-      price !== undefined && price !== null ? Number(price) : null,
-      websiteName ?? null,
-      category ?? 'uncategorized',
+      LinkUrl ?? null,
+      Price !== undefined && Price !== null ? Number(Price) : null,
+      WebsiteName ?? null,
+      Category ?? 'uncategorized',
       isSuggestion,
-      priority !== undefined && priority !== null ? Number(priority) : null,
+      Priority !== undefined && Priority !== null ? Number(Priority) : null,
       validatedAudience
     );
     return { success: true, data: item };
@@ -67,17 +68,17 @@ export const itemRoutes = (
     body: t.Object({
       Giftistry: t.Object({
         Items: t.Object({
-          name: t.String(),
-          description: t.Optional(t.Nullable(t.String())),
-          priorityId: t.Optional(t.Nullable(t.String())),
-          isHiddenIdea: t.Optional(t.Boolean()),
-          linkUrl: t.Optional(t.Nullable(t.String())),
-          price: t.Optional(t.Nullable(t.Numeric())),
-          websiteName: t.Optional(t.Nullable(t.String())),
-          category: t.Optional(t.Nullable(t.String())),
-          isSuggestion: t.Optional(t.Boolean()),
-          priority: t.Optional(t.Nullable(t.Numeric())),
-          sharedWithUserIds: t.Optional(t.Array(t.String())),
+          Name: t.String(),
+          Description: t.Optional(t.Nullable(t.String())),
+          PriorityId: t.Optional(t.Nullable(t.String())),
+          IsHiddenIdea: t.Optional(t.Boolean()),
+          LinkUrl: t.Optional(t.Nullable(t.String())),
+          Price: t.Optional(t.Nullable(t.Numeric())),
+          WebsiteName: t.Optional(t.Nullable(t.String())),
+          Category: t.Optional(t.Nullable(t.String())),
+          IsSuggestion: t.Optional(t.Boolean()),
+          Priority: t.Optional(t.Nullable(t.Numeric())),
+          SharedWithUserIds: t.Optional(t.Array(t.String())),
         })
       })
     })
@@ -105,10 +106,10 @@ export const itemRoutes = (
       security: [{ bearerAuth: [] }]
     }
   })
-  .post('/items/:itemId/links', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: { url } } } }) => {
+  .post('/items/:itemId/links', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: { Url } } } }) => {
     await checkListAccess('collaborator');
     const user = await getAuthUser();
-    const link = await useCases.addItemLink.execute(itemId, url, user.userId);
+    const link = await useCases.addItemLink.execute(itemId, Url, user.userId);
     return { success: true, data: link };
   }, {
     detail: {
@@ -120,12 +121,12 @@ export const itemRoutes = (
     body: t.Object({
       Giftistry: t.Object({
         Items: t.Object({
-          url: t.String(),
+          Url: t.String(),
         })
       })
     })
   })
-  .post('/items/:itemId/claims', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: { amount, claimedByName, anonymous, quantity, selection } } } }) => {
+  .post('/items/:itemId/claims', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: { Amount, ClaimedByName, Anonymous, Quantity, Selection } } } }) => {
     const { role } = await checkListAccess('viewer');
     if (role === 'owner') {
       throw new AppError('Forbidden: List owner cannot claim items on their own list', 403, 'FORBIDDEN');
@@ -134,11 +135,11 @@ export const itemRoutes = (
     const claim = await useCases.claimItem.execute(
       itemId,
       user.userId,
-      amount ?? null,
-      claimedByName ?? null,
-      anonymous ?? false,
-      quantity ?? 1,
-      selection ?? null
+      Amount ?? null,
+      ClaimedByName ?? null,
+      Anonymous ?? false,
+      Quantity ?? 1,
+      Selection ?? null
     );
     return { success: true, data: claim };
   }, {
@@ -151,11 +152,11 @@ export const itemRoutes = (
     body: t.Object({
       Giftistry: t.Object({
         Items: t.Object({
-          amount: t.Optional(t.Nullable(t.Numeric())),
-          claimedByName: t.Optional(t.Nullable(t.String())),
-          anonymous: t.Optional(t.Boolean()),
-          quantity: t.Optional(t.Numeric()),
-          selection: t.Optional(t.Nullable(t.String())),
+          Amount: t.Optional(t.Nullable(t.Numeric())),
+          ClaimedByName: t.Optional(t.Nullable(t.String())),
+          Anonymous: t.Optional(t.Boolean()),
+          Quantity: t.Optional(t.Numeric()),
+          Selection: t.Optional(t.Nullable(t.String())),
         })
       })
     })
@@ -176,23 +177,44 @@ export const itemRoutes = (
       security: [{ bearerAuth: [] }]
     }
   })
-  .use(rateLimit({ windowMs: 60000, max: 10, paths: ['/items/extract-metadata'] }))
-  .post('/items/extract-metadata', async ({ body: { Giftistry: { Items: { url } } } }) => {
+  .use(rateLimit({ windowMs: 60000, max: 10, paths: ['/items/extract-metadata', '/items/summarize-description'] }))
+  .post('/items/extract-metadata', async ({ getAuthUser, body: { Giftistry: { Items: { Url } } } }) => {
     try {
-      const data = await useCases.extractMetadata.execute(url);
+      const user = await getAuthUser();
+      const result = await useCases.extractMetadata.execute(Url, user.userId);
       return {
         success: true,
         data: {
-          title: data.title,
-          price: data.price,
-          description: data.description,
-          color: data.color,
-          size: data.size,
-          category: data.category,
+          title: result.data.title,
+          price: result.data.price,
+          description: result.data.description,
+          category: result.data.category,
+          imageUrl: result.data.imageUrl,
+          customFields: {
+            predefined: result.data.predefinedFields ?? {},
+            userDefined: result.data.userDefinedFields ?? {},
+          },
+        },
+        diagnostics: {
+          source: result.diagnostics.source,
+          confidence: result.diagnostics.confidence,
+          fieldsFound: result.diagnostics.fieldsFound,
         },
       };
     } catch (e) {
-      return { success: false, message: e instanceof Error ? e.message : 'Error extracting metadata' };
+      const diagnostics =
+        e && typeof e === 'object' && 'diagnostics' in e
+          ? (e as { diagnostics?: { blocked?: boolean; validationReason?: string } }).diagnostics
+          : undefined;
+
+      return {
+        success: false,
+        message: e instanceof Error ? e.message : 'Error extracting metadata',
+        diagnostics: {
+          blocked: diagnostics?.blocked ?? false,
+          validationReason: diagnostics?.validationReason,
+        },
+      };
     }
   }, {
     detail: {
@@ -204,21 +226,83 @@ export const itemRoutes = (
     body: t.Object({
       Giftistry: t.Object({
         Items: t.Object({
-          url: t.String(),
+          Url: t.String(),
         })
       })
     })
   })
-  .put('/items/:itemId', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: { name, description, priorityId, category, priority, sharedWithUserIds } } } }) => {
+  .post('/items/summarize-description', async ({ getAuthUser, body: { Giftistry: { Items } } }) => {
+    try {
+      const user = await getAuthUser();
+      await getListAccessContext(user.userId, { listId: Items.ListId }, 'collaborator');
+
+      const description = await useCases.summarizeItemDescription.execute(user.userId, {
+        listId: Items.ListId,
+        name: Items.Name,
+        text: Items.Text,
+        linkUrl: Items.LinkUrl,
+        websiteName: Items.WebsiteName,
+        price: Items.Price !== undefined && Items.Price !== null ? Number(Items.Price) : null,
+        category: Items.Category,
+        priority: Items.Priority !== undefined && Items.Priority !== null ? Number(Items.Priority) : null,
+        customFields: Items.CustomFields
+          ? {
+              Predefined: Items.CustomFields.Predefined,
+              UserDefined: Items.CustomFields.UserDefined,
+            }
+          : undefined,
+        variations: Items.Variations?.map((v) => ({ Name: v.Name, Quantity: Number(v.Quantity) })),
+        desiredQuantity: Items.DesiredQuantity !== undefined ? Number(Items.DesiredQuantity) : undefined,
+      });
+
+      return { success: true, data: { description } };
+    } catch (e) {
+      return {
+        success: false,
+        message: e instanceof Error ? e.message : 'Failed to summarize item description',
+      };
+    }
+  }, {
+    detail: {
+      tags: ['Items'],
+      summary: 'Summarize item notes with AI',
+      description: 'Generates concise wishlist notes from item details using the configured description prompt.',
+      security: [{ bearerAuth: [] }]
+    },
+    body: t.Object({
+      Giftistry: t.Object({
+        Items: t.Object({
+          ListId: t.String(),
+          Name: t.String(),
+          Text: t.Optional(t.String()),
+          LinkUrl: t.Optional(t.String()),
+          WebsiteName: t.Optional(t.String()),
+          Price: t.Optional(t.Nullable(t.Numeric())),
+          Category: t.Optional(t.String()),
+          Priority: t.Optional(t.Nullable(t.Numeric())),
+          CustomFields: t.Optional(t.Object({
+            Predefined: t.Optional(t.Record(t.String(), t.Nullable(t.String()))),
+            UserDefined: t.Optional(t.Record(t.String(), t.String())),
+          })),
+          Variations: t.Optional(t.Array(t.Object({
+            Name: t.String(),
+            Quantity: t.Numeric(),
+          }))),
+          DesiredQuantity: t.Optional(t.Numeric()),
+        }),
+      }),
+    }),
+  })
+  .put('/items/:itemId', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: { Name, Description, PriorityId, Category, Priority, SharedWithUserIds, LinkUrl, Price, WebsiteName } } } }) => {
     const access = await checkListAccess('collaborator');
     const user = await getAuthUser();
     const isOwner = access.role === 'owner';
 
     let validatedAudience: string[] | undefined;
-    if (sharedWithUserIds !== undefined) {
+    if (SharedWithUserIds !== undefined) {
       validatedAudience = await useCases.validateItemAudience.execute(
         access.listId,
-        sharedWithUserIds,
+        SharedWithUserIds,
         user.userId,
         isOwner,
         itemId
@@ -228,12 +312,15 @@ export const itemRoutes = (
     const item = await useCases.updateItem.execute(
       itemId,
       user.userId,
-      name,
-      description ?? null,
-      priorityId ?? null,
-      category ?? 'uncategorized',
-      priority !== undefined && priority !== null ? Number(priority) : null,
-      validatedAudience
+      Name,
+      Description ?? null,
+      PriorityId ?? null,
+      Category ?? 'uncategorized',
+      Priority !== undefined && Priority !== null ? Number(Priority) : null,
+      validatedAudience,
+      LinkUrl,
+      Price !== undefined ? (Price !== null ? Number(Price) : null) : undefined,
+      WebsiteName
     );
     return { success: true, data: item };
   }, {
@@ -246,12 +333,15 @@ export const itemRoutes = (
     body: t.Object({
       Giftistry: t.Object({
         Items: t.Object({
-          name: t.String(),
-          description: t.Optional(t.Nullable(t.String())),
-          priorityId: t.Optional(t.Nullable(t.String())),
-          category: t.Optional(t.Nullable(t.String())),
-          priority: t.Optional(t.Nullable(t.Numeric())),
-          sharedWithUserIds: t.Optional(t.Array(t.String())),
+          Name: t.String(),
+          Description: t.Optional(t.Nullable(t.String())),
+          PriorityId: t.Optional(t.Nullable(t.String())),
+          Category: t.Optional(t.Nullable(t.String())),
+          Priority: t.Optional(t.Nullable(t.Numeric())),
+          SharedWithUserIds: t.Optional(t.Array(t.String())),
+          LinkUrl: t.Optional(t.Nullable(t.String())),
+          Price: t.Optional(t.Nullable(t.Numeric())),
+          WebsiteName: t.Optional(t.Nullable(t.String())),
         })
       })
     })

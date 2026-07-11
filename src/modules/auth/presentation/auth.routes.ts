@@ -169,10 +169,29 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
   .post('/api/themes/custom', async ({ getAuthUser, body: { Giftistry: { Theme } } }) => {
     const authUser = await getAuthUser();
     const saved = await useCases.saveCustomTheme.execute(authUser.userId, {
-      id: Theme.id,
-      name: Theme.name,
-      colors: Theme.colors,
-      advanced: Theme.advanced,
+      id: Theme.Id,
+      name: Theme.Name,
+      colors: {
+        primary: Theme.Colors.Primary,
+        bg: Theme.Colors.Bg,
+        surface: Theme.Colors.Surface,
+        border: Theme.Colors.Border,
+        text: Theme.Colors.Text,
+        'text-muted': Theme.Colors.TextMuted,
+      },
+      advanced: Theme.Advanced ? {
+        shadows: Theme.Advanced.Shadows ? {
+          sm: Theme.Advanced.Shadows.Sm,
+          md: Theme.Advanced.Shadows.Md,
+          lg: Theme.Advanced.Shadows.Lg,
+        } : undefined,
+        fonts: Theme.Advanced.Fonts ? {
+          sans: Theme.Advanced.Fonts.Sans,
+        } : undefined,
+        radius: Theme.Advanced.Radius ? {
+          default: Theme.Advanced.Radius.Default,
+        } : undefined,
+      } : undefined,
     });
     return { success: true, Theme: saved };
   }, {
@@ -185,27 +204,27 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
     body: t.Object({
       Giftistry: t.Object({
         Theme: t.Object({
-          id: t.String(),
-          name: t.String(),
-          colors: t.Object({
-            primary: t.String(),
-            bg: t.String(),
-            surface: t.String(),
-            border: t.String(),
-            text: t.String(),
-            'text-muted': t.Optional(t.String()),
+          Id: t.String(),
+          Name: t.String(),
+          Colors: t.Object({
+            Primary: t.String(),
+            Bg: t.String(),
+            Surface: t.String(),
+            Border: t.String(),
+            Text: t.String(),
+            TextMuted: t.Optional(t.String()),
           }),
-          advanced: t.Optional(t.Object({
-            shadows: t.Optional(t.Object({
-              sm: t.Optional(t.String()),
-              md: t.Optional(t.String()),
-              lg: t.Optional(t.String()),
+          Advanced: t.Optional(t.Object({
+            Shadows: t.Optional(t.Object({
+              Sm: t.Optional(t.String()),
+              Md: t.Optional(t.String()),
+              Lg: t.Optional(t.String()),
             })),
-            fonts: t.Optional(t.Object({
-              sans: t.Optional(t.String()),
+            Fonts: t.Optional(t.Object({
+              Sans: t.Optional(t.String()),
             })),
-            radius: t.Optional(t.Object({
-              default: t.Optional(t.String()),
+            Radius: t.Optional(t.Object({
+              Default: t.Optional(t.String()),
             })),
           })),
         }),
@@ -228,8 +247,8 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
 
   .group('/api/auth', (group) => group
     .use(rateLimit({ windowMs: 60000, max: 5 }))
-    .post('/signup', async ({ set, body: { Giftistry: { Auth: { username, email, password, firstName, lastName } } } }) => {
-      const user = await useCases.signup.execute(username, email, password, firstName ?? undefined, lastName ?? undefined);
+    .post('/signup', async ({ set, body: { Giftistry: { Auth: { Username, Email, Password, FirstName, LastName } } } }) => {
+      const user = await useCases.signup.execute(Username, Email, Password, FirstName ?? undefined, LastName ?? undefined);
       const token = await createToken({ userId: user.Id, sessionVersion: user.SessionVersion ?? 0 });
       setJwtCookie(set, token);
       return { success: true, User: user, Token: token };
@@ -242,17 +261,17 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
       body: t.Object({
         Giftistry: t.Object({
           Auth: t.Object({
-            username: t.String({ minLength: 3, maxLength: 50 }),
-            email: t.String({ format: 'email' }),
-            firstName: t.Optional(t.Nullable(t.String({ minLength: 1, maxLength: 100 }))),
-            lastName: t.Optional(t.Nullable(t.String({ minLength: 1, maxLength: 100 }))),
-            password: t.String({ minLength: 6 }),
+            Username: t.String({ minLength: 3, maxLength: 50 }),
+            Email: t.String({ format: 'email' }),
+            FirstName: t.Optional(t.Nullable(t.String({ minLength: 1, maxLength: 100 }))),
+            LastName: t.Optional(t.Nullable(t.String({ minLength: 1, maxLength: 100 }))),
+            Password: t.String({ minLength: 6 }),
           }),
         }),
       }),
     })
-    .post('/login', async ({ set, body: { Giftistry: { Auth: { email, password } } } }) => {
-      const user = await useCases.login.execute(email, password);
+    .post('/login', async ({ set, body: { Giftistry: { Auth: { Email, Password } } } }) => {
+      const user = await useCases.login.execute(Email, Password);
 
       if (user.TwoFactorEnabled) {
         const ticket = await useCases.twoFactorLogin.createTicket(user.Id);
@@ -271,20 +290,20 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
       body: t.Object({
         Giftistry: t.Object({
           Auth: t.Object({
-            email: t.String(),
-            password: t.String(),
+            Email: t.String(),
+            Password: t.String(),
           }),
         }),
       }),
     })
-    .post('/verify-email', async ({ body: { Giftistry: { Auth: { token } } } }) => {
-      await useCases.verifyEmail.execute(token);
+    .post('/verify-email', async ({ body: { Giftistry: { Auth: { Token } } } }) => {
+      await useCases.verifyEmail.execute(Token);
       return { success: true };
     }, {
       body: t.Object({
         Giftistry: t.Object({
           Auth: t.Object({
-            token: t.String(),
+            Token: t.String(),
           }),
         }),
       }),
@@ -294,10 +313,10 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
       setPasskeyChallengeCookie(set, challenge);
       return { success: true, options };
     })
-    .post('/passkey/login/verify', async ({ set, headers, body: { Giftistry: { Auth: { authenticationResponse } } } }) => {
+    .post('/passkey/login/verify', async ({ set, headers, body: { Giftistry: { Auth: { AuthenticationResponse } } } }) => {
       const challenge = getCookie(headers['cookie'], 'passkey_challenge');
       const origin = headers['origin'] || 'http://localhost:3000';
-      const user = await useCases.passkeyLogin.verify(authenticationResponse, challenge || '', origin);
+      const user = await useCases.passkeyLogin.verify(AuthenticationResponse, challenge || '', origin);
       const token = await createToken({ userId: user.Id, sessionVersion: user.SessionVersion ?? 0 });
       setJwtCookie(set, token);
       return { success: true, User: user, Token: token };
@@ -305,13 +324,13 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
       body: t.Object({
         Giftistry: t.Object({
           Auth: t.Object({
-            authenticationResponse: t.Any(),
+            AuthenticationResponse: t.Any(),
           }),
         }),
       }),
     })
-    .post('/2fa/login', async ({ set, body: { Giftistry: { Auth: { ticket, code } } } }) => {
-      const user = await useCases.twoFactorLogin.execute(ticket, code);
+    .post('/2fa/login', async ({ set, body: { Giftistry: { Auth: { Ticket, Code } } } }) => {
+      const user = await useCases.twoFactorLogin.execute(Ticket, Code);
       const token = await createToken({ userId: user.Id, sessionVersion: user.SessionVersion ?? 0 });
       setJwtCookie(set, token);
       return { success: true, User: user, Token: token };
@@ -319,8 +338,8 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
       body: t.Object({
         Giftistry: t.Object({
           Auth: t.Object({
-            ticket: t.String(),
-            code: t.String(),
+            Ticket: t.String(),
+            Code: t.String(),
           }),
         }),
       }),
@@ -358,12 +377,12 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
         description: 'Clears the JWT session cookie.',
       },
     })
-    .put('/profile', async ({ getAuthUser, body: { Giftistry: { Auth: { username, firstName, lastName, bio, theme, avatar } } } }) => {
+    .put('/profile', async ({ getAuthUser, body: { Giftistry: { Auth: { Username, FirstName, LastName, Bio, Theme, Avatar, AiEnabled } } } }) => {
       const authUser = await getAuthUser();
 
-      if (avatar !== undefined && avatar !== null) {
-        if (avatar.startsWith('data:')) {
-          const matches = avatar.match(/^data:(image\/[a-z+]+);base64,(.+)$/);
+      if (Avatar !== undefined && Avatar !== null) {
+        if (Avatar.startsWith('data:')) {
+          const matches = Avatar.match(/^data:(image\/[a-z+]+);base64,(.+)$/);
           if (!matches) {
             throw new AppError('Invalid image data URL format. Only base64 encoded images are allowed.', 400, 'BAD_REQUEST');
           }
@@ -380,18 +399,19 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
           if (sizeInBytes > maxSize) {
             throw new AppError('Image size exceeds the 2MB limit.', 400, 'BAD_REQUEST');
           }
-        } else if (!isAvatarColor(avatar)) {
+        } else if (!isAvatarColor(Avatar)) {
           throw new AppError('Invalid avatar format. Use an uploaded image or hsl color.', 400, 'BAD_REQUEST');
         }
       }
 
       const user = await useCases.updateProfile.execute(authUser.userId, {
-        username,
-        firstName: firstName ?? undefined,
-        lastName: lastName ?? undefined,
-        bio: bio ?? undefined,
-        theme: theme ?? undefined,
-        avatar: avatar !== undefined ? avatar : undefined,
+        username: Username,
+        firstName: FirstName ?? undefined,
+        lastName: LastName ?? undefined,
+        bio: Bio ?? undefined,
+        theme: Theme ?? undefined,
+        avatar: Avatar !== undefined ? Avatar : undefined,
+        aiEnabled: AiEnabled,
       });
 
       return { success: true, User: user };
@@ -405,12 +425,13 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
       body: t.Object({
         Giftistry: t.Object({
           Auth: t.Object({
-            username: t.Optional(t.String({ minLength: 3, maxLength: 50 })),
-            firstName: t.Optional(t.Nullable(t.String({ minLength: 1, maxLength: 100 }))),
-            lastName: t.Optional(t.Nullable(t.String({ minLength: 1, maxLength: 100 }))),
-            bio: t.Optional(t.Nullable(t.String())),
-            theme: t.Optional(t.Nullable(t.String())),
-            avatar: t.Optional(t.Nullable(t.String())),
+            Username: t.Optional(t.String({ minLength: 3, maxLength: 50 })),
+            FirstName: t.Optional(t.Nullable(t.String({ minLength: 1, maxLength: 100 }))),
+            LastName: t.Optional(t.Nullable(t.String({ minLength: 1, maxLength: 100 }))),
+            Bio: t.Optional(t.Nullable(t.String())),
+            Theme: t.Optional(t.Nullable(t.String())),
+            Avatar: t.Optional(t.Nullable(t.String())),
+            AiEnabled: t.Optional(t.Boolean()),
           }),
         }),
       }),
@@ -431,9 +452,9 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
         security: [{ bearerAuth: [] }],
       },
     })
-    .delete('/account', async ({ getAuthUser, body: { Giftistry: { Auth: { password } } }, request, set }) => {
+    .delete('/account', async ({ getAuthUser, body: { Giftistry: { Auth: { Password } } }, request, set }) => {
       const authUser = await getAuthUser();
-      await useCases.deleteAccount.execute(authUser.userId, Boolean(authUser.IsOwner), password, request.headers.get('x-forwarded-for'));
+      await useCases.deleteAccount.execute(authUser.userId, Boolean(authUser.IsOwner), Password, request.headers.get('x-forwarded-for'));
       clearJwtCookie(set);
       return { success: true };
     }, {
@@ -445,7 +466,7 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
       body: t.Object({
         Giftistry: t.Object({
           Auth: t.Object({
-            password: t.String(),
+            Password: t.String(),
           }),
         }),
       }),
@@ -455,29 +476,29 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
       const { secret, qrCodeUrl } = await useCases.setup2fa.execute(authUser.email);
       return { success: true, Secret: secret, QrCodeUrl: qrCodeUrl };
     })
-    .post('/2fa/enable', async ({ getAuthUser, body: { Giftistry: { Auth: { secret, code } } } }) => {
+    .post('/2fa/enable', async ({ getAuthUser, body: { Giftistry: { Auth: { Secret, Code } } } }) => {
       const authUser = await getAuthUser();
-      const recoveryCodes = await useCases.enable2fa.execute(authUser.userId, secret, code);
+      const recoveryCodes = await useCases.enable2fa.execute(authUser.userId, Secret, Code);
       return { success: true, RecoveryCodes: recoveryCodes };
     }, {
       body: t.Object({
         Giftistry: t.Object({
           Auth: t.Object({
-            secret: t.String(),
-            code: t.String(),
+            Secret: t.String(),
+            Code: t.String(),
           }),
         }),
       }),
     })
-    .post('/2fa/disable', async ({ getAuthUser, body: { Giftistry: { Auth: { code } } } }) => {
+    .post('/2fa/disable', async ({ getAuthUser, body: { Giftistry: { Auth: { Code } } } }) => {
       const authUser = await getAuthUser();
-      await useCases.disable2fa.execute(authUser.userId, code);
+      await useCases.disable2fa.execute(authUser.userId, Code);
       return { success: true };
     }, {
       body: t.Object({
         Giftistry: t.Object({
           Auth: t.Object({
-            code: t.String(),
+            Code: t.String(),
           }),
         }),
       }),
@@ -493,17 +514,17 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
       setPasskeyChallengeCookie(set, challenge);
       return { success: true, options };
     })
-    .post('/passkey/register/verify', async ({ getAuthUser, headers, body: { Giftistry: { Auth: { registrationResponse } } } }) => {
+    .post('/passkey/register/verify', async ({ getAuthUser, headers, body: { Giftistry: { Auth: { RegistrationResponse } } } }) => {
       const authUser = await getAuthUser();
       const challenge = getCookie(headers['cookie'], 'passkey_challenge');
       const origin = headers['origin'] || 'http://localhost:3000';
-      await useCases.registerPasskey.verify(authUser.userId, registrationResponse, challenge || '', origin);
+      await useCases.registerPasskey.verify(authUser.userId, RegistrationResponse, challenge || '', origin);
       return { success: true };
     }, {
       body: t.Object({
         Giftistry: t.Object({
           Auth: t.Object({
-            registrationResponse: t.Any(),
+            RegistrationResponse: t.Any(),
           }),
         }),
       }),

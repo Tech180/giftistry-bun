@@ -2,14 +2,19 @@ import type { ItemRepository } from '../domain/ports/item.repository';
 import type { ItemReviewRepository } from '../domain/ports/item-review.repository';
 import type { ReviewExtractor } from '../domain/ports/review-extractor.port';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
+import type { UserRepository } from '@/modules/auth/domain/ports/user.repository';
+import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
 import { loadConfig } from '@/common/infrastructure/config.loader';
+import { ownerPolicyAllowsAiExtraction } from '@/common/application/user-ai-access.util';
 
 export class ExtractItemReviewsUseCase {
   constructor(
     private itemReviewRepo: ItemReviewRepository,
     private reviewExtractor: ReviewExtractor,
     private itemRepo: ItemRepository,
-    private wishlistRepo: WishlistRepository
+    private wishlistRepo: WishlistRepository,
+    private userRepo: UserRepository,
+    private assertUserCan: AssertUserCanUseCase
   ) {}
 
   async execute(itemId: string, listId: string, url: string): Promise<void> {
@@ -23,6 +28,16 @@ export class ExtractItemReviewsUseCase {
       const wishlist = await this.wishlistRepo.findById(listId);
       if (!wishlist || !wishlist.AiEnabled) {
         console.log(`[AI Review] AI features are disabled for list ${listId}. Skipping extraction.`);
+        return;
+      }
+
+      const ownerAllowsAi = await ownerPolicyAllowsAiExtraction(
+        wishlist.UserId,
+        this.userRepo,
+        this.assertUserCan
+      );
+      if (!ownerAllowsAi) {
+        console.log(`[AI Review] AI features are not permitted for list owner ${wishlist.UserId}. Skipping extraction.`);
         return;
       }
 

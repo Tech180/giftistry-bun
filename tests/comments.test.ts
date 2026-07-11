@@ -33,8 +33,8 @@ describe("Comments surprise filtering & rollover", () => {
         body: JSON.stringify({
           Giftistry: {
             Comments: {
-              content: "Surprise gift discussion!",
-              isOwnerVisible: false
+              Content: "Surprise gift discussion!",
+              IsOwnerVisible: false
             }
           }
         }),
@@ -54,8 +54,8 @@ describe("Comments surprise filtering & rollover", () => {
         body: JSON.stringify({
           Giftistry: {
             Comments: {
-              content: "Oops",
-              isOwnerVisible: false
+              Content: "Oops",
+              IsOwnerVisible: false
             }
           }
         }),

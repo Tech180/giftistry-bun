@@ -9,6 +9,7 @@ import { runMigrations } from './common/database/migrations';
 import { sql } from './common/database/connection';
 import { verifyToken } from '@/common/utils/token';
 import { getListAccessContext } from '@/common/middlewares/list-access.middleware';
+import { pascalizeKeys } from '@/common/utils/api-case.util';
 
 function getNumericStatus(status: any, defaultStatus = 200): number {
   if (typeof status === 'number') return status;
@@ -159,7 +160,7 @@ export const app = new Elysia()
         Code: code,
         CorrelationId: correlationId
       },
-      Result: payload
+      Result: isError ? payload : pascalizeKeys(payload)
     }), {
       status: numericStatus,
       headers: cleanHeaders(set.headers)
@@ -365,16 +366,16 @@ export const app = new Elysia()
     const user = await getAuthUser();
     await sql`
       INSERT INTO content_reports (reporter_id, target_type, target_id, reason)
-      VALUES (${user.Id}, ${Report.targetType}, ${Report.targetId}, ${Report.reason ?? ''})
+      VALUES (${user.Id}, ${Report.TargetType}, ${Report.TargetId}, ${Report.Reason ?? ''})
     `;
     return { success: true };
   }, {
     body: t.Object({
       Giftistry: t.Object({
         Report: t.Object({
-          targetType: t.Union([t.Literal('comment'), t.Literal('wishlist'), t.Literal('user')]),
-          targetId: t.String(),
-          reason: t.Optional(t.String()),
+          TargetType: t.Union([t.Literal('comment'), t.Literal('wishlist'), t.Literal('user')]),
+          TargetId: t.String(),
+          Reason: t.Optional(t.String()),
         }),
       }),
     }),

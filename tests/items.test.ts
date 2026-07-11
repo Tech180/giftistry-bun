@@ -39,9 +39,9 @@ describe("Items, Links & Claims", () => {
         body: JSON.stringify({
           Giftistry: {
             Items: {
-              name: "PlayStation 5 Pro",
-              description: "For gaming",
-              isHiddenIdea: false
+              Name: "PlayStation 5 Pro",
+              Description: "For gaming",
+              IsHiddenIdea: false
             }
           }
         }),
@@ -64,8 +64,8 @@ describe("Items, Links & Claims", () => {
         body: JSON.stringify({
           Giftistry: {
             Items: {
-              name: "Secret Surprise",
-              isHiddenIdea: true
+              Name: "Secret Surprise",
+              IsHiddenIdea: true
             }
           }
         }),
@@ -85,9 +85,9 @@ describe("Items, Links & Claims", () => {
         body: JSON.stringify({
           Giftistry: {
             Items: {
-              name: "Secret Book",
-              description: "Surprise book!",
-              isHiddenIdea: true
+              Name: "Secret Book",
+              Description: "Surprise book!",
+              IsHiddenIdea: true
             }
           }
         }),
@@ -110,13 +110,53 @@ describe("Items, Links & Claims", () => {
         body: JSON.stringify({
           Giftistry: {
             Items: {
-              url: "https://www.amazon.com/PlayStation-5-Pro"
+              Url: "https://www.amazon.com/PlayStation-5-Pro"
             }
           }
         }),
       })
     );
     expect(res.status).toBe(200);
+  });
+
+  test("Owner updates item link, website name, and price on edit", async () => {
+    const updateRes = await app.handle(
+      new Request(`http://localhost/api/items/${itemId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${owner.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              Name: "PlayStation 5 Pro",
+              LinkUrl: "https://www.target.com/ps5-pro",
+              WebsiteName: "Target",
+              Price: 549.99
+            }
+          }
+        }),
+      })
+    );
+    expect(updateRes.status).toBe(200);
+
+    const listRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${collaborator.token}`
+        }
+      })
+    );
+    expect(listRes.status).toBe(200);
+    const body = await listRes.json() as any;
+    const updatedItem = body.Result.find((i: any) => i.Id === itemId);
+    expect(updatedItem).toBeTruthy();
+    expect(updatedItem.Links.length).toBe(1);
+    expect(updatedItem.Links[0].Url).toBe("https://www.target.com/ps5-pro");
+    expect(updatedItem.Links[0].RetailerName).toBe("Target");
+    expect(Number(updatedItem.Links[0].ExtractedPrice)).toBe(549.99);
   });
 
   test("Collaborator claims standard item", async () => {
@@ -130,8 +170,8 @@ describe("Items, Links & Claims", () => {
         body: JSON.stringify({
           Giftistry: {
             Items: {
-              amount: 50.00,
-              claimedByName: "Santa Claus"
+              Amount: 50.00,
+              ClaimedByName: "Santa Claus"
             }
           }
         }),
@@ -151,7 +191,7 @@ describe("Items, Links & Claims", () => {
         body: JSON.stringify({
           Giftistry: {
             Items: {
-              amount: 10.00
+              Amount: 10.00
             }
           }
         }),
@@ -203,7 +243,7 @@ describe("Items, Links & Claims", () => {
         },
         body: JSON.stringify({
           Giftistry: {
-            Items: { name: "Temp Item to Delete", description: "Transient" }
+            Items: { Name: "Temp Item to Delete", Description: "Transient" }
           }
         })
       })
@@ -253,10 +293,10 @@ describe("Items, Links & Claims", () => {
         body: JSON.stringify({
           Giftistry: {
             Items: {
-              name: "Collaborator Suggestion Item",
-              description: "Hope they like it!",
-              priorityId: null,
-              category: "generic"
+              Name: "Collaborator Suggestion Item",
+              Description: "Hope they like it!",
+              PriorityId: null,
+              Category: "generic"
             }
           }
         })
@@ -276,8 +316,8 @@ describe("Items, Links & Claims", () => {
         body: JSON.stringify({
           Giftistry: {
             Items: {
-              claimedByName: "Collab Guy",
-              anonymous: true
+              ClaimedByName: "Collab Guy",
+              Anonymous: true
             }
           }
         })
@@ -311,10 +351,10 @@ describe("Items, Links & Claims", () => {
         body: JSON.stringify({
           Giftistry: {
             Lists: {
-              title: "Unclaim Test List",
-              expiresAt: new Date(Date.now() + 86400000).toISOString(),
-              allowGroupFunds: false,
-              category: "Tech"
+              Title: "Unclaim Test List",
+              ExpiresAt: new Date(Date.now() + 86400000).toISOString(),
+              AllowGroupFunds: false,
+              Category: "Tech"
             }
           }
         })
@@ -334,8 +374,8 @@ describe("Items, Links & Claims", () => {
         body: JSON.stringify({
           Giftistry: {
             Items: {
-              name: "Unclaimable Item",
-              category: "Tech"
+              Name: "Unclaimable Item",
+              Category: "Tech"
             }
           }
         })
@@ -355,8 +395,8 @@ describe("Items, Links & Claims", () => {
         body: JSON.stringify({
           Giftistry: {
             Lists: {
-              email: collaborator.email,
-              role: "viewer"
+              Email: collaborator.email,
+              Role: "viewer"
             }
           }
         })
@@ -375,7 +415,7 @@ describe("Items, Links & Claims", () => {
         body: JSON.stringify({
           Giftistry: {
             Items: {
-              claimedByName: "Claimer Friend"
+              ClaimedByName: "Claimer Friend"
             }
           }
         })
@@ -468,8 +508,8 @@ describe("Item Audience Restriction", () => {
         body: JSON.stringify({
           Giftistry: {
             Items: {
-              name: "Private Gift for A",
-              sharedWithUserIds: [collaboratorA.userId]
+              Name: "Private Gift for A",
+              SharedWithUserIds: [collaboratorA.userId]
             }
           }
         }),
@@ -523,8 +563,8 @@ describe("Item Audience Restriction", () => {
         body: JSON.stringify({
           Giftistry: {
             Items: {
-              name: "Owner Secret Item",
-              sharedWithUserIds: [owner.userId]
+              Name: "Owner Secret Item",
+              SharedWithUserIds: [owner.userId]
             }
           }
         }),
@@ -568,7 +608,7 @@ describe("Item Audience Restriction", () => {
         body: JSON.stringify({
           Giftistry: {
             Items: {
-              claimedByName: "Should Fail"
+              ClaimedByName: "Should Fail"
             }
           }
         }),
@@ -588,7 +628,7 @@ describe("Item Audience Restriction", () => {
         body: JSON.stringify({
           Giftistry: {
             Items: {
-              name: "Public Item For All"
+              Name: "Public Item For All"
             }
           }
         }),
@@ -619,8 +659,8 @@ describe("Item Audience Restriction", () => {
         body: JSON.stringify({
           Giftistry: {
             Items: {
-              name: "Private Gift for A",
-              sharedWithUserIds: [collaboratorB.userId]
+              Name: "Private Gift for A",
+              SharedWithUserIds: [collaboratorB.userId]
             }
           }
         }),
@@ -658,9 +698,9 @@ describe("Item Audience Restriction", () => {
         body: JSON.stringify({
           Giftistry: {
             Items: {
-              name: "Secret Suggestion for B",
-              isHiddenIdea: true,
-              sharedWithUserIds: [collaboratorB.userId]
+              Name: "Secret Suggestion for B",
+              IsHiddenIdea: true,
+              SharedWithUserIds: [collaboratorB.userId]
             }
           }
         }),

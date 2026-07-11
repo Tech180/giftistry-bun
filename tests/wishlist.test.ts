@@ -50,8 +50,8 @@ describe("Wishlist Lifecycle & Shares", () => {
         body: JSON.stringify({
           Giftistry: {
             Lists: {
-              email: collaborator.email,
-              role: "collaborator"
+              Email: collaborator.email,
+              Role: "collaborator"
             }
           }
         }),
@@ -92,7 +92,13 @@ describe("Wishlist Lifecycle & Shares", () => {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${owner.token}`
         },
-        body: JSON.stringify({ role: "viewer" })
+        body: JSON.stringify({
+          Giftistry: {
+            Lists: {
+              Role: "viewer"
+            }
+          }
+        })
       })
     );
     expect(res.status).toBe(200);
@@ -193,7 +199,7 @@ describe("Wishlist Lifecycle & Shares", () => {
         },
         body: JSON.stringify({
           Giftistry: {
-            Items: { name: "Unclaimed Rollover Item", description: "Roll me", isHiddenIdea: false }
+            Items: { Name: "Unclaimed Rollover Item", Description: "Roll me", IsHiddenIdea: false }
           }
         }),
       })
@@ -241,8 +247,8 @@ describe("Wishlist Lifecycle & Shares", () => {
         body: JSON.stringify({
           Giftistry: {
             Priorities: {
-              label: "Wishlist High Priority",
-              weight: 9
+              Label: "Wishlist High Priority",
+              Weight: 9
             }
           }
         })
@@ -286,13 +292,19 @@ describe("Wishlist Lifecycle & Shares", () => {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${owner.token}`
           },
-          body: JSON.stringify({ role: "viewer" })
+          body: JSON.stringify({
+            Giftistry: {
+              Invites: {
+                Role: "viewer"
+              }
+            }
+          })
         })
       );
       expect(res.status).toBe(200);
       const body = await res.json() as any;
-      expect(body.Result.token).toBeDefined();
-      unpasswordedToken = body.Result.token;
+      expect(body.Result.Token).toBeDefined();
+      unpasswordedToken = body.Result.Token;
     });
 
     test("Unrelated user gets unpassworded invite details", async () => {
@@ -334,17 +346,21 @@ describe("Wishlist Lifecycle & Shares", () => {
             "Authorization": `Bearer ${owner.token}`
           },
           body: JSON.stringify({
-            role: "collaborator",
-            password: "superSecurePassword123"
+            Giftistry: {
+              Invites: {
+                Role: "collaborator",
+                Password: "superSecurePassword123"
+              }
+            }
           })
         })
       );
       expect(res.status).toBe(200);
       const body = await res.json() as any;
-      expect(body.Result.token).toBeDefined();
-      expect(body.Result.invite.PasswordProtected).toBe(true);
-      passwordedToken = body.Result.token;
-      passwordedInviteId = body.Result.invite.Id;
+      expect(body.Result.Token).toBeDefined();
+      expect(body.Result.Invite.PasswordProtected).toBe(true);
+      passwordedToken = body.Result.Token;
+      passwordedInviteId = body.Result.Invite.Id;
     });
 
     test("Unrelated user gets passworded invite details", async () => {
@@ -374,7 +390,13 @@ describe("Wishlist Lifecycle & Shares", () => {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${anotherUnrelated.token}`
           },
-          body: JSON.stringify({ password: "wrongPassword" })
+          body: JSON.stringify({
+            Giftistry: {
+              Invites: {
+                Password: "wrongPassword"
+              }
+            }
+          })
         })
       );
       expect(res.status).toBe(401);
@@ -392,7 +414,13 @@ describe("Wishlist Lifecycle & Shares", () => {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${anotherUnrelated.token}`
           },
-          body: JSON.stringify({ password: "superSecurePassword123" })
+          body: JSON.stringify({
+            Giftistry: {
+              Invites: {
+                Password: "superSecurePassword123"
+              }
+            }
+          })
         })
       );
       expect(res.status).toBe(200);
@@ -433,7 +461,13 @@ describe("Wishlist Lifecycle & Shares", () => {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${anotherUnrelated.token}`
           },
-          body: JSON.stringify({ password: "superSecurePassword123" })
+          body: JSON.stringify({
+            Giftistry: {
+              Invites: {
+                Password: "superSecurePassword123"
+              }
+            }
+          })
         })
       );
       expect(acceptRes.status).toBe(404);

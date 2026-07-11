@@ -22,9 +22,9 @@ describe("Authentication & Global Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              username: testUsername,
-              email: testEmail,
-              password: testPassword
+              Username: testUsername,
+              Email: testEmail,
+              Password: testPassword
             }
           }
         }),
@@ -50,8 +50,8 @@ describe("Authentication & Global Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              firstName: "Test",
-              lastName: "User"
+              FirstName: "Test",
+              LastName: "User"
             }
           }
         }),
@@ -77,6 +77,57 @@ describe("Authentication & Global Endpoints", () => {
     expect(body.Result.User.AuthHash).toBeUndefined();
   });
 
+  test("Profile AiEnabled preference persists on update and /me", async () => {
+    const disableRes = await app.handle(
+      new Request("http://localhost/api/auth/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Auth: {
+              AiEnabled: false
+            }
+          }
+        }),
+      })
+    );
+    expect(disableRes.status).toBe(200);
+    const disableBody = await disableRes.json() as any;
+    expect(disableBody.Result.User.AiEnabled).toBe(false);
+
+    const meRes = await app.handle(
+      new Request("http://localhost/api/auth/me", {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      })
+    );
+    expect(meRes.status).toBe(200);
+    const meBody = await meRes.json() as any;
+    expect(meBody.Result.User.AiEnabled).toBe(false);
+
+    await app.handle(
+      new Request("http://localhost/api/auth/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Auth: {
+              AiEnabled: true
+            }
+          }
+        }),
+      })
+    );
+  });
+
   test("Login returns Set-Cookie and body without AuthHash", async () => {
     const res = await app.handle(
       new Request("http://localhost/api/auth/login", {
@@ -85,8 +136,8 @@ describe("Authentication & Global Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              email: testEmail,
-              password: testPassword
+              Email: testEmail,
+              Password: testPassword
             }
           }
         })
@@ -112,8 +163,8 @@ describe("Authentication & Global Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              email: testEmail,
-              password: testPassword
+              Email: testEmail,
+              Password: testPassword
             }
           }
         })
@@ -169,8 +220,8 @@ describe("Authentication & Global Endpoints", () => {
           body: JSON.stringify({
             Giftistry: {
               Auth: {
-                email: "invalid_rate_limit_test@example.com",
-                password: "wrongpassword"
+                Email: "invalid_rate_limit_test@example.com",
+                Password: "wrongpassword"
               }
             }
           })
@@ -189,8 +240,8 @@ describe("Authentication & Global Endpoints", () => {
           body: JSON.stringify({
             Giftistry: {
               Auth: {
-                email: "invalid_rate_limit_test@example.com",
-                password: "wrongpassword"
+                Email: "invalid_rate_limit_test@example.com",
+                Password: "wrongpassword"
               }
             }
           })
@@ -222,10 +273,10 @@ describe("Authentication & Global Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              username: testUsername,
-              bio: "I love mechanical keyboards.",
-              theme: "neon",
-              avatar: "hsl(200, 70%, 45%)"
+              Username: testUsername,
+              Bio: "I love mechanical keyboards.",
+              Theme: "neon",
+              Avatar: "hsl(200, 70%, 45%)"
             }
           }
         })
@@ -342,9 +393,9 @@ describe("Authentication & Global Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              username: unverifiedUsername,
-              email: unverifiedEmail,
-              password: testPassword
+              Username: unverifiedUsername,
+              Email: unverifiedEmail,
+              Password: testPassword
             }
           }
         }),
@@ -366,9 +417,9 @@ describe("Authentication & Global Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Lists: {
-              title: "Unverified Wishlist",
-              category: "generic",
-              revealSuggestions: true
+              Title: "Unverified Wishlist",
+              Category: "generic",
+              RevealSuggestions: true
             }
           }
         })
@@ -391,7 +442,7 @@ describe("Authentication & Global Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              token: verificationToken
+              Token: verificationToken
             }
           }
         })
@@ -410,9 +461,9 @@ describe("Authentication & Global Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Lists: {
-              title: "Verified Wishlist",
-              category: "generic",
-              revealSuggestions: true
+              Title: "Verified Wishlist",
+              Category: "generic",
+              RevealSuggestions: true
             }
           }
         })
@@ -459,8 +510,8 @@ describe("Authentication & Global Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              secret,
-              code
+              Secret: secret,
+              Code: code
             }
           }
         })
@@ -480,8 +531,8 @@ describe("Authentication & Global Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              email: testEmail,
-              password: testPassword
+              Email: testEmail,
+              Password: testPassword
             }
           }
         })
@@ -502,8 +553,8 @@ describe("Authentication & Global Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              ticket,
-              code: loginCode
+              Ticket: ticket,
+              Code: loginCode
             }
           }
         })
@@ -522,8 +573,8 @@ describe("Authentication & Global Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              email: testEmail,
-              password: testPassword
+              Email: testEmail,
+              Password: testPassword
             }
           }
         })
@@ -542,8 +593,8 @@ describe("Authentication & Global Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              ticket: ticket2,
-              code: recoveryCode
+              Ticket: ticket2,
+              Code: recoveryCode
             }
           }
         })
@@ -562,8 +613,8 @@ describe("Authentication & Global Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              email: testEmail,
-              password: testPassword
+              Email: testEmail,
+              Password: testPassword
             }
           }
         })
@@ -581,8 +632,8 @@ describe("Authentication & Global Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              ticket: ticket3,
-              code: recoveryCode
+              Ticket: ticket3,
+              Code: recoveryCode
             }
           }
         })
@@ -602,7 +653,7 @@ describe("Authentication & Global Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              code: disableCode
+              Code: disableCode
             }
           }
         })
@@ -635,17 +686,17 @@ describe("Authentication & Global Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Theme: {
-              id: themeId,
-              name: "Super Custom Theme",
-              colors: {
-                primary: "#112233",
-                bg: "#445566",
-                surface: "#778899",
-                border: "#aabbcc",
-                text: "#ddeeff"
+              Id: themeId,
+              Name: "Super Custom Theme",
+              Colors: {
+                Primary: "#112233",
+                Bg: "#445566",
+                Surface: "#778899",
+                Border: "#aabbcc",
+                Text: "#ddeeff"
               },
-              advanced: {
-                radius: { default: "15px" }
+              Advanced: {
+                Radius: { Default: "15px" }
               }
             }
           }

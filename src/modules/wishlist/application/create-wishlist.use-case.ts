@@ -1,11 +1,14 @@
 import type { WishlistRepository } from '../domain/ports/wishlist.repository';
+import type { UserRepository } from '@/modules/auth/domain/ports/user.repository';
 import type { Wishlist } from '../domain/wishlist.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
 import type { AssertCanCreateWishlistUseCase, AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
+import { assertOwnerCanEnableListAi } from '@/common/application/user-ai-access.util';
 
 export class CreateWishlistUseCase {
   constructor(
     private wishlistRepo: WishlistRepository,
+    private userRepo: UserRepository,
     private assertCanCreateWishlist: AssertCanCreateWishlistUseCase,
     private assertUserCan: AssertUserCanUseCase
   ) {}
@@ -18,7 +21,7 @@ export class CreateWishlistUseCase {
     await this.assertCanCreateWishlist.execute(userId);
 
     if (aiEnabled) {
-      await this.assertUserCan.execute(userId, 'canUseAiFeatures');
+      await assertOwnerCanEnableListAi(userId, this.userRepo, this.assertUserCan);
     }
 
     let expiresAt: Date | null = null;

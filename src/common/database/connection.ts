@@ -20,6 +20,9 @@ export interface SystemConfig {
   aiApiKey?: string;
   aiModel?: string;
   aiPrompt?: string;
+  aiDescriptionPrompt?: string;
+  aiPopulatePrompt?: string;
+  aiCategoryPrompt?: string;
   aiEndpoint?: string;
 }
 
@@ -42,6 +45,9 @@ export function loadConfig(): SystemConfig {
         aiApiKey: data.aiApiKey || '',
         aiModel: data.aiModel || '',
         aiPrompt: data.aiPrompt || '',
+        aiDescriptionPrompt: data.aiDescriptionPrompt || '',
+        aiPopulatePrompt: data.aiPopulatePrompt || '',
+        aiCategoryPrompt: data.aiCategoryPrompt || '',
         aiEndpoint: data.aiEndpoint || '',
       };
     } catch {

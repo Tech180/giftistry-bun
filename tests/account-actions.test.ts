@@ -82,7 +82,7 @@ describe('Account actions and disabled-user enforcement', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          Giftistry: { Auth: { email: disableUser.email, password: testPassword } },
+          Giftistry: { Auth: { Email: disableUser.email, Password: testPassword } },
         }),
       })
     );
@@ -98,7 +98,7 @@ describe('Account actions and disabled-user enforcement', () => {
           Authorization: `Bearer ${deleteUser.token}`,
         },
         body: JSON.stringify({
-          Giftistry: { Auth: { password: 'wrong-password' } },
+          Giftistry: { Auth: { Password: 'wrong-password' } },
         }),
       })
     );
@@ -112,7 +112,7 @@ describe('Account actions and disabled-user enforcement', () => {
           Authorization: `Bearer ${deleteUser.token}`,
         },
         body: JSON.stringify({
-          Giftistry: { Auth: { password: testPassword } },
+          Giftistry: { Auth: { Password: testPassword } },
         }),
       })
     );
@@ -144,7 +144,7 @@ describe('Account actions and disabled-user enforcement', () => {
           Authorization: `Bearer ${ownerUser.token}`,
         },
         body: JSON.stringify({
-          Giftistry: { Auth: { password: testPassword } },
+          Giftistry: { Auth: { Password: testPassword } },
         }),
       })
     );
@@ -178,7 +178,13 @@ describe('Account actions and disabled-user enforcement', () => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${friendSender.token}`,
         },
-        body: JSON.stringify({ receiverId: disabledTarget.userId }),
+        body: JSON.stringify({
+          Giftistry: {
+            Friends: {
+              ReceiverId: disabledTarget.userId
+            }
+          }
+        }),
       })
     );
     expect(res.status).toBe(400);
@@ -198,7 +204,13 @@ describe('Account actions and disabled-user enforcement', () => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${userX.token}`,
         },
-        body: JSON.stringify({ receiverId: userY.userId }),
+        body: JSON.stringify({
+          Giftistry: {
+            Friends: {
+              ReceiverId: userY.userId
+            }
+          }
+        }),
       })
     );
     const reqBody = await reqRes.json() as any;

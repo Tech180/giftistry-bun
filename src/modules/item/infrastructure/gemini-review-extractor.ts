@@ -4,6 +4,27 @@ import type {
   ReviewExtractorConfig,
   ReviewData,
 } from '../domain/ports/review-extractor.port';
+import { buildLocalAiUrl, normalizeLocalAiEndpoint } from '@/modules/system/domain/normalize-local-ai-endpoint';
+import { getDefaultAiPrompt } from './ai-default-prompts';
+
+export function compileReviewPrompt(
+  customPrompt: string,
+  itemName: string,
+  category: string,
+  url: string,
+  pageContext: string
+): string {
+  const template = customPrompt.trim() || getDefaultAiPrompt('review');
+  const pageContextBlock = pageContext.trim()
+    ? `Scraped Page Metadata:\n${pageContext.trim()}`
+    : '';
+
+  return template
+    .replace(/{itemName}/g, itemName)
+    .replace(/{category}/g, category)
+    .replace(/{url}/g, url)
+    .replace(/{pageContext}/g, pageContextBlock);
+}
 
 export class GeminiReviewExtractor implements ReviewExtractor {
   async extract(input: ReviewExtractionInput, config: ReviewExtractorConfig): Promise<ReviewData> {
@@ -15,62 +36,6 @@ export class GeminiReviewExtractor implements ReviewExtractor {
     }
 
     return this.extractWithAI(itemName, category, url, provider, apiKey, model, customPrompt, endpoint);
-  }
-
-  private compilePrompt(
-    customPrompt: string,
-    itemName: string,
-    category: string,
-    url: string,
-    pageContext: string
-  ): string {
-    if (!customPrompt) {
-      return `
-      You are an expert shopping reviewer assistant. Analyze this product link and details:
-      Product Name: "${itemName}"
-      Product Category: "${category}"
-      Product URL: ${url}
-      ${pageContext ? `Scraped Page Metadata:\n${pageContext}` : ''}
-
-      Generate a review synthesis in JSON format. Provide:
-      1. A paragraph summarizing the overall consensus/reviews of the product ("summary").
-      2. 3-4 bullet points detailing key positive aspects ("pros").
-      3. 3-4 bullet points detailing key negative/critical aspects ("cons").
-      4. 2 representative reviews from real online sources:
-         - 1 positive review (rating 4 or 5) completely describing what makes the item great.
-         - 1 negative/critical review (rating 1 or 2) describing real shortcomings.
-         Include "author", "rating", "content", and "type" ("positive" or "negative") for each.
-
-      Your output MUST be a valid JSON object matching this structure:
-      {
-        "summary": "overall summary paragraph...",
-        "pros": ["pro point 1", "pro point 2"],
-        "cons": ["con point 1", "con point 2"],
-        "reviews": [
-          {
-            "author": "Author Name",
-            "rating": 5,
-            "content": "Full text of positive review...",
-            "type": "positive"
-          },
-          {
-            "author": "Author Name",
-            "rating": 2,
-            "content": "Full text of critical/negative review...",
-            "type": "negative"
-          }
-        ]
-      }
-
-      Do not include markdown blocks like \`\`\`json. Output raw JSON only.
-      `;
-    }
-
-    return customPrompt
-      .replace(/{itemName}/g, itemName)
-      .replace(/{category}/g, category)
-      .replace(/{url}/g, url)
-      .replace(/{pageContext}/g, pageContext);
   }
 
   private parseJsonClean(text: string): ReviewData {
@@ -118,7 +83,7 @@ export class GeminiReviewExtractor implements ReviewExtractor {
       // Ignore fetching failure and proceed with item name
     }
 
-    const compiledPrompt = this.compilePrompt(customPrompt, itemName, category, url, pageContext);
+    const compiledPrompt = compileReviewPrompt(customPrompt, itemName, category, url, pageContext);
     let textResponse = '';
 
     if (provider === 'openrouter') {
@@ -207,17 +172,11 @@ export class GeminiReviewExtractor implements ReviewExtractor {
       textResponse = data.content?.[0]?.text || '';
     } else if (provider === 'local') {
       const targetModel = model || 'llama3';
-      let baseEndpoint = endpoint || 'http://localhost:11434/v1';
-      if (
-        baseEndpoint.includes('localhost:11434') &&
-        !baseEndpoint.endsWith('/v1') &&
-        !baseEndpoint.endsWith('/v1/')
-      ) {
-        baseEndpoint = baseEndpoint.endsWith('/') ? `${baseEndpoint}v1` : `${baseEndpoint}/v1`;
+      const normalizedEndpoint = normalizeLocalAiEndpoint(endpoint);
+      if (!normalizedEndpoint) {
+        throw new Error('Local AI endpoint URL is required');
       }
-      const localUrl = baseEndpoint.endsWith('/')
-        ? `${baseEndpoint}chat/completions`
-        : `${baseEndpoint}/chat/completions`;
+      const localUrl = buildLocalAiUrl(normalizedEndpoint, 'chat/completions');
 
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (apiKey) {

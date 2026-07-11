@@ -19,6 +19,7 @@ export interface User {
   IsAdmin?: boolean;
   IsOwner?: boolean;
   LastOnline?: Date | string | null;
+  LastLoginAt?: Date | null;
   IsDisabled?: boolean;
   IsHidden?: boolean;
   LockedUntil?: Date | null;
@@ -27,7 +28,7 @@ export interface User {
   LoginAttemptsBeforeLockout?: number;
   SessionVersion?: number;
   PolicyJson?: GiftistryUserPolicy | Record<string, unknown> | null;
-  LastLoginAt?: Date | null;
+  AiEnabled?: boolean;
 }
 
 export type SafeUser = Omit<User, 'AuthHash'>;
@@ -55,6 +56,7 @@ export class UserEntity implements User {
   IsAdmin?: boolean;
   IsOwner?: boolean;
   LastOnline?: Date | string | null;
+  LastLoginAt?: Date | null;
   IsDisabled?: boolean;
   IsHidden?: boolean;
   LockedUntil?: Date | null;
@@ -63,7 +65,6 @@ export class UserEntity implements User {
   LoginAttemptsBeforeLockout?: number;
   SessionVersion?: number;
   PolicyJson?: GiftistryUserPolicy | Record<string, unknown> | null;
-  LastLoginAt?: Date | null;
 
   constructor(data: User) {
     Object.assign(this, data);

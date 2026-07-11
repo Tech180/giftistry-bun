@@ -29,7 +29,13 @@ describe("Friends System", () => {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${userA.token}`
         },
-        body: JSON.stringify({ receiverId: userB.userId })
+        body: JSON.stringify({
+          Giftistry: {
+            Friends: {
+              ReceiverId: userB.userId
+            }
+          }
+        })
       })
     );
     expect(res.status).toBe(200);

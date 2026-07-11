@@ -1,11 +1,16 @@
 import type { WishlistRepository } from '../domain/ports/wishlist.repository';
+import type { UserRepository } from '@/modules/auth/domain/ports/user.repository';
 import type { Wishlist } from '../domain/wishlist.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
 import type { BackfillListReviewsUseCase } from '@/modules/item/application/backfill-list-reviews.use-case';
+import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
+import { assertOwnerCanEnableListAi } from '@/common/application/user-ai-access.util';
 
 export class UpdateWishlistUseCase {
   constructor(
     private wishlistRepo: WishlistRepository,
+    private userRepo: UserRepository,
+    private assertUserCan: AssertUserCanUseCase,
     private backfillListReviews: BackfillListReviewsUseCase
   ) {}
 
@@ -28,6 +33,7 @@ export class UpdateWishlistUseCase {
     }
 
     if (aiEnabled && !existing.AiEnabled) {
+      await assertOwnerCanEnableListAi(existing.UserId, this.userRepo, this.assertUserCan);
       this.backfillListReviews.execute(listId).catch(err => {
         console.error('[AI Review] Failed to trigger backfill on wishlist update:', err);
       });

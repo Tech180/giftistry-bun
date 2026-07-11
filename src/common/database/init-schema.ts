@@ -46,8 +46,10 @@ export async function initializeSchema(dbSql: typeof sql = sql) {
         two_factor_recovery_codes TEXT DEFAULT NULL,
         is_admin BOOLEAN DEFAULT FALSE,
         is_owner BOOLEAN DEFAULT FALSE,
+        ai_enabled BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        last_online TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        last_online TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        last_login_at TIMESTAMP WITH TIME ZONE DEFAULT NULL
     )
   `;
 

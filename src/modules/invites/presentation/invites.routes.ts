@@ -6,12 +6,17 @@ export const inviteAcceptRoutes = (useCases: InvitesUseCases) => new Elysia({ pr
   .use(authMiddleware)
   .post('/invites/link/:token/accept', async ({ getAuthUser, params: { token }, body }) => {
     const user = await getAuthUser();
-    const share = await useCases.acceptLinkInvite.execute(user.userId, token, body?.password);
+    const password = body?.Giftistry?.Invites?.Password;
+    const share = await useCases.acceptLinkInvite.execute(user.userId, token, password);
     return { success: true, data: share };
   }, {
     params: t.Object({ token: t.String() }),
     body: t.Optional(t.Object({
-      password: t.Optional(t.String())
+      Giftistry: t.Object({
+        Invites: t.Object({
+          Password: t.Optional(t.String()),
+        }),
+      }),
     })),
     detail: { tags: ['Invites'], summary: 'Accept link invite', security: [{ bearerAuth: [] }] }
   })

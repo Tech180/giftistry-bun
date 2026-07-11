@@ -8,11 +8,23 @@ export class EnrichLinkMetadataUseCase {
   ) {}
 
   async execute(linkId: string, url: string, userPrice: number | null): Promise<void> {
-    const { data } = await this.metadataScraper.scrape(url, 'minimal');
-    const finalPrice = userPrice !== null ? userPrice : data.price;
+    try {
+      const { data, diagnostics } = await this.metadataScraper.scrape(url, 'minimal');
+      const finalPrice = userPrice !== null ? userPrice : data.price;
 
-    if (finalPrice !== null || data.imageUrl !== null) {
-      await this.itemRepo.updateLinkMetadata(linkId, finalPrice, data.imageUrl);
+      const hasUsableData =
+        diagnostics.confidence !== 'low' && (finalPrice !== null || data.imageUrl !== null);
+
+      if (hasUsableData) {
+        await this.itemRepo.updateLinkMetadata(linkId, finalPrice, data.imageUrl);
+      } else {
+        console.log(
+          `[Scraper] enrich skipped linkId=${linkId} url=${url} reason=${diagnostics.validationReason ?? 'low-confidence'}`
+        );
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.log(`[Scraper] enrich failed linkId=${linkId} url=${url} error=${message}`);
     }
   }
 }

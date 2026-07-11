@@ -8,6 +8,7 @@ import { GetSystemSettingsUseCase } from './application/get-system-settings.use-
 import { SaveSystemSettingsUseCase } from './application/save-system-settings.use-case';
 import { TransferOwnershipUseCase } from './application/transfer-ownership.use-case';
 import { DeleteServerUseCase } from './application/delete-server.use-case';
+import { TestAiConnectionUseCase } from './application/test-ai-connection.use-case';
 import { systemRoutes } from './presentation/system.routes';
 import type { SystemUseCases } from './presentation/system-use-cases.interface';
 
@@ -21,11 +22,14 @@ export function createSystemModule(deps: SystemModuleDeps): {
   module: Elysia;
   systemUseCases: SystemUseCases;
 } {
+  const testAiConnectionUseCase = new TestAiConnectionUseCase();
+
   const systemUseCases: SystemUseCases = {
     getSystemStatus: new GetSystemStatusUseCase(deps.serverConfigRepo, deps.getSitePolicyUseCase),
     runInitialSetup: new RunInitialSetupUseCase(deps.serverConfigRepo),
     getSystemSettings: new GetSystemSettingsUseCase(deps.serverConfigRepo),
-    saveSystemSettings: new SaveSystemSettingsUseCase(deps.serverConfigRepo),
+    saveSystemSettings: new SaveSystemSettingsUseCase(deps.serverConfigRepo, testAiConnectionUseCase),
+    testAiConnection: testAiConnectionUseCase,
     transferOwnership: new TransferOwnershipUseCase(deps.serverConfigRepo, deps.writeAuditLogUseCase),
     deleteServer: new DeleteServerUseCase(deps.serverConfigRepo, deps.writeAuditLogUseCase),
   };

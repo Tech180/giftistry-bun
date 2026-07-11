@@ -30,11 +30,11 @@ describe('Server ownership transfer', () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              username: ownerUsername,
-              email: ownerEmail,
-              password: 'password123',
-              firstName: 'Owner',
-              lastName: 'User',
+              Username: ownerUsername,
+              Email: ownerEmail,
+              Password: 'password123',
+              FirstName: 'Owner',
+              LastName: 'User',
             },
           },
         }),
@@ -53,11 +53,11 @@ describe('Server ownership transfer', () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              username: targetUsername,
-              email: targetEmail,
-              password: 'password123',
-              firstName: 'Target',
-              lastName: 'User',
+              Username: targetUsername,
+              Email: targetEmail,
+              Password: 'password123',
+              FirstName: 'Target',
+              LastName: 'User',
             },
           },
         }),
@@ -84,7 +84,7 @@ describe('Server ownership transfer', () => {
         body: JSON.stringify({
           Giftistry: {
             Ownership: {
-              userId: ownerUserId,
+              UserId: ownerUserId,
             },
           },
         }),
@@ -104,7 +104,7 @@ describe('Server ownership transfer', () => {
         body: JSON.stringify({
           Giftistry: {
             Ownership: {
-              userId: targetUserId,
+              UserId: targetUserId,
             },
           },
         }),

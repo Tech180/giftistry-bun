@@ -20,6 +20,7 @@ export interface CurrentUser {
   IsDisabled?: boolean;
   ForcePasswordChange?: boolean;
   Policy?: unknown;
+  AiEnabled?: boolean;
 }
 
 export class GetCurrentUserUseCase {
@@ -54,6 +55,7 @@ export class GetCurrentUserUseCase {
       IsDisabled: user.IsDisabled,
       ForcePasswordChange: user.ForcePasswordChange,
       Policy: user.PolicyJson,
+      AiEnabled: user.AiEnabled !== false,
     };
   }
 }

@@ -17,11 +17,12 @@ const USER_SELECT = `
   id as "Id", username as "Username", email as "Email", first_name as "FirstName",
   last_name as "LastName", auth_hash as "AuthHash", created_at as "CreatedAt", bio as "Bio",
   theme as "Theme", avatar as "Avatar", birthday as "Birthday", email_verified as "EmailVerified",
-  two_factor_enabled as "TwoFactorEnabled", is_admin as "IsAdmin", is_owner as "IsOwner", last_online as "LastOnline",
+  two_factor_enabled as "TwoFactorEnabled", is_admin as "IsAdmin", is_owner as "IsOwner",
+  last_online as "LastOnline", last_login_at as "LastLoginAt",
   is_disabled as "IsDisabled", is_hidden as "IsHidden", locked_until as "LockedUntil",
   failed_login_count as "FailedLoginCount", force_password_change as "ForcePasswordChange",
   login_attempts_before_lockout as "LoginAttemptsBeforeLockout", session_version as "SessionVersion",
-  policy_json as "PolicyJson", last_login_at as "LastLoginAt"
+  policy_json as "PolicyJson", ai_enabled as "AiEnabled"
 `;
 
 function mapUserRow(row: Record<string, unknown>): User {
@@ -44,6 +45,7 @@ function mapUserRow(row: Record<string, unknown>): User {
     IsAdmin: row.IsAdmin as boolean | undefined,
     IsOwner: row.IsOwner as boolean | undefined,
     LastOnline: row.LastOnline ? new Date(row.LastOnline as string | Date) : null,
+    LastLoginAt: row.LastLoginAt ? new Date(row.LastLoginAt as string | Date) : null,
     IsDisabled: row.IsDisabled as boolean | undefined,
     IsHidden: row.IsHidden as boolean | undefined,
     LockedUntil: row.LockedUntil ? new Date(row.LockedUntil as string | Date) : null,
@@ -52,7 +54,7 @@ function mapUserRow(row: Record<string, unknown>): User {
     LoginAttemptsBeforeLockout: row.LoginAttemptsBeforeLockout as number | undefined,
     SessionVersion: row.SessionVersion as number | undefined,
     PolicyJson: mergeUserPolicy(typeof row.PolicyJson === 'string' ? JSON.parse(row.PolicyJson) : row.PolicyJson),
-    LastLoginAt: row.LastLoginAt ? new Date(row.LastLoginAt as string | Date) : null,
+    AiEnabled: row.AiEnabled !== false,
   };
 }
 
@@ -119,6 +121,7 @@ export class PostgresUserRepository implements UserRepository {
     twoFactorSecret?: string | null;
     twoFactorRecoveryCodes?: string | null;
     isAdmin?: boolean;
+    aiEnabled?: boolean;
   }): Promise<User> {
     const user = await this.findById(id);
     if (!user) throw new Error('User not found');
@@ -133,7 +136,7 @@ export class PostgresUserRepository implements UserRepository {
 
     const [curr] = await sql<any[]>`
       SELECT email_verified, email_verification_token, email_verification_expires,
-             two_factor_enabled, two_factor_secret, two_factor_recovery_codes, is_admin
+             two_factor_enabled, two_factor_secret, two_factor_recovery_codes, is_admin, ai_enabled
       FROM users WHERE id = ${id}
     `;
 
@@ -144,6 +147,7 @@ export class PostgresUserRepository implements UserRepository {
     const twoFactorSecret = updates.twoFactorSecret !== undefined ? updates.twoFactorSecret : curr.two_factor_secret;
     const twoFactorRecoveryCodes = updates.twoFactorRecoveryCodes !== undefined ? updates.twoFactorRecoveryCodes : curr.two_factor_recovery_codes;
     const isAdmin = updates.isAdmin !== undefined ? updates.isAdmin : curr.is_admin;
+    const aiEnabled = updates.aiEnabled !== undefined ? updates.aiEnabled : curr.ai_enabled !== false;
 
     const [row] = await sql<any[]>`
       UPDATE users SET
@@ -152,7 +156,7 @@ export class PostgresUserRepository implements UserRepository {
         email_verified = ${emailVerified}, email_verification_token = ${emailVerificationToken},
         email_verification_expires = ${emailVerificationExpires}, two_factor_enabled = ${twoFactorEnabled},
         two_factor_secret = ${twoFactorSecret}, two_factor_recovery_codes = ${twoFactorRecoveryCodes},
-        is_admin = ${isAdmin}
+        is_admin = ${isAdmin}, ai_enabled = ${aiEnabled}
       WHERE id = ${id}
       RETURNING ${sql.unsafe(USER_SELECT)}
     `;

@@ -29,11 +29,11 @@ describe('Admin API', () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              username: adminUsername,
-              email: adminEmail,
-              password: 'password123',
-              firstName: 'Admin',
-              lastName: 'User',
+              Username: adminUsername,
+              Email: adminEmail,
+              Password: 'password123',
+              FirstName: 'Admin',
+              LastName: 'User',
             },
           },
         }),
@@ -52,11 +52,11 @@ describe('Admin API', () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              username: userUsername,
-              email: userEmail,
-              password: 'password123',
-              firstName: 'Regular',
-              lastName: 'User',
+              Username: userUsername,
+              Email: userEmail,
+              Password: 'password123',
+              FirstName: 'Regular',
+              LastName: 'User',
             },
           },
         }),
@@ -78,7 +78,7 @@ describe('Admin API', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          Giftistry: { Auth: { email: userEmail, password: 'password123' } },
+          Giftistry: { Auth: { Email: userEmail, Password: 'password123' } },
         }),
       })
     );
@@ -102,7 +102,7 @@ describe('Admin API', () => {
     );
     expect(overviewRes.status).toBe(200);
     const overviewBody = await overviewRes.json();
-    expect(overviewBody.Result.Stats.Users.total).toBeGreaterThanOrEqual(2);
+    expect(overviewBody.Result.Stats.Users.Total).toBeGreaterThanOrEqual(2);
 
     const usersRes = await app.handle(
       new Request('http://localhost/api/admin/users', {
@@ -125,23 +125,23 @@ describe('Admin API', () => {
         body: JSON.stringify({
           Giftistry: {
             SitePolicy: {
-              registrationMode: 'open',
-              requireEmailVerification: false,
-              loginAttemptsBeforeLockout: 5,
-              lockoutDurationMinutes: 0,
-              maintenanceMode: false,
-              maintenanceMessage: 'Maintenance',
-              allowPasswordLogin: true,
-              allowedEmailDomains: [],
-              defaultUserPolicy: {
-                canCreateWishlists: true,
-                maxActiveWishlists: 0,
-                canUseComments: true,
-                canUseAiFeatures: true,
-                canSharePublicLinks: true,
-                canUploadImages: true,
-                canSendFriendRequests: true,
-                canUseCustomThemes: true,
+              RegistrationMode: 'open',
+              RequireEmailVerification: false,
+              LoginAttemptsBeforeLockout: 5,
+              LockoutDurationMinutes: 0,
+              MaintenanceMode: false,
+              MaintenanceMessage: 'Maintenance',
+              AllowPasswordLogin: true,
+              AllowedEmailDomains: [],
+              DefaultUserPolicy: {
+                CanCreateWishlists: true,
+                MaxActiveWishlists: 0,
+                CanUseComments: true,
+                CanUseAiFeatures: true,
+                CanSharePublicLinks: true,
+                CanUploadImages: true,
+                CanSendFriendRequests: true,
+                CanUseCustomThemes: true,
               },
             },
           },
@@ -160,8 +160,8 @@ describe('Admin API', () => {
         body: JSON.stringify({
           Giftistry: {
             Policy: {
-              isHidden: true,
-              policy: { canUseComments: true },
+              IsHidden: true,
+              Policy: { CanUseComments: true },
             },
           },
         }),

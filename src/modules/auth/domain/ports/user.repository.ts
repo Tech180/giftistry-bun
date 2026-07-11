@@ -54,7 +54,7 @@ export interface UserRepository {
     twoFactorEnabled?: boolean;
     twoFactorSecret?: string | null;
     twoFactorRecoveryCodes?: string | null;
-    isAdmin?: boolean;
+    aiEnabled?: boolean;
   }): Promise<User>;
   count(): Promise<number>;
   updateLastOnline(id: string): Promise<void>;

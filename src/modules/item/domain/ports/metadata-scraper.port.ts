@@ -1,8 +1,8 @@
-import type { ExtractedMetadata, ScrapeMode, ScrapeSource } from '../extracted-metadata';
+import type { ExtractedMetadata, ScrapeDiagnostics, ScrapeMode } from '../extracted-metadata';
 
 export interface ScrapeResult {
   data: ExtractedMetadata;
-  source: ScrapeSource;
+  diagnostics: ScrapeDiagnostics;
 }
 
 export interface MetadataScraper {

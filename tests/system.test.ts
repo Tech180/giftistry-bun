@@ -48,9 +48,9 @@ describe("System Administration Settings Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              username: adminUsername,
-              email: adminEmail,
-              password: testPassword
+              Username: adminUsername,
+              Email: adminEmail,
+              Password: testPassword
             }
           }
         }),
@@ -71,9 +71,9 @@ describe("System Administration Settings Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              username: normalUsername,
-              email: normalEmail,
-              password: testPassword
+              Username: normalUsername,
+              Email: normalEmail,
+              Password: testPassword
             }
           }
         }),
@@ -98,7 +98,7 @@ describe("System Administration Settings Endpoints", () => {
     expect(res.status).toBe(200);
     const body = await res.json() as any;
     expect(body.Meta.Status).toBe("Success");
-    expect(body.Result.dbType).toBe("local");
+    expect(body.Result.DbType).toBe("local");
   });
 
   test("Normal user is forbidden from fetching system settings", async () => {
@@ -124,8 +124,8 @@ describe("System Administration Settings Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             System: {
-              dbType: "local",
-              smtpType: "local"
+              DbType: "local",
+              SmtpType: "local"
             }
           }
         })
@@ -147,9 +147,9 @@ describe("System Administration Settings Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             System: {
-              dbType: "remote",
-              dbUrl: "postgresql://invalid_user:invalid_pass@127.0.0.1:9999/invalid_db",
-              smtpType: "local"
+              DbType: "remote",
+              DbUrl: "postgresql://invalid_user:invalid_pass@127.0.0.1:9999/invalid_db",
+              SmtpType: "local"
             }
           }
         })
@@ -158,5 +158,50 @@ describe("System Administration Settings Endpoints", () => {
     expect(res.status).toBe(400);
     const body = await res.json() as any;
     expect(body.Result.Message).toContain("Failed to connect to the remote database");
+  });
+
+  test("Normal user is forbidden from testing AI connection", async () => {
+    const res = await app.handle(
+      new Request("http://localhost/api/system/ai-check", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${normalToken}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            System: {
+              AiProvider: "local",
+              AiEndpoint: "http://127.0.0.1:59999/v1"
+            }
+          }
+        })
+      })
+    );
+    expect(res.status).toBe(403);
+  });
+
+  test("Admin local AI test fails for unreachable endpoint", async () => {
+    const res = await app.handle(
+      new Request("http://localhost/api/system/ai-check", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            System: {
+              AiProvider: "local",
+              AiEndpoint: "http://127.0.0.1:59999/v1",
+              AiModel: "llama3"
+            }
+          }
+        })
+      })
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json() as any;
+    expect(body.Result.Message).toContain("Cannot reach AI server");
   });
 });

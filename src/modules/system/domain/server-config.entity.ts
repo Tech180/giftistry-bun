@@ -1,3 +1,5 @@
+import { AI_DEFAULT_PROMPTS } from '@/modules/item/infrastructure/ai-default-prompts';
+
 export type DbConnectionType = 'local' | 'remote';
 export type SmtpConnectionType = 'local' | 'remote';
 export type AiProvider = 'gemini' | 'openai' | 'anthropic' | 'local' | 'openrouter';
@@ -17,6 +19,9 @@ export interface ServerConfig {
   aiApiKey?: string;
   aiModel?: string;
   aiPrompt?: string;
+  aiDescriptionPrompt?: string;
+  aiPopulatePrompt?: string;
+  aiCategoryPrompt?: string;
   aiEndpoint?: string;
 }
 
@@ -56,6 +61,9 @@ export interface SystemSettingsPayload {
   aiApiKey?: string;
   aiModel?: string;
   aiPrompt?: string;
+  aiDescriptionPrompt?: string;
+  aiPopulatePrompt?: string;
+  aiCategoryPrompt?: string;
   aiEndpoint?: string;
 }
 
@@ -74,7 +82,16 @@ export interface SystemSettingsView {
   aiApiKey: string;
   aiModel: string;
   aiPrompt: string;
+  aiDescriptionPrompt: string;
+  aiPopulatePrompt: string;
+  aiCategoryPrompt: string;
   aiEndpoint: string;
+  aiDefaultPrompts: {
+    review: string;
+    description: string;
+    populate: string;
+    category: string;
+  };
 }
 
 export interface TransferTargetUser {
@@ -92,6 +109,8 @@ export interface CreateAdminUserParams {
 }
 
 const MASKED_SECRET = '******';
+
+import { AI_DEFAULT_PROMPTS } from '@/modules/item/infrastructure/ai-default-prompts';
 
 export function maskSecret(value?: string): string {
   return value ? MASKED_SECRET : '';
@@ -120,6 +139,10 @@ export function toSystemSettingsView(config: ServerConfig): SystemSettingsView {
     aiApiKey: maskSecret(config.aiApiKey),
     aiModel: config.aiModel || '',
     aiPrompt: config.aiPrompt || '',
+    aiDescriptionPrompt: config.aiDescriptionPrompt || '',
+    aiPopulatePrompt: config.aiPopulatePrompt || '',
+    aiCategoryPrompt: config.aiCategoryPrompt || '',
     aiEndpoint: config.aiEndpoint || '',
+    aiDefaultPrompts: { ...AI_DEFAULT_PROMPTS },
   };
 }

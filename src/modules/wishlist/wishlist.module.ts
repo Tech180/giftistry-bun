@@ -59,7 +59,9 @@ export function createWishlistModule(deps: WishlistModuleDeps) {
     itemReviewRepo,
     new GeminiReviewExtractor(),
     deps.itemRepo,
-    deps.wishlistRepo
+    deps.wishlistRepo,
+    deps.userRepo,
+    deps.assertUserCanUseCase
   );
   const backfillListReviewsUseCase = new BackfillListReviewsUseCase(
     itemReviewRepo,
@@ -71,6 +73,7 @@ export function createWishlistModule(deps: WishlistModuleDeps) {
       {
         createWishlist: new CreateWishlistUseCase(
           deps.wishlistRepo,
+          deps.userRepo,
           deps.assertCanCreateWishlistUseCase,
           deps.assertUserCanUseCase
         ),
@@ -88,7 +91,12 @@ export function createWishlistModule(deps: WishlistModuleDeps) {
           deps.itemRepo,
           deps.commentRepo
         ),
-        updateWishlist: new UpdateWishlistUseCase(deps.wishlistRepo, backfillListReviewsUseCase),
+        updateWishlist: new UpdateWishlistUseCase(
+          deps.wishlistRepo,
+          deps.userRepo,
+          deps.assertUserCanUseCase,
+          backfillListReviewsUseCase
+        ),
         deleteWishlist: new DeleteWishlistUseCase(deps.wishlistRepo),
         listListShares: new ListListSharesUseCase(deps.listShareRepo),
         updateListShare: new UpdateListShareUseCase(deps.listShareRepo),

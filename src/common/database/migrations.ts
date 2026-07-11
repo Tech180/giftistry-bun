@@ -213,6 +213,7 @@ export async function runMigrations(dbSql: typeof sql = sql): Promise<void> {
   await dbSql`ALTER TABLE users ADD COLUMN IF NOT EXISTS policy_json JSONB DEFAULT '{}'::jsonb`;
   await dbSql`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP WITH TIME ZONE DEFAULT NULL`;
   await dbSql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_owner BOOLEAN DEFAULT FALSE`;
+  await dbSql`ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_enabled BOOLEAN DEFAULT TRUE`;
 
   await dbSql`
     UPDATE users SET is_owner = true

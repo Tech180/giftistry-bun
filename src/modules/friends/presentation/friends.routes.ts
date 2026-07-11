@@ -26,12 +26,18 @@ export const friendsRoutes = (useCases: FriendsUseCases) => new Elysia({ prefix:
       security: [{ bearerAuth: [] }]
     }
   })
-  .post('/friends/requests', async ({ getAuthUser, body: { receiverId } }) => {
+  .post('/friends/requests', async ({ getAuthUser, body: { Giftistry: { Friends: { ReceiverId } } } }) => {
     const user = await getAuthUser();
-    const request = await useCases.sendFriendRequest.execute(user.userId, receiverId);
+    const request = await useCases.sendFriendRequest.execute(user.userId, ReceiverId);
     return { success: true, data: request };
   }, {
-    body: t.Object({ receiverId: t.String() }),
+    body: t.Object({
+      Giftistry: t.Object({
+        Friends: t.Object({
+          ReceiverId: t.String(),
+        }),
+      }),
+    }),
     detail: {
       tags: ['Friends'],
       summary: 'Send friend request',

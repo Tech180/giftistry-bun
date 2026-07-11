@@ -65,6 +65,50 @@ Cross-cutting value objects and ports live in `src/common/domain/`:
 
 All dependency wiring happens in `src/app.container.ts`. Modules do not export concrete repository singletons.
 
+## Metadata scraper
+
+Product link metadata is scraped through a tiered self-hosted pipeline in the item module.
+
+```mermaid
+flowchart TD
+  URL[URL] --> Orchestrator[MetadataScraperOrchestrator]
+  Orchestrator --> Fetch[Tier1_fetch]
+  Fetch --> Pipeline[ExtractionPipeline]
+  Pipeline --> Retailer[RetailerExtractor]
+  Pipeline --> JsonLd[JSON-LD]
+  Pipeline --> Embedded[EmbeddedJSON]
+  Pipeline --> Meta[MetaTags]
+  Pipeline --> Dom[DOMFallback]
+  Validate[StrictValidator] -->|pass| Result[ScrapeResult]
+  Validate -->|fail| Playwright[Tier2_stealthPlaywright]
+  Playwright --> NetworkCapture[NetworkJsonCapture]
+  NetworkCapture --> Pipeline
+  Validate -->|fail both| Error[ScrapeError]
+```
+
+### Layers
+
+- **Port:** `MetadataScraper` in `src/modules/item/domain/ports/metadata-scraper.port.ts`
+- **Orchestrator:** `MetadataScraperOrchestrator` — fetch then Playwright failover
+- **Extractors:** `src/modules/item/infrastructure/scraping/extractors/` — meta tags, JSON-LD, embedded JSON, DOM, slug fallback
+- **Retailers:** `src/modules/item/infrastructure/scraping/retailers/` — hostname-specific parsers (Amazon, Walmart, Target, Dick's, Shopify)
+- **Use cases:** `ExtractMetadataUseCase` (full), `EnrichLinkMetadataUseCase` (minimal, background)
+
+### Environment variables
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `SCRAPE_FETCH_TIMEOUT_MS` | `8000` | Fetch tier timeout |
+| `SCRAPE_PLAYWRIGHT_TIMEOUT_MS` | `25000` | Browser navigation timeout |
+| `SCRAPE_PLAYWRIGHT_MAX_CONCURRENT` | `3` | Max concurrent browser contexts |
+| `SCRAPE_PLAYWRIGHT_HEADLESS` | `true` | Headless browser (set `false` for local debugging) |
+
+### Known limitations
+
+Self-hosted scraping from a datacenter/server IP cannot reliably bypass Akamai Bot Manager on heavily protected retailers (e.g. Dick's Sporting Goods). The scraper detects block pages and returns explicit failures with `diagnostics.blocked: true` rather than empty success responses.
+
+To add a new retailer extractor, create a file in `scraping/retailers/` implementing `RetailerExtractor` and register it in `extraction-pipeline.ts`.
+
 ## Rules (enforced by CI)
 
 1. No `sql` imports outside `infrastructure/` directories.

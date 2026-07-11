@@ -11,9 +11,9 @@ export async function createTestUser(username: string, email: string) {
       body: JSON.stringify({
         Giftistry: {
           Auth: {
-            username,
-            email,
-            password: testPassword
+            Username: username,
+            Email: email,
+            Password: testPassword
           }
         }
       }),
@@ -49,11 +49,11 @@ export async function createTestWishlist(token: string, title: string, expiresAt
       body: JSON.stringify({
         Giftistry: {
           Lists: {
-            title,
-            expiresAt,
-            allowGroupFunds: true,
-            category,
-            revealSuggestions
+            Title: title,
+            ExpiresAt: expiresAt,
+            AllowGroupFunds: true,
+            Category: category,
+            RevealSuggestions: revealSuggestions
           }
         }
       }),
@@ -78,8 +78,8 @@ export async function shareTestWishlist(token: string, listId: string, email: st
       body: JSON.stringify({
         Giftistry: {
           Lists: {
-            email,
-            role
+            Email: email,
+            Role: role
           }
         }
       }),

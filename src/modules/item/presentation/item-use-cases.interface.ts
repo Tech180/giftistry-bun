@@ -9,6 +9,7 @@ import type { UnclaimItemUseCase } from '../application/unclaim-item.use-case';
 import type { ValidateItemAudienceUseCase } from '../application/validate-item-audience.use-case';
 import type { ExtractMetadataUseCase } from '../application/extract-metadata.use-case';
 import type { GetItemReviewsUseCase } from '../application/get-item-reviews.use-case';
+import type { SummarizeItemDescriptionUseCase } from '../application/summarize-item-description.use-case';
 
 export interface ItemUseCases {
   addItem: AddItemUseCase;
@@ -22,4 +23,5 @@ export interface ItemUseCases {
   validateItemAudience: ValidateItemAudienceUseCase;
   extractMetadata: ExtractMetadataUseCase;
   getItemReviews: GetItemReviewsUseCase;
+  summarizeItemDescription: SummarizeItemDescriptionUseCase;
 }

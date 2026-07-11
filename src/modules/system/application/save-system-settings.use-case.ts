@@ -3,9 +3,13 @@ import nodemailer from 'nodemailer';
 import { AppError } from '@/common/middlewares/error.middleware';
 import type { ServerConfigRepository } from '../domain/ports/server-config.repository';
 import { resolveMaskedSecret, type SystemSettingsPayload } from '../domain/server-config.entity';
+import type { TestAiConnectionUseCase } from './test-ai-connection.use-case';
 
 export class SaveSystemSettingsUseCase {
-  constructor(private serverConfigRepo: ServerConfigRepository) {}
+  constructor(
+    private serverConfigRepo: ServerConfigRepository,
+    private testAiConnection: TestAiConnectionUseCase
+  ) {}
 
   async execute(settings: SystemSettingsPayload): Promise<void> {
     if (settings.dbType === 'remote') {
@@ -51,6 +55,19 @@ export class SaveSystemSettingsUseCase {
 
     const aiApiKey = resolveMaskedSecret(settings.aiApiKey, config.aiApiKey);
 
+    if (settings.aiEnabled && settings.aiProvider === 'local') {
+      if (!settings.aiEndpoint?.trim()) {
+        throw new AppError('API endpoint URL is required for local AI provider', 400, 'BAD_REQUEST');
+      }
+
+      await this.testAiConnection.execute({
+        aiProvider: 'local',
+        aiEndpoint: settings.aiEndpoint,
+        aiApiKey,
+        aiModel: settings.aiModel,
+      });
+    }
+
     this.serverConfigRepo.save({
       dbType: settings.dbType as 'local' | 'remote',
       dbUrl: settings.dbUrl,
@@ -66,6 +83,9 @@ export class SaveSystemSettingsUseCase {
       aiApiKey,
       aiModel: settings.aiModel,
       aiPrompt: settings.aiPrompt,
+      aiDescriptionPrompt: settings.aiDescriptionPrompt,
+      aiPopulatePrompt: settings.aiPopulatePrompt,
+      aiCategoryPrompt: settings.aiCategoryPrompt,
       aiEndpoint: settings.aiEndpoint,
     });
   }

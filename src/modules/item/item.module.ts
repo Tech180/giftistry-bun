@@ -5,6 +5,8 @@ import type { ItemAudienceRepository } from './domain/ports/item-audience.reposi
 import type { ItemFieldRepository } from './domain/ports/item-field.repository';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
 import type { ListShareRepository } from '@/modules/wishlist/domain/ports/list-share.repository';
+import type { UserRepository } from '@/modules/auth/domain/ports/user.repository';
+import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
 import type { MetadataScraper } from './domain/ports/metadata-scraper.port';
 import { PostgresItemReviewRepository } from './infrastructure/postgres-item-review.repository';
 import { GeminiReviewExtractor } from './infrastructure/gemini-review-extractor';
@@ -22,6 +24,10 @@ import { ExtractMetadataUseCase } from './application/extract-metadata.use-case'
 import { EnrichLinkMetadataUseCase } from './application/enrich-link-metadata.use-case';
 import { ExtractItemReviewsUseCase } from './application/extract-item-reviews.use-case';
 import { GetItemReviewsUseCase } from './application/get-item-reviews.use-case';
+import { SummarizeItemDescriptionUseCase } from './application/summarize-item-description.use-case';
+import { GeminiDescriptionSummarizer } from './infrastructure/gemini-description-summarizer';
+import { GeminiMetadataPopulator } from './infrastructure/gemini-metadata-populator';
+import { GeminiCategoryClassifier } from './infrastructure/gemini-category-classifier';
 import { itemRoutes } from './presentation/item.routes';
 
 export interface ItemModuleDeps {
@@ -30,6 +36,8 @@ export interface ItemModuleDeps {
   fieldRepo: ItemFieldRepository;
   wishlistRepo: WishlistRepository;
   listShareRepo: ListShareRepository;
+  userRepo: UserRepository;
+  assertUserCanUseCase: AssertUserCanUseCase;
   metadataScraper: MetadataScraper;
   middleware: RouteMiddleware;
 }
@@ -38,15 +46,29 @@ export function createItemModule(deps: ItemModuleDeps) {
   const itemReviewRepo = new PostgresItemReviewRepository();
   const reviewExtractor = new GeminiReviewExtractor();
 
-  const extractMetadataUseCase = new ExtractMetadataUseCase(deps.metadataScraper);
+  const extractMetadataUseCase = new ExtractMetadataUseCase(
+    deps.metadataScraper,
+    new GeminiMetadataPopulator(),
+    new GeminiCategoryClassifier(),
+    deps.userRepo,
+    deps.assertUserCanUseCase
+  );
   const enrichLinkMetadataUseCase = new EnrichLinkMetadataUseCase(deps.metadataScraper, deps.itemRepo);
   const extractItemReviewsUseCase = new ExtractItemReviewsUseCase(
     itemReviewRepo,
     reviewExtractor,
     deps.itemRepo,
-    deps.wishlistRepo
+    deps.wishlistRepo,
+    deps.userRepo,
+    deps.assertUserCanUseCase
   );
   const getItemReviewsUseCase = new GetItemReviewsUseCase(itemReviewRepo);
+  const summarizeItemDescriptionUseCase = new SummarizeItemDescriptionUseCase(
+    deps.wishlistRepo,
+    deps.userRepo,
+    deps.assertUserCanUseCase,
+    new GeminiDescriptionSummarizer()
+  );
 
   const validateItemAudienceUseCase = new ValidateItemAudienceUseCase(deps.listShareRepo, deps.itemRepo);
   const assertItemVisibleUseCase = new AssertItemVisibleUseCase(
@@ -73,12 +95,19 @@ export function createItemModule(deps: ItemModuleDeps) {
           extractItemReviewsUseCase
         ),
         deleteItem: new DeleteItemUseCase(deps.itemRepo, assertItemVisibleUseCase),
-        updateItem: new UpdateItemUseCase(deps.itemRepo, deps.audienceRepo, assertItemVisibleUseCase),
+        updateItem: new UpdateItemUseCase(
+          deps.itemRepo,
+          deps.audienceRepo,
+          assertItemVisibleUseCase,
+          enrichLinkMetadataUseCase,
+          extractItemReviewsUseCase
+        ),
         getFieldDefinitions: new GetFieldDefinitionsUseCase(deps.fieldRepo),
         unclaimItem: new UnclaimItemUseCase(deps.itemRepo, assertItemVisibleUseCase),
         validateItemAudience: validateItemAudienceUseCase,
         extractMetadata: extractMetadataUseCase,
         getItemReviews: getItemReviewsUseCase,
+        summarizeItemDescription: summarizeItemDescriptionUseCase,
       },
       deps.middleware
     )

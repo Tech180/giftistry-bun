@@ -66,25 +66,29 @@ export const notificationsRoutes = (useCases: NotificationsUseCases) => new Elys
   }, {
     detail: { tags: ['Notifications'], summary: 'Get notification preferences', security: [{ bearerAuth: [] }] }
   })
-  .patch('/notifications/preferences', async ({ getAuthUser, body }) => {
+  .patch('/notifications/preferences', async ({ getAuthUser, body: { Giftistry: { Notifications } } }) => {
     const user = await getAuthUser();
     const prefs = await useCases.updateNotificationPrefs.execute(user.userId, {
-      EmailAlerts: body.emailAlerts,
-      Marketing: body.marketing,
-      FriendRequests: body.friendRequests,
-      ListShares: body.listShares,
-      ItemClaims: body.itemClaims,
-      Comments: body.comments,
+      EmailAlerts: Notifications.EmailAlerts,
+      Marketing: Notifications.Marketing,
+      FriendRequests: Notifications.FriendRequests,
+      ListShares: Notifications.ListShares,
+      ItemClaims: Notifications.ItemClaims,
+      Comments: Notifications.Comments,
     });
     return { success: true, data: prefs };
   }, {
     body: t.Object({
-      emailAlerts: t.Optional(t.Boolean()),
-      marketing: t.Optional(t.Boolean()),
-      friendRequests: t.Optional(t.Boolean()),
-      listShares: t.Optional(t.Boolean()),
-      itemClaims: t.Optional(t.Boolean()),
-      comments: t.Optional(t.Boolean()),
+      Giftistry: t.Object({
+        Notifications: t.Object({
+          EmailAlerts: t.Optional(t.Boolean()),
+          Marketing: t.Optional(t.Boolean()),
+          FriendRequests: t.Optional(t.Boolean()),
+          ListShares: t.Optional(t.Boolean()),
+          ItemClaims: t.Optional(t.Boolean()),
+          Comments: t.Optional(t.Boolean()),
+        }),
+      }),
     }),
     detail: { tags: ['Notifications'], summary: 'Update notification preferences', security: [{ bearerAuth: [] }] }
   });

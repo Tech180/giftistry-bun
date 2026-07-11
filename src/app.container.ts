@@ -134,6 +134,8 @@ export function createAppContainer(): AppContainer {
     fieldRepo: itemFieldRepo,
     wishlistRepo,
     listShareRepo,
+    userRepo,
+    assertUserCanUseCase,
     metadataScraper,
     middleware: routeMiddleware,
   });

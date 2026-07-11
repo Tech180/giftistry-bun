@@ -2,6 +2,82 @@ import { Elysia, t } from 'elysia';
 import { authMiddleware } from '@/modules/auth/auth.module';
 import { AdminUser } from '../domain/admin-user.entity';
 import type { AdminUseCases } from './admin-use-cases.interface';
+import type { CreateAdminUserPayload } from '../application/create-admin-user.use-case';
+import type { UpdateAdminUserPayload } from '../application/update-admin-user.use-case';
+import type { ResetPasswordPayload } from '../application/reset-user-password.use-case';
+import type { UserPolicyUpdatePayload } from '../domain/admin-user.entity';
+
+function mapCreateAdminUserPayload(raw: {
+  Username: string;
+  Email: string;
+  Password: string;
+  FirstName?: string;
+  LastName?: string;
+  IsAdmin?: boolean;
+  EmailVerified?: boolean;
+  ForcePasswordChange?: boolean;
+  Policy?: Record<string, unknown>;
+}): CreateAdminUserPayload {
+  return {
+    username: raw.Username,
+    email: raw.Email,
+    password: raw.Password,
+    firstName: raw.FirstName,
+    lastName: raw.LastName,
+    isAdmin: raw.IsAdmin,
+    emailVerified: raw.EmailVerified,
+    forcePasswordChange: raw.ForcePasswordChange,
+    policy: raw.Policy,
+  };
+}
+
+function mapUpdateAdminUserPayload(raw: {
+  Username?: string;
+  Email?: string;
+  FirstName?: string;
+  LastName?: string;
+  Bio?: string;
+  Avatar?: string | null;
+  EmailVerified?: boolean;
+}): UpdateAdminUserPayload {
+  return {
+    username: raw.Username,
+    email: raw.Email,
+    firstName: raw.FirstName,
+    lastName: raw.LastName,
+    bio: raw.Bio,
+    avatar: raw.Avatar,
+    emailVerified: raw.EmailVerified,
+  };
+}
+
+function mapUserPolicyPayload(raw: {
+  IsAdmin?: boolean;
+  IsDisabled?: boolean;
+  IsHidden?: boolean;
+  ForcePasswordChange?: boolean;
+  LoginAttemptsBeforeLockout?: number;
+  Policy?: unknown;
+}): UserPolicyUpdatePayload {
+  return {
+    isAdmin: raw.IsAdmin,
+    isDisabled: raw.IsDisabled,
+    isHidden: raw.IsHidden,
+    forcePasswordChange: raw.ForcePasswordChange,
+    loginAttemptsBeforeLockout: raw.LoginAttemptsBeforeLockout,
+    policy: raw.Policy,
+  };
+}
+
+function mapResetPasswordPayload(raw: {
+  Password: string;
+  ForcePasswordChange?: boolean;
+}): ResetPasswordPayload {
+  return {
+    password: raw.Password,
+    forcePasswordChange: raw.ForcePasswordChange,
+  };
+}
 
 export const adminRoutes = (useCases: AdminUseCases) => new Elysia({ prefix: '/api/admin' })
   .use(authMiddleware)
@@ -20,7 +96,7 @@ export const adminRoutes = (useCases: AdminUseCases) => new Elysia({ prefix: '/a
     AdminUser.assertAdmin(admin);
     const result = await useCases.createUser.execute(
       admin.Id,
-      payload,
+      mapCreateAdminUserPayload(payload),
       request.headers.get('x-forwarded-for')
     );
     return { success: true, ...result };
@@ -28,15 +104,15 @@ export const adminRoutes = (useCases: AdminUseCases) => new Elysia({ prefix: '/a
     body: t.Object({
       Giftistry: t.Object({
         AdminUser: t.Object({
-          username: t.String(),
-          email: t.String(),
-          password: t.String(),
-          firstName: t.Optional(t.String()),
-          lastName: t.Optional(t.String()),
-          isAdmin: t.Optional(t.Boolean()),
-          emailVerified: t.Optional(t.Boolean()),
-          forcePasswordChange: t.Optional(t.Boolean()),
-          policy: t.Optional(t.Any()),
+          Username: t.String(),
+          Email: t.String(),
+          Password: t.String(),
+          FirstName: t.Optional(t.String()),
+          LastName: t.Optional(t.String()),
+          IsAdmin: t.Optional(t.Boolean()),
+          EmailVerified: t.Optional(t.Boolean()),
+          ForcePasswordChange: t.Optional(t.Boolean()),
+          Policy: t.Optional(t.Any()),
         }),
       }),
     }),
@@ -49,19 +125,19 @@ export const adminRoutes = (useCases: AdminUseCases) => new Elysia({ prefix: '/a
   .patch('/users/:id', async ({ getAuthUser, params: { id }, body: { Giftistry: { User: updates } }, request }) => {
     const admin = await getAuthUser();
     AdminUser.assertAdmin(admin);
-    await useCases.updateUser.execute(admin.Id, id, updates, request.headers.get('x-forwarded-for'));
+    await useCases.updateUser.execute(admin.Id, id, mapUpdateAdminUserPayload(updates), request.headers.get('x-forwarded-for'));
     return { success: true };
   }, {
     body: t.Object({
       Giftistry: t.Object({
         User: t.Object({
-          username: t.Optional(t.String()),
-          email: t.Optional(t.String()),
-          firstName: t.Optional(t.String()),
-          lastName: t.Optional(t.String()),
-          bio: t.Optional(t.String()),
-          avatar: t.Optional(t.Union([t.String(), t.Null()])),
-          emailVerified: t.Optional(t.Boolean()),
+          Username: t.Optional(t.String()),
+          Email: t.Optional(t.String()),
+          FirstName: t.Optional(t.String()),
+          LastName: t.Optional(t.String()),
+          Bio: t.Optional(t.String()),
+          Avatar: t.Optional(t.Union([t.String(), t.Null()])),
+          EmailVerified: t.Optional(t.Boolean()),
         }),
       }),
     }),
@@ -72,7 +148,7 @@ export const adminRoutes = (useCases: AdminUseCases) => new Elysia({ prefix: '/a
     await useCases.updateUserPolicy.execute(
       admin.Id,
       id,
-      policyPayload,
+      mapUserPolicyPayload(policyPayload),
       request.headers.get('x-forwarded-for')
     );
     return { success: true };
@@ -80,12 +156,12 @@ export const adminRoutes = (useCases: AdminUseCases) => new Elysia({ prefix: '/a
     body: t.Object({
       Giftistry: t.Object({
         Policy: t.Object({
-          isAdmin: t.Optional(t.Boolean()),
-          isDisabled: t.Optional(t.Boolean()),
-          isHidden: t.Optional(t.Boolean()),
-          forcePasswordChange: t.Optional(t.Boolean()),
-          loginAttemptsBeforeLockout: t.Optional(t.Number()),
-          policy: t.Optional(t.Any()),
+          IsAdmin: t.Optional(t.Boolean()),
+          IsDisabled: t.Optional(t.Boolean()),
+          IsHidden: t.Optional(t.Boolean()),
+          ForcePasswordChange: t.Optional(t.Boolean()),
+          LoginAttemptsBeforeLockout: t.Optional(t.Number()),
+          Policy: t.Optional(t.Any()),
         }),
       }),
     }),
@@ -93,14 +169,14 @@ export const adminRoutes = (useCases: AdminUseCases) => new Elysia({ prefix: '/a
   .post('/users/:id/reset-password', async ({ getAuthUser, params: { id }, body: { Giftistry: { Password: payload } }, request }) => {
     const admin = await getAuthUser();
     AdminUser.assertAdmin(admin);
-    await useCases.resetPassword.execute(admin.Id, id, payload, request.headers.get('x-forwarded-for'));
+    await useCases.resetPassword.execute(admin.Id, id, mapResetPasswordPayload(payload), request.headers.get('x-forwarded-for'));
     return { success: true };
   }, {
     body: t.Object({
       Giftistry: t.Object({
         Password: t.Object({
-          password: t.String(),
-          forcePasswordChange: t.Optional(t.Boolean()),
+          Password: t.String(),
+          ForcePasswordChange: t.Optional(t.Boolean()),
         }),
       }),
     }),
@@ -171,7 +247,7 @@ export const adminRoutes = (useCases: AdminUseCases) => new Elysia({ prefix: '/a
     await useCases.handleReport.handle(
       admin.Id,
       id,
-      payload.status,
+      payload.Status,
       request.headers.get('x-forwarded-for')
     );
     return { success: true };
@@ -179,7 +255,7 @@ export const adminRoutes = (useCases: AdminUseCases) => new Elysia({ prefix: '/a
     body: t.Object({
       Giftistry: t.Object({
         Report: t.Object({
-          status: t.Union([t.Literal('open'), t.Literal('resolved'), t.Literal('dismissed')]),
+          Status: t.Union([t.Literal('open'), t.Literal('resolved'), t.Literal('dismissed')]),
         }),
       }),
     }),

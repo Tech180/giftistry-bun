@@ -23,19 +23,19 @@ export const wishlistRoutes = (
       security: [{ bearerAuth: [] }]
     }
   })
-  .post('/wishlists', async ({ getAuthUser, body: { Giftistry: { Lists: { title, expiresAt, allowGroupFunds, category, revealSuggestions, aiEnabled } } } }) => {
+  .post('/wishlists', async ({ getAuthUser, body: { Giftistry: { Lists: { Title, ExpiresAt, AllowGroupFunds, Category, RevealSuggestions, AiEnabled } } } }) => {
     const user = await getAuthUser();
     if (!user.EmailVerified) {
       throw new AppError('Forbidden: You must verify your email before creating lists.', 403, 'FORBIDDEN');
     }
     const wishlist = await useCases.createWishlist.execute(
       user.userId,
-      title,
-      expiresAt,
-      allowGroupFunds ?? false,
-      category,
-      revealSuggestions,
-      aiEnabled ?? false
+      Title,
+      ExpiresAt,
+      AllowGroupFunds ?? false,
+      Category,
+      RevealSuggestions,
+      AiEnabled ?? false
     );
     return { success: true, data: wishlist };
   }, {
@@ -48,12 +48,12 @@ export const wishlistRoutes = (
     body: t.Object({
       Giftistry: t.Object({
         Lists: t.Object({
-          title: t.String(),
-          expiresAt: t.Optional(t.Nullable(t.String())),
-          allowGroupFunds: t.Optional(t.Boolean()),
-          category: t.Optional(t.String()),
-          revealSuggestions: t.Optional(t.Boolean()),
-          aiEnabled: t.Optional(t.Boolean()),
+          Title: t.String(),
+          ExpiresAt: t.Optional(t.Nullable(t.String())),
+          AllowGroupFunds: t.Optional(t.Boolean()),
+          Category: t.Optional(t.String()),
+          RevealSuggestions: t.Optional(t.Boolean()),
+          AiEnabled: t.Optional(t.Boolean()),
         })
       })
     })
@@ -70,9 +70,9 @@ export const wishlistRoutes = (
       security: [{ bearerAuth: [] }]
     }
   })
-  .post('/priorities', async ({ getAuthUser, body: { Giftistry: { Priorities: { label, weight } } } }) => {
+  .post('/priorities', async ({ getAuthUser, body: { Giftistry: { Priorities: { Label, Weight } } } }) => {
     const user = await getAuthUser();
-    const priority = await useCases.createPriority.execute(user.userId, label, weight);
+    const priority = await useCases.createPriority.execute(user.userId, Label, Weight);
     return { success: true, data: priority };
   }, {
     detail: {
@@ -84,8 +84,8 @@ export const wishlistRoutes = (
     body: t.Object({
       Giftistry: t.Object({
         Priorities: t.Object({
-          label: t.String(),
-          weight: t.Numeric(),
+          Label: t.String(),
+          Weight: t.Numeric(),
         })
       })
     })
@@ -126,13 +126,13 @@ export const wishlistRoutes = (
     }
   })
   .use(middleware.listAccess)
-  .post('/wishlists/:listId/shares', async ({ params: { listId }, getAuthUser, checkListAccess, body: { Giftistry: { Lists: { email, role } } } }) => {
+  .post('/wishlists/:listId/shares', async ({ params: { listId }, getAuthUser, checkListAccess, body: { Giftistry: { Lists: { Email, Role } } } }) => {
     const user = await getAuthUser();
     if (!user.EmailVerified) {
       throw new AppError('Forbidden: You must verify your email before sharing lists.', 403, 'FORBIDDEN');
     }
     await checkListAccess('owner');
-    const share = await useCases.shareWishlist.execute(listId, email, role);
+    const share = await useCases.shareWishlist.execute(listId, Email, Role);
     return { success: true, data: share };
   }, {
     detail: {
@@ -144,8 +144,8 @@ export const wishlistRoutes = (
     body: t.Object({
       Giftistry: t.Object({
         Lists: t.Object({
-          email: t.String({ format: 'email' }),
-          role: t.Union([t.Literal('viewer'), t.Literal('collaborator')]),
+          Email: t.String({ format: 'email' }),
+          Role: t.Union([t.Literal('viewer'), t.Literal('collaborator')]),
         })
       })
     })
@@ -162,13 +162,17 @@ export const wishlistRoutes = (
       security: [{ bearerAuth: [] }]
     }
   })
-  .patch('/wishlists/:listId/shares/:shareId', async ({ params: { listId, shareId }, checkListAccess, body: { role } }) => {
+  .patch('/wishlists/:listId/shares/:shareId', async ({ params: { listId, shareId }, checkListAccess, body: { Giftistry: { Lists: { Role } } } }) => {
     await checkListAccess('owner');
-    const share = await useCases.updateListShare.execute(listId, shareId, role);
+    const share = await useCases.updateListShare.execute(listId, shareId, Role);
     return { success: true, data: share };
   }, {
     body: t.Object({
-      role: t.Union([t.Literal('viewer'), t.Literal('collaborator')]),
+      Giftistry: t.Object({
+        Lists: t.Object({
+          Role: t.Union([t.Literal('viewer'), t.Literal('collaborator')]),
+        }),
+      }),
     }),
     detail: {
       tags: ['Wishlists'],
@@ -187,15 +191,19 @@ export const wishlistRoutes = (
       security: [{ bearerAuth: [] }]
     }
   })
-  .post('/wishlists/:listId/shares/bulk', async ({ params: { listId }, getAuthUser, checkListAccess, body: { friendIds, role } }) => {
+  .post('/wishlists/:listId/shares/bulk', async ({ params: { listId }, getAuthUser, checkListAccess, body: { Giftistry: { Lists: { FriendIds, Role } } } }) => {
     const user = await getAuthUser();
     await checkListAccess('owner');
-    const shares = await useCases.bulkShareWishlist.execute(listId, user.userId, friendIds, role);
+    const shares = await useCases.bulkShareWishlist.execute(listId, user.userId, FriendIds, Role);
     return { success: true, data: shares };
   }, {
     body: t.Object({
-      friendIds: t.Array(t.String()),
-      role: t.Union([t.Literal('viewer'), t.Literal('collaborator')]),
+      Giftistry: t.Object({
+        Lists: t.Object({
+          FriendIds: t.Array(t.String()),
+          Role: t.Union([t.Literal('viewer'), t.Literal('collaborator')]),
+        }),
+      }),
     }),
     detail: {
       tags: ['Wishlists'],
@@ -230,9 +238,9 @@ export const wishlistRoutes = (
       security: [{ bearerAuth: [] }]
     }
   })
-  .put('/wishlists/:listId', async ({ params: { listId }, checkListAccess, body: { Giftistry: { Lists: { title, expiresAt, allowGroupFunds, category, revealSuggestions, aiEnabled } } } }) => {
+  .put('/wishlists/:listId', async ({ params: { listId }, checkListAccess, body: { Giftistry: { Lists: { Title, ExpiresAt, AllowGroupFunds, Category, RevealSuggestions, AiEnabled } } } }) => {
     await checkListAccess('owner');
-    const updated = await useCases.updateWishlist.execute(listId, title, expiresAt, allowGroupFunds ?? false, category, revealSuggestions, aiEnabled);
+    const updated = await useCases.updateWishlist.execute(listId, Title, ExpiresAt, AllowGroupFunds ?? false, Category, RevealSuggestions, AiEnabled);
     return { success: true, data: updated };
   }, {
     detail: {
@@ -244,12 +252,12 @@ export const wishlistRoutes = (
     body: t.Object({
       Giftistry: t.Object({
         Lists: t.Object({
-          title: t.String(),
-          expiresAt: t.Optional(t.Nullable(t.String())),
-          allowGroupFunds: t.Optional(t.Boolean()),
-          category: t.Optional(t.String()),
-          revealSuggestions: t.Optional(t.Boolean()),
-          aiEnabled: t.Optional(t.Boolean()),
+          Title: t.String(),
+          ExpiresAt: t.Optional(t.Nullable(t.String())),
+          AllowGroupFunds: t.Optional(t.Boolean()),
+          Category: t.Optional(t.String()),
+          RevealSuggestions: t.Optional(t.Boolean()),
+          AiEnabled: t.Optional(t.Boolean()),
         })
       })
     })
@@ -279,24 +287,28 @@ export const wishlistRoutes = (
     }
   })
   .use(inviteUseCases ? new Elysia()
-    .post('/wishlists/:listId/link-invites', async ({ params: { listId }, getAuthUser, checkListAccess, body }) => {
+    .post('/wishlists/:listId/link-invites', async ({ params: { listId }, getAuthUser, checkListAccess, body: { Giftistry: { Invites: { Role, ExpiresAt, MaxUses, Password } } } }) => {
       await checkListAccess('owner');
       const user = await getAuthUser();
       const result = await inviteUseCases.createLinkInvite.execute(
         listId,
         user.userId,
-        body.role ?? 'viewer',
-        body.expiresAt ?? null,
-        body.maxUses ?? null,
-        body.password ?? null
+        Role ?? 'viewer',
+        ExpiresAt ?? null,
+        MaxUses ?? null,
+        Password ?? null
       );
       return { success: true, data: result };
     }, {
       body: t.Object({
-        role: t.Optional(t.Union([t.Literal('viewer'), t.Literal('collaborator')])),
-        expiresAt: t.Optional(t.Nullable(t.String())),
-        maxUses: t.Optional(t.Nullable(t.Numeric())),
-        password: t.Optional(t.Nullable(t.String())),
+        Giftistry: t.Object({
+          Invites: t.Object({
+            Role: t.Optional(t.Union([t.Literal('viewer'), t.Literal('collaborator')])),
+            ExpiresAt: t.Optional(t.Nullable(t.String())),
+            MaxUses: t.Optional(t.Nullable(t.Numeric())),
+            Password: t.Optional(t.Nullable(t.String())),
+          }),
+        }),
       }),
       detail: { tags: ['Invites'], summary: 'Create link invite', security: [{ bearerAuth: [] }] }
     })
@@ -314,17 +326,17 @@ export const wishlistRoutes = (
     }, {
       detail: { tags: ['Invites'], summary: 'Revoke link invite', security: [{ bearerAuth: [] }] }
     })
-    .post('/wishlists/:listId/email-invites', async ({ params: { listId }, getAuthUser, checkListAccess, body: { Giftistry: { Lists: { email, role } } } }) => {
+    .post('/wishlists/:listId/email-invites', async ({ params: { listId }, getAuthUser, checkListAccess, body: { Giftistry: { Lists: { Email, Role } } } }) => {
       await checkListAccess('owner');
       const user = await getAuthUser();
-      const result = await inviteUseCases.createEmailInvite.execute(listId, email, role, user.userId);
+      const result = await inviteUseCases.createEmailInvite.execute(listId, Email, Role, user.userId);
       return { success: true, data: result };
     }, {
       body: t.Object({
         Giftistry: t.Object({
           Lists: t.Object({
-            email: t.String({ format: 'email' }),
-            role: t.Union([t.Literal('viewer'), t.Literal('collaborator')]),
+            Email: t.String({ format: 'email' }),
+            Role: t.Union([t.Literal('viewer'), t.Literal('collaborator')]),
           })
         })
       }),

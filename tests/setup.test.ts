@@ -42,7 +42,7 @@ describe("Homelab Setup Wizard Endpoints", () => {
     expect(res.status).toBe(200);
     const body = await res.json() as any;
     expect(body.Meta.Status).toBe("Success");
-    expect(body.Result.initialized).toBe(false);
+    expect(body.Result.Initialized).toBe(false);
   });
 
   test("Run system setup and bootstrap admin", async () => {
@@ -53,12 +53,12 @@ describe("Homelab Setup Wizard Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Setup: {
-              dbType: "local",
-              smtpType: "local",
-              admin: {
-                username: setupAdminUsername,
-                email: setupAdminEmail,
-                password: testPassword
+              DbType: "local",
+              SmtpType: "local",
+              Admin: {
+                Username: setupAdminUsername,
+                Email: setupAdminEmail,
+                Password: testPassword
               }
             }
           }
@@ -83,7 +83,7 @@ describe("Homelab Setup Wizard Endpoints", () => {
     );
     expect(res.status).toBe(200);
     const body = await res.json() as any;
-    expect(body.Result.initialized).toBe(true);
+    expect(body.Result.Initialized).toBe(true);
   });
 
   test("Block subsequent setup attempts", async () => {
@@ -94,12 +94,12 @@ describe("Homelab Setup Wizard Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Setup: {
-              dbType: "local",
-              smtpType: "local",
-              admin: {
-                username: "another_admin",
-                email: "another@example.com",
-                password: testPassword
+              DbType: "local",
+              SmtpType: "local",
+              Admin: {
+                Username: "another_admin",
+                Email: "another@example.com",
+                Password: testPassword
               }
             }
           }

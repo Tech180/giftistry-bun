@@ -27,6 +27,14 @@ export interface ItemRepository {
     extractedPrice: number | null,
     extractedImageUrl: string | null
   ): Promise<void>;
+  updateLink(
+    linkId: string,
+    url: string,
+    retailerName: string | null,
+    extractedPrice: number | null,
+    extractedImageUrl: string | null
+  ): Promise<ItemLink>;
+  deleteLinksByItemId(itemId: string): Promise<void>;
   findLinksByItemId(itemId: string): Promise<ItemLink[]>;
   
   createClaim(

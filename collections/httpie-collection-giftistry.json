@@ -5,100 +5,188 @@
     "contentType": "collection",
     "schema": "https://schema.httpie.io/1.0.0.json",
     "docs": "https://httpie.io/r/help/export-from-httpie",
-    "source": "HTTPie Desktop 2025.2.0"
+    "source": "giftistry-bun/collections/generate-httpie-collection.ts"
   },
   "entry": {
     "name": "Giftistry",
     "icon": {
-      "name": "default",
+      "name": "star",
       "color": "pink"
     },
     "auth": {
-      "type": "none"
+      "type": "bearer",
+      "credentials": {
+        "username": "",
+        "password": "<token>"
+      }
     },
     "requests": [
       {
-        "name": "User: Sign Up",
-        "url": "http://localhost:3001/api/auth/signup",
-        "method": "POST",
-        "headers": [],
-        "queryParams": [],
-        "pathParams": [],
-        "auth": {
-          "type": "inherited"
-        },
-        "body": {
-          "type": "text",
-          "file": {
-            "name": ""
-          },
-          "text": {
-            "value": "{\n  \"Giftistry\": {\n    \"Auth\": {\n      \"username\": \"johndoe\",\n      \"email\": \"user@example.com\",\n      \"firstName\": \"John\",\n      \"lastName\": \"Doe\",\n      \"password\": \"securepassword123\"\n    }\n  }\n}",
-            "format": "application/json"
-          },
-          "form": {
-            "isMultipart": false,
-            "fields": []
-          },
-          "graphql": {
-            "query": "",
-            "variables": ""
-          }
-        }
-      },
-      {
-        "name": "User: Login",
-        "url": "http://localhost:3001/api/auth/login",
-        "method": "POST",
-        "headers": [],
-        "queryParams": [],
-        "pathParams": [],
-        "auth": {
-          "type": "inherited"
-        },
-        "body": {
-          "type": "text",
-          "file": {
-            "name": ""
-          },
-          "text": {
-            "value": "{\n  \"Giftistry\": {\n    \"Auth\": {\n      \"email\": \"user@example.com\",\n      \"password\": \"securepassword123\"\n    }\n  }\n}",
-            "format": "application/json"
-          },
-          "form": {
-            "isMultipart": false,
-            "fields": []
-          },
-          "graphql": {
-            "query": "",
-            "variables": ""
-          }
-        }
-      },
-      {
-        "name": "User: Get Profile (/me)",
-        "url": "http://localhost:3001/api/auth/me",
+        "name": "Health: Health Check",
+        "url": "{{environment}}/health",
         "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "none"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Auth: Sign Up",
+        "url": "{{environment}}/api/auth/signup",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "none"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Auth\": {\n      \"Username\": \"johndoe\",\n      \"Email\": \"user@example.com\",\n      \"FirstName\": \"John\",\n      \"LastName\": \"Doe\",\n      \"Password\": \"securepassword123\"\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Auth: Login",
+        "url": "{{environment}}/api/auth/login",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "none"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Auth\": {\n      \"Email\": \"user@example.com\",\n      \"Password\": \"securepassword123\"\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Auth: Verify Email",
+        "url": "{{environment}}/api/auth/verify-email",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "none"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Auth\": {\n      \"Token\": \"<verification-token>\"\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Auth: Passkey Login Options",
+        "url": "{{environment}}/api/auth/passkey/login/options",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "none"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Auth: Passkey Login Verify",
+        "url": "{{environment}}/api/auth/passkey/login/verify",
+        "method": "POST",
         "headers": [
           {
-            "name": "Authorization",
-            "value": "Bearer <token>",
+            "name": "Origin",
+            "value": "http://localhost:3000",
             "enabled": true
           }
         ],
         "queryParams": [],
         "pathParams": [],
         "auth": {
-          "type": "inherited"
+          "type": "none"
         },
         "body": {
-          "type": "none",
-          "file": {
-            "name": ""
-          },
+          "type": "text",
           "text": {
-            "value": "",
-            "format": "application/json"
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Auth\": {\n      \"AuthenticationResponse\": {}\n    }\n  }\n}"
           },
           "form": {
             "isMultipart": false,
@@ -107,12 +195,137 @@
           "graphql": {
             "query": "",
             "variables": ""
+          },
+          "file": {
+            "name": ""
           }
         }
       },
       {
-        "name": "User: Logout",
-        "url": "http://localhost:3001/api/auth/logout",
+        "name": "Auth: 2FA Login",
+        "url": "{{environment}}/api/auth/2fa/login",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "none"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Auth\": {\n      \"Ticket\": \"<ticket>\",\n      \"Code\": \"123456\"\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Auth: Get Profile (/me)",
+        "url": "{{environment}}/api/auth/me",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Auth: List Passkeys",
+        "url": "{{environment}}/api/auth/passkeys",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Auth: Delete Passkey",
+        "url": "{{environment}}/api/auth/passkeys/:passkeyId",
+        "method": "DELETE",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "passkeyId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Auth: Logout",
+        "url": "{{environment}}/api/auth/logout",
         "method": "POST",
         "headers": [],
         "queryParams": [],
@@ -122,12 +335,9 @@
         },
         "body": {
           "type": "none",
-          "file": {
-            "name": ""
-          },
           "text": {
-            "value": "",
-            "format": "application/json"
+            "format": "application/json",
+            "value": ""
           },
           "form": {
             "isMultipart": false,
@@ -136,17 +346,252 @@
           "graphql": {
             "query": "",
             "variables": ""
+          },
+          "file": {
+            "name": ""
           }
         }
       },
       {
-        "name": "User: Update Profile",
-        "url": "http://localhost:3001/api/auth/profile",
+        "name": "Auth: Update Profile",
+        "url": "{{environment}}/api/auth/profile",
         "method": "PUT",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Auth\": {\n      \"Username\": \"johndoe\",\n      \"FirstName\": \"John\",\n      \"LastName\": \"Doe\",\n      \"Bio\": \"Hello world\",\n      \"Theme\": \"default\"\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Auth: Resend Verification Email",
+        "url": "{{environment}}/api/auth/resend-verification",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Auth: Disable Account",
+        "url": "{{environment}}/api/auth/account/disable",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Auth: Delete Account",
+        "url": "{{environment}}/api/auth/account",
+        "method": "DELETE",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Auth\": {\n      \"Password\": \"securepassword123\"\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Auth: 2FA Setup",
+        "url": "{{environment}}/api/auth/2fa/setup",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Auth: 2FA Enable",
+        "url": "{{environment}}/api/auth/2fa/enable",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Auth\": {\n      \"Secret\": \"<secret>\",\n      \"Code\": \"123456\"\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Auth: 2FA Disable",
+        "url": "{{environment}}/api/auth/2fa/disable",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Auth\": {\n      \"Code\": \"123456\"\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Auth: Passkey Register Options",
+        "url": "{{environment}}/api/auth/passkey/register/options",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Auth: Passkey Register Verify",
+        "url": "{{environment}}/api/auth/passkey/register/verify",
+        "method": "POST",
         "headers": [
           {
-            "name": "Authorization",
-            "value": "Bearer <token>",
+            "name": "Origin",
+            "value": "http://localhost:3000",
             "enabled": true
           }
         ],
@@ -157,12 +602,9 @@
         },
         "body": {
           "type": "text",
-          "file": {
-            "name": ""
-          },
           "text": {
-            "value": "{\n  \"Giftistry\": {\n    \"Auth\": {\n      \"username\": \"johndoe2\",\n      \"firstName\": \"John\",\n      \"lastName\": \"Doe\"\n    }\n  }\n}",
-            "format": "application/json"
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Auth\": {\n      \"RegistrationResponse\": {}\n    }\n  }\n}"
           },
           "form": {
             "isMultipart": false,
@@ -171,33 +613,33 @@
           "graphql": {
             "query": "",
             "variables": ""
+          },
+          "file": {
+            "name": ""
           }
         }
       },
       {
-        "name": "List: Fetch Expired",
-        "url": "http://localhost:3001/api/wishlists/expired",
+        "name": "Users & Themes: User Preview",
+        "url": "{{environment}}/api/users/:userId/preview",
         "method": "GET",
-        "headers": [
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
           {
-            "name": "Authorization",
-            "value": "Bearer <token>",
+            "name": "userId",
+            "value": "",
             "enabled": true
           }
         ],
-        "queryParams": [],
-        "pathParams": [],
         "auth": {
-          "type": "inherited"
+          "type": "none"
         },
         "body": {
           "type": "none",
-          "file": {
-            "name": ""
-          },
           "text": {
-            "value": "",
-            "format": "application/json"
+            "format": "application/json",
+            "value": ""
           },
           "form": {
             "isMultipart": false,
@@ -206,521 +648,15 @@
           "graphql": {
             "query": "",
             "variables": ""
-          }
-        }
-      },
-      {
-        "name": "List: Create",
-        "url": "http://localhost:3001/api/wishlists",
-        "method": "POST",
-        "headers": [
-          {
-            "name": "Authorization",
-            "value": "Bearer <token>",
-            "enabled": true
-          }
-        ],
-        "queryParams": [],
-        "pathParams": [],
-        "auth": {
-          "type": "inherited"
-        },
-        "body": {
-          "type": "text",
+          },
           "file": {
             "name": ""
-          },
-          "text": {
-            "value": "{\n  \"Giftistry\": {\n    \"Lists\": {\n      \"title\": \"My Birthday Wishlist\",\n      \"expiresAt\": \"2026-12-31T23:59:59.000Z\",\n      \"allowGroupFunds\": true\n    }\n  }\n}",
-            "format": "application/json"
-          },
-          "form": {
-            "isMultipart": false,
-            "fields": []
-          },
-          "graphql": {
-            "query": "",
-            "variables": ""
           }
         }
       },
       {
-        "name": "List: Fetch All",
-        "url": "http://localhost:3001/api/wishlists",
-        "method": "GET",
-        "headers": [
-          {
-            "name": "Authorization",
-            "value": "Bearer <token>",
-            "enabled": true
-          }
-        ],
-        "queryParams": [],
-        "pathParams": [],
-        "auth": {
-          "type": "inherited"
-        },
-        "body": {
-          "type": "none",
-          "file": {
-            "name": ""
-          },
-          "text": {
-            "value": "",
-            "format": "application/json"
-          },
-          "form": {
-            "isMultipart": false,
-            "fields": []
-          },
-          "graphql": {
-            "query": "",
-            "variables": ""
-          }
-        }
-      },
-      {
-        "name": "List: Share",
-        "url": "http://localhost:3001/api/wishlists/:list_id/shares",
-        "method": "POST",
-        "headers": [
-          {
-            "name": "Authorization",
-            "value": "Bearer <token>",
-            "enabled": true
-          }
-        ],
-        "queryParams": [],
-        "pathParams": [
-          {
-            "name": "list_id",
-            "value": "",
-            "enabled": true
-          }
-        ],
-        "auth": {
-          "type": "inherited"
-        },
-        "body": {
-          "type": "text",
-          "file": {
-            "name": ""
-          },
-          "text": {
-            "value": "{\n  \"Giftistry\": {\n    \"Lists\": {\n      \"email\": \"collaborator@example.com\",\n      \"role\": \"collaborator\"\n    }\n  }\n}",
-            "format": "application/json"
-          },
-          "form": {
-            "isMultipart": false,
-            "fields": []
-          },
-          "graphql": {
-            "query": "",
-            "variables": ""
-          }
-        }
-      },
-      {
-        "name": "List: Fetch Details",
-        "url": "http://localhost:3001/api/wishlists/:list_id",
-        "method": "GET",
-        "headers": [
-          {
-            "name": "Authorization",
-            "value": "Bearer <token>",
-            "enabled": true
-          }
-        ],
-        "queryParams": [],
-        "pathParams": [
-          {
-            "name": "list_id",
-            "value": "",
-            "enabled": true
-          }
-        ],
-        "auth": {
-          "type": "inherited"
-        },
-        "body": {
-          "type": "none",
-          "file": {
-            "name": ""
-          },
-          "text": {
-            "value": "",
-            "format": "application/json"
-          },
-          "form": {
-            "isMultipart": false,
-            "fields": []
-          },
-          "graphql": {
-            "query": "",
-            "variables": ""
-          }
-        }
-      },
-      {
-        "name": "List: Deactivate",
-        "url": "http://localhost:3001/api/wishlists/:list_id/deactivate",
-        "method": "PUT",
-        "headers": [
-          {
-            "name": "Authorization",
-            "value": "Bearer <token>",
-            "enabled": true
-          }
-        ],
-        "queryParams": [],
-        "pathParams": [
-          {
-            "name": "list_id",
-            "value": "",
-            "enabled": true
-          }
-        ],
-        "auth": {
-          "type": "inherited"
-        },
-        "body": {
-          "type": "none",
-          "file": {
-            "name": ""
-          },
-          "text": {
-            "value": "",
-            "format": "application/json"
-          },
-          "form": {
-            "isMultipart": false,
-            "fields": []
-          },
-          "graphql": {
-            "query": "",
-            "variables": ""
-          }
-        }
-      },
-      {
-        "name": "List: Fetch Items",
-        "url": "http://localhost:3001/api/wishlists/:list_id/items",
-        "method": "GET",
-        "headers": [
-          {
-            "name": "Authorization",
-            "value": "Bearer <token>",
-            "enabled": true
-          }
-        ],
-        "queryParams": [],
-        "pathParams": [
-          {
-            "name": "list_id",
-            "value": "",
-            "enabled": true
-          }
-        ],
-        "auth": {
-          "type": "inherited"
-        },
-        "body": {
-          "type": "none",
-          "file": {
-            "name": ""
-          },
-          "text": {
-            "value": "",
-            "format": "application/json"
-          },
-          "form": {
-            "isMultipart": false,
-            "fields": []
-          },
-          "graphql": {
-            "query": "",
-            "variables": ""
-          }
-        }
-      },
-      {
-        "name": "List: Add Item",
-        "url": "http://localhost:3001/api/wishlists/:list_id/items",
-        "method": "POST",
-        "headers": [
-          {
-            "name": "Authorization",
-            "value": "Bearer <token>",
-            "enabled": true
-          }
-        ],
-        "queryParams": [],
-        "pathParams": [
-          {
-            "name": "list_id",
-            "value": "",
-            "enabled": true
-          }
-        ],
-        "auth": {
-          "type": "inherited"
-        },
-        "body": {
-          "type": "text",
-          "file": {
-            "name": ""
-          },
-          "text": {
-            "value": "{\n  \"Giftistry\": {\n    \"Items\": {\n      \"name\": \"PlayStation 5 Pro\",\n      \"description\": \"The enhanced version of PS5\",\n      \"priorityId\": null,\n      \"isHiddenIdea\": false\n    }\n  }\n}",
-            "format": "application/json"
-          },
-          "form": {
-            "isMultipart": false,
-            "fields": []
-          },
-          "graphql": {
-            "query": "",
-            "variables": ""
-          }
-        }
-      },
-      {
-        "name": "List: Fetch Comments",
-        "url": "http://localhost:3001/api/wishlists/:list_id/comments",
-        "method": "GET",
-        "headers": [
-          {
-            "name": "Authorization",
-            "value": "Bearer <token>",
-            "enabled": true
-          }
-        ],
-        "queryParams": [],
-        "pathParams": [
-          {
-            "name": "list_id",
-            "value": "",
-            "enabled": true
-          }
-        ],
-        "auth": {
-          "type": "inherited"
-        },
-        "body": {
-          "type": "none",
-          "file": {
-            "name": ""
-          },
-          "text": {
-            "value": "",
-            "format": "application/json"
-          },
-          "form": {
-            "isMultipart": false,
-            "fields": []
-          },
-          "graphql": {
-            "query": "",
-            "variables": ""
-          }
-        }
-      },
-      {
-        "name": "List: Add Comment",
-        "url": "http://localhost:3001/api/wishlists/:list_id/comments",
-        "method": "POST",
-        "headers": [
-          {
-            "name": "Authorization",
-            "value": "Bearer <token>",
-            "enabled": true
-          }
-        ],
-        "queryParams": [],
-        "pathParams": [
-          {
-            "name": "list_id",
-            "value": "",
-            "enabled": true
-          }
-        ],
-        "auth": {
-          "type": "inherited"
-        },
-        "body": {
-          "type": "text",
-          "file": {
-            "name": ""
-          },
-          "text": {
-            "value": "{\n  \"Giftistry\": {\n    \"Comments\": {\n      \"content\": \"I am getting the console for them!\",\n      \"commenterName\": \"Alice Smith\",\n      \"isOwnerVisible\": false,\n      \"isRollover\": false\n    }\n  }\n}",
-            "format": "application/json"
-          },
-          "form": {
-            "isMultipart": false,
-            "fields": []
-          },
-          "graphql": {
-            "query": "",
-            "variables": ""
-          }
-        }
-      },
-      {
-        "name": "Item: Add Retailer Link",
-        "url": "http://localhost:3001/api/items/:item_id/links",
-        "method": "POST",
-        "headers": [
-          {
-            "name": "Authorization",
-            "value": "Bearer <token>",
-            "enabled": true
-          }
-        ],
-        "queryParams": [],
-        "pathParams": [
-          {
-            "name": "item_id",
-            "value": "",
-            "enabled": true
-          }
-        ],
-        "auth": {
-          "type": "inherited"
-        },
-        "body": {
-          "type": "text",
-          "file": {
-            "name": ""
-          },
-          "text": {
-            "value": "{\n  \"Giftistry\": {\n    \"Items\": {\n      \"url\": \"https://www.amazon.com/PlayStation-5-Pro\"\n    }\n  }\n}",
-            "format": "application/json"
-          },
-          "form": {
-            "isMultipart": false,
-            "fields": []
-          },
-          "graphql": {
-            "query": "",
-            "variables": ""
-          }
-        }
-      },
-      {
-        "name": "Item: Claim/Fund",
-        "url": "http://localhost:3001/api/items/:item_id/claims",
-        "method": "POST",
-        "headers": [
-          {
-            "name": "Authorization",
-            "value": "Bearer <token>",
-            "enabled": true
-          }
-        ],
-        "queryParams": [],
-        "pathParams": [
-          {
-            "name": "item_id",
-            "value": "",
-            "enabled": true
-          }
-        ],
-        "auth": {
-          "type": "inherited"
-        },
-        "body": {
-          "type": "text",
-          "file": {
-            "name": ""
-          },
-          "text": {
-            "value": "{\n  \"Giftistry\": {\n    \"Items\": {\n      \"amount\": 150.00,\n      \"claimedByName\": \"Alice Smith\"\n    }\n  }\n}",
-            "format": "application/json"
-          },
-          "form": {
-            "isMultipart": false,
-            "fields": []
-          },
-          "graphql": {
-            "query": "",
-            "variables": ""
-          }
-        }
-      },
-      {
-        "name": "Priority: Create",
-        "url": "http://localhost:3001/api/priorities",
-        "method": "POST",
-        "headers": [
-          {
-            "name": "Authorization",
-            "value": "Bearer <token>",
-            "enabled": true
-          }
-        ],
-        "queryParams": [],
-        "pathParams": [],
-        "auth": {
-          "type": "inherited"
-        },
-        "body": {
-          "type": "text",
-          "file": {
-            "name": ""
-          },
-          "text": {
-            "value": "{\n  \"Giftistry\": {\n    \"Priorities\": {\n      \"label\": \"High\",\n      \"weight\": 3\n    }\n  }\n}",
-            "format": "application/json"
-          },
-          "form": {
-            "isMultipart": false,
-            "fields": []
-          },
-          "graphql": {
-            "query": "",
-            "variables": ""
-          }
-        }
-      },
-      {
-        "name": "Priority: Fetch All",
-        "url": "http://localhost:3001/api/priorities",
-        "method": "GET",
-        "headers": [
-          {
-            "name": "Authorization",
-            "value": "Bearer <token>",
-            "enabled": true
-          }
-        ],
-        "queryParams": [],
-        "pathParams": [],
-        "auth": {
-          "type": "inherited"
-        },
-        "body": {
-          "type": "none",
-          "file": {
-            "name": ""
-          },
-          "text": {
-            "value": "",
-            "format": "application/json"
-          },
-          "form": {
-            "isMultipart": false,
-            "fields": []
-          },
-          "graphql": {
-            "query": "",
-            "variables": ""
-          }
-        }
-      },
-      {
-        "name": "Health Check",
-        "url": "http://localhost:3001/health",
+        "name": "Users & Themes: List Custom Themes",
+        "url": "{{environment}}/api/themes/custom",
         "method": "GET",
         "headers": [],
         "queryParams": [],
@@ -730,12 +666,9 @@
         },
         "body": {
           "type": "none",
-          "file": {
-            "name": ""
-          },
           "text": {
-            "value": "",
-            "format": "application/json"
+            "format": "application/json",
+            "value": ""
           },
           "form": {
             "isMultipart": false,
@@ -744,6 +677,2786 @@
           "graphql": {
             "query": "",
             "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Users & Themes: Save Custom Theme",
+        "url": "{{environment}}/api/themes/custom",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Theme\": {\n      \"Id\": \"my-theme\",\n      \"Name\": \"My Theme\",\n      \"Colors\": {\n        \"Primary\": \"hsl(220 90% 56%)\",\n        \"Bg\": \"hsl(220 20% 10%)\",\n        \"Surface\": \"hsl(220 20% 14%)\",\n        \"Border\": \"hsl(220 15% 22%)\",\n        \"Text\": \"hsl(220 10% 95%)\",\n        \"TextMuted\": \"hsl(220 10% 65%)\"\n      }\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Users & Themes: Delete Custom Theme",
+        "url": "{{environment}}/api/themes/custom/:themeId",
+        "method": "DELETE",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "themeId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Users & Themes: Core Theme CSS",
+        "url": "{{environment}}/api/themes/core/css",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "none"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Users & Themes: Theme CSS",
+        "url": "{{environment}}/api/themes/default/light/css",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "none"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "System: System Status",
+        "url": "{{environment}}/api/system/status",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "none"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "System: Initial Setup",
+        "url": "{{environment}}/api/system/setup",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "none"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Setup\": {\n      \"DbType\": \"postgres\",\n      \"DbUrl\": \"postgresql://user:pass@localhost:5432/giftistry\",\n      \"SmtpType\": \"smtp\",\n      \"SmtpHost\": \"smtp.example.com\",\n      \"SmtpPort\": 587,\n      \"SmtpUser\": \"user@example.com\",\n      \"SmtpPass\": \"password\",\n      \"SmtpSecure\": false,\n      \"SmtpFrom\": \"Giftistry <noreply@example.com>\",\n      \"Admin\": {\n        \"Username\": \"admin\",\n        \"Email\": \"admin@example.com\",\n        \"Password\": \"securepassword123\",\n        \"FirstName\": \"Admin\",\n        \"LastName\": \"User\"\n      }\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "System: Get System Settings",
+        "url": "{{environment}}/api/system/settings",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "System: Save System Settings",
+        "url": "{{environment}}/api/system/settings",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"System\": {\n      \"DbType\": \"postgres\",\n      \"SmtpType\": \"smtp\",\n      \"AiEnabled\": true,\n      \"AiProvider\": \"local\",\n      \"AiEndpoint\": \"http://192.168.100.80:11434\",\n      \"AiModel\": \"qwen3:8b\"\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "System: AI Check",
+        "url": "{{environment}}/api/system/ai-check",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"System\": {\n      \"AiProvider\": \"local\",\n      \"AiEndpoint\": \"http://192.168.100.80:11434\",\n      \"AiModel\": \"qwen3:8b\"\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "System: Transfer Ownership",
+        "url": "{{environment}}/api/system/transfer-ownership",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Ownership\": {\n      \"UserId\": \"<target-user-id>\"\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "System: Delete Server",
+        "url": "{{environment}}/api/system/delete-server",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Wishlists: List Expired Wishlists",
+        "url": "{{environment}}/api/wishlists/expired",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Wishlists: Create Wishlist",
+        "url": "{{environment}}/api/wishlists",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Lists\": {\n      \"Title\": \"Birthday Wishlist\",\n      \"ExpiresAt\": \"2026-12-31T23:59:59.000Z\",\n      \"AllowGroupFunds\": false,\n      \"Category\": \"birthday\",\n      \"RevealSuggestions\": true,\n      \"AiEnabled\": true\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Wishlists: List Wishlists",
+        "url": "{{environment}}/api/wishlists",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Wishlists: Get Wishlist",
+        "url": "{{environment}}/api/wishlists/:listId",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "listId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Wishlists: Update Wishlist",
+        "url": "{{environment}}/api/wishlists/:listId",
+        "method": "PUT",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "listId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Lists\": {\n      \"Title\": \"Updated Wishlist\",\n      \"ExpiresAt\": null,\n      \"AllowGroupFunds\": true,\n      \"Category\": \"birthday\",\n      \"RevealSuggestions\": true,\n      \"AiEnabled\": false\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Wishlists: Deactivate Wishlist",
+        "url": "{{environment}}/api/wishlists/:listId/deactivate",
+        "method": "PUT",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "listId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Wishlists: Delete Wishlist",
+        "url": "{{environment}}/api/wishlists/:listId",
+        "method": "DELETE",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "listId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Wishlists: Rollover Wishlist",
+        "url": "{{environment}}/api/wishlists/:listId/rollover",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "listId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Priorities: Create Priority",
+        "url": "{{environment}}/api/priorities",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Priorities\": {\n      \"Label\": \"High\",\n      \"Weight\": 3\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Priorities: List Priorities",
+        "url": "{{environment}}/api/priorities",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Priorities: List Priorities for Wishlist",
+        "url": "{{environment}}/api/priorities",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [
+          {
+            "name": "wishlistId",
+            "value": "<listId>",
+            "enabled": true
+          }
+        ],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Priorities: Delete Priority",
+        "url": "{{environment}}/api/priorities/:priorityId",
+        "method": "DELETE",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "priorityId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Shares: Share Wishlist",
+        "url": "{{environment}}/api/wishlists/:listId/shares",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "listId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Lists\": {\n      \"Email\": \"friend@example.com\",\n      \"Role\": \"viewer\"\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Shares: List Shares",
+        "url": "{{environment}}/api/wishlists/:listId/shares",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "listId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Shares: Update Share Role",
+        "url": "{{environment}}/api/wishlists/:listId/shares/:shareId",
+        "method": "PATCH",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "listId",
+            "value": "",
+            "enabled": true
+          },
+          {
+            "name": "shareId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Lists\": {\n      \"Role\": \"collaborator\"\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Shares: Remove Share",
+        "url": "{{environment}}/api/wishlists/:listId/shares/:shareId",
+        "method": "DELETE",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "listId",
+            "value": "",
+            "enabled": true
+          },
+          {
+            "name": "shareId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Shares: Bulk Share with Friends",
+        "url": "{{environment}}/api/wishlists/:listId/shares/bulk",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "listId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Lists\": {\n      \"FriendIds\": [\n        \"<friend-id>\"\n      ],\n      \"Role\": \"viewer\"\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Invites: Create Link Invite",
+        "url": "{{environment}}/api/wishlists/:listId/link-invites",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "listId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Invites\": {\n      \"Role\": \"viewer\",\n      \"ExpiresAt\": null,\n      \"MaxUses\": null,\n      \"Password\": null\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Invites: List Link Invites",
+        "url": "{{environment}}/api/wishlists/:listId/link-invites",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "listId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Invites: Revoke Link Invite",
+        "url": "{{environment}}/api/wishlists/:listId/link-invites/:inviteId",
+        "method": "DELETE",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "listId",
+            "value": "",
+            "enabled": true
+          },
+          {
+            "name": "inviteId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Invites: Create Email Invite",
+        "url": "{{environment}}/api/wishlists/:listId/email-invites",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "listId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Lists\": {\n      \"Email\": \"guest@example.com\",\n      \"Role\": \"viewer\"\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Invites: Get Link Invite Details",
+        "url": "{{environment}}/api/invites/link/:token_invite",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "token_invite",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "none"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Invites: Accept Link Invite",
+        "url": "{{environment}}/api/invites/link/:token_invite/accept",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "token_invite",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Invites\": {\n      \"Password\": null\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Invites: Accept Email Invite",
+        "url": "{{environment}}/api/invites/email/:token_invite/accept",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "token_invite",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Items: List Items",
+        "url": "{{environment}}/api/wishlists/:listId/items",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "listId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Items: Add Item",
+        "url": "{{environment}}/api/wishlists/:listId/items",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "listId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Items\": {\n      \"Name\": \"Wireless Headphones\",\n      \"Description\": \"Noise cancelling\",\n      \"PriorityId\": null,\n      \"IsHiddenIdea\": false,\n      \"LinkUrl\": \"https://example.com/headphones\",\n      \"Price\": 199.99,\n      \"WebsiteName\": \"Example Store\",\n      \"Category\": \"electronics\",\n      \"Priority\": 2,\n      \"SharedWithUserIds\": []\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Items: Update Item",
+        "url": "{{environment}}/api/items/:itemId",
+        "method": "PUT",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "itemId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Items\": {\n      \"Name\": \"Updated Headphones\",\n      \"Description\": \"Updated description\",\n      \"PriorityId\": null,\n      \"Category\": \"electronics\",\n      \"Priority\": 1,\n      \"SharedWithUserIds\": [],\n      \"LinkUrl\": \"https://example.com/headphones-v2\",\n      \"Price\": 179.99,\n      \"WebsiteName\": \"Example Store\"\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Items: Delete Item",
+        "url": "{{environment}}/api/items/:itemId",
+        "method": "DELETE",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "itemId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Items: Get Item Reviews",
+        "url": "{{environment}}/api/items/:itemId/reviews",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "itemId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Items: Add Item Link",
+        "url": "{{environment}}/api/items/:itemId/links",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "itemId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Items\": {\n      \"Url\": \"https://example.com/product\"\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Items: Claim Item",
+        "url": "{{environment}}/api/items/:itemId/claims",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "itemId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Items\": {\n      \"Amount\": 199.99,\n      \"ClaimedByName\": \"Jane\",\n      \"Anonymous\": false,\n      \"Quantity\": 1,\n      \"Selection\": null\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Items: Unclaim Item",
+        "url": "{{environment}}/api/items/:itemId/claims",
+        "method": "DELETE",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "itemId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Items: Extract Metadata",
+        "url": "{{environment}}/api/items/extract-metadata",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Items\": {\n      \"Url\": \"https://example.com/product\"\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Items: Field Definitions",
+        "url": "{{environment}}/api/items/field-definitions",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [
+          {
+            "name": "category",
+            "value": "electronics",
+            "enabled": true
+          }
+        ],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Comments: List Comments",
+        "url": "{{environment}}/api/wishlists/:listId/comments",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "listId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Comments: Add Comment",
+        "url": "{{environment}}/api/wishlists/:listId/comments",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "listId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Comments\": {\n      \"Content\": \"Great list!\",\n      \"CommenterName\": \"Jane\",\n      \"IsOwnerVisible\": true,\n      \"IsRollover\": false,\n      \"ParentId\": null,\n      \"ImageUrl\": null\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Comments: React to Comment",
+        "url": "{{environment}}/api/comments/:commentId/react",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "commentId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Comments\": {\n      \"Reaction\": \"👍\"\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Comments: Delete Comment",
+        "url": "{{environment}}/api/wishlists/:listId/comments/:commentId",
+        "method": "DELETE",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "listId",
+            "value": "",
+            "enabled": true
+          },
+          {
+            "name": "commentId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Friends: List Friends",
+        "url": "{{environment}}/api/friends",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Friends: List Friend Requests",
+        "url": "{{environment}}/api/friends/requests",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Friends: Send Friend Request",
+        "url": "{{environment}}/api/friends/requests",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Friends\": {\n      \"ReceiverId\": \"<user-id>\"\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Friends: Accept Friend Request",
+        "url": "{{environment}}/api/friends/requests/:requestId/accept",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "requestId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Friends: Decline Friend Request",
+        "url": "{{environment}}/api/friends/requests/:requestId/decline",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "requestId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Friends: Cancel Friend Request",
+        "url": "{{environment}}/api/friends/requests/:requestId/cancel",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "requestId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Friends: Unfriend",
+        "url": "{{environment}}/api/friends/:friendId",
+        "method": "DELETE",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "friendId",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Friends: Search Users",
+        "url": "{{environment}}/api/users/search",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [
+          {
+            "name": "q",
+            "value": "john",
+            "enabled": true
+          }
+        ],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Notifications: List Notifications",
+        "url": "{{environment}}/api/notifications",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Notifications: Mark Notification Read",
+        "url": "{{environment}}/api/notifications/:id/read",
+        "method": "PATCH",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "id",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Notifications: Mark All Read",
+        "url": "{{environment}}/api/notifications/read-all",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Notifications: Delete Notification",
+        "url": "{{environment}}/api/notifications/:id",
+        "method": "DELETE",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "id",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Notifications: Clear All Notifications",
+        "url": "{{environment}}/api/notifications",
+        "method": "DELETE",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Notifications: Get Preferences",
+        "url": "{{environment}}/api/notifications/preferences",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Notifications: Update Preferences",
+        "url": "{{environment}}/api/notifications/preferences",
+        "method": "PATCH",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Notifications\": {\n      \"EmailAlerts\": true,\n      \"Marketing\": false,\n      \"FriendRequests\": true,\n      \"ListShares\": true,\n      \"ItemClaims\": true,\n      \"Comments\": true\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Reports: Submit Report",
+        "url": "{{environment}}/api/reports",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Report\": {\n      \"TargetType\": \"comment\",\n      \"TargetId\": \"<target-id>\",\n      \"Reason\": \"Inappropriate content\"\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Admin: Overview",
+        "url": "{{environment}}/api/admin/overview",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Admin: List Users",
+        "url": "{{environment}}/api/admin/users",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Admin: List Users (filtered)",
+        "url": "{{environment}}/api/admin/users",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [
+          {
+            "name": "q",
+            "value": "john",
+            "enabled": true
+          },
+          {
+            "name": "page",
+            "value": "1",
+            "enabled": true
+          },
+          {
+            "name": "limit",
+            "value": "20",
+            "enabled": true
+          }
+        ],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Admin: Create User",
+        "url": "{{environment}}/api/admin/users",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"AdminUser\": {\n      \"Username\": \"newuser\",\n      \"Email\": \"newuser@example.com\",\n      \"Password\": \"securepassword123\",\n      \"FirstName\": \"New\",\n      \"LastName\": \"User\",\n      \"IsAdmin\": false,\n      \"EmailVerified\": true\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Admin: Get User",
+        "url": "{{environment}}/api/admin/users/:id",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "id",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Admin: Update User",
+        "url": "{{environment}}/api/admin/users/:id",
+        "method": "PATCH",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "id",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"User\": {\n      \"Username\": \"updateduser\",\n      \"FirstName\": \"Updated\",\n      \"LastName\": \"User\"\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Admin: Update User Policy",
+        "url": "{{environment}}/api/admin/users/:id/policy",
+        "method": "PATCH",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "id",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Policy\": {\n      \"IsAdmin\": false,\n      \"IsDisabled\": false,\n      \"ForcePasswordChange\": false\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Admin: Reset Password",
+        "url": "{{environment}}/api/admin/users/:id/reset-password",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "id",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Password\": {\n      \"Password\": \"newpassword123\",\n      \"ForcePasswordChange\": true\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Admin: Unlock User",
+        "url": "{{environment}}/api/admin/users/:id/unlock",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "id",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Admin: Revoke Sessions",
+        "url": "{{environment}}/api/admin/users/:id/revoke-sessions",
+        "method": "POST",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "id",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Admin: Delete User",
+        "url": "{{environment}}/api/admin/users/:id",
+        "method": "DELETE",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "id",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Admin: Get Site Policy",
+        "url": "{{environment}}/api/admin/site-policy",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Admin: Update Site Policy",
+        "url": "{{environment}}/api/admin/site-policy",
+        "method": "PATCH",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"SitePolicy\": {\n      \"RegistrationMode\": \"open\"\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Admin: Audit Log",
+        "url": "{{environment}}/api/admin/audit",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Admin: Audit Log (filtered)",
+        "url": "{{environment}}/api/admin/audit",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [
+          {
+            "name": "page",
+            "value": "1",
+            "enabled": true
+          },
+          {
+            "name": "limit",
+            "value": "50",
+            "enabled": true
+          }
+        ],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Admin: Moderation Comments",
+        "url": "{{environment}}/api/admin/moderation/comments",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Admin: Delete Moderated Comment",
+        "url": "{{environment}}/api/admin/moderation/comments/:id",
+        "method": "DELETE",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "id",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Admin: List Reports",
+        "url": "{{environment}}/api/admin/reports",
+        "method": "GET",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "none",
+          "text": {
+            "format": "application/json",
+            "value": ""
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
+          }
+        }
+      },
+      {
+        "name": "Admin: Handle Report",
+        "url": "{{environment}}/api/admin/reports/:id",
+        "method": "PATCH",
+        "headers": [],
+        "queryParams": [],
+        "pathParams": [
+          {
+            "name": "id",
+            "value": "",
+            "enabled": true
+          }
+        ],
+        "auth": {
+          "type": "inherited"
+        },
+        "body": {
+          "type": "text",
+          "text": {
+            "format": "application/json",
+            "value": "{\n  \"Giftistry\": {\n    \"Report\": {\n      \"Status\": \"resolved\"\n    }\n  }\n}"
+          },
+          "form": {
+            "isMultipart": false,
+            "fields": []
+          },
+          "graphql": {
+            "query": "",
+            "variables": ""
+          },
+          "file": {
+            "name": ""
           }
         }
       }

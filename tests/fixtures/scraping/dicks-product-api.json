@@ -1,0 +1,10 @@
+{
+  "product": {
+    "productName": "Birkenstock Women's Big Buckle EVA Sandals",
+    "price": 49.99,
+    "listPrice": 59.99,
+    "description": "Comfortable EVA sandals with adjustable buckle.",
+    "primaryImage": "https://example.com/birkenstock.jpg",
+    "color": "Mauve"
+  }
+}

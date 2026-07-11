@@ -22,20 +22,20 @@ export const commentRoutes = (
       security: [{ bearerAuth: [] }]
     }
   })
-  .post('/wishlists/:listId/comments', async ({ getAuthUser, checkListAccess, params: { listId }, body: { Giftistry: { Comments: { content, commenterName, isOwnerVisible, isRollover, parentId, imageUrl } } } }) => {
+  .post('/wishlists/:listId/comments', async ({ getAuthUser, checkListAccess, params: { listId }, body: { Giftistry: { Comments: { Content, CommenterName, IsOwnerVisible, IsRollover, ParentId, ImageUrl } } } }) => {
     const { role } = await checkListAccess('viewer');
     const user = await getAuthUser();
     
-    const resolvedOwnerVisible = isOwnerVisible ?? true;
+    const resolvedOwnerVisible = IsOwnerVisible ?? true;
     if (role === 'owner' && !resolvedOwnerVisible) {
       throw new AppError('Forbidden: List owner cannot post non-owner-visible comments on their own list', 403, 'FORBIDDEN');
     }
 
-    if (imageUrl) {
-      if (!imageUrl.startsWith('data:')) {
+    if (ImageUrl) {
+      if (!ImageUrl.startsWith('data:')) {
         throw new AppError('Invalid image format. Must be a base64 Data URL.', 400, 'BAD_REQUEST');
       }
-      const matches = imageUrl.match(/^data:(image\/[a-z+]+);base64,(.+)$/);
+      const matches = ImageUrl.match(/^data:(image\/[a-z+]+);base64,(.+)$/);
       if (!matches) {
         throw new AppError('Invalid base64 Data URL encoding.', 400, 'BAD_REQUEST');
       }
@@ -52,17 +52,17 @@ export const commentRoutes = (
       }
     }
 
-    const resolvedCommenterName = commenterName?.trim() || user.Username;
+    const resolvedCommenterName = CommenterName?.trim() || user.Username;
     
     const comment = await useCases.addComment.execute(
       listId,
       user.userId,
       resolvedCommenterName,
-      content,
+      Content,
       resolvedOwnerVisible,
-      isRollover ?? false,
-      parentId || null,
-      imageUrl || null
+      IsRollover ?? false,
+      ParentId || null,
+      ImageUrl || null
     );
     return { success: true, data: comment };
   }, {
@@ -75,19 +75,19 @@ export const commentRoutes = (
     body: t.Object({
       Giftistry: t.Object({
         Comments: t.Object({
-          content: t.String(),
-          commenterName: t.Optional(t.Nullable(t.String())),
-          isOwnerVisible: t.Optional(t.Boolean()),
-          isRollover: t.Optional(t.Boolean()),
-          parentId: t.Optional(t.Nullable(t.String())),
-          imageUrl: t.Optional(t.Nullable(t.String())),
+          Content: t.String(),
+          CommenterName: t.Optional(t.Nullable(t.String())),
+          IsOwnerVisible: t.Optional(t.Boolean()),
+          IsRollover: t.Optional(t.Boolean()),
+          ParentId: t.Optional(t.Nullable(t.String())),
+          ImageUrl: t.Optional(t.Nullable(t.String())),
         })
       })
     })
   })
-  .post('/comments/:commentId/react', async ({ getAuthUser, params: { commentId }, body: { Giftistry: { Comments: { reaction } } } }) => {
+  .post('/comments/:commentId/react', async ({ getAuthUser, params: { commentId }, body: { Giftistry: { Comments: { Reaction } } } }) => {
     const user = await getAuthUser();
-    const result = await useCases.toggleReaction.execute(commentId, user.userId, user.Username, reaction);
+    const result = await useCases.toggleReaction.execute(commentId, user.userId, user.Username, Reaction);
     return { success: true, data: result };
   }, {
     detail: {
@@ -98,7 +98,7 @@ export const commentRoutes = (
     body: t.Object({
       Giftistry: t.Object({
         Comments: t.Object({
-          reaction: t.String(),
+          Reaction: t.String(),
         })
       })
     })

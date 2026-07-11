@@ -1,4 +1,20 @@
 {
   "dbType": "local",
-  "smtpType": "local"
+  "dbUrl": "",
+  "smtpType": "local",
+  "smtpHost": "",
+  "smtpPort": 1025,
+  "smtpUser": "",
+  "smtpPass": "",
+  "smtpSecure": false,
+  "smtpFrom": "noreply@giftistry.local",
+  "aiEnabled": true,
+  "aiProvider": "local",
+  "aiApiKey": "",
+  "aiModel": "qwen3:8b",
+  "aiPrompt": "",
+  "aiDescriptionPrompt": "",
+  "aiPopulatePrompt": "",
+  "aiCategoryPrompt": "",
+  "aiEndpoint": "http://192.168.100.80:11434/"
 }

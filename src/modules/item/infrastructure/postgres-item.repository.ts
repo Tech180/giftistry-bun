@@ -127,6 +127,38 @@ export class PostgresItemRepository implements ItemRepository {
     `;
   }
 
+  async updateLink(
+    linkId: string,
+    url: string,
+    retailerName: string | null,
+    extractedPrice: number | null,
+    extractedImageUrl: string | null
+  ): Promise<ItemLink> {
+    const [row] = await sql<any[]>`
+      UPDATE item_links
+      SET url = ${url},
+          retailer_name = ${retailerName},
+          extracted_price = ${extractedPrice},
+          extracted_image_url = ${extractedImageUrl}
+      WHERE id = ${linkId}
+      RETURNING id as "Id", item_id as "ItemId", url as "Url", retailer_name as "RetailerName",
+                extracted_price as "ExtractedPrice", extracted_image_url as "ExtractedImageUrl"
+    `;
+    if (!row) throw new Error('Failed to update item link');
+    return {
+      Id: row.Id,
+      ItemId: row.ItemId,
+      Url: row.Url,
+      RetailerName: row.RetailerName,
+      ExtractedPrice: row.ExtractedPrice ? Number(row.ExtractedPrice) : null,
+      ExtractedImageUrl: row.ExtractedImageUrl,
+    };
+  }
+
+  async deleteLinksByItemId(itemId: string): Promise<void> {
+    await sql`DELETE FROM item_links WHERE item_id = ${itemId}`;
+  }
+
   async findLinksByItemId(itemId: string): Promise<ItemLink[]> {
     const rows = await sql<any[]>`
       SELECT id as "Id", item_id as "ItemId", url as "Url", retailer_name as "RetailerName", 
