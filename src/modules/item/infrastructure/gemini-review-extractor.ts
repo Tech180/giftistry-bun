@@ -5,7 +5,7 @@ import type {
   ReviewData,
 } from '../domain/ports/review-extractor.port';
 import { buildLocalAiUrl, normalizeLocalAiEndpoint } from '@/modules/system/domain/normalize-local-ai-endpoint';
-import { getDefaultAiPrompt } from './ai-default-prompts';
+import { getDefaultAiPrompt } from '@/modules/system/domain/ai-default-prompts';
 
 export function compileReviewPrompt(
   customPrompt: string,
@@ -45,7 +45,27 @@ export class GeminiReviewExtractor implements ReviewExtractor {
       clean = clean.replace(/```$/, '');
       clean = clean.trim();
     }
-    return JSON.parse(clean) as ReviewData;
+    const parsed = JSON.parse(clean) as Record<string, unknown>;
+    const rawReviews = Array.isArray(parsed.Reviews) ? parsed.Reviews : [];
+    const reviews = rawReviews
+      .filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === 'object')
+      .map((entry) => ({
+        author: typeof entry.Author === 'string' ? entry.Author : '',
+        rating: typeof entry.Rating === 'number' ? entry.Rating : Number(entry.Rating) || 0,
+        content: typeof entry.Content === 'string' ? entry.Content : '',
+        type: entry.Type === 'negative' ? ('negative' as const) : ('positive' as const),
+      }));
+
+    return {
+      summary: typeof parsed.Summary === 'string' ? parsed.Summary : '',
+      pros: Array.isArray(parsed.Pros)
+        ? parsed.Pros.filter((p): p is string => typeof p === 'string')
+        : [],
+      cons: Array.isArray(parsed.Cons)
+        ? parsed.Cons.filter((c): c is string => typeof c === 'string')
+        : [],
+      reviews,
+    };
   }
 
   private async extractWithAI(

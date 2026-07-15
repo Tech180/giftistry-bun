@@ -51,10 +51,10 @@ export class ClaimItemUseCase {
         if (item.Description.startsWith('{') && item.Description.endsWith('}')) {
           const parsed = JSON.parse(item.Description);
           if (parsed && typeof parsed === 'object') {
-            if (parsed.multiCount) {
+            if (parsed.MultiCount) {
               isMultiCount = true;
-              desiredQuantity = Number(parsed.desiredQuantity) || 1;
-              variations = parsed.variations || [];
+              desiredQuantity = Number(parsed.DesiredQuantity) || 1;
+              variations = parsed.Variations || [];
             }
           }
         }
@@ -70,9 +70,9 @@ export class ClaimItemUseCase {
       }
 
       if (selection) {
-        const matchVar = variations.find(v => v.name === selection);
+        const matchVar = variations.find((v: { Name?: string }) => v.Name === selection);
         if (matchVar) {
-          const varLimit = Number(matchVar.quantity) || 0;
+          const varLimit = Number(matchVar.Quantity) || 0;
           const varClaimed = claims.filter(c => c.Selection === selection).reduce((sum, c) => sum + (c.Quantity || 1), 0);
           if (varClaimed + quantity > varLimit) {
             const remainingVar = Math.max(0, varLimit - varClaimed);

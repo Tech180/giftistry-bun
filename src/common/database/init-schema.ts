@@ -47,6 +47,7 @@ export async function initializeSchema(dbSql: typeof sql = sql) {
         is_admin BOOLEAN DEFAULT FALSE,
         is_owner BOOLEAN DEFAULT FALSE,
         ai_enabled BOOLEAN DEFAULT TRUE,
+        web_search_enabled BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         last_online TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         last_login_at TIMESTAMP WITH TIME ZONE DEFAULT NULL
@@ -97,6 +98,7 @@ export async function initializeSchema(dbSql: typeof sql = sql) {
         category VARCHAR(255) DEFAULT 'generic',
         reveal_suggestions BOOLEAN DEFAULT TRUE,
         ai_enabled BOOLEAN DEFAULT FALSE,
+        web_search_enabled BOOLEAN DEFAULT FALSE,
         visibility VARCHAR(50) DEFAULT 'private' CHECK (visibility IN ('private', 'friends', 'link')),
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     )
@@ -317,63 +319,121 @@ export async function initializeSchema(dbSql: typeof sql = sql) {
   // Seed clothing fields
   const [pants] = await dbSql`
     INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
-    VALUES ('clothing', 'pantsSize', 'Pants Size', 'e.g. 32x30', 1)
+    VALUES ('clothing', 'PantsSize', 'Pants Size', 'e.g. 32x30', 1)
     RETURNING id;
   `;
 
   const [waistFit] = await dbSql`
     INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
-    VALUES ('clothing', 'waistFit', 'Waist Fit', 'e.g. Slim, Regular, Relaxed', 2)
+    VALUES ('clothing', 'WaistFit', 'Waist Fit', 'e.g. Slim, Regular, Relaxed', 2)
     RETURNING id;
   `;
+  if (!waistFit) {
+    throw new Error('Failed to seed WaistFit field definition');
+  }
 
   await dbSql`
     INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
-    VALUES ('clothing', 'shirtSize', 'Shirt Size', 'e.g. Medium, 15.5', 3);
+    VALUES ('clothing', 'ShirtSize', 'Shirt Size', 'e.g. Medium, 15.5', 3);
   `;
 
   await dbSql`
     INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
-    VALUES ('clothing', 'shoesSize', 'Shoes Size', 'e.g. 10.5', 4);
+    VALUES ('clothing', 'ShoesSize', 'Shoes Size', 'e.g. 10.5', 4);
   `;
 
   await dbSql`
     INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
-    VALUES ('clothing', 'socksSize', 'Socks Size', 'e.g. 9-11', 5);
+    VALUES ('clothing', 'SocksSize', 'Socks Size', 'e.g. 9-11', 5);
   `;
 
   await dbSql`
     INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
-    VALUES ('clothing', 'preferredColor', 'Preferred Color', 'e.g. Navy Blue, Matte Black', 6);
+    VALUES ('clothing', 'PreferredColor', 'Preferred Color', 'e.g. Navy Blue, Matte Black', 6);
   `;
 
   // Seed tech fields
   const [model] = await dbSql`
     INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
-    VALUES ('tech', 'modelNumber', 'Model / Version', 'e.g. iPhone 15 Pro', 1)
+    VALUES ('tech', 'ModelNumber', 'Model / Version', 'e.g. iPhone 15 Pro', 1)
     RETURNING id;
   `;
 
   const [storage] = await dbSql`
     INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
-    VALUES ('tech', 'storageCapacity', 'Storage Capacity', 'e.g. 256GB, 1TB', 2)
+    VALUES ('tech', 'StorageCapacity', 'Storage Capacity', 'e.g. 256GB, 1TB', 2)
     RETURNING id;
   `;
+  if (!storage) {
+    throw new Error('Failed to seed StorageCapacity field definition');
+  }
 
   await dbSql`
     INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
-    VALUES ('tech', 'preferredColor', 'Preferred Color', 'e.g. Space Gray, Silver', 3);
+    VALUES ('tech', 'PreferredColor', 'Preferred Color', 'e.g. Space Gray, Silver', 3);
   `;
 
   // Seed dependencies
   await dbSql`
     INSERT INTO item_field_dependencies (dependent_field_id, trigger_field_key, trigger_value)
-    VALUES (${waistFit.id}, 'pantsSize', 'any');
+    VALUES (${waistFit.id}, 'PantsSize', 'any');
   `;
 
   await dbSql`
     INSERT INTO item_field_dependencies (dependent_field_id, trigger_field_key, trigger_value)
-    VALUES (${storage.id}, 'modelNumber', 'any');
+    VALUES (${storage.id}, 'ModelNumber', 'any');
+  `;
+
+  await dbSql`
+    CREATE TABLE background_jobs (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      kind VARCHAR(100) NOT NULL,
+      list_id UUID REFERENCES lists(id) ON DELETE SET NULL,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status VARCHAR(50) NOT NULL DEFAULT 'queued'
+        CHECK (status IN ('queued', 'running', 'completed', 'failed', 'cancelled')),
+      phase VARCHAR(100) NOT NULL DEFAULT 'queued',
+      progress_done INTEGER NOT NULL DEFAULT 0,
+      progress_total INTEGER NOT NULL DEFAULT 0,
+      message TEXT DEFAULT '',
+      error TEXT DEFAULT NULL,
+      payload JSONB NOT NULL DEFAULT '{}',
+      result JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      started_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+      finished_at TIMESTAMP WITH TIME ZONE DEFAULT NULL
+    )
+  `;
+
+  await dbSql`
+    CREATE INDEX idx_background_jobs_status_created
+      ON background_jobs (status, created_at)
+  `;
+
+  await dbSql`
+    CREATE INDEX idx_background_jobs_list_status
+      ON background_jobs (list_id, status, created_at DESC)
+  `;
+
+  await dbSql`
+    CREATE TABLE background_job_items (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      job_id UUID NOT NULL REFERENCES background_jobs(id) ON DELETE CASCADE,
+      item_id UUID REFERENCES items(id) ON DELETE SET NULL,
+      link_url TEXT DEFAULT NULL,
+      status VARCHAR(50) NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'running', 'done', 'failed', 'skipped')),
+      error TEXT DEFAULT NULL,
+      payload JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+
+  await dbSql`
+    CREATE INDEX idx_background_job_items_job_status
+      ON background_job_items (job_id, status)
   `;
 
   console.log('[INFO] Database schema initialization and seeding completed successfully!');

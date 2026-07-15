@@ -17,7 +17,7 @@ export class SendFriendRequestUseCase {
   ) {}
 
   async execute(senderId: string, receiverId: string): Promise<FriendRequest> {
-    await this.assertUserCan.execute(senderId, 'canSendFriendRequests');
+    await this.assertUserCan.execute(senderId, 'CanSendFriendRequests');
     if (senderId === receiverId) {
       throw new AppError('You cannot send a friend request to yourself', 400, 'BAD_REQUEST');
     }

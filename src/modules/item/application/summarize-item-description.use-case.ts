@@ -1,11 +1,12 @@
 import { AppError } from '@/common/middlewares/error.middleware';
-import { loadConfig } from '@/common/infrastructure/config.loader';
+import type { ServerConfigRepository } from '@/modules/system/domain/ports/server-config.repository';
+import { resolveAiConnection } from '@/common/utils/resolve-ai-connection.util';
 import { ownerPolicyAllowsAiExtraction } from '@/common/application/user-ai-access.util';
 import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
 import type { UserRepository } from '@/modules/auth/domain/ports/user.repository';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
 import type { DescriptionSummarizer } from '../domain/ports/description-summarizer.port';
-import { formatItemContextBlock } from '../infrastructure/gemini-description-summarizer';
+import { formatItemContextBlock } from '../domain/format-item-context-block.util';
 
 export interface SummarizeItemDescriptionInput {
   listId: string;
@@ -29,12 +30,13 @@ export class SummarizeItemDescriptionUseCase {
     private wishlistRepo: WishlistRepository,
     private userRepo: UserRepository,
     private assertUserCan: AssertUserCanUseCase,
-    private descriptionSummarizer: DescriptionSummarizer
+    private descriptionSummarizer: DescriptionSummarizer,
+    private configRepo: ServerConfigRepository
   ) {}
 
   async execute(userId: string, input: SummarizeItemDescriptionInput): Promise<string> {
-    const config = loadConfig();
-    if (!config.aiEnabled) {
+    const config = this.configRepo.load();
+    if (!config.AiEnabled) {
       throw new AppError('AI features are disabled on this server', 403, 'FORBIDDEN');
     }
 
@@ -54,7 +56,7 @@ export class SummarizeItemDescriptionUseCase {
       throw new AppError('AI features are disabled on your profile', 403, 'FORBIDDEN');
     }
 
-    await this.assertUserCan.execute(userId, 'canUseAiFeatures');
+    await this.assertUserCan.execute(userId, 'CanUseAiFeatures');
 
     const ownerAllowsAi = await ownerPolicyAllowsAiExtraction(
       wishlist.UserId,
@@ -65,8 +67,7 @@ export class SummarizeItemDescriptionUseCase {
       throw new AppError('AI features are not permitted for this wishlist owner', 403, 'FORBIDDEN');
     }
 
-    const provider = config.aiProvider || 'gemini';
-    const apiKey = config.aiApiKey || Bun.env.GEMINI_API_KEY || '';
+    const { provider, apiKey, model, endpoint } = resolveAiConnection(config, 'fast');
     if (provider !== 'local' && !apiKey) {
       throw new AppError('AI provider is not configured', 503, 'SERVICE_UNAVAILABLE');
     }
@@ -91,9 +92,9 @@ export class SummarizeItemDescriptionUseCase {
       {
         provider,
         apiKey,
-        model: config.aiModel || '',
-        customPrompt: config.aiDescriptionPrompt || '',
-        endpoint: config.aiEndpoint || '',
+        model,
+        customPrompt: config.AiDescriptionPrompt || '',
+        endpoint,
       }
     );
   }

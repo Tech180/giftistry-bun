@@ -37,6 +37,9 @@ import { createInvitesModule } from '@/modules/invites/invites.module';
 import { createNotificationsModule } from '@/modules/notifications/notifications.module';
 import { createAdminModule } from '@/modules/admin/admin.module';
 import { createSystemModule } from '@/modules/system/system.module';
+import { createJobsModule } from '@/modules/jobs/jobs.module';
+import { PostgresBackgroundJobRepository } from '@/modules/jobs/infrastructure/postgres-background-job.repository';
+import type { BackgroundJobRunner } from '@/modules/jobs/application/background-job-runner';
 import { createListAccessMiddleware } from '@/common/middlewares/list-access.middleware';
 import type { UserRepository } from '@/modules/auth/domain/ports/user.repository';
 import type { RouteMiddleware } from '@/common/types/route-middleware';
@@ -44,7 +47,9 @@ import type { RouteMiddleware } from '@/common/types/route-middleware';
 export interface AppContainer {
   authModule: ReturnType<typeof createAuthModule>;
   wishlistModule: ReturnType<typeof createWishlistModule>['module'];
-  itemModule: ReturnType<typeof createItemModule>;
+  itemModule: ReturnType<typeof createItemModule>['module'];
+  jobsModule: ReturnType<typeof createJobsModule>['module'];
+  jobRunner: BackgroundJobRunner;
   commentModule: ReturnType<typeof createCommentModule>;
   friendsModule: ReturnType<typeof createFriendsModule>;
   notificationsModule: ReturnType<typeof createNotificationsModule>;
@@ -113,7 +118,9 @@ export function createAppContainer(): AppContainer {
     eventBus,
   });
 
-  const { module: wishlistModule } = createWishlistModule({
+  const jobRepo = new PostgresBackgroundJobRepository();
+
+  const { module: wishlistModule, useCases: wishlistUseCases } = createWishlistModule({
     wishlistRepo,
     listShareRepo,
     userRepo,
@@ -121,14 +128,16 @@ export function createAppContainer(): AppContainer {
     itemRepo,
     commentRepo,
     itemAudienceRepo,
+    jobRepo,
     assertCanCreateWishlistUseCase,
     assertUserCanUseCase,
     eventBus,
     invitesUseCases,
+    serverConfigRepo,
     middleware: routeMiddleware,
   });
 
-  const itemModule = createItemModule({
+  const { module: itemModule, useCases: itemUseCases } = createItemModule({
     itemRepo,
     audienceRepo: itemAudienceRepo,
     fieldRepo: itemFieldRepo,
@@ -137,7 +146,15 @@ export function createAppContainer(): AppContainer {
     userRepo,
     assertUserCanUseCase,
     metadataScraper,
+    serverConfigRepo,
     middleware: routeMiddleware,
+  });
+
+  const { module: jobsModule, runner: jobRunner } = createJobsModule({
+    itemUseCases,
+    createWishlist: wishlistUseCases.createWishlist,
+    middleware: routeMiddleware,
+    jobRepo,
   });
 
   const commentModule = createCommentModule({
@@ -179,6 +196,8 @@ export function createAppContainer(): AppContainer {
     authModule,
     wishlistModule,
     itemModule,
+    jobsModule,
+    jobRunner,
     commentModule,
     friendsModule,
     notificationsModule,

@@ -5,6 +5,8 @@ import type { AssertItemVisibleUseCase } from './assert-item-visible.use-case';
 import type { EnrichLinkMetadataUseCase } from './enrich-link-metadata.use-case';
 import type { ExtractItemReviewsUseCase } from './extract-item-reviews.use-case';
 import { AppError } from '@/common/middlewares/error.middleware';
+import { serializeItemDescription } from '../domain/item-description.util';
+import type { ItemDescriptionMetadata } from '../domain/item-description.util';
 
 export class UpdateItemUseCase {
   constructor(
@@ -26,7 +28,8 @@ export class UpdateItemUseCase {
     sharedWithUserIds?: string[] | null,
     linkUrl?: string | null,
     price?: number | null,
-    websiteName?: string | null
+    websiteName?: string | null,
+    metadata?: ItemDescriptionMetadata | null
   ): Promise<Item> {
     if (!itemId) {
       throw new AppError('Item ID is required', 400, 'BAD_REQUEST');
@@ -42,7 +45,16 @@ export class UpdateItemUseCase {
       throw new AppError('Item not found', 404, 'NOT_FOUND');
     }
 
-    const updated = await this.itemRepo.update(itemId, name, description, priorityId, category, priority);
+    let resolvedDescription = description;
+    if (metadata !== undefined) {
+      if (metadata === null) {
+        resolvedDescription = null;
+      } else {
+        resolvedDescription = serializeItemDescription(metadata.Text || description || '', metadata);
+      }
+    }
+
+    const updated = await this.itemRepo.update(itemId, name, resolvedDescription, priorityId, category, priority);
 
     let sharedWith = await this.audienceRepo.findByItemId(itemId);
     if (sharedWithUserIds !== undefined) {

@@ -7,9 +7,9 @@ export class PostgresWishlistRepository implements WishlistRepository {
     const [row] = await sql<any[]>`
       SELECT l.id as "Id", l.user_id as "UserId", l.title as "Title", l.expires_at as "ExpiresAt", 
              l.allow_group_funds as "AllowGroupFunds", l.is_active as "IsActive", 
-             l.category as "Category", l.reveal_suggestions as "RevealSuggestions", l.ai_enabled as "AiEnabled",
+             l.category as "Category", l.reveal_suggestions as "RevealSuggestions", l.ai_enabled as "AiEnabled", l.web_search_enabled as "WebSearchEnabled",
              l.created_at as "CreatedAt",
-             u.username as "OwnerUsername", u.first_name as "OwnerFirstName", u.avatar as "OwnerAvatar"
+             u.username as "OwnerUsername", u.first_name as "OwnerFirstName", u.last_name as "OwnerLastName", u.avatar as "OwnerAvatar"
       FROM lists l
       LEFT JOIN users u ON l.user_id = u.id
       WHERE l.id = ${id}
@@ -26,8 +26,10 @@ export class PostgresWishlistRepository implements WishlistRepository {
       Category: row.Category,
       RevealSuggestions: row.RevealSuggestions,
       AiEnabled: row.AiEnabled,
+      WebSearchEnabled: row.WebSearchEnabled,
       OwnerUsername: row.OwnerUsername,
       OwnerFirstName: row.OwnerFirstName,
+      OwnerLastName: row.OwnerLastName,
       OwnerAvatar: row.OwnerAvatar ?? null,
     };
   }
@@ -37,7 +39,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
       SELECT l.id as "Id", l.user_id as "UserId", l.title as "Title", l.expires_at as "ExpiresAt", 
              l.allow_group_funds as "AllowGroupFunds", l.is_active as "IsActive", 
              l.created_at as "CreatedAt", l.category as "Category",
-             l.reveal_suggestions as "RevealSuggestions", l.ai_enabled as "AiEnabled",
+             l.reveal_suggestions as "RevealSuggestions", l.ai_enabled as "AiEnabled", l.web_search_enabled as "WebSearchEnabled",
              u.username as "OwnerUsername", u.first_name as "OwnerFirstName", u.avatar as "OwnerAvatar",
              CASE
                WHEN l.user_id = ${userId} THEN 'owner'
@@ -99,6 +101,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
       Category: row.Category,
       RevealSuggestions: row.RevealSuggestions,
       AiEnabled: row.AiEnabled,
+      WebSearchEnabled: row.WebSearchEnabled,
       OwnerUsername: row.OwnerUsername,
       OwnerFirstName: row.OwnerFirstName,
       OwnerAvatar: row.OwnerAvatar ?? null,
@@ -107,13 +110,23 @@ export class PostgresWishlistRepository implements WishlistRepository {
     }));
   }
 
-  async create(userId: string, title: string, expiresAt: Date | null, allowGroupFunds: boolean, category: string = 'generic', revealSuggestions: boolean = true, aiEnabled: boolean = false): Promise<Wishlist> {
+  async create(
+    userId: string,
+    title: string,
+    expiresAt: Date | null,
+    allowGroupFunds: boolean,
+    category: string = 'generic',
+    revealSuggestions: boolean = true,
+    aiEnabled: boolean = false,
+    webSearchEnabled: boolean = false
+  ): Promise<Wishlist> {
     const [row] = await sql<any[]>`
-      INSERT INTO lists (user_id, title, expires_at, allow_group_funds, category, reveal_suggestions, ai_enabled)
-      VALUES (${userId}, ${title}, ${expiresAt}, ${allowGroupFunds}, ${category}, ${revealSuggestions}, ${aiEnabled})
+      INSERT INTO lists (user_id, title, expires_at, allow_group_funds, category, reveal_suggestions, ai_enabled, web_search_enabled)
+      VALUES (${userId}, ${title}, ${expiresAt}, ${allowGroupFunds}, ${category}, ${revealSuggestions}, ${aiEnabled}, ${webSearchEnabled})
       RETURNING id as "Id", user_id as "UserId", title as "Title", expires_at as "ExpiresAt", 
                 allow_group_funds as "AllowGroupFunds", is_active as "IsActive", 
                 category as "Category", reveal_suggestions as "RevealSuggestions", ai_enabled as "AiEnabled",
+                web_search_enabled as "WebSearchEnabled",
                 created_at as "CreatedAt"
     `;
     if (!row) throw new Error('Failed to create wishlist');
@@ -128,6 +141,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
       Category: row.Category,
       RevealSuggestions: row.RevealSuggestions,
       AiEnabled: row.AiEnabled,
+      WebSearchEnabled: row.WebSearchEnabled,
     };
   }
 
@@ -139,17 +153,18 @@ export class PostgresWishlistRepository implements WishlistRepository {
     `;
   }
 
-  async update(id: string, title: string, expiresAt: Date | null, allowGroupFunds: boolean, category?: string, revealSuggestions?: boolean, aiEnabled?: boolean): Promise<Wishlist> {
+  async update(id: string, title: string, expiresAt: Date | null, allowGroupFunds: boolean, category?: string, revealSuggestions?: boolean, aiEnabled?: boolean, webSearchEnabled?: boolean): Promise<Wishlist> {
     const [row] = await sql<any[]>`
       UPDATE lists
       SET title = ${title}, expires_at = ${expiresAt}, allow_group_funds = ${allowGroupFunds},
           category = COALESCE(${category || null}, category),
           reveal_suggestions = COALESCE(${revealSuggestions ?? null}, reveal_suggestions),
-          ai_enabled = COALESCE(${aiEnabled ?? null}, ai_enabled)
+          ai_enabled = COALESCE(${aiEnabled ?? null}, ai_enabled),
+          web_search_enabled = COALESCE(${webSearchEnabled ?? null}, web_search_enabled)
       WHERE id = ${id}
       RETURNING id as "Id", user_id as "UserId", title as "Title", expires_at as "ExpiresAt", 
                 allow_group_funds as "AllowGroupFunds", is_active as "IsActive", 
-                category as "Category", reveal_suggestions as "RevealSuggestions", ai_enabled as "AiEnabled",
+                category as "Category", reveal_suggestions as "RevealSuggestions", ai_enabled as "AiEnabled", web_search_enabled as "WebSearchEnabled",
                 created_at as "CreatedAt"
     `;
     if (!row) throw new Error('Failed to update wishlist');
@@ -164,6 +179,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
       Category: row.Category,
       RevealSuggestions: row.RevealSuggestions,
       AiEnabled: row.AiEnabled,
+      WebSearchEnabled: row.WebSearchEnabled,
     };
   }
 

@@ -102,6 +102,18 @@ flowchart TD
 | `SCRAPE_PLAYWRIGHT_TIMEOUT_MS` | `25000` | Browser navigation timeout |
 | `SCRAPE_PLAYWRIGHT_MAX_CONCURRENT` | `3` | Max concurrent browser contexts |
 | `SCRAPE_PLAYWRIGHT_HEADLESS` | `true` | Headless browser (set `false` for local debugging) |
+| `SCRAPE_PLAYWRIGHT_EXECUTABLE_PATH` | _(auto)_ | Chromium/Chrome binary for Playwright. Required on NixOS unless a system browser is already on `PATH`. Also accepts `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`. |
+
+### NixOS note
+
+Playwright’s downloaded Chromium is a generic glibc binary and will fail with `Could not start dynamically linked executable` / `stub-ld` on NixOS. Point Playwright at a Nix-provided browser instead:
+
+```bash
+nix-shell -p chromium
+export SCRAPE_PLAYWRIGHT_EXECUTABLE_PATH="$(command -v chromium)"
+```
+
+Or enable `programs.nix-ld` so the bundled Playwright browser can run.
 
 ### Known limitations
 

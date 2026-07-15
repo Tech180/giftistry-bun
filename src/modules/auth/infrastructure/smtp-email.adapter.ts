@@ -13,13 +13,13 @@ export class SmtpEmailAdapter implements EmailSender {
     let pass = env.SMTP_PASS;
     let from = env.SMTP_FROM;
 
-    if (config.smtpType === 'remote') {
-      host = config.smtpHost || host;
-      port = config.smtpPort !== undefined ? config.smtpPort : port;
-      secure = config.smtpSecure !== undefined ? config.smtpSecure : secure;
-      user = config.smtpUser !== undefined ? config.smtpUser : user;
-      pass = config.smtpPass !== undefined ? config.smtpPass : pass;
-      from = config.smtpFrom || from;
+    if (config.SmtpType === 'remote') {
+      host = config.SmtpHost || host;
+      port = config.SmtpPort !== undefined ? config.SmtpPort : port;
+      secure = config.SmtpSecure !== undefined ? config.SmtpSecure : secure;
+      user = config.SmtpUser !== undefined ? config.SmtpUser : user;
+      pass = config.SmtpPass !== undefined ? config.SmtpPass : pass;
+      from = config.SmtpFrom || from;
     }
 
     const transportOptions: Record<string, unknown> = {

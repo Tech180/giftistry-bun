@@ -7,11 +7,13 @@ import type { FriendRepository } from '@/modules/friends/domain/ports/friend.rep
 import type { ItemRepository } from '@/modules/item/domain/ports/item.repository';
 import type { ItemAudienceRepository } from '@/modules/item/domain/ports/item-audience.repository';
 import type { CommentRepository } from '@/modules/comment/domain/ports/comment.repository';
+import type { BackgroundJobRepository } from '@/modules/jobs/domain/ports/background-job.repository';
 import type {
   AssertCanCreateWishlistUseCase,
   AssertUserCanUseCase,
 } from '@/common/application/user-policy.use-cases';
 import type { EventBus } from '@/common/domain/events/event-bus.port';
+import type { ServerConfigRepository } from '@/modules/system/domain/ports/server-config.repository';
 import type { CheckListAccessUseCase } from './application/check-list-access.use-case';
 import { PostgresListAccessRepository } from './infrastructure/postgres-list-access.repository';
 import { PostgresItemReviewRepository } from '@/modules/item/infrastructure/postgres-item-review.repository';
@@ -36,7 +38,12 @@ import { RemoveListShareUseCase } from './application/remove-list-share.use-case
 import { BulkShareWishlistUseCase } from './application/bulk-share-wishlist.use-case';
 import { BackfillListReviewsUseCase } from '@/modules/item/application/backfill-list-reviews.use-case';
 import { ExtractItemReviewsUseCase } from '@/modules/item/application/extract-item-reviews.use-case';
+import { ListItemsUseCase } from '@/modules/item/application/list-items.use-case';
+import { ExportWishlistPdfUseCase } from './application/export-wishlist-pdf.use-case';
+import { ExportWishlistDataUseCase } from './application/export-wishlist-data.use-case';
 import { wishlistRoutes } from './presentation/wishlist.routes';
+import { PostgresThemeResolver } from './infrastructure/postgres-theme-resolver';
+import { PdfLibGenerator } from './infrastructure/pdf-lib-generator';
 
 export interface WishlistModuleDeps {
   wishlistRepo: WishlistRepository;
@@ -46,10 +53,12 @@ export interface WishlistModuleDeps {
   itemRepo: ItemRepository;
   commentRepo: CommentRepository;
   itemAudienceRepo: ItemAudienceRepository;
+  jobRepo?: BackgroundJobRepository;
   assertCanCreateWishlistUseCase: AssertCanCreateWishlistUseCase;
   assertUserCanUseCase: AssertUserCanUseCase;
   eventBus: EventBus;
   invitesUseCases: Parameters<typeof wishlistRoutes>[1];
+  serverConfigRepo: ServerConfigRepository;
   middleware: RouteMiddleware;
 }
 
@@ -61,21 +70,31 @@ export function createWishlistModule(deps: WishlistModuleDeps) {
     deps.itemRepo,
     deps.wishlistRepo,
     deps.userRepo,
-    deps.assertUserCanUseCase
+    deps.assertUserCanUseCase,
+    deps.serverConfigRepo
   );
   const backfillListReviewsUseCase = new BackfillListReviewsUseCase(
     itemReviewRepo,
-    extractItemReviewsUseCase
+    extractItemReviewsUseCase,
+    deps.serverConfigRepo
   );
 
-  const module = new Elysia().use(
-    wishlistRoutes(
-      {
+  const listItemsUseCase = new ListItemsUseCase(
+    deps.itemRepo,
+    deps.wishlistRepo,
+    deps.itemAudienceRepo
+  );
+
+  const themeResolver = new PostgresThemeResolver();
+  const pdfGenerator = new PdfLibGenerator();
+
+  const useCases = {
         createWishlist: new CreateWishlistUseCase(
           deps.wishlistRepo,
           deps.userRepo,
           deps.assertCanCreateWishlistUseCase,
-          deps.assertUserCanUseCase
+          deps.assertUserCanUseCase,
+          deps.serverConfigRepo
         ),
         listWishlists: new ListWishlistsUseCase(deps.wishlistRepo),
         createPriority: new CreatePriorityUseCase(deps.wishlistRepo),
@@ -95,9 +114,10 @@ export function createWishlistModule(deps: WishlistModuleDeps) {
           deps.wishlistRepo,
           deps.userRepo,
           deps.assertUserCanUseCase,
-          backfillListReviewsUseCase
+          backfillListReviewsUseCase,
+          deps.serverConfigRepo
         ),
-        deleteWishlist: new DeleteWishlistUseCase(deps.wishlistRepo),
+        deleteWishlist: new DeleteWishlistUseCase(deps.wishlistRepo, deps.jobRepo),
         listListShares: new ListListSharesUseCase(deps.listShareRepo),
         updateListShare: new UpdateListShareUseCase(deps.listShareRepo),
         removeListShare: new RemoveListShareUseCase(deps.listShareRepo, deps.itemAudienceRepo),
@@ -107,13 +127,29 @@ export function createWishlistModule(deps: WishlistModuleDeps) {
           deps.userRepo,
           deps.eventBus
         ),
-      },
+        exportWishlistPdf: new ExportWishlistPdfUseCase(
+          deps.wishlistRepo,
+          listItemsUseCase,
+          deps.userRepo,
+          themeResolver,
+          pdfGenerator
+        ),
+        exportWishlistData: new ExportWishlistDataUseCase(
+          deps.wishlistRepo,
+          listItemsUseCase,
+          deps.userRepo
+        ),
+      };
+
+  const module = new Elysia().use(
+    wishlistRoutes(
+      useCases,
       deps.invitesUseCases,
       deps.middleware
     )
   );
 
-  return { module };
+  return { module, useCases };
 }
 
 export function createCheckListAccessUseCase(

@@ -58,7 +58,7 @@ export class AssertCanCreateWishlistUseCase {
     if (policy.isLocked()) {
       throw new AppError('Your account is temporarily locked', 403, 'FORBIDDEN');
     }
-    if (!policy.can('canCreateWishlists')) {
+    if (!policy.can('CanCreateWishlists')) {
       throw new AppError('This action is not permitted for your account', 403, 'FORBIDDEN');
     }
 

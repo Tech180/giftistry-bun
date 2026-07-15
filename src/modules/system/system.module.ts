@@ -9,6 +9,7 @@ import { SaveSystemSettingsUseCase } from './application/save-system-settings.us
 import { TransferOwnershipUseCase } from './application/transfer-ownership.use-case';
 import { DeleteServerUseCase } from './application/delete-server.use-case';
 import { TestAiConnectionUseCase } from './application/test-ai-connection.use-case';
+import { ListSystemModelsUseCase } from './application/list-system-models.use-case';
 import { systemRoutes } from './presentation/system.routes';
 import type { SystemUseCases } from './presentation/system-use-cases.interface';
 
@@ -23,6 +24,7 @@ export function createSystemModule(deps: SystemModuleDeps): {
   systemUseCases: SystemUseCases;
 } {
   const testAiConnectionUseCase = new TestAiConnectionUseCase();
+  const listSystemModelsUseCase = new ListSystemModelsUseCase();
 
   const systemUseCases: SystemUseCases = {
     getSystemStatus: new GetSystemStatusUseCase(deps.serverConfigRepo, deps.getSitePolicyUseCase),
@@ -30,6 +32,7 @@ export function createSystemModule(deps: SystemModuleDeps): {
     getSystemSettings: new GetSystemSettingsUseCase(deps.serverConfigRepo),
     saveSystemSettings: new SaveSystemSettingsUseCase(deps.serverConfigRepo, testAiConnectionUseCase),
     testAiConnection: testAiConnectionUseCase,
+    listSystemModels: listSystemModelsUseCase,
     transferOwnership: new TransferOwnershipUseCase(deps.serverConfigRepo, deps.writeAuditLogUseCase),
     deleteServer: new DeleteServerUseCase(deps.serverConfigRepo, deps.writeAuditLogUseCase),
   };

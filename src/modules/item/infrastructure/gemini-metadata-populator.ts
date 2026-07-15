@@ -5,19 +5,63 @@ import type {
   MetadataPopulatorInput,
 } from '../domain/ports/metadata-populator.port';
 import { completeTextPrompt } from './ai-text-completion';
-import { getDefaultAiPrompt } from './ai-default-prompts';
-import { buildJsonLdPageContext } from './scraping/extractors/json-ld-product.util';
+import { getDefaultAiPrompt } from '@/modules/system/domain/ai-default-prompts';
+import { assemblePopulateHubPrompt } from './populate-hub-prompt.util';
+import { sanitizeProductDescription } from '../domain/sanitize-product-description.util';
+import { fetchPageContext } from './http-page-context-fetcher';
+
+export {
+  fetchPageHtml,
+  fetchPageContext,
+  buildWebsiteNameHints,
+  resolveWebsiteNameForUrl,
+} from './http-page-context-fetcher';
+
+export interface LinkedPopulatePrompts {
+  descriptionPrompt?: string;
+  categoryPrompt?: string;
+}
+
+const RECONCILE_RULES = `
+Reconcile rules (critical — apply when web search context is provided):
+- Compare Product page context (authoritative for price and official variant options) with Web search context (fills missing specs, cross-checks model numbers).
+- Prefer product page data when both sources agree; use web search only to fill gaps or resolve conflicts.
+- Price and official configuration options from the product page take precedence over third-party listings.
+- Description must remain spec-free; put RAM, storage, color, size, and model details ONLY in PredefinedFields / UserDefinedFields.
+`.trim();
+
+function appendLinkedPromptSections(
+  prompt: string,
+  linked?: LinkedPopulatePrompts
+): string {
+  const descriptionPrompt =
+    linked?.descriptionPrompt?.trim() || getDefaultAiPrompt('description');
+  const categoryPrompt =
+    linked?.categoryPrompt?.trim() || getDefaultAiPrompt('category');
+
+  return assemblePopulateHubPrompt(prompt, descriptionPrompt, categoryPrompt);
+}
 
 export function compilePopulatePrompt(
   customPrompt: string,
-  input: MetadataPopulatorInput
+  input: MetadataPopulatorInput,
+  linked?: LinkedPopulatePrompts
 ): string {
   const template = customPrompt.trim() || getDefaultAiPrompt('populate');
-  return template
+  const searchContext = input.searchContext?.trim() || 'None';
+  const resolved = template
     .replace(/{url}/g, input.url || '')
     .replace(/{websiteName}/g, input.websiteName || '')
     .replace(/{pageContext}/g, input.pageContext || 'None provided')
+    .replace(/{searchContext}/g, searchContext)
     .replace(/{itemName}/g, input.itemName || '');
+
+  const withReconcile =
+    input.reconcileSources && searchContext !== 'None'
+      ? `${RECONCILE_RULES}\n\n${resolved}`
+      : resolved;
+
+  return appendLinkedPromptSections(withReconcile, linked);
 }
 
 function parseFieldMap(raw: unknown): Record<string, string> {
@@ -40,7 +84,7 @@ function parsePopulateJson(text: string): ExtractedMetadata {
   }
 
   const parsed = JSON.parse(clean) as Record<string, unknown>;
-  const priceRaw = parsed.price;
+  const priceRaw = parsed.Price;
   let price: number | null = null;
   if (typeof priceRaw === 'number' && !Number.isNaN(priceRaw)) {
     price = priceRaw;
@@ -54,34 +98,40 @@ function parsePopulateJson(text: string): ExtractedMetadata {
     return typeof val === 'string' && val.trim() ? val.trim() : null;
   };
 
-  return {
-    title: str('title') || '',
-    price,
-    description: str('description'),
-    color: str('color'),
-    size: str('size'),
-    category: null,
-    imageUrl: str('imageUrl'),
-    predefinedFields: parseFieldMap(parsed.predefinedFields),
-    userDefinedFields: parseFieldMap(parsed.userDefinedFields),
-  };
-}
+  const predefinedFields = parseFieldMap(parsed.PredefinedFields);
+  const userDefinedFields = parseFieldMap(parsed.UserDefinedFields);
+  const color = str('Color');
+  const size = str('Size');
 
-export async function fetchPageContext(url: string): Promise<string> {
-  try {
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-      },
-      signal: AbortSignal.timeout(4000),
-    });
-    if (!res.ok) return '';
-    const html = await res.text();
-    return buildJsonLdPageContext(html, url);
-  } catch {
-    return '';
+  const qtyRaw = parsed.DesiredQuantity;
+  let desiredQuantity: number | null = null;
+  if (typeof qtyRaw === 'number' && Number.isFinite(qtyRaw)) {
+    desiredQuantity = Math.floor(qtyRaw);
+  } else if (typeof qtyRaw === 'string' && qtyRaw.trim()) {
+    const n = Number.parseInt(qtyRaw.trim(), 10);
+    desiredQuantity = Number.isFinite(n) ? n : null;
   }
+  if (desiredQuantity != null && (desiredQuantity < 2 || desiredQuantity > 99)) {
+    desiredQuantity = null;
+  }
+
+  return {
+    title: str('Title') || '',
+    price,
+    description: sanitizeProductDescription(str('Description'), {
+      predefinedFields,
+      userDefinedFields,
+      color,
+      size,
+    }),
+    color,
+    size,
+    category: null,
+    imageUrl: str('ImageUrl'),
+    predefinedFields,
+    userDefinedFields,
+    desiredQuantity,
+  };
 }
 
 export class GeminiMetadataPopulator implements MetadataPopulator {
@@ -90,10 +140,17 @@ export class GeminiMetadataPopulator implements MetadataPopulator {
     config: MetadataPopulatorConfig
   ): Promise<ExtractedMetadata> {
     const pageContext = input.pageContext ?? (await fetchPageContext(input.url));
-    const prompt = compilePopulatePrompt(config.customPrompt, {
-      ...input,
-      pageContext,
-    });
+    const prompt = compilePopulatePrompt(
+      config.customPrompt,
+      {
+        ...input,
+        pageContext,
+      },
+      {
+        descriptionPrompt: config.linkedDescriptionPrompt,
+        categoryPrompt: config.linkedCategoryPrompt,
+      }
+    );
 
     const text = await completeTextPrompt(prompt, {
       provider: config.provider,
@@ -107,124 +164,12 @@ export class GeminiMetadataPopulator implements MetadataPopulator {
   }
 }
 
-export function mergeFieldMaps(
-  scrapeFields: Record<string, string> | undefined,
-  aiFields: Record<string, string> | undefined,
-  preferScrape: boolean
-): Record<string, string> {
-  const result = { ...(scrapeFields ?? {}) };
-  for (const [key, val] of Object.entries(aiFields ?? {})) {
-    if (!val.trim()) continue;
-    if (preferScrape && result[key]?.trim()) continue;
-    result[key] = val.trim();
-  }
-  return result;
-}
-
-export function mergeExtractedMetadata(
-  scrape: ExtractedMetadata,
-  ai: ExtractedMetadata,
-  preferScrape: boolean
-): ExtractedMetadata {
-  const pick = (scrapeVal: string | null, aiVal: string | null, scrapeField = true) => {
-    if (preferScrape && scrapeVal?.trim()) return scrapeVal.trim();
-    if (aiVal?.trim()) return aiVal.trim();
-    return scrapeVal?.trim() || null;
-  };
-
-  const pickTitle = () => {
-    if (ai.title.trim()) return ai.title.trim();
-    if (preferScrape && scrape.title.trim()) return scrape.title.trim();
-    return scrape.title.trim() || '';
-  };
-
-  const scrapePrice = scrape.price;
-  const aiPrice = ai.price;
-
-  return {
-    title: pickTitle(),
-    price: preferScrape && scrapePrice != null ? scrapePrice : (aiPrice ?? scrapePrice),
-    description: pick(scrape.description, ai.description, preferScrape),
-    color: pick(scrape.color, ai.color, preferScrape),
-    size: pick(scrape.size, ai.size, preferScrape),
-    category: pick(scrape.category, ai.category, preferScrape),
-    imageUrl: pick(scrape.imageUrl, ai.imageUrl, preferScrape),
-    predefinedFields: mergeFieldMaps(scrape.predefinedFields, ai.predefinedFields, preferScrape),
-    userDefinedFields: mergeFieldMaps(scrape.userDefinedFields, ai.userDefinedFields, preferScrape),
-  };
-}
-
-export function isVerboseProductTitle(title: string | null | undefined): boolean {
-  const t = title?.trim() ?? '';
-  if (!t) return false;
-  if (t.length > 80) return true;
-  const dashParts = t.split(/\s[-–—|]\s/);
-  if (dashParts.length >= 3) return true;
-  return false;
-}
-
-export function shouldAiPopulate(
-  scrapeResult: { data: ExtractedMetadata; diagnostics: { confidence: string; blocked?: boolean; fieldsFound?: string[] } },
-  aiEnabled: boolean
-): boolean {
-  if (!aiEnabled) return false;
-
-  const { data, diagnostics } = scrapeResult;
-  if (diagnostics.blocked) return true;
-  if (diagnostics.confidence === 'low') return true;
-  if (!data.title?.trim()) return true;
-
-  const fieldsFound = diagnostics.fieldsFound ?? [];
-  if (fieldsFound.length < 2) return true;
-
-  const missingCore =
-    data.price == null &&
-    !data.description?.trim() &&
-    !data.color?.trim() &&
-    !data.size?.trim();
-
-  return missingCore;
-}
-
-function hasPredefinedSize(pre: Record<string, string>): boolean {
-  return Boolean(
-    pre.ShirtSize?.trim() ||
-      pre.PantsSize?.trim() ||
-      pre.ShoesSize?.trim() ||
-      pre.SocksSize?.trim() ||
-      pre.shirtSize?.trim() ||
-      pre.pantsSize?.trim() ||
-      pre.shoesSize?.trim() ||
-      pre.socksSize?.trim()
-  );
-}
-
-function missingApparelSize(data: ExtractedMetadata): boolean {
-  const pre = data.predefinedFields ?? {};
-  const hasSize = Boolean(data.size?.trim() || hasPredefinedSize(pre));
-  if (hasSize) return false;
-
-  const text = `${data.title ?? ''} ${data.category ?? ''}`.toLowerCase();
-  return /shirt|tee|t-shirt|hoodie|pant|jeans|shoe|sneaker|boot|sock|apparel|clothing/.test(text);
-}
-
-export function shouldRunAiPopulate(
-  scrapeResult: { data: ExtractedMetadata; diagnostics: { confidence: string; blocked?: boolean; fieldsFound?: string[] } },
-  scrapeWithFields: ExtractedMetadata,
-  aiEnabled: boolean
-): boolean {
-  if (!aiEnabled) return false;
-  if (shouldAiPopulate(scrapeResult, true)) return true;
-  if (isVerboseProductTitle(scrapeWithFields.title)) return true;
-
-  const predefinedCount = Object.keys(scrapeWithFields.predefinedFields ?? {}).length;
-  const userDefinedCount = Object.keys(scrapeWithFields.userDefinedFields ?? {}).length;
-  if (predefinedCount + userDefinedCount === 0) return true;
-  if (missingApparelSize(scrapeWithFields)) return true;
-
-  const userDefined = scrapeWithFields.userDefinedFields ?? {};
-  if (!userDefined.Material?.trim() && scrapeWithFields.description?.trim()) return true;
-
-  // Scrape may only map color/size into predefined — still run AI for user-defined attributes.
-  return userDefinedCount === 0;
-}
+// Re-export domain-layer business logic for backward compatibility.
+export {
+  mergeFieldMaps,
+  mergeExtractedMetadata,
+  isVerboseProductTitle,
+  isVerboseMarketingDescription,
+  shouldAiPopulate,
+  shouldRunAiPopulate,
+} from '../domain/merge-extracted-metadata';

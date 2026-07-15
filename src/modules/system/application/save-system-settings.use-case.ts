@@ -2,7 +2,14 @@ import postgres from 'postgres';
 import nodemailer from 'nodemailer';
 import { AppError } from '@/common/middlewares/error.middleware';
 import type { ServerConfigRepository } from '../domain/ports/server-config.repository';
-import { resolveMaskedSecret, type SystemSettingsPayload } from '../domain/server-config.entity';
+import {
+  clampAiCompletionTimeoutMs,
+  clampScrapeFetchTimeoutMs,
+  clampScrapePlaywrightTimeoutMs,
+  normalizeAiProvider,
+  resolveMaskedSecret,
+  type SystemSettingsPayload,
+} from '../domain/server-config.entity';
 import type { TestAiConnectionUseCase } from './test-ai-connection.use-case';
 
 export class SaveSystemSettingsUseCase {
@@ -12,12 +19,12 @@ export class SaveSystemSettingsUseCase {
   ) {}
 
   async execute(settings: SystemSettingsPayload): Promise<void> {
-    if (settings.dbType === 'remote') {
-      if (!settings.dbUrl) {
+    if (settings.DbType === 'remote') {
+      if (!settings.DbUrl) {
         throw new AppError('Database connection URL is required for remote database type', 400, 'BAD_REQUEST');
       }
       try {
-        const testSql = postgres(settings.dbUrl, { max: 1, connect_timeout: 5 });
+        const testSql = postgres(settings.DbUrl, { max: 1, connect_timeout: 5 });
         await testSql`SELECT 1`;
         await testSql.end();
       } catch (err: any) {
@@ -26,21 +33,21 @@ export class SaveSystemSettingsUseCase {
     }
 
     const config = this.serverConfigRepo.load();
-    const smtpPass = resolveMaskedSecret(settings.smtpPass, config.smtpPass);
+    const smtpPass = resolveMaskedSecret(settings.SmtpPass, config.SmtpPass);
 
-    if (settings.smtpType === 'remote') {
-      if (!settings.smtpHost || settings.smtpPort === undefined) {
+    if (settings.SmtpType === 'remote') {
+      if (!settings.SmtpHost || settings.SmtpPort === undefined) {
         throw new AppError('SMTP host and port are required for remote SMTP type', 400, 'BAD_REQUEST');
       }
 
       const transportOptions: nodemailer.TransportOptions = {
-        host: settings.smtpHost,
-        port: settings.smtpPort,
-        secure: settings.smtpSecure,
+        host: settings.SmtpHost,
+        port: settings.SmtpPort,
+        secure: settings.SmtpSecure,
       };
-      if (settings.smtpUser || smtpPass) {
+      if (settings.SmtpUser || smtpPass) {
         transportOptions.auth = {
-          user: settings.smtpUser,
+          user: settings.SmtpUser,
           pass: smtpPass,
         };
       }
@@ -53,40 +60,90 @@ export class SaveSystemSettingsUseCase {
       }
     }
 
-    const aiApiKey = resolveMaskedSecret(settings.aiApiKey, config.aiApiKey);
+    const fastProvider = normalizeAiProvider(settings.AiFastProvider ?? config.AiFastProvider);
+    const intelligentProvider = normalizeAiProvider(
+      settings.AiIntelligentProvider ?? config.AiIntelligentProvider
+    );
+    const fastEndpoint = (settings.AiFastEndpoint ?? config.AiFastEndpoint ?? '').trim();
+    const intelligentEndpoint = (
+      settings.AiIntelligentEndpoint ??
+      config.AiIntelligentEndpoint ??
+      ''
+    ).trim();
+    const fastApiKey = resolveMaskedSecret(settings.AiFastApiKey, config.AiFastApiKey);
+    const intelligentApiKey = resolveMaskedSecret(
+      settings.AiIntelligentApiKey,
+      config.AiIntelligentApiKey
+    );
 
-    if (settings.aiEnabled && settings.aiProvider === 'local') {
-      if (!settings.aiEndpoint?.trim()) {
-        throw new AppError('API endpoint URL is required for local AI provider', 400, 'BAD_REQUEST');
+    if (settings.AiEnabled) {
+      if (fastProvider === 'local') {
+        if (!fastEndpoint) {
+          throw new AppError(
+            'API endpoint URL is required for Fast local AI provider',
+            400,
+            'BAD_REQUEST'
+          );
+        }
+        await this.testAiConnection.execute({
+          AiProvider: 'local',
+          AiEndpoint: fastEndpoint,
+          AiApiKey: fastApiKey,
+          AiModel: settings.AiFastModel,
+        });
       }
-
-      await this.testAiConnection.execute({
-        aiProvider: 'local',
-        aiEndpoint: settings.aiEndpoint,
-        aiApiKey,
-        aiModel: settings.aiModel,
-      });
+      if (intelligentProvider === 'local') {
+        if (!intelligentEndpoint) {
+          throw new AppError(
+            'API endpoint URL is required for Intelligent local AI provider',
+            400,
+            'BAD_REQUEST'
+          );
+        }
+        await this.testAiConnection.execute({
+          AiProvider: 'local',
+          AiEndpoint: intelligentEndpoint,
+          AiApiKey: intelligentApiKey,
+          AiModel: settings.AiIntelligentModel,
+        });
+      }
     }
 
     this.serverConfigRepo.save({
-      dbType: settings.dbType as 'local' | 'remote',
-      dbUrl: settings.dbUrl,
-      smtpType: settings.smtpType as 'local' | 'remote',
-      smtpHost: settings.smtpHost,
-      smtpPort: settings.smtpPort,
-      smtpUser: settings.smtpUser,
-      smtpPass,
-      smtpSecure: settings.smtpSecure,
-      smtpFrom: settings.smtpFrom,
-      aiEnabled: settings.aiEnabled,
-      aiProvider: settings.aiProvider as any,
-      aiApiKey,
-      aiModel: settings.aiModel,
-      aiPrompt: settings.aiPrompt,
-      aiDescriptionPrompt: settings.aiDescriptionPrompt,
-      aiPopulatePrompt: settings.aiPopulatePrompt,
-      aiCategoryPrompt: settings.aiCategoryPrompt,
-      aiEndpoint: settings.aiEndpoint,
+      DbType: settings.DbType as 'local' | 'remote',
+      DbUrl: settings.DbUrl,
+      SmtpType: settings.SmtpType as 'local' | 'remote',
+      SmtpHost: settings.SmtpHost,
+      SmtpPort: settings.SmtpPort,
+      SmtpUser: settings.SmtpUser,
+      SmtpPass: smtpPass,
+      SmtpSecure: settings.SmtpSecure,
+      SmtpFrom: settings.SmtpFrom,
+      AiEnabled: settings.AiEnabled,
+      AiWebSearchEnabled: settings.AiWebSearchEnabled,
+      AiRateLimitEnabled: settings.AiRateLimitEnabled !== false,
+      AiFastProvider: fastProvider,
+      AiFastEndpoint: fastEndpoint,
+      AiFastApiKey: fastApiKey,
+      AiFastModel: settings.AiFastModel,
+      AiIntelligentProvider: intelligentProvider,
+      AiIntelligentEndpoint: intelligentEndpoint,
+      AiIntelligentApiKey: intelligentApiKey,
+      AiIntelligentModel: settings.AiIntelligentModel,
+      AiPrompt: settings.AiPrompt,
+      AiDescriptionPrompt: settings.AiDescriptionPrompt,
+      AiPopulatePrompt: settings.AiPopulatePrompt,
+      AiCategoryPrompt: settings.AiCategoryPrompt,
+      AiImportPrompt: settings.AiImportPrompt,
+      AiCompletionTimeoutMs: clampAiCompletionTimeoutMs(
+        settings.AiCompletionTimeoutMs ?? config.AiCompletionTimeoutMs
+      ),
+      ScrapeFetchTimeoutMs: clampScrapeFetchTimeoutMs(
+        settings.ScrapeFetchTimeoutMs ?? config.ScrapeFetchTimeoutMs
+      ),
+      ScrapePlaywrightTimeoutMs: clampScrapePlaywrightTimeoutMs(
+        settings.ScrapePlaywrightTimeoutMs ?? config.ScrapePlaywrightTimeoutMs
+      ),
     });
   }
 }

@@ -4,7 +4,8 @@ import type { ReviewExtractor } from '../domain/ports/review-extractor.port';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
 import type { UserRepository } from '@/modules/auth/domain/ports/user.repository';
 import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
-import { loadConfig } from '@/common/infrastructure/config.loader';
+import type { ServerConfigRepository } from '@/modules/system/domain/ports/server-config.repository';
+import { resolveAiConnection } from '@/common/utils/resolve-ai-connection.util';
 import { ownerPolicyAllowsAiExtraction } from '@/common/application/user-ai-access.util';
 
 export class ExtractItemReviewsUseCase {
@@ -14,13 +15,14 @@ export class ExtractItemReviewsUseCase {
     private itemRepo: ItemRepository,
     private wishlistRepo: WishlistRepository,
     private userRepo: UserRepository,
-    private assertUserCan: AssertUserCanUseCase
+    private assertUserCan: AssertUserCanUseCase,
+    private configRepo: ServerConfigRepository
   ) {}
 
   async execute(itemId: string, listId: string, url: string): Promise<void> {
     try {
-      const config = loadConfig();
-      if (!config.aiEnabled) {
+      const config = this.configRepo.load();
+      if (!config.AiEnabled) {
         console.log('[AI Review] Global AI features are disabled. Skipping extraction.');
         return;
       }
@@ -54,11 +56,8 @@ export class ExtractItemReviewsUseCase {
 
       console.log(`[AI Review] Triggering review extraction for item: "${item.Name}" (${url})`);
 
-      const provider = config.aiProvider || 'gemini';
-      const apiKey = config.aiApiKey || Bun.env.GEMINI_API_KEY || '';
-      const model = config.aiModel || '';
-      const customPrompt = config.aiPrompt || '';
-      const endpoint = config.aiEndpoint || '';
+      const { provider, apiKey, model, endpoint } = resolveAiConnection(config, 'intelligent');
+      const customPrompt = config.AiPrompt || '';
 
       const reviewData = await this.reviewExtractor.extract(
         {

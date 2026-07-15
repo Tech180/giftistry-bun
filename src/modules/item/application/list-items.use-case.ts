@@ -4,6 +4,7 @@ import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlis
 import type { ItemAudienceUser } from '../domain/item-audience.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { canUserViewItem, isItemSuggestion } from '../domain/item-visibility.service';
+import { parseItemDescription } from '../domain/item-description.util';
 
 export class ListItemsUseCase {
   constructor(
@@ -66,6 +67,8 @@ export class ListItemsUseCase {
         const sharedWith: ItemAudienceUser[] | undefined =
           audienceUsers.length > 0 ? audienceUsers : undefined;
 
+        const { metadata } = parseItemDescription(item.Description);
+
         return {
           Id: item.Id,
           ListId: item.ListId,
@@ -83,6 +86,7 @@ export class ListItemsUseCase {
           Links: links,
           Claims: claimsResult,
           IsClaimed: shouldHideClaims ? false : claims.length > 0,
+          Metadata: metadata,
         };
       })
     );

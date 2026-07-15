@@ -275,7 +275,7 @@ describe("Items, Links & Claims", () => {
     const body = await res.json() as any;
     expect(body.Meta.Status).toBe("Success");
     const keys = body.Result.map((d: any) => d.FieldKey);
-    expect(keys).toContain("pantsSize");
+    expect(keys).toContain("PantsSize");
   });
 
   test("Suggestions and Anonymous Claims Lifecycle", async () => {

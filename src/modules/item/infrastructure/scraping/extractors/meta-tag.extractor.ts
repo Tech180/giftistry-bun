@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio';
 import { decodeHtmlEntities } from '../html-utils';
+import { sanitizeProductDescription } from '../../../domain/product-description.util';
 import type { MetadataExtractor } from './types';
 
 function getMetaContent($: cheerio.CheerioAPI, selectors: string[]): string {
@@ -50,12 +51,13 @@ export const metaTagExtractor: MetadataExtractor = {
     const priceVal = priceStr ? Number(priceStr.replace(/[^0-9.]/g, '')) : null;
     const price = priceVal !== null && !Number.isNaN(priceVal) ? priceVal : null;
 
-    const description =
+    const description = sanitizeProductDescription(
       getMetaContent($, [
         'meta[property="og:description"]',
         'meta[name="description"]',
         'meta[name="twitter:description"]',
-      ]) || null;
+      ]) || null
+    );
 
     const imageUrl = getMetaContent($, ['meta[property="og:image"]']) || null;
 

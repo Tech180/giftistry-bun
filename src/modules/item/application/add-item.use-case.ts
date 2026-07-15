@@ -4,6 +4,8 @@ import type { Item } from '../domain/item.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
 import type { EnrichLinkMetadataUseCase } from './enrich-link-metadata.use-case';
 import type { ExtractItemReviewsUseCase } from './extract-item-reviews.use-case';
+import { serializeItemDescription } from '../domain/item-description.util';
+import type { ItemDescriptionMetadata } from '../domain/item-description.util';
 
 export class AddItemUseCase {
   constructor(
@@ -26,7 +28,8 @@ export class AddItemUseCase {
     category: string = 'uncategorized',
     isSuggestion: boolean = false,
     priority: number | null = null,
-    sharedWithUserIds: string[] = []
+    sharedWithUserIds: string[] = [],
+    metadata: ItemDescriptionMetadata | null = null
   ): Promise<Item> {
     if (!listId) {
       throw new AppError('List ID is required', 400, 'BAD_REQUEST');
@@ -47,7 +50,12 @@ export class AddItemUseCase {
       }
     }
 
-    const item = await this.itemRepo.create(listId, priorityId, suggestedByUserId, name, description, isHiddenIdea, category, isSuggestion, priority);
+    let resolvedDescription = description;
+    if (metadata) {
+      resolvedDescription = serializeItemDescription(metadata.Text || description || '', metadata);
+    }
+
+    const item = await this.itemRepo.create(listId, priorityId, suggestedByUserId, name, resolvedDescription, isHiddenIdea, category, isSuggestion, priority);
 
     const sharedWith = await this.audienceRepo.setAudience(item.Id, sharedWithUserIds);
 
@@ -67,6 +75,12 @@ export class AddItemUseCase {
       this.extractItemReviews.execute(item.Id, listId, linkUrl).catch((err) => {
         console.error('Background AI review extraction trigger failed:', err);
       });
+
+      return {
+        ...item,
+        Links: [link],
+        SharedWith: sharedWith.length > 0 ? sharedWith : undefined,
+      };
     }
 
     return {

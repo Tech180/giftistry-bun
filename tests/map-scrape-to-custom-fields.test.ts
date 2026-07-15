@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { mapScrapeToCustomFields } from '../src/modules/item/infrastructure/map-scrape-to-custom-fields';
+import { mapScrapeToCustomFields } from '../src/modules/item/domain/map-scrape-to-custom-fields';
 
 describe('mapScrapeToCustomFields', () => {
   test('maps color to single Color key', () => {
@@ -17,7 +17,7 @@ describe('mapScrapeToCustomFields', () => {
     );
 
     expect(mapped.predefinedFields.Color).toBe('Blue');
-    expect(mapped.predefinedFields.preferredColor).toBeUndefined();
+    expect(mapped.predefinedFields.PreferredColor).toBeUndefined();
   });
 
   test('routes shoe sizes to ShoesSize for apparel', () => {

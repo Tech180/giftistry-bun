@@ -1,6 +1,10 @@
-import type { Browser, BrowserContext } from 'playwright';
+import type { Browser, BrowserContext, LaunchOptions } from 'playwright';
 import { chromium } from 'playwright';
 import { CHROME_USER_AGENT } from './browser-headers';
+import {
+  playwrightLaunchHint,
+  resolvePlaywrightExecutablePath,
+} from './resolve-playwright-executable';
 import { scrapingConfig } from './scraping-config';
 
 class PlaywrightManager {
@@ -22,16 +26,34 @@ class PlaywrightManager {
     process.on('SIGINT', shutdown);
   }
 
+  private buildLaunchOptions(): LaunchOptions {
+    const executablePath =
+      scrapingConfig.playwrightExecutablePath ?? resolvePlaywrightExecutablePath();
+
+    return {
+      headless: scrapingConfig.playwrightHeadless,
+      executablePath,
+      args: [
+        '--disable-blink-features=AutomationControlled',
+        '--no-sandbox',
+        '--disable-dev-shm-usage',
+      ],
+    };
+  }
+
   private async ensureBrowser(): Promise<Browser> {
     if (!this.browser || !this.browser.isConnected()) {
-      this.browser = await chromium.launch({
-        headless: scrapingConfig.playwrightHeadless,
-        args: [
-          '--disable-blink-features=AutomationControlled',
-          '--no-sandbox',
-          '--disable-dev-shm-usage',
-        ],
-      });
+      const options = this.buildLaunchOptions();
+      try {
+        this.browser = await chromium.launch(options);
+      } catch (err) {
+        const hint = playwrightLaunchHint(options.executablePath);
+        if (hint) {
+          const message = err instanceof Error ? err.message : String(err);
+          throw new Error(`${hint}\nOriginal error: ${message}`);
+        }
+        throw err;
+      }
     }
     return this.browser;
   }

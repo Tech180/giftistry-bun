@@ -65,6 +65,16 @@ function mergePartials(
   return { metadata: merged, titleFromSlug };
 }
 
+const COMPILED_CATEGORY_REGEXES = Object.entries(CATEGORY_KEYWORDS).map(([cat, keywords]) => {
+  const escapedKeywords = keywords
+    .map((kw) => kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|');
+  return {
+    category: cat,
+    regex: new RegExp(`\\b(${escapedKeywords})\\b`, 'i'),
+  };
+});
+
 function detectCategory(url: string, title: string): string | null {
   try {
     const urlObj = new URL(url);
@@ -72,12 +82,8 @@ function detectCategory(url: string, title: string): string | null {
     const path = urlObj.pathname.toLowerCase();
     const textToScan = `${host} ${path} ${title.toLowerCase()}`;
 
-    for (const [cat, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
-      const escapedKeywords = keywords
-        .map((kw) => kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-        .join('|');
-      const regex = new RegExp(`\\b(${escapedKeywords})\\b`, 'i');
-      if (regex.test(textToScan)) return cat;
+    for (const { category, regex } of COMPILED_CATEGORY_REGEXES) {
+      if (regex.test(textToScan)) return category;
     }
   } catch {
     // ignore invalid URLs

@@ -37,7 +37,7 @@ export class CreateAdminUserUseCase {
     const sitePolicy = await this.getSitePolicy.execute();
     const authHash = await Bun.password.hash(payload.password);
     const avatar = generateAvatarColor();
-    const policy = mergeUserPolicy(payload.policy ?? sitePolicy.defaultUserPolicy);
+    const policy = mergeUserPolicy(payload.policy ?? sitePolicy.DefaultUserPolicy);
 
     const userId = await this.adminUserRepo.create(
       {

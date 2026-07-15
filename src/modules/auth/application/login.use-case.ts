@@ -16,7 +16,7 @@ export class LoginUseCase {
     }
 
     const sitePolicy = await this.getSitePolicy.execute();
-    if (!sitePolicy.allowPasswordLogin) {
+    if (!sitePolicy.AllowPasswordLogin) {
       throw new AppError('Password login is disabled on this server', 403, 'FORBIDDEN');
     }
 

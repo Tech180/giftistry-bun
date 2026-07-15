@@ -1,17 +1,18 @@
 import type { ItemReviewRepository } from '../domain/ports/item-review.repository';
 import type { ExtractItemReviewsUseCase } from './extract-item-reviews.use-case';
-import { loadConfig } from '@/common/infrastructure/config.loader';
+import type { ServerConfigRepository } from '@/modules/system/domain/ports/server-config.repository';
 
 export class BackfillListReviewsUseCase {
   constructor(
     private itemReviewRepo: ItemReviewRepository,
-    private extractItemReviews: ExtractItemReviewsUseCase
+    private extractItemReviews: ExtractItemReviewsUseCase,
+    private configRepo: ServerConfigRepository
   ) {}
 
   async execute(listId: string): Promise<void> {
     try {
-      const config = loadConfig();
-      if (!config.aiEnabled) return;
+      const config = this.configRepo.load();
+      if (!config.AiEnabled) return;
 
       const itemsToBackfill = await this.itemReviewRepo.findItemsNeedingBackfill(listId);
       if (itemsToBackfill.length === 0) return;

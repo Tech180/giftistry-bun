@@ -7,15 +7,18 @@ import {
   parseSizeFromVariantName,
 } from '@/modules/item/infrastructure/scraping/extractors/json-ld-product.util';
 import { parseMetadata } from '@/modules/item/infrastructure/scraping/parser';
-import { mapScrapeToCustomFields } from '@/modules/item/infrastructure/map-scrape-to-custom-fields';
+import { mapScrapeToCustomFields } from '@/modules/item/domain/map-scrape-to-custom-fields';
 
 const FIXTURES = join(import.meta.dir, 'fixtures/scraping');
 const LTT_URL = 'https://www.lttstore.com/products/netnoodz-t-shirt?variant=42151262453863';
+const LTT_POLO_URL = 'https://www.lttstore.com/products/polo-shirt-1?variant=42169423233127';
 
 describe('json-ld product group utilities', () => {
   test('parses size suffix from variant name', () => {
     expect(parseSizeFromVariantName('NetNoodz T-shirt - Small', 'NetNoodz T-shirt')).toBe('Small');
     expect(parseSizeFromVariantName('Classic Hoodie / Large', 'Classic Hoodie')).toBe('Large');
+    expect(parseSizeFromVariantName('Polo Shirt / Dress Blues / Small', 'Polo Shirt')).toBe('Small');
+    expect(parseSizeFromVariantName('Dress Blues / Small')).toBe('Small');
   });
 
   test('extracts selected Shopify variant size and brand', () => {
@@ -37,6 +40,15 @@ describe('json-ld product group utilities', () => {
     expect(context).toContain('Selected Size: Small');
     expect(context).toContain('Available Sizes:');
   });
+
+  test('extracts size from color + size Shopify variants', () => {
+    const html = readFileSync(join(FIXTURES, 'ltt-polo-product-group.html'), 'utf8');
+    const details = extractJsonLdProductDetails(html, LTT_POLO_URL);
+
+    expect(details?.title).toBe('Polo Shirt');
+    expect(details?.selectedVariant?.name).toBe('Polo Shirt / Dress Blues / Small');
+    expect(details?.selectedVariant?.size).toBe('Small');
+  });
 });
 
 describe('LTT Shopify product scrape', () => {
@@ -49,6 +61,17 @@ describe('LTT Shopify product scrape', () => {
     expect(metadata.price).toBe(34.99);
 
     const mapped = mapScrapeToCustomFields(metadata, LTT_URL);
+    expect(mapped.predefinedFields.ShirtSize).toBe('Small');
+  });
+
+  test('extracts shirt size from polo color + size variant names', () => {
+    const html = readFileSync(join(FIXTURES, 'ltt-polo-product-group.html'), 'utf8').padEnd(600, ' ');
+    const metadata = parseMetadata(html, LTT_POLO_URL, 'full');
+
+    expect(metadata.title).toBe('Polo Shirt');
+    expect(metadata.size).toBe('Small');
+
+    const mapped = mapScrapeToCustomFields(metadata, LTT_POLO_URL);
     expect(mapped.predefinedFields.ShirtSize).toBe('Small');
   });
 });

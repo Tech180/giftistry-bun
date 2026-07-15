@@ -5,6 +5,7 @@ import type { AuthUseCases } from './auth-use-cases.interface';
 import type { UserRepository } from '../domain/ports/user.repository';
 import { rateLimit } from '@/common/middlewares/rate-limit.middleware';
 import { isAvatarColor } from '@/common/utils/avatar.util';
+import { loadConfig } from '@/common/infrastructure/config.loader';
 
 const getCookie = (cookieHeader: string | undefined, name: string): string | null => {
   if (!cookieHeader) return null;
@@ -348,12 +349,36 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
     .get('/me', async ({ getAuthUser }) => {
       const authUser = await getAuthUser();
       const user = await useCases.getCurrentUser.execute(authUser.userId);
-      return { success: true, User: user };
+      const config = loadConfig();
+      const userPolicy = authUser.Policy as { CanUseAiFeatures?: boolean } | undefined;
+
+      const canUseAi = Boolean(
+        config.AiEnabled &&
+        user.AiEnabled !== false &&
+        userPolicy?.CanUseAiFeatures !== false
+      );
+
+      const canUseWebSearch = Boolean(
+        config.AiEnabled &&
+        config.AiWebSearchEnabled &&
+        user.AiEnabled !== false &&
+        user.WebSearchEnabled !== false &&
+        userPolicy?.CanUseAiFeatures !== false
+      );
+
+      return {
+        success: true,
+        User: user,
+        Capabilities: {
+          CanUseAi: canUseAi,
+          CanUseWebSearch: canUseWebSearch,
+        }
+      };
     }, {
       detail: {
         tags: ['Authentication'],
         summary: 'Get active user profile',
-        description: 'Extracts the JWT from cookie/bearer token and returns the authenticated user context.',
+        description: 'Extracts the JWT from cookie/bearer token and returns the authenticated user context with user capabilities.',
         security: [{ bearerAuth: [] }],
       },
     })
@@ -377,7 +402,7 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
         description: 'Clears the JWT session cookie.',
       },
     })
-    .put('/profile', async ({ getAuthUser, body: { Giftistry: { Auth: { Username, FirstName, LastName, Bio, Theme, Avatar, AiEnabled } } } }) => {
+    .put('/profile', async ({ getAuthUser, body: { Giftistry: { Auth: { Username, FirstName, LastName, Bio, Theme, Avatar, AiEnabled, WebSearchEnabled } } } }) => {
       const authUser = await getAuthUser();
 
       if (Avatar !== undefined && Avatar !== null) {
@@ -412,6 +437,7 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
         theme: Theme ?? undefined,
         avatar: Avatar !== undefined ? Avatar : undefined,
         aiEnabled: AiEnabled,
+        webSearchEnabled: WebSearchEnabled,
       });
 
       return { success: true, User: user };
@@ -432,6 +458,7 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
             Theme: t.Optional(t.Nullable(t.String())),
             Avatar: t.Optional(t.Nullable(t.String())),
             AiEnabled: t.Optional(t.Boolean()),
+            WebSearchEnabled: t.Optional(t.Boolean()),
           }),
         }),
       }),

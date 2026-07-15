@@ -16,7 +16,7 @@ export function registerCreateNotificationHandlers(
         'friend_request',
         'New friend request',
         `${event.senderUsername} has sent you a friend request.`,
-        { requestId: event.requestId, senderId: event.senderId }
+        { RequestId: event.requestId, SenderId: event.senderId }
       );
     } catch (err) {
       console.error('[Notifications] Failed to create friend_request notification:', err);
@@ -30,7 +30,7 @@ export function registerCreateNotificationHandlers(
         'friend_accepted',
         'Friend request accepted',
         'Your friend request was accepted.',
-        { requestId: event.requestId, userId: event.accepterId }
+        { RequestId: event.requestId, UserId: event.accepterId }
       );
     } catch (err) {
       console.error('[Notifications] Failed to create friend_accepted notification:', err);
@@ -45,9 +45,9 @@ export function registerCreateNotificationHandlers(
         'Wishlist shared with you',
         event.body,
         {
-          listId: event.listId,
-          role: event.role,
-          ...(event.sharedBy ? { sharedBy: event.sharedBy } : {}),
+          ListId: event.listId,
+          Role: event.role,
+          ...(event.sharedBy ? { SharedBy: event.sharedBy } : {}),
         }
       );
     } catch (err) {
@@ -62,7 +62,7 @@ export function registerCreateNotificationHandlers(
         'invite_accepted',
         'Invite accepted',
         event.body,
-        { listId: event.listId, userId: event.accepterId, type: event.inviteType }
+        { ListId: event.listId, UserId: event.accepterId, Type: event.inviteType }
       );
     } catch (err) {
       console.error('[Notifications] Failed to create invite_accepted notification:', err);

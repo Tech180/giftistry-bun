@@ -13,12 +13,12 @@ export class RunInitialSetupUseCase {
       throw new AppError('Forbidden: System already setup', 400, 'BAD_REQUEST');
     }
 
-    if (payload.dbType === 'remote') {
-      if (!payload.dbUrl) {
+    if (payload.DbType === 'remote') {
+      if (!payload.DbUrl) {
         throw new AppError('Database connection URL is required for remote database type', 400, 'BAD_REQUEST');
       }
       try {
-        const testSql = postgres(payload.dbUrl, { max: 1, connect_timeout: 5 });
+        const testSql = postgres(payload.DbUrl, { max: 1, connect_timeout: 5 });
         await testSql`SELECT 1`;
         await testSql.end();
       } catch (err: any) {
@@ -26,19 +26,19 @@ export class RunInitialSetupUseCase {
       }
     }
 
-    if (payload.smtpType === 'remote') {
-      if (!payload.smtpHost || payload.smtpPort === undefined) {
+    if (payload.SmtpType === 'remote') {
+      if (!payload.SmtpHost || payload.SmtpPort === undefined) {
         throw new AppError('SMTP host and port are required for remote SMTP type', 400, 'BAD_REQUEST');
       }
       const transportOptions: nodemailer.TransportOptions = {
-        host: payload.smtpHost,
-        port: payload.smtpPort,
-        secure: payload.smtpSecure,
+        host: payload.SmtpHost,
+        port: payload.SmtpPort,
+        secure: payload.SmtpSecure,
       };
-      if (payload.smtpUser || payload.smtpPass) {
+      if (payload.SmtpUser || payload.SmtpPass) {
         transportOptions.auth = {
-          user: payload.smtpUser || '',
-          pass: payload.smtpPass || '',
+          user: payload.SmtpUser || '',
+          pass: payload.SmtpPass || '',
         };
       }
       try {
@@ -50,35 +50,35 @@ export class RunInitialSetupUseCase {
     }
 
     this.serverConfigRepo.save({
-      dbType: payload.dbType as 'local' | 'remote',
-      dbUrl: payload.dbUrl,
-      smtpType: payload.smtpType as 'local' | 'remote',
-      smtpHost: payload.smtpHost,
-      smtpPort: payload.smtpPort,
-      smtpUser: payload.smtpUser,
-      smtpPass: payload.smtpPass,
-      smtpSecure: payload.smtpSecure,
-      smtpFrom: payload.smtpFrom,
+      DbType: payload.DbType as 'local' | 'remote',
+      DbUrl: payload.DbUrl,
+      SmtpType: payload.SmtpType as 'local' | 'remote',
+      SmtpHost: payload.SmtpHost,
+      SmtpPort: payload.SmtpPort,
+      SmtpUser: payload.SmtpUser,
+      SmtpPass: payload.SmtpPass,
+      SmtpSecure: payload.SmtpSecure,
+      SmtpFrom: payload.SmtpFrom,
     });
 
     await this.serverConfigRepo.initializeSchema();
 
-    const { username, email, password, firstName, lastName } = payload.admin;
-    if (!username || !email || !password) {
+    const { Username, Email, Password, FirstName, LastName } = payload.Admin;
+    if (!Username || !Email || !Password) {
       throw new AppError('Admin credentials (username, email, password) are required', 400, 'BAD_REQUEST');
     }
 
-    const authHash = await Bun.password.hash(password);
-    const existing = await this.serverConfigRepo.findExistingUser(username, email);
+    const authHash = await Bun.password.hash(Password);
+    const existing = await this.serverConfigRepo.findExistingUser(Username, Email);
     if (existing) {
       throw new AppError('User already exists in setup phase', 400, 'BAD_REQUEST');
     }
 
     await this.serverConfigRepo.createAdminUser({
-      username,
-      email,
-      firstName: firstName || 'System',
-      lastName: lastName || 'Admin',
+      username: Username,
+      email: Email,
+      firstName: FirstName || 'System',
+      lastName: LastName || 'Admin',
       authHash,
     });
   }

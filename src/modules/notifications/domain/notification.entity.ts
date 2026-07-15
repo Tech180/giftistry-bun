@@ -3,7 +3,7 @@ export interface Notification {
   UserId: string;
   Type: string;
   Title: string;
-  Body: string;
+  Message: string;
   Metadata: Record<string, unknown>;
   ReadAt: Date | null;
   CreatedAt: Date;
@@ -29,7 +29,7 @@ export class NotificationEntity implements Notification {
   UserId!: string;
   Type!: string;
   Title!: string;
-  Body!: string;
+  Message!: string;
   Metadata!: Record<string, unknown>;
   ReadAt!: Date | null;
   CreatedAt!: Date;
@@ -42,7 +42,7 @@ export class NotificationEntity implements Notification {
     userId: string,
     type: string,
     title: string,
-    body: string,
+    message: string,
     metadata: Record<string, unknown> = {}
   ): NotificationEntity {
     return new NotificationEntity({
@@ -50,7 +50,7 @@ export class NotificationEntity implements Notification {
       UserId: userId,
       Type: type,
       Title: title,
-      Body: body,
+      Message: message,
       Metadata: metadata,
       ReadAt: null,
       CreatedAt: new Date(),

@@ -14,6 +14,7 @@ export class UpdateProfileUseCase {
     theme?: string;
     avatar?: string | null;
     aiEnabled?: boolean;
+    webSearchEnabled?: boolean;
   }): Promise<Omit<User, 'AuthHash'>> {
     if (updates.username) {
       const existingUser = await this.userRepo.findByUsername(updates.username);
@@ -39,6 +40,7 @@ export class UpdateProfileUseCase {
       IsAdmin: user.IsAdmin,
       IsOwner: user.IsOwner,
       AiEnabled: user.AiEnabled !== false,
+      WebSearchEnabled: user.WebSearchEnabled !== false,
       Policy: mergeUserPolicy(user.PolicyJson),
     };
   }

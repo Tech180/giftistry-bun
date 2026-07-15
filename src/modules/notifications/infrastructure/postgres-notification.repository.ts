@@ -13,7 +13,7 @@ export class PostgresNotificationRepository implements NotificationRepository {
     const [row] = await sql<any[]>`
       INSERT INTO notifications (user_id, type, title, body, metadata)
       VALUES (${userId}, ${type}, ${title}, ${body}, ${sql.json(metadata as any)})
-      RETURNING id as "Id", user_id as "UserId", type as "Type", title as "Title", body as "Body",
+      RETURNING id as "Id", user_id as "UserId", type as "Type", title as "Title", body as "Message",
                 metadata as "Metadata", read_at as "ReadAt", created_at as "CreatedAt"
     `;
     if (!row) throw new Error('Failed to create notification');
@@ -22,7 +22,7 @@ export class PostgresNotificationRepository implements NotificationRepository {
 
   async findByUserId(userId: string): Promise<Notification[]> {
     const rows = await sql<any[]>`
-      SELECT id as "Id", user_id as "UserId", type as "Type", title as "Title", body as "Body",
+      SELECT id as "Id", user_id as "UserId", type as "Type", title as "Title", body as "Message",
              metadata as "Metadata", read_at as "ReadAt", created_at as "CreatedAt"
       FROM notifications
       WHERE user_id = ${userId}
@@ -34,7 +34,7 @@ export class PostgresNotificationRepository implements NotificationRepository {
 
   async findById(id: string): Promise<Notification | null> {
     const [row] = await sql<any[]>`
-      SELECT id as "Id", user_id as "UserId", type as "Type", title as "Title", body as "Body",
+      SELECT id as "Id", user_id as "UserId", type as "Type", title as "Title", body as "Message",
              metadata as "Metadata", read_at as "ReadAt", created_at as "CreatedAt"
       FROM notifications
       WHERE id = ${id}
@@ -47,7 +47,7 @@ export class PostgresNotificationRepository implements NotificationRepository {
       UPDATE notifications
       SET read_at = CURRENT_TIMESTAMP
       WHERE id = ${id} AND user_id = ${userId}
-      RETURNING id as "Id", user_id as "UserId", type as "Type", title as "Title", body as "Body",
+      RETURNING id as "Id", user_id as "UserId", type as "Type", title as "Title", body as "Message",
                 metadata as "Metadata", read_at as "ReadAt", created_at as "CreatedAt"
     `;
     if (!row) throw new Error('Failed to mark notification as read');
@@ -146,7 +146,7 @@ export class PostgresNotificationRepository implements NotificationRepository {
       UserId: row.UserId,
       Type: row.Type,
       Title: row.Title,
-      Body: row.Body ?? '',
+      Message: row.Message ?? '',
       Metadata: row.Metadata ?? {},
       ReadAt: row.ReadAt ? new Date(row.ReadAt) : null,
       CreatedAt: new Date(row.CreatedAt),

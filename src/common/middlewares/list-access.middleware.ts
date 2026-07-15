@@ -31,7 +31,8 @@ export function createListAccessMiddleware(
 
 export async function getListAccessContext(
   userId: string,
-  target: { listId?: string; itemId?: string }
+  target: { listId?: string; itemId?: string },
+  minRole?: 'viewer' | 'collaborator' | 'owner'
 ) {
-  return checkListAccessUseCaseRef.execute(userId, target);
+  return checkListAccessUseCaseRef.execute(userId, target, minRole);
 }

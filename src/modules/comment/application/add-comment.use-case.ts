@@ -39,9 +39,9 @@ export class AddCommentUseCase {
     }
 
     if (userId) {
-      await this.assertUserCan.execute(userId, 'canUseComments');
+      await this.assertUserCan.execute(userId, 'CanUseComments');
       if (imageUrl) {
-        await this.assertUserCan.execute(userId, 'canUploadImages');
+        await this.assertUserCan.execute(userId, 'CanUploadImages');
       }
     }
 

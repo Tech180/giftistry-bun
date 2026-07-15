@@ -1,49 +1,49 @@
 export interface GiftistryUserPolicy {
-  canCreateWishlists: boolean;
-  maxActiveWishlists: number;
-  canUseComments: boolean;
-  canUseAiFeatures: boolean;
-  canSharePublicLinks: boolean;
-  canUploadImages: boolean;
-  canSendFriendRequests: boolean;
-  canUseCustomThemes: boolean;
+  CanCreateWishlists: boolean;
+  MaxActiveWishlists: number;
+  CanUseComments: boolean;
+  CanUseAiFeatures: boolean;
+  CanSharePublicLinks: boolean;
+  CanUploadImages: boolean;
+  CanSendFriendRequests: boolean;
+  CanUseCustomThemes: boolean;
 }
 
 export type RegistrationMode = 'open' | 'invite_only' | 'disabled';
 
 export interface SitePolicy {
-  registrationMode: RegistrationMode;
-  requireEmailVerification: boolean;
-  loginAttemptsBeforeLockout: number;
-  lockoutDurationMinutes: number;
-  maintenanceMode: boolean;
-  maintenanceMessage: string;
-  allowPasswordLogin: boolean;
-  allowedEmailDomains: string[];
-  defaultUserPolicy: GiftistryUserPolicy;
+  RegistrationMode: RegistrationMode;
+  RequireEmailVerification: boolean;
+  LoginAttemptsBeforeLockout: number;
+  LockoutDurationMinutes: number;
+  MaintenanceMode: boolean;
+  MaintenanceMessage: string;
+  AllowPasswordLogin: boolean;
+  AllowedEmailDomains: string[];
+  DefaultUserPolicy: GiftistryUserPolicy;
 }
 
 export const DEFAULT_USER_POLICY: GiftistryUserPolicy = {
-  canCreateWishlists: true,
-  maxActiveWishlists: 0,
-  canUseComments: true,
-  canUseAiFeatures: true,
-  canSharePublicLinks: true,
-  canUploadImages: true,
-  canSendFriendRequests: true,
-  canUseCustomThemes: true,
+  CanCreateWishlists: true,
+  MaxActiveWishlists: 0,
+  CanUseComments: true,
+  CanUseAiFeatures: true,
+  CanSharePublicLinks: true,
+  CanUploadImages: true,
+  CanSendFriendRequests: true,
+  CanUseCustomThemes: true,
 };
 
 export const DEFAULT_SITE_POLICY: SitePolicy = {
-  registrationMode: 'open',
-  requireEmailVerification: false,
-  loginAttemptsBeforeLockout: 5,
-  lockoutDurationMinutes: 0,
-  maintenanceMode: false,
-  maintenanceMessage: 'Giftistry is undergoing maintenance. Please check back soon.',
-  allowPasswordLogin: true,
-  allowedEmailDomains: [],
-  defaultUserPolicy: { ...DEFAULT_USER_POLICY },
+  RegistrationMode: 'open',
+  RequireEmailVerification: false,
+  LoginAttemptsBeforeLockout: 5,
+  LockoutDurationMinutes: 0,
+  MaintenanceMode: false,
+  MaintenanceMessage: 'Giftistry is undergoing maintenance. Please check back soon.',
+  AllowPasswordLogin: true,
+  AllowedEmailDomains: [],
+  DefaultUserPolicy: { ...DEFAULT_USER_POLICY },
 };
 
 export function mergeUserPolicy(raw: unknown): GiftistryUserPolicy {
@@ -51,30 +51,32 @@ export function mergeUserPolicy(raw: unknown): GiftistryUserPolicy {
   if (!raw || typeof raw !== 'object') return base;
   const obj = raw as Partial<GiftistryUserPolicy>;
   return {
-    canCreateWishlists: obj.canCreateWishlists ?? base.canCreateWishlists,
-    maxActiveWishlists: obj.maxActiveWishlists ?? base.maxActiveWishlists,
-    canUseComments: obj.canUseComments ?? base.canUseComments,
-    canUseAiFeatures: obj.canUseAiFeatures ?? base.canUseAiFeatures,
-    canSharePublicLinks: obj.canSharePublicLinks ?? base.canSharePublicLinks,
-    canUploadImages: obj.canUploadImages ?? base.canUploadImages,
-    canSendFriendRequests: obj.canSendFriendRequests ?? base.canSendFriendRequests,
-    canUseCustomThemes: obj.canUseCustomThemes ?? base.canUseCustomThemes,
+    CanCreateWishlists: obj.CanCreateWishlists ?? base.CanCreateWishlists,
+    MaxActiveWishlists: obj.MaxActiveWishlists ?? base.MaxActiveWishlists,
+    CanUseComments: obj.CanUseComments ?? base.CanUseComments,
+    CanUseAiFeatures: obj.CanUseAiFeatures ?? base.CanUseAiFeatures,
+    CanSharePublicLinks: obj.CanSharePublicLinks ?? base.CanSharePublicLinks,
+    CanUploadImages: obj.CanUploadImages ?? base.CanUploadImages,
+    CanSendFriendRequests: obj.CanSendFriendRequests ?? base.CanSendFriendRequests,
+    CanUseCustomThemes: obj.CanUseCustomThemes ?? base.CanUseCustomThemes,
   };
 }
 
 export function mergeSitePolicy(raw: unknown): SitePolicy {
-  const base = { ...DEFAULT_SITE_POLICY, defaultUserPolicy: { ...DEFAULT_USER_POLICY } };
+  const base = { ...DEFAULT_SITE_POLICY, DefaultUserPolicy: { ...DEFAULT_USER_POLICY } };
   if (!raw || typeof raw !== 'object') return base;
   const obj = raw as Partial<SitePolicy>;
   return {
-    registrationMode: obj.registrationMode ?? base.registrationMode,
-    requireEmailVerification: obj.requireEmailVerification ?? base.requireEmailVerification,
-    loginAttemptsBeforeLockout: obj.loginAttemptsBeforeLockout ?? base.loginAttemptsBeforeLockout,
-    lockoutDurationMinutes: obj.lockoutDurationMinutes ?? base.lockoutDurationMinutes,
-    maintenanceMode: obj.maintenanceMode ?? base.maintenanceMode,
-    maintenanceMessage: obj.maintenanceMessage ?? base.maintenanceMessage,
-    allowPasswordLogin: obj.allowPasswordLogin ?? base.allowPasswordLogin,
-    allowedEmailDomains: Array.isArray(obj.allowedEmailDomains) ? obj.allowedEmailDomains : base.allowedEmailDomains,
-    defaultUserPolicy: mergeUserPolicy(obj.defaultUserPolicy),
+    RegistrationMode: obj.RegistrationMode ?? base.RegistrationMode,
+    RequireEmailVerification: obj.RequireEmailVerification ?? base.RequireEmailVerification,
+    LoginAttemptsBeforeLockout: obj.LoginAttemptsBeforeLockout ?? base.LoginAttemptsBeforeLockout,
+    LockoutDurationMinutes: obj.LockoutDurationMinutes ?? base.LockoutDurationMinutes,
+    MaintenanceMode: obj.MaintenanceMode ?? base.MaintenanceMode,
+    MaintenanceMessage: obj.MaintenanceMessage ?? base.MaintenanceMessage,
+    AllowPasswordLogin: obj.AllowPasswordLogin ?? base.AllowPasswordLogin,
+    AllowedEmailDomains: Array.isArray(obj.AllowedEmailDomains)
+      ? obj.AllowedEmailDomains
+      : base.AllowedEmailDomains,
+    DefaultUserPolicy: mergeUserPolicy(obj.DefaultUserPolicy ?? base.DefaultUserPolicy),
   };
 }

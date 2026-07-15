@@ -8,22 +8,24 @@ export class GetSystemStatusUseCase {
   ) {}
 
   async execute(): Promise<{
-    initialized: boolean;
-    aiEnabled: boolean;
-    maintenanceMode: boolean;
-    maintenanceMessage: string;
-    registrationMode: string;
+    Initialized: boolean;
+    AiEnabled: boolean;
+    AiWebSearchEnabled: boolean;
+    MaintenanceMode: boolean;
+    MaintenanceMessage: string;
+    RegistrationMode: string;
   }> {
     const initialized = await this.serverConfigRepo.isSystemInitialized();
     const config = this.serverConfigRepo.load();
     const sitePolicy = await this.getSitePolicy.execute();
 
     return {
-      initialized,
-      aiEnabled: config.aiEnabled ?? false,
-      maintenanceMode: sitePolicy.maintenanceMode,
-      maintenanceMessage: sitePolicy.maintenanceMessage,
-      registrationMode: sitePolicy.registrationMode,
+      Initialized: initialized,
+      AiEnabled: config.AiEnabled ?? false,
+      AiWebSearchEnabled: config.AiWebSearchEnabled ?? false,
+      MaintenanceMode: sitePolicy.MaintenanceMode,
+      MaintenanceMessage: sitePolicy.MaintenanceMessage,
+      RegistrationMode: sitePolicy.RegistrationMode,
     };
   }
 }

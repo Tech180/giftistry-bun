@@ -5,17 +5,22 @@ import {
 } from '../src/modules/item/infrastructure/gemini-description-summarizer';
 import { SummarizeItemDescriptionUseCase } from '../src/modules/item/application/summarize-item-description.use-case';
 import { AppError } from '../src/common/middlewares/error.middleware';
+import type { ServerConfigRepository } from '../src/modules/system/domain/ports/server-config.repository';
 
-mock.module('../src/common/infrastructure/config.loader', () => ({
-  loadConfig: () => ({
-    aiEnabled: true,
-    aiProvider: 'gemini',
-    aiApiKey: 'test-key',
-    aiModel: '',
-    aiDescriptionPrompt: '',
-    aiEndpoint: '',
+const configRepo = {
+  load: () => ({
+    AiEnabled: true,
+    AiFastProvider: 'openrouter',
+    AiFastApiKey: 'test-key',
+    AiFastModel: '',
+    AiIntelligentProvider: 'openrouter',
+    AiIntelligentApiKey: 'test-key',
+    AiIntelligentModel: '',
+    AiDescriptionPrompt: '',
+    AiFastEndpoint: '',
+    AiIntelligentEndpoint: '',
   }),
-}));
+} as unknown as ServerConfigRepository;
 
 describe('compileDescriptionPrompt', () => {
   test('replaces description prompt tokens', () => {
@@ -68,7 +73,8 @@ describe('SummarizeItemDescriptionUseCase', () => {
       { findById: async () => ({ Id: 'list-1', UserId: 'owner-1', AiEnabled: false }) } as any,
       { findById: async () => ({ Id: 'user-1', AiEnabled: true }) } as any,
       { execute: async () => undefined } as any,
-      { summarize: async () => 'summary' } as any
+      { summarize: async () => 'summary' } as any,
+      configRepo
     );
 
     await expect(useCase.execute('user-1', baseInput)).rejects.toThrow(
@@ -81,7 +87,8 @@ describe('SummarizeItemDescriptionUseCase', () => {
       { findById: async () => ({ Id: 'list-1', UserId: 'owner-1', AiEnabled: true }) } as any,
       { findById: async () => ({ Id: 'user-1', AiEnabled: false }) } as any,
       { execute: async () => undefined } as any,
-      { summarize: async () => 'summary' } as any
+      { summarize: async () => 'summary' } as any,
+      configRepo
     );
 
     await expect(useCase.execute('user-1', baseInput)).rejects.toThrow(
@@ -100,7 +107,8 @@ describe('SummarizeItemDescriptionUseCase', () => {
             : { Id: 'owner-1', AiEnabled: true },
       } as any,
       { execute: async () => undefined } as any,
-      { summarize } as any
+      { summarize } as any,
+      configRepo
     );
 
     const result = await useCase.execute('user-1', {

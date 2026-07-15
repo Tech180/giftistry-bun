@@ -5,23 +5,23 @@ import {
   getLocalAiRootUrl,
   normalizeLocalAiEndpoint,
 } from '../domain/normalize-local-ai-endpoint';
+import { fetchLocalModelIds } from './list-system-models.use-case';
 
 export interface TestAiConnectionInput {
-  aiProvider: AiProvider | string;
-  aiEndpoint?: string | null;
-  aiApiKey?: string | null;
-  aiModel?: string | null;
+  AiProvider: AiProvider | string;
+  AiEndpoint?: string | null;
+  AiApiKey?: string | null;
+  AiModel?: string | null;
 }
 
 export interface TestAiConnectionResult {
-  reachable: boolean;
-  modelAvailable: boolean | null;
-  working: boolean;
-  message: string;
-  models?: string[];
+  Reachable: boolean;
+  ModelAvailable: boolean | null;
+  Working: boolean;
+  Message: string;
+  Models?: string[];
 }
 
-const MODELS_TIMEOUT_MS = 10_000;
 const OLLAMA_SHOW_TIMEOUT_MS = 10_000;
 const COMPLETION_TIMEOUT_MS = 120_000;
 
@@ -83,48 +83,23 @@ async function verifyOpenAiCompatibleCompletion(
 
 export class TestAiConnectionUseCase {
   async execute(input: TestAiConnectionInput): Promise<TestAiConnectionResult> {
-    if (input.aiProvider !== 'local') {
+    if (input.AiProvider !== 'local') {
       throw new AppError('AI connection test is only supported for local providers', 400, 'BAD_REQUEST');
     }
 
-    const baseEndpoint = normalizeLocalAiEndpoint(input.aiEndpoint);
+    const baseEndpoint = normalizeLocalAiEndpoint(input.AiEndpoint);
     if (!baseEndpoint) {
       throw new AppError('API endpoint URL is required for local AI provider', 400, 'BAD_REQUEST');
     }
 
     const headers: Record<string, string> = {};
-    if (input.aiApiKey?.trim()) {
-      headers.Authorization = `Bearer ${input.aiApiKey.trim()}`;
+    if (input.AiApiKey?.trim()) {
+      headers.Authorization = `Bearer ${input.AiApiKey.trim()}`;
     }
 
-    let models: string[] = [];
-    try {
-      const modelsResponse = await fetch(buildLocalAiUrl(baseEndpoint, 'models'), {
-        headers,
-        signal: AbortSignal.timeout(MODELS_TIMEOUT_MS),
-      });
+    const models = await fetchLocalModelIds(input.AiEndpoint, input.AiApiKey);
 
-      if (!modelsResponse.ok) {
-        throw new AppError(
-          `Cannot reach AI server at ${baseEndpoint} (HTTP ${modelsResponse.status})`,
-          400,
-          'BAD_REQUEST'
-        );
-      }
-
-      const modelsJson = await modelsResponse.json() as { data?: Array<{ id?: string }> };
-      models = (modelsJson.data ?? [])
-        .map((entry) => entry.id?.trim())
-        .filter((id): id is string => !!id);
-    } catch (err) {
-      if (err instanceof AppError) {
-        throw err;
-      }
-      const message = err instanceof Error ? err.message : 'Unknown connection error';
-      throw new AppError(`Cannot reach AI server at ${baseEndpoint}: ${message}`, 400, 'BAD_REQUEST');
-    }
-
-    const modelName = input.aiModel?.trim() || '';
+    const modelName = input.AiModel?.trim() || '';
     let modelAvailable: boolean | null = null;
 
     if (modelName) {
@@ -176,11 +151,11 @@ export class TestAiConnectionUseCase {
         : `Connected — default model "${targetModel}" is responding`;
 
     return {
-      reachable: true,
-      modelAvailable,
-      working: true,
-      message,
-      models,
+      Reachable: true,
+      ModelAvailable: modelAvailable,
+      Working: true,
+      Message: message,
+      Models: models,
     };
   }
 }

@@ -16,7 +16,7 @@ export async function assertOwnerCanEnableListAi(
     throw new AppError('AI features are disabled on your profile', 403, 'FORBIDDEN');
   }
 
-  await assertUserCan.execute(userId, 'canUseAiFeatures');
+  await assertUserCan.execute(userId, 'CanUseAiFeatures');
 }
 
 export async function ownerPolicyAllowsAiExtraction(
@@ -25,7 +25,7 @@ export async function ownerPolicyAllowsAiExtraction(
   assertUserCan: AssertUserCanUseCase
 ): Promise<boolean> {
   try {
-    await assertUserCan.execute(userId, 'canUseAiFeatures');
+    await assertUserCan.execute(userId, 'CanUseAiFeatures');
     return true;
   } catch {
     return false;

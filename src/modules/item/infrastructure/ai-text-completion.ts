@@ -1,4 +1,11 @@
+import { loadConfig } from '@/common/infrastructure/config.loader';
 import { buildLocalAiUrl, normalizeLocalAiEndpoint } from '@/modules/system/domain/normalize-local-ai-endpoint';
+import {
+  clampAiCompletionTimeoutMs,
+  DEFAULT_AI_COMPLETION_TIMEOUT_MS,
+} from '@/modules/system/domain/server-config.entity';
+
+export { DEFAULT_AI_COMPLETION_TIMEOUT_MS };
 
 export interface TextCompletionConfig {
   provider: string;
@@ -6,6 +13,76 @@ export interface TextCompletionConfig {
   model: string;
   endpoint: string;
   jsonResponse?: boolean;
+  /** Override default completion timeout (ms). */
+  timeoutMs?: number;
+}
+
+export function resolveCompletionTimeoutMs(override?: number): number {
+  if (override !== undefined && Number.isFinite(override) && override > 0) {
+    return clampAiCompletionTimeoutMs(override);
+  }
+
+  try {
+    const config = loadConfig();
+    if (
+      config.AiCompletionTimeoutMs !== undefined &&
+      Number.isFinite(config.AiCompletionTimeoutMs)
+    ) {
+      return clampAiCompletionTimeoutMs(config.AiCompletionTimeoutMs);
+    }
+  } catch {
+    /* config may be unavailable during early boot */
+  }
+
+  const fromEnv = Number.parseInt(process.env.AI_COMPLETION_TIMEOUT_MS || '', 10);
+  if (Number.isFinite(fromEnv) && fromEnv > 0) {
+    return clampAiCompletionTimeoutMs(fromEnv);
+  }
+
+  return DEFAULT_AI_COMPLETION_TIMEOUT_MS;
+}
+
+export function formatAiTimeoutMessage(timeoutMs: number): string {
+  const seconds = Math.max(1, Math.round(timeoutMs / 1000));
+  if (seconds >= 60) {
+    const minutes = Math.round(seconds / 60);
+    return `AI request timed out after ${minutes} minute${minutes === 1 ? '' : 's'}. Try a faster model or a smaller file.`;
+  }
+  return `AI request timed out after ${seconds} second${seconds === 1 ? '' : 's'}. Try a faster model or a smaller file.`;
+}
+
+export function isTimeoutError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const error = err as { name?: string; message?: string; code?: string | number };
+  if (error.name === 'TimeoutError' || error.name === 'AbortError') return true;
+  if (error.code === 23 || error.code === 'ABORT_ERR') return true;
+  const message = error.message || '';
+  return /timed out|aborted due to timeout/i.test(message);
+}
+
+type BunFetchInit = RequestInit & { timeout?: false | number | { connect?: number; idle?: number } };
+
+async function fetchWithAiTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number
+): Promise<Response> {
+  const signal = AbortSignal.timeout(timeoutMs);
+  const merged: BunFetchInit = {
+    ...init,
+    signal,
+    // Bun ignores longer AbortSignals unless the built-in ~5m ceiling is disabled.
+    timeout: false,
+  };
+
+  try {
+    return await fetch(url, merged);
+  } catch (err) {
+    if (isTimeoutError(err)) {
+      throw new Error(formatAiTimeoutMessage(timeoutMs));
+    }
+    throw err;
+  }
 }
 
 export async function completeTextPrompt(
@@ -13,6 +90,7 @@ export async function completeTextPrompt(
   config: TextCompletionConfig
 ): Promise<string> {
   const { provider, apiKey, model, endpoint, jsonResponse = false } = config;
+  const timeoutMs = resolveCompletionTimeoutMs(config.timeoutMs);
 
   if (provider === 'openrouter') {
     return completeOpenAiCompatible(prompt, {
@@ -28,6 +106,7 @@ export async function completeTextPrompt(
         'X-Title': 'Giftistry',
       },
       jsonResponse,
+      timeoutMs,
     });
   }
 
@@ -41,6 +120,7 @@ export async function completeTextPrompt(
       apiKey,
       model: model || 'gpt-4o-mini',
       jsonResponse,
+      timeoutMs,
     });
   }
 
@@ -51,19 +131,23 @@ export async function completeTextPrompt(
         : `${endpoint}/messages`
       : 'https://api.anthropic.com/v1/messages';
 
-    const response = await fetch(anthropicUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
+    const response = await fetchWithAiTimeout(
+      anthropicUrl,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: model || 'claude-3-5-sonnet-20240620',
+          max_tokens: 2000,
+          messages: [{ role: 'user', content: prompt }],
+        }),
       },
-      body: JSON.stringify({
-        model: model || 'claude-3-5-sonnet-20240620',
-        max_tokens: 2000,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    });
+      timeoutMs
+    );
 
     if (!response.ok) {
       throw new Error(`Anthropic API returned status ${response.status}: ${await response.text()}`);
@@ -94,6 +178,7 @@ export async function completeTextPrompt(
       model: model || 'llama3',
       headers,
       jsonResponse,
+      timeoutMs,
     });
   }
 
@@ -105,16 +190,20 @@ export async function completeTextPrompt(
       : `${endpoint}/models/${targetModel}:generateContent?key=${apiKey}`;
   }
 
-  const response = await fetch(geminiUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      ...(jsonResponse
-        ? { generationConfig: { responseMimeType: 'application/json' } }
-        : {}),
-    }),
-  });
+  const response = await fetchWithAiTimeout(
+    geminiUrl,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        ...(jsonResponse
+          ? { generationConfig: { responseMimeType: 'application/json' } }
+          : {}),
+      }),
+    },
+    timeoutMs
+  );
 
   if (!response.ok) {
     throw new Error(`Gemini API returned status ${response.status}: ${await response.text()}`);
@@ -137,6 +226,7 @@ async function completeOpenAiCompatible(
     headers?: Record<string, string>;
     extraHeaders?: Record<string, string>;
     jsonResponse?: boolean;
+    timeoutMs: number;
   }
 ): Promise<string> {
   const headers: Record<string, string> = {
@@ -148,15 +238,19 @@ async function completeOpenAiCompatible(
     headers.Authorization = `Bearer ${options.apiKey}`;
   }
 
-  const response = await fetch(options.url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      model: options.model,
-      messages: [{ role: 'user', content: prompt }],
-      ...(options.jsonResponse ? { response_format: { type: 'json_object' } } : {}),
-    }),
-  });
+  const response = await fetchWithAiTimeout(
+    options.url,
+    {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: options.model,
+        messages: [{ role: 'user', content: prompt }],
+        ...(options.jsonResponse ? { response_format: { type: 'json_object' } } : {}),
+      }),
+    },
+    options.timeoutMs
+  );
 
   if (!response.ok) {
     throw new Error(`AI API returned status ${response.status}: ${await response.text()}`);

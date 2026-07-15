@@ -78,6 +78,18 @@ describe("Friends System", () => {
     expect(bodyB.Result.some((f: any) => f.UserId === userA.userId)).toBe(true);
   });
 
+  test("User search excludes existing friends", async () => {
+    const res = await app.handle(
+      new Request(`http://localhost/api/users/search?q=${userB.username}`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${userA.token}` }
+      })
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.Result.some((u: any) => u.Id === userB.userId)).toBe(false);
+  });
+
   test("User search finds users by username", async () => {
     const res = await app.handle(
       new Request(`http://localhost/api/users/search?q=${userC.username}`, {

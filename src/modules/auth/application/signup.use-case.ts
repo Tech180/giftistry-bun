@@ -25,13 +25,13 @@ export class SignupUseCase {
     }
 
     const sitePolicy = await this.getSitePolicy.execute();
-    if (sitePolicy.registrationMode === 'disabled') {
+    if (sitePolicy.RegistrationMode === 'disabled') {
       throw new AppError('Registration is currently disabled', 403, 'FORBIDDEN');
     }
 
-    if (sitePolicy.allowedEmailDomains.length > 0) {
+    if (sitePolicy.AllowedEmailDomains.length > 0) {
       const domain = email.split('@')[1]?.toLowerCase();
-      if (!domain || !sitePolicy.allowedEmailDomains.map((d) => d.toLowerCase()).includes(domain)) {
+      if (!domain || !sitePolicy.AllowedEmailDomains.map((d) => d.toLowerCase()).includes(domain)) {
         throw new AppError('Registration is restricted to approved email domains', 403, 'FORBIDDEN');
       }
     }
@@ -54,7 +54,7 @@ export class SignupUseCase {
     const authHash = await Bun.password.hash(password);
     const user = await this.userRepo.create(username, email, firstName || '', lastName || '', authHash, isAdmin, isOwner);
 
-    await this.userRepo.setDefaultUserPolicy(user.Id, JSON.stringify(mergeUserPolicy(sitePolicy.defaultUserPolicy)));
+    await this.userRepo.setDefaultUserPolicy(user.Id, JSON.stringify(mergeUserPolicy(sitePolicy.DefaultUserPolicy)));
 
     const verificationToken = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);

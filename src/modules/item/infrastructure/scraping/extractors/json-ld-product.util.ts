@@ -1,3 +1,10 @@
+import {
+  extractShopifyProductContext,
+  formatShopifyProductContextLines,
+} from './shopify-product-context.util';
+import { sanitizeProductDescription } from '../../../domain/product-description.util';
+import { extractOgSiteName } from './resolve-website-name.util';
+
 export interface JsonLdProductVariant {
   id: string;
   name: string;
@@ -59,9 +66,64 @@ export function extractVariantIdFromUrl(url: string): string | null {
   }
 }
 
+const APPAREL_SIZE_TOKENS = new Set([
+  'xxs',
+  'xs',
+  's',
+  'm',
+  'l',
+  'xl',
+  'xxl',
+  'xxxl',
+  '2xl',
+  '3xl',
+  'x-small',
+  'small',
+  'medium',
+  'large',
+  'x-large',
+  'xx-large',
+  'xxx-large',
+  'one size',
+]);
+
+function looksLikeApparelSize(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+
+  const normalized = trimmed.toLowerCase().replace(/\s+/g, ' ');
+  const compact = normalized.replace(/[\s-]+/g, '');
+
+  if (APPAREL_SIZE_TOKENS.has(normalized) || APPAREL_SIZE_TOKENS.has(compact)) {
+    return true;
+  }
+
+  return /^(xx{0,2}s|xx{0,2}l|xs|s|m|l|xl|2xl|3xl)$/i.test(trimmed);
+}
+
+function splitVariantSegments(text: string): string[] {
+  return text
+    .split(/\s(?:\/|[-–—])\s/)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+}
+
+function pickApparelSizeFromText(text: string): string | null {
+  const segments = splitVariantSegments(text);
+  for (let index = segments.length - 1; index >= 0; index -= 1) {
+    const segment = segments[index];
+    if (segment && looksLikeApparelSize(segment)) {
+      return segment;
+    }
+  }
+  return null;
+}
+
 export function parseSizeFromVariantName(variantName: string, productName?: string | null): string | null {
   const trimmed = variantName.trim();
   if (!trimmed) return null;
+
+  let candidate: string | null = null;
 
   const productPrefix = productName?.trim();
   if (productPrefix) {
@@ -69,19 +131,28 @@ export function parseSizeFromVariantName(variantName: string, productName?: stri
     for (const separator of separators) {
       const prefix = `${productPrefix}${separator}`;
       if (trimmed.toLowerCase().startsWith(prefix.toLowerCase())) {
-        const size = trimmed.slice(prefix.length).trim();
-        if (size) return size;
+        const remainder = trimmed.slice(prefix.length).trim();
+        if (remainder) {
+          candidate = remainder;
+          break;
+        }
       }
     }
   }
 
-  const dashMatch = trimmed.match(/\s[-–—/]\s(.+)$/);
-  if (dashMatch?.[1]?.trim()) return dashMatch[1].trim();
+  if (!candidate) {
+    const dashMatch = trimmed.match(/\s[-–—/]\s(.+)$/);
+    if (dashMatch?.[1]?.trim()) candidate = dashMatch[1].trim();
+  }
 
-  const sizeLabelMatch = trimmed.match(/\b(?:size|sz)\s*[:]\s*(.+)$/i);
-  if (sizeLabelMatch?.[1]?.trim()) return sizeLabelMatch[1].trim();
+  if (!candidate) {
+    const sizeLabelMatch = trimmed.match(/\b(?:size|sz)\s*[:]\s*(.+)$/i);
+    if (sizeLabelMatch?.[1]?.trim()) candidate = sizeLabelMatch[1].trim();
+  }
 
-  return null;
+  if (!candidate) return null;
+
+  return pickApparelSizeFromText(candidate) ?? candidate;
 }
 
 function readBrand(record: Record<string, unknown>): string | null {
@@ -220,7 +291,11 @@ export function extractJsonLdProductDetails(html: string, url: string): JsonLdPr
 
 export function buildJsonLdPageContext(html: string, url: string): string {
   const details = extractJsonLdProductDetails(html, url);
+  const shopifyContext = extractShopifyProductContext(html, url);
   const lines: string[] = [];
+
+  const ogSiteName = extractOgSiteName(html);
+  if (ogSiteName) lines.push(`Store Name: ${ogSiteName}`);
 
   const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
   if (titleMatch?.[1]?.trim()) {
@@ -230,8 +305,13 @@ export function buildJsonLdPageContext(html: string, url: string): string {
   const metaDescMatch =
     html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i) ||
     html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']description["']/i);
-  if (metaDescMatch?.[1]?.trim()) {
-    lines.push(`Meta Description: ${metaDescMatch[1].trim()}`);
+  const metaDescription = sanitizeProductDescription(metaDescMatch?.[1]?.trim());
+  if (metaDescription) {
+    lines.push(`Meta Description: ${metaDescription}`);
+  }
+
+  if (shopifyContext) {
+    lines.push(...formatShopifyProductContextLines(shopifyContext));
   }
 
   if (!details) return lines.join('\n');
@@ -239,8 +319,9 @@ export function buildJsonLdPageContext(html: string, url: string): string {
   if (details.title) lines.push(`Product Name: ${details.title}`);
   if (details.brand) lines.push(`Brand: ${details.brand}`);
   if (details.category) lines.push(`Category: ${details.category}`);
-  if (details.description) {
-    lines.push(`Product Description: ${details.description.replace(/\s+/g, ' ').slice(0, 1200)}`);
+  const productDescription = sanitizeProductDescription(details.description);
+  if (productDescription) {
+    lines.push(`Product Description: ${productDescription.replace(/\s+/g, ' ').slice(0, 1200)}`);
   }
 
   if (details.selectedVariant) {

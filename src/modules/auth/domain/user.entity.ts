@@ -29,6 +29,7 @@ export interface User {
   SessionVersion?: number;
   PolicyJson?: GiftistryUserPolicy | Record<string, unknown> | null;
   AiEnabled?: boolean;
+  WebSearchEnabled?: boolean;
 }
 
 export type SafeUser = Omit<User, 'AuthHash'>;
@@ -91,11 +92,11 @@ export class UserEntity implements User {
       throw new AppError('This account is temporarily locked. Please try again later.', 403, 'FORBIDDEN');
     }
 
-    if (sitePolicy.maintenanceMode && !this.IsAdmin) {
-      throw new AppError(sitePolicy.maintenanceMessage || 'Server is in maintenance mode', 503, 'MAINTENANCE');
+    if (sitePolicy.MaintenanceMode && !this.IsAdmin) {
+      throw new AppError(sitePolicy.MaintenanceMessage || 'Server is in maintenance mode', 503, 'MAINTENANCE');
     }
 
-    if (sitePolicy.requireEmailVerification && !this.EmailVerified && !this.IsAdmin) {
+    if (sitePolicy.RequireEmailVerification && !this.EmailVerified && !this.IsAdmin) {
       throw new AppError('Please verify your email before logging in', 403, 'FORBIDDEN');
     }
   }
@@ -103,14 +104,14 @@ export class UserEntity implements User {
   recordFailedLogin(sitePolicy: SitePolicy): { failedLoginCount: number; lockedUntil: Date | null } {
     const lockoutLimit = this.LoginAttemptsBeforeLockout && this.LoginAttemptsBeforeLockout > 0
       ? this.LoginAttemptsBeforeLockout
-      : sitePolicy.loginAttemptsBeforeLockout;
+      : sitePolicy.LoginAttemptsBeforeLockout;
 
     const failedLoginCount = (this.FailedLoginCount ?? 0) + 1;
     let lockedUntil: Date | null = null;
 
     if (lockoutLimit > 0 && failedLoginCount >= lockoutLimit) {
-      if (sitePolicy.lockoutDurationMinutes > 0) {
-        lockedUntil = new Date(Date.now() + sitePolicy.lockoutDurationMinutes * 60 * 1000);
+      if (sitePolicy.LockoutDurationMinutes > 0) {
+        lockedUntil = new Date(Date.now() + sitePolicy.LockoutDurationMinutes * 60 * 1000);
       } else {
         lockedUntil = new Date('2099-01-01');
       }

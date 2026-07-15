@@ -23,7 +23,7 @@ export const wishlistRoutes = (
       security: [{ bearerAuth: [] }]
     }
   })
-  .post('/wishlists', async ({ getAuthUser, body: { Giftistry: { Lists: { Title, ExpiresAt, AllowGroupFunds, Category, RevealSuggestions, AiEnabled } } } }) => {
+  .post('/wishlists', async ({ getAuthUser, body: { Giftistry: { Lists: { Title, ExpiresAt, AllowGroupFunds, Category, RevealSuggestions, AiEnabled, WebSearchEnabled } } } }) => {
     const user = await getAuthUser();
     if (!user.EmailVerified) {
       throw new AppError('Forbidden: You must verify your email before creating lists.', 403, 'FORBIDDEN');
@@ -35,7 +35,8 @@ export const wishlistRoutes = (
       AllowGroupFunds ?? false,
       Category,
       RevealSuggestions,
-      AiEnabled ?? false
+      AiEnabled,
+      WebSearchEnabled
     );
     return { success: true, data: wishlist };
   }, {
@@ -54,6 +55,7 @@ export const wishlistRoutes = (
           Category: t.Optional(t.String()),
           RevealSuggestions: t.Optional(t.Boolean()),
           AiEnabled: t.Optional(t.Boolean()),
+          WebSearchEnabled: t.Optional(t.Boolean()),
         })
       })
     })
@@ -226,6 +228,50 @@ export const wishlistRoutes = (
       security: [{ bearerAuth: [] }]
     }
   })
+  .get('/wishlists/:listId/pdf', async ({ params: { listId }, getAuthUser, checkListAccess }) => {
+    await checkListAccess('viewer');
+    const user = await getAuthUser();
+    const pdfBytes = await useCases.exportWishlistPdf.execute(listId, user.userId);
+    return new Response(pdfBytes, {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="wishlist-${listId}.pdf"`,
+      },
+    });
+  }, {
+    detail: {
+      tags: ['Wishlists'],
+      summary: 'Export wishlist as PDF',
+      description: 'Generates and downloads a beautifully formatted PDF of the wishlist and its items.',
+      security: [{ bearerAuth: [] }]
+    }
+  })
+  .get('/wishlists/:listId/export', async ({ params: { listId }, query: { format }, getAuthUser, checkListAccess }) => {
+    await checkListAccess('viewer');
+    const user = await getAuthUser();
+    const result = await useCases.exportWishlistData.execute(listId, user.userId, format as 'csv' | 'xlsx' | 'txt' | 'json');
+    return new Response(result.data, {
+      headers: {
+        'Content-Type': result.contentType,
+        'Content-Disposition': `attachment; filename="${result.filename}"`,
+      },
+    });
+  }, {
+    query: t.Object({
+      format: t.Union([
+        t.Literal('csv'),
+        t.Literal('xlsx'),
+        t.Literal('txt'),
+        t.Literal('json'),
+      ]),
+    }),
+    detail: {
+      tags: ['Wishlists'],
+      summary: 'Export wishlist data',
+      description: 'Generates and downloads a wishlist in CSV, XLSX, TXT, or JSON formats.',
+      security: [{ bearerAuth: [] }]
+    }
+  })
   .put('/wishlists/:listId/deactivate', async ({ params: { listId }, checkListAccess }) => {
     await checkListAccess('owner');
     await useCases.deactivateWishlist.execute(listId);
@@ -238,9 +284,9 @@ export const wishlistRoutes = (
       security: [{ bearerAuth: [] }]
     }
   })
-  .put('/wishlists/:listId', async ({ params: { listId }, checkListAccess, body: { Giftistry: { Lists: { Title, ExpiresAt, AllowGroupFunds, Category, RevealSuggestions, AiEnabled } } } }) => {
+  .put('/wishlists/:listId', async ({ params: { listId }, checkListAccess, body: { Giftistry: { Lists: { Title, ExpiresAt, AllowGroupFunds, Category, RevealSuggestions, AiEnabled, WebSearchEnabled } } } }) => {
     await checkListAccess('owner');
-    const updated = await useCases.updateWishlist.execute(listId, Title, ExpiresAt, AllowGroupFunds ?? false, Category, RevealSuggestions, AiEnabled);
+    const updated = await useCases.updateWishlist.execute(listId, Title, ExpiresAt, AllowGroupFunds ?? false, Category, RevealSuggestions, AiEnabled, WebSearchEnabled);
     return { success: true, data: updated };
   }, {
     detail: {
@@ -258,6 +304,7 @@ export const wishlistRoutes = (
           Category: t.Optional(t.String()),
           RevealSuggestions: t.Optional(t.Boolean()),
           AiEnabled: t.Optional(t.Boolean()),
+          WebSearchEnabled: t.Optional(t.Boolean()),
         })
       })
     })

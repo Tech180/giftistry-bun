@@ -27,7 +27,7 @@ export class GetAdminOverviewUseCase {
         Lists: lists,
         Comments: commentCount,
         OpenReports: openReports,
-        MaintenanceMode: sitePolicy.maintenanceMode,
+        MaintenanceMode: sitePolicy.MaintenanceMode,
       },
       RecentAudit: recentAudit,
     };

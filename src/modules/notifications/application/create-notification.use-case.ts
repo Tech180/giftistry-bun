@@ -16,7 +16,7 @@ export class CreateNotificationUseCase {
       notification.UserId,
       notification.Type,
       notification.Title,
-      notification.Body,
+      notification.Message,
       notification.Metadata
     );
   }

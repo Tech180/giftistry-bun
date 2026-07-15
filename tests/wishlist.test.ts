@@ -474,5 +474,19 @@ describe("Wishlist Lifecycle & Shares", () => {
 
       await cleanUpUser(anotherUnrelated.userId);
     });
+
+    test("User exports wishlist as PDF successfully", async () => {
+      const res = await app.handle(
+        new Request(`http://localhost/api/wishlists/${listId}/pdf`, {
+          method: "GET",
+          headers: { "Authorization": `Bearer ${owner.token}` }
+        })
+      );
+      expect(res.status).toBe(200);
+      expect(res.headers.get("Content-Type")).toBe("application/pdf");
+      expect(res.headers.get("Content-Disposition")).toContain("attachment; filename=");
+      const arrayBuffer = await res.arrayBuffer();
+      expect(arrayBuffer.byteLength).toBeGreaterThan(0);
+    });
   });
 });

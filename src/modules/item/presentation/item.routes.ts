@@ -1,9 +1,10 @@
 import { Elysia, t } from 'elysia';
 import type { RouteMiddleware } from '@/common/types/route-middleware';
-import { rateLimit } from '@/common/middlewares/rate-limit.middleware';
+import { rateLimit, checkRateLimit } from '@/common/middlewares/rate-limit.middleware';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { getListAccessContext } from '@/common/middlewares/list-access.middleware';
-import type { ItemUseCases } from './item-use-cases.interface';
+import { loadConfig } from '@/common/infrastructure/config.loader';
+import type { ItemUseCases } from '../application/item-use-cases.interface';
 
 export const itemRoutes = (
   useCases: ItemUseCases,
@@ -24,7 +25,7 @@ export const itemRoutes = (
       security: [{ bearerAuth: [] }]
     }
   })
-  .post('/wishlists/:listId/items', async ({ getAuthUser, checkListAccess, params: { listId }, body: { Giftistry: { Items: { Name, Description, PriorityId, IsHiddenIdea, LinkUrl, Price, WebsiteName, Category, Priority, SharedWithUserIds } } } }) => {
+  .post('/wishlists/:listId/items', async ({ getAuthUser, checkListAccess, params: { listId }, body: { Giftistry: { Items: { Name, Description, PriorityId, IsHiddenIdea, LinkUrl, Price, WebsiteName, Category, Priority, SharedWithUserIds, Metadata } } } }) => {
     const { role } = await checkListAccess('collaborator');
     const user = await getAuthUser();
     const resolvedHidden = IsHiddenIdea ?? false;
@@ -55,7 +56,8 @@ export const itemRoutes = (
       Category ?? 'uncategorized',
       isSuggestion,
       Priority !== undefined && Priority !== null ? Number(Priority) : null,
-      validatedAudience
+      validatedAudience,
+      Metadata ?? null
     );
     return { success: true, data: item };
   }, {
@@ -79,6 +81,65 @@ export const itemRoutes = (
           IsSuggestion: t.Optional(t.Boolean()),
           Priority: t.Optional(t.Nullable(t.Numeric())),
           SharedWithUserIds: t.Optional(t.Array(t.String())),
+          Metadata: t.Optional(t.Nullable(t.Object({
+            Text: t.Optional(t.Nullable(t.String())),
+            CustomFields: t.Optional(t.Nullable(t.Object({
+              Predefined: t.Optional(t.Nullable(t.Record(t.String(), t.Nullable(t.String())))),
+              UserDefined: t.Optional(t.Nullable(t.Record(t.String(), t.String()))),
+            }))),
+            DesiredQuantity: t.Optional(t.Nullable(t.Numeric())),
+            Variations: t.Optional(t.Nullable(t.Array(t.Object({
+              Name: t.String(),
+              Quantity: t.Numeric(),
+            })))),
+            LinkedItemIds: t.Optional(t.Nullable(t.Array(t.String()))),
+            OtherUsersCanSee: t.Optional(t.Nullable(t.Boolean())),
+            MultiCount: t.Optional(t.Nullable(t.Boolean())),
+            IsFavorite: t.Optional(t.Nullable(t.Boolean())),
+            IsPinned: t.Optional(t.Nullable(t.Boolean())),
+          })))
+        })
+      })
+    })
+  })
+  .post('/wishlists/:listId/items/bulk', async ({ getAuthUser, checkListAccess, params: { listId }, body: { Giftistry: { Items: { Items } } } }) => {
+    const { role } = await checkListAccess('collaborator');
+    const user = await getAuthUser();
+    const result = await useCases.bulkAddItems.execute(listId, user.userId, role, Items.map((row) => ({
+      name: row.Name,
+      description: row.Description ?? null,
+      priorityId: row.PriorityId ?? null,
+      isHiddenIdea: row.IsHiddenIdea ?? false,
+      linkUrl: row.LinkUrl ?? null,
+      price: row.Price !== undefined && row.Price !== null ? Number(row.Price) : null,
+      websiteName: row.WebsiteName ?? null,
+      category: row.Category ?? 'uncategorized',
+      priority: row.Priority !== undefined && row.Priority !== null ? Number(row.Priority) : null,
+      sharedWithUserIds: row.SharedWithUserIds,
+    })));
+    return { success: true, data: result };
+  }, {
+    detail: {
+      tags: ['Items'],
+      summary: 'Bulk add items to wishlist',
+      description: 'Create multiple wishlist items in one request. Partial failures are reported per index.',
+      security: [{ bearerAuth: [] }]
+    },
+    body: t.Object({
+      Giftistry: t.Object({
+        Items: t.Object({
+          Items: t.Array(t.Object({
+            Name: t.String(),
+            Description: t.Optional(t.Nullable(t.String())),
+            PriorityId: t.Optional(t.Nullable(t.String())),
+            IsHiddenIdea: t.Optional(t.Boolean()),
+            LinkUrl: t.Optional(t.Nullable(t.String())),
+            Price: t.Optional(t.Nullable(t.Numeric())),
+            WebsiteName: t.Optional(t.Nullable(t.String())),
+            Category: t.Optional(t.Nullable(t.String())),
+            Priority: t.Optional(t.Nullable(t.Numeric())),
+            SharedWithUserIds: t.Optional(t.Array(t.String())),
+          })),
         })
       })
     })
@@ -122,6 +183,26 @@ export const itemRoutes = (
       Giftistry: t.Object({
         Items: t.Object({
           Url: t.String(),
+        })
+      })
+    })
+  })
+  .post('/items/:itemId/links/sync', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: { TargetItemIds } } } }) => {
+    await checkListAccess('collaborator');
+    const user = await getAuthUser();
+    await useCases.syncItemLinks.execute(itemId, TargetItemIds, user.userId);
+    return { success: true };
+  }, {
+    detail: {
+      tags: ['Items'],
+      summary: 'Sync bidirectional links for item',
+      description: 'Synchronize the linked items bidirectional graph in a single call.',
+      security: [{ bearerAuth: [] }]
+    },
+    body: t.Object({
+      Giftistry: t.Object({
+        Items: t.Object({
+          TargetItemIds: t.Array(t.String()),
         })
       })
     })
@@ -177,28 +258,115 @@ export const itemRoutes = (
       security: [{ bearerAuth: [] }]
     }
   })
-  .use(rateLimit({ windowMs: 60000, max: 10, paths: ['/items/extract-metadata', '/items/summarize-description'] }))
-  .post('/items/extract-metadata', async ({ getAuthUser, body: { Giftistry: { Items: { Url } } } }) => {
+  .use(rateLimit({ windowMs: 60000, max: 30, paths: ['/items/extract-metadata', '/items/summarize-description', '/items/import-preview'], respectAiRateLimitToggle: true }))
+  .post('/items/import-preview', async ({ getAuthUser, body: { Giftistry: { Items: payload } } }) => {
     try {
       const user = await getAuthUser();
-      const result = await useCases.extractMetadata.execute(Url, user.userId);
+      if (payload.ListId) {
+        await getListAccessContext(user.userId, { listId: payload.ListId }, 'collaborator');
+      }
+      const result = await useCases.parseImportPreview.execute(user.userId, {
+        listId: payload.ListId,
+        fileName: payload.FileName,
+        format: payload.Format,
+        content: payload.Content,
+        contentEncoding: payload.ContentEncoding,
+      });
       return {
         success: true,
         data: {
-          title: result.data.title,
-          price: result.data.price,
-          description: result.data.description,
-          category: result.data.category,
-          imageUrl: result.data.imageUrl,
-          customFields: {
-            predefined: result.data.predefinedFields ?? {},
-            userDefined: result.data.userDefinedFields ?? {},
-          },
+          Items: result.items.map((item) => ({
+            Name: item.name,
+            Category: item.category,
+            Priority: item.priority,
+            Description: item.description,
+            Price: item.price ?? null,
+            WebsiteLink: item.websiteLink,
+            IsFavorite: item.isFavorite === true,
+            Color: item.color,
+            Size: item.size,
+          })),
+          Warnings: result.warnings,
+          SourceFormat: result.sourceFormat,
+          ParseMode: result.parseMode,
+          SuggestedWishlistTitle: result.suggestedWishlistTitle,
         },
-        diagnostics: {
-          source: result.diagnostics.source,
-          confidence: result.diagnostics.confidence,
-          fieldsFound: result.diagnostics.fieldsFound,
+      };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Import preview failed';
+      return { success: false, message };
+    }
+  }, {
+    detail: {
+      tags: ['Items'],
+      summary: 'Preview wishlist import from file',
+      description: 'Parse an uploaded wishlist export into editable item previews. Giftistry JSON/CSV parse deterministically; other formats use AI.',
+      security: [{ bearerAuth: [] }]
+    },
+    body: t.Object({
+      Giftistry: t.Object({
+        Items: t.Object({
+          ListId: t.Optional(t.String()),
+          FileName: t.String(),
+          Format: t.Optional(t.Union([
+            t.Literal('csv'),
+            t.Literal('xlsx'),
+            t.Literal('txt'),
+            t.Literal('json'),
+            t.Literal('pdf'),
+            t.Literal('unknown'),
+          ])),
+          Content: t.String(),
+          ContentEncoding: t.Union([
+            t.Literal('text'),
+            t.Literal('base64'),
+            t.Literal('data-url'),
+          ]),
+        })
+      })
+    })
+  })
+  .post('/items/extract-metadata', async ({ getAuthUser, request, body: { Giftistry: { Items: { Url, ListId } } } }) => {
+    try {
+      const user = await getAuthUser();
+
+      const willWebSearch = await useCases.extractMetadata.willUseWebSearch(user.userId, ListId);
+      if (willWebSearch) {
+        const aiConfig = loadConfig();
+        if (aiConfig.AiRateLimitEnabled !== false) {
+          const ip =
+            request.headers.get('x-forwarded-for') ||
+            request.headers.get('x-real-ip') ||
+            '127.0.0.1';
+          checkRateLimit(`${ip}:/items/extract-metadata:web-search`, {
+            windowMs: 60000,
+            max: 5,
+          });
+        }
+      }
+
+      const result = await useCases.extractMetadata.execute(Url, user.userId, {
+        listId: ListId,
+      });
+      return {
+        success: true,
+        data: {
+          Title: result.data.title,
+          Price: result.data.price,
+          Description: result.data.description,
+          Category: result.data.category,
+          CategoryAlternatives: result.data.categoryAlternatives ?? [],
+          ImageUrl: result.data.imageUrl,
+          WebsiteName: result.websiteName ?? null,
+          CustomFields: {
+            Predefined: result.data.predefinedFields ?? {},
+            UserDefined: result.data.userDefinedFields ?? {},
+          },
+          Diagnostics: {
+            Source: result.diagnostics.source,
+            Confidence: result.diagnostics.confidence,
+            FieldsFound: result.diagnostics.fieldsFound,
+          },
         },
       };
     } catch (e) {
@@ -210,9 +378,9 @@ export const itemRoutes = (
       return {
         success: false,
         message: e instanceof Error ? e.message : 'Error extracting metadata',
-        diagnostics: {
-          blocked: diagnostics?.blocked ?? false,
-          validationReason: diagnostics?.validationReason,
+        Diagnostics: {
+          Blocked: diagnostics?.blocked ?? false,
+          ValidationReason: diagnostics?.validationReason,
         },
       };
     }
@@ -227,6 +395,7 @@ export const itemRoutes = (
       Giftistry: t.Object({
         Items: t.Object({
           Url: t.String(),
+          ListId: t.Optional(t.String()),
         })
       })
     })
@@ -293,7 +462,7 @@ export const itemRoutes = (
       }),
     }),
   })
-  .put('/items/:itemId', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: { Name, Description, PriorityId, Category, Priority, SharedWithUserIds, LinkUrl, Price, WebsiteName } } } }) => {
+  .put('/items/:itemId', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: { Name, Description, PriorityId, Category, Priority, SharedWithUserIds, LinkUrl, Price, WebsiteName, Metadata } } } }) => {
     const access = await checkListAccess('collaborator');
     const user = await getAuthUser();
     const isOwner = access.role === 'owner';
@@ -320,7 +489,8 @@ export const itemRoutes = (
       validatedAudience,
       LinkUrl,
       Price !== undefined ? (Price !== null ? Number(Price) : null) : undefined,
-      WebsiteName
+      WebsiteName,
+      Metadata ?? undefined
     );
     return { success: true, data: item };
   }, {
@@ -342,6 +512,23 @@ export const itemRoutes = (
           LinkUrl: t.Optional(t.Nullable(t.String())),
           Price: t.Optional(t.Nullable(t.Numeric())),
           WebsiteName: t.Optional(t.Nullable(t.String())),
+          Metadata: t.Optional(t.Nullable(t.Object({
+            Text: t.Optional(t.Nullable(t.String())),
+            CustomFields: t.Optional(t.Nullable(t.Object({
+              Predefined: t.Optional(t.Nullable(t.Record(t.String(), t.Nullable(t.String())))),
+              UserDefined: t.Optional(t.Nullable(t.Record(t.String(), t.String()))),
+            }))),
+            DesiredQuantity: t.Optional(t.Nullable(t.Numeric())),
+            Variations: t.Optional(t.Nullable(t.Array(t.Object({
+              Name: t.String(),
+              Quantity: t.Numeric(),
+            })))),
+            LinkedItemIds: t.Optional(t.Nullable(t.Array(t.String()))),
+            OtherUsersCanSee: t.Optional(t.Nullable(t.Boolean())),
+            MultiCount: t.Optional(t.Nullable(t.Boolean())),
+            IsFavorite: t.Optional(t.Nullable(t.Boolean())),
+            IsPinned: t.Optional(t.Nullable(t.Boolean())),
+          })))
         })
       })
     })

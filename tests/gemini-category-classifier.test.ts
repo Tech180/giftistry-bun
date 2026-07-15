@@ -8,12 +8,13 @@ import {
 describe('compileCategoryPrompt', () => {
   test('replaces category prompt tokens', () => {
     const prompt = compileCategoryPrompt(
-      'URL={url}; Store={websiteName}; Name={itemName}; Context={pageContext}',
+      'URL={url}; Store={websiteName}; Name={itemName}; Context={pageContext}; Existing={existingCategories}',
       {
         url: 'https://shop.example/item',
         websiteName: 'Example',
         itemName: 'Cool Tee',
         pageContext: 'Title: Tee',
+        existingCategories: ['Toys', 'Games'],
       }
     );
 
@@ -21,6 +22,7 @@ describe('compileCategoryPrompt', () => {
     expect(prompt).toContain('Store=Example');
     expect(prompt).toContain('Name=Cool Tee');
     expect(prompt).toContain('Context=Title: Tee');
+    expect(prompt).toContain('Existing=Toys, Games');
   });
 });
 
@@ -33,6 +35,20 @@ describe('normalizeCategoryLabel', () => {
 
 describe('parseCategoryJson', () => {
   test('parses category from JSON response', () => {
-    expect(parseCategoryJson('{"category":"Tech Gadgets"}')).toBe('tech_gadgets');
+    expect(parseCategoryJson('{"Category":"Tech Gadgets"}')).toEqual({
+      category: 'tech_gadgets',
+      alternatives: [],
+    });
+  });
+
+  test('parses alternatives and excludes duplicate primary', () => {
+    expect(
+      parseCategoryJson(
+        '{"Category":"clothing","Alternatives":["Apparel","health_wellness","clothing"]}'
+      )
+    ).toEqual({
+      category: 'clothing',
+      alternatives: ['apparel', 'health_wellness'],
+    });
   });
 });

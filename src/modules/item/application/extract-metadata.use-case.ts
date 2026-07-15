@@ -1,25 +1,28 @@
-import { loadConfig } from '@/common/infrastructure/config.loader';
+import type { ServerConfigRepository } from '@/modules/system/domain/ports/server-config.repository';
+import { resolveAiConnection, isAiSlotConfigured } from '@/common/utils/resolve-ai-connection.util';
 import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
 import type { UserRepository } from '@/modules/auth/domain/ports/user.repository';
 import type { MetadataScraper, ScrapeResult } from '../domain/ports/metadata-scraper.port';
 import type { MetadataPopulator } from '../domain/ports/metadata-populator.port';
-import type { CategoryClassifier } from '../domain/ports/category-classifier.port';
+import type { CategoryClassifier, CategoryClassificationResult } from '../domain/ports/category-classifier.port';
+import type { ProductResearcher } from '../domain/ports/product-researcher.port';
+import type { PageContextFetcher } from '../domain/ports/page-context.port';
+import type { ItemRepository } from '../domain/ports/item.repository';
 import type { ExtractedMetadata } from '../domain/extracted-metadata';
+import { mergeExtractedMetadata, shouldRunAiPopulate } from '../domain/merge-extracted-metadata';
+import { normalizeCategoryLabel } from '../domain/normalize-category-label.util';
+import { mapScrapeToCustomFields } from '../domain/map-scrape-to-custom-fields';
+import { resolveWebSearchForExtract } from '@/common/application/user-web-search-access.util';
+import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
 import {
-  fetchPageContext,
-  mergeExtractedMetadata,
-  shouldRunAiPopulate,
-} from '../infrastructure/gemini-metadata-populator';
-import { mapScrapeToCustomFields } from '../infrastructure/map-scrape-to-custom-fields';
+  resolveCategoryAlternatives,
+  resolveItemCategory,
+} from '../domain/resolve-item-category.util';
+import { coerceApparelSizeFields } from '../domain/coerce-apparel-size-fields.util';
+import { resolveDesiredQuantity } from '../domain/parse-pack-quantity.util';
 
-function extractWebsiteName(url: string): string {
-  try {
-    const hostname = new URL(url).hostname.replace(/^www\./, '');
-    const raw = hostname.split('.')[0] || '';
-    return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : '';
-  } catch {
-    return '';
-  }
+export interface ExtractMetadataOptions {
+  listId?: string;
 }
 
 function attachScrapeCustomFields(data: ExtractedMetadata, url: string): ExtractedMetadata {
@@ -58,15 +61,40 @@ function buildFieldsFound(data: ExtractedMetadata): string[] {
 function finalizeExtractedData(
   data: ExtractedMetadata,
   url: string,
-  diagnostics: ScrapeResult['diagnostics']
+  diagnostics: ScrapeResult['diagnostics'],
+  websiteName?: string,
+  existingCategories: string[] = []
 ): ScrapeResult {
-  const finalized = attachScrapeCustomFields(data, url);
+  let finalized = attachScrapeCustomFields(data, url);
+  const mapped = mapScrapeToCustomFields(finalized, url);
+  finalized = {
+    ...finalized,
+    category: resolveItemCategory(finalized.category, existingCategories),
+    categoryAlternatives: resolveCategoryAlternatives(
+      finalized.categoryAlternatives,
+      finalized.category || 'uncategorized',
+      existingCategories
+    ),
+    predefinedFields: coerceApparelSizeFields({
+      predefinedFields: finalized.predefinedFields ?? {},
+      url,
+      title: finalized.title || '',
+      category: finalized.category,
+      size: finalized.size,
+      scrapePreferredKey: mapped.apparelSizeKey,
+    }),
+    desiredQuantity:
+      resolveDesiredQuantity(finalized.desiredQuantity, finalized.title) ??
+      finalized.desiredQuantity ??
+      null,
+  };
   return {
     data: finalized,
     diagnostics: {
       ...diagnostics,
       fieldsFound: buildFieldsFound(finalized),
     },
+    websiteName,
   };
 }
 
@@ -78,10 +106,29 @@ async function userAllowsAi(
   const user = await userRepo.findById(userId);
   if (!user || user.AiEnabled === false) return false;
   try {
-    await assertUserCan.execute(userId, 'canUseAiFeatures');
+    await assertUserCan.execute(userId, 'CanUseAiFeatures');
     return true;
   } catch {
     return false;
+  }
+}
+
+async function loadExistingCategories(
+  listId: string | undefined,
+  itemRepo: ItemRepository
+): Promise<string[]> {
+  if (!listId) return [];
+  try {
+    const items = await itemRepo.findByListId(listId);
+    return Array.from(
+      new Set(
+        items
+          .map((item) => item.Category)
+          .filter((category): category is string => !!category && category !== 'uncategorized')
+      )
+    );
+  } catch {
+    return [];
   }
 }
 
@@ -91,58 +138,145 @@ export class ExtractMetadataUseCase {
     private metadataPopulator: MetadataPopulator,
     private categoryClassifier: CategoryClassifier,
     private userRepo: UserRepository,
-    private assertUserCan: AssertUserCanUseCase
+    private assertUserCan: AssertUserCanUseCase,
+    private wishlistRepo: WishlistRepository,
+    private itemRepo: ItemRepository,
+    private configRepo: ServerConfigRepository,
+    private pageContextFetcher: PageContextFetcher,
+    private productResearcher?: ProductResearcher
   ) {}
 
-  async execute(url: string, userId: string): Promise<ScrapeResult> {
-    const scrapeResult = await this.metadataScraper.scrape(url, 'full');
-    const config = loadConfig();
-    const scrapeWithFields = attachScrapeCustomFields(scrapeResult.data, url);
+  willUseWebSearch(userId: string, listId?: string): Promise<boolean> {
+    return resolveWebSearchForExtract(
+      userId,
+      listId,
+      this.userRepo,
+      this.wishlistRepo,
+      this.assertUserCan,
+      this.configRepo.load()
+    );
+  }
 
-    const serverAiReady =
-      config.aiEnabled &&
-      (config.aiProvider === 'local' || !!(config.aiApiKey || Bun.env.GEMINI_API_KEY));
+  async execute(
+    url: string,
+    userId: string,
+    options: ExtractMetadataOptions = {}
+  ): Promise<ScrapeResult> {
+    const scrapeResult = await this.metadataScraper.scrape(url, 'full');
+    const config = this.configRepo.load();
+    const existingCategories = await loadExistingCategories(options.listId, this.itemRepo);
+    const scrapeWithFields = attachScrapeCustomFields(scrapeResult.data, url);
+    const scrapeApparelKey = mapScrapeToCustomFields(scrapeResult.data, url).apparelSizeKey;
+    const fastConnection = resolveAiConnection(config, 'fast');
+
+    const serverAiReady = config.AiEnabled && isAiSlotConfigured(fastConnection);
     const aiAllowed = serverAiReady && (await userAllowsAi(userId, this.userRepo, this.assertUserCan));
 
     if (!aiAllowed) {
-      return finalizeExtractedData(scrapeResult.data, url, scrapeResult.diagnostics);
+      return finalizeExtractedData(
+        scrapeResult.data,
+        url,
+        scrapeResult.diagnostics,
+        this.pageContextFetcher.resolveWebsiteName(url),
+        existingCategories
+      );
     }
 
-    const provider = config.aiProvider || 'gemini';
-    const apiKey = config.aiApiKey || Bun.env.GEMINI_API_KEY || '';
+    const { provider, apiKey, model, endpoint } = fastConnection;
 
-    const websiteName = extractWebsiteName(url);
-    let pageContext = '';
-    let aiCategory = scrapeWithFields.category;
+    const pageHtml = await this.pageContextFetcher.fetchHtml(url);
+    const websiteName = this.pageContextFetcher.resolveWebsiteName(url, pageHtml);
+    const pageContext = pageHtml
+      ? this.pageContextFetcher.buildContextFromHtml(pageHtml, url)
+      : await this.pageContextFetcher.fetchContext(url);
+    let aiCategoryResult: CategoryClassificationResult = {
+      category: normalizeCategoryLabel(scrapeWithFields.category || 'uncategorized'),
+      alternatives: [],
+    };
 
     try {
-      pageContext = await fetchPageContext(url);
-      aiCategory = await this.categoryClassifier.classify(
+      aiCategoryResult = await this.categoryClassifier.classify(
         {
           url,
           websiteName,
           pageContext,
           itemName: scrapeWithFields.title || '',
+          existingCategories,
         },
         {
           provider,
           apiKey,
-          model: config.aiModel || '',
-          customPrompt: config.aiCategoryPrompt || '',
-          endpoint: config.aiEndpoint || '',
+          model,
+          customPrompt: config.AiCategoryPrompt || '',
+          endpoint,
         }
       );
     } catch (err) {
       console.error('[AI Category] Failed to classify item:', err);
     }
 
+    const resolvedCategory = resolveItemCategory(aiCategoryResult.category, existingCategories);
+    const resolvedAlternatives = resolveCategoryAlternatives(
+      aiCategoryResult.alternatives,
+      resolvedCategory,
+      existingCategories
+    );
+
     const baseData: ExtractedMetadata = {
       ...scrapeWithFields,
-      category: aiCategory || scrapeWithFields.category,
+      category: resolvedCategory || scrapeWithFields.category,
+      categoryAlternatives: resolvedAlternatives,
+      desiredQuantity: resolveDesiredQuantity(null, scrapeWithFields.title),
     };
 
-    if (!shouldRunAiPopulate({ data: scrapeResult.data, diagnostics: scrapeResult.diagnostics }, scrapeWithFields, true)) {
-      return finalizeExtractedData(baseData, url, scrapeResult.diagnostics);
+    const shouldPopulate = shouldRunAiPopulate(
+      { data: scrapeResult.data, diagnostics: scrapeResult.diagnostics },
+      scrapeWithFields,
+      true
+    );
+    const enableWebSearch = await resolveWebSearchForExtract(
+      userId,
+      options.listId,
+      this.userRepo,
+      this.wishlistRepo,
+      this.assertUserCan,
+      config
+    );
+
+    if (!shouldPopulate && !enableWebSearch) {
+      return finalizeExtractedData(
+        baseData,
+        url,
+        scrapeResult.diagnostics,
+        websiteName,
+        existingCategories
+      );
+    }
+
+    let searchContext: string | undefined;
+    if (enableWebSearch && this.productResearcher) {
+      try {
+        const researched = await this.productResearcher.research({
+          itemName: scrapeWithFields.title || '',
+          websiteName,
+          url,
+        });
+        if (researched.trim() && researched.trim() !== 'None') {
+          searchContext = researched;
+        }
+      } catch (err) {
+        console.error('[Web Search] Failed to research product:', err);
+      }
+    }
+
+    if (!shouldPopulate && !searchContext) {
+      return finalizeExtractedData(
+        baseData,
+        url,
+        scrapeResult.diagnostics,
+        websiteName,
+        existingCategories
+      );
     }
 
     try {
@@ -151,14 +285,18 @@ export class ExtractMetadataUseCase {
           url,
           websiteName,
           pageContext,
+          searchContext,
           itemName: scrapeWithFields.title || '',
+          reconcileSources: Boolean(searchContext),
         },
         {
           provider,
           apiKey,
-          model: config.aiModel || '',
-          customPrompt: config.aiPopulatePrompt || '',
-          endpoint: config.aiEndpoint || '',
+          model,
+          customPrompt: config.AiPopulatePrompt || '',
+          endpoint,
+          linkedDescriptionPrompt: config.AiDescriptionPrompt || '',
+          linkedCategoryPrompt: config.AiCategoryPrompt || '',
         }
       );
 
@@ -166,23 +304,40 @@ export class ExtractMetadataUseCase {
       const merged = mergeExtractedMetadata(
         { ...scrapeWithFields, category: null },
         aiData,
-        preferScrape
+        preferScrape,
+        { url, scrapeApparelSizeKey: scrapeApparelKey }
       );
 
       const finalData: ExtractedMetadata = {
         ...merged,
-        category: aiCategory || merged.category || scrapeWithFields.category,
+        category: resolvedCategory || merged.category || scrapeWithFields.category,
+        categoryAlternatives: resolvedAlternatives,
+        desiredQuantity: resolveDesiredQuantity(
+          merged.desiredQuantity,
+          merged.title,
+          scrapeWithFields.title
+        ),
       };
 
-      const finalized = finalizeExtractedData(finalData, url, {
-        ...scrapeResult.diagnostics,
-        confidence: finalData.title ? 'medium' : scrapeResult.diagnostics.confidence,
-      });
-
-      return finalized;
+      return finalizeExtractedData(
+        finalData,
+        url,
+        {
+          ...scrapeResult.diagnostics,
+          confidence: finalData.title ? 'medium' : scrapeResult.diagnostics.confidence,
+        },
+        websiteName,
+        existingCategories
+      );
     } catch (err) {
       console.error('[AI Populate] Failed to enrich scrape result:', err);
-      return finalizeExtractedData(baseData, url, scrapeResult.diagnostics);
+      return finalizeExtractedData(
+        baseData,
+        url,
+        scrapeResult.diagnostics,
+        websiteName,
+        existingCategories
+      );
     }
   }
 }

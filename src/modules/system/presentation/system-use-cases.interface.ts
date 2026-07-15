@@ -5,6 +5,7 @@ import type { SaveSystemSettingsUseCase } from '../application/save-system-setti
 import type { TransferOwnershipUseCase } from '../application/transfer-ownership.use-case';
 import type { DeleteServerUseCase } from '../application/delete-server.use-case';
 import type { TestAiConnectionUseCase } from '../application/test-ai-connection.use-case';
+import type { ListSystemModelsUseCase } from '../application/list-system-models.use-case';
 
 export interface SystemUseCases {
   getSystemStatus: GetSystemStatusUseCase;
@@ -12,6 +13,7 @@ export interface SystemUseCases {
   getSystemSettings: GetSystemSettingsUseCase;
   saveSystemSettings: SaveSystemSettingsUseCase;
   testAiConnection: TestAiConnectionUseCase;
+  listSystemModels: ListSystemModelsUseCase;
   transferOwnership: TransferOwnershipUseCase;
   deleteServer: DeleteServerUseCase;
 }

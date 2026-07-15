@@ -49,13 +49,15 @@ export class PostgresItemAudienceRepository implements ItemAudienceRepository {
       return [];
     }
 
-    for (const userId of userIds) {
-      await sql`
-        INSERT INTO item_audiences (item_id, user_id)
-        VALUES (${itemId}, ${userId})
-        ON CONFLICT (item_id, user_id) DO NOTHING
-      `;
-    }
+    const insertRows = userIds.map((userId) => ({
+      item_id: itemId,
+      user_id: userId,
+    }));
+
+    await sql`
+      INSERT INTO item_audiences ${sql(insertRows)}
+      ON CONFLICT (item_id, user_id) DO NOTHING
+    `;
 
     return this.findByItemId(itemId);
   }

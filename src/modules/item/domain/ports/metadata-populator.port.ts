@@ -4,7 +4,9 @@ export interface MetadataPopulatorInput {
   url: string;
   websiteName?: string;
   pageContext?: string;
+  searchContext?: string;
   itemName?: string;
+  reconcileSources?: boolean;
 }
 
 export interface MetadataPopulatorConfig {
@@ -13,6 +15,8 @@ export interface MetadataPopulatorConfig {
   model: string;
   customPrompt: string;
   endpoint: string;
+  linkedDescriptionPrompt?: string;
+  linkedCategoryPrompt?: string;
 }
 
 export interface MetadataPopulator {

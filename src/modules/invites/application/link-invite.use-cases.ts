@@ -18,7 +18,7 @@ export class CreateLinkInviteUseCase {
     maxUses?: number | null,
     password?: string | null
   ): Promise<{ invite: ListLinkTokenPublic; token: string }> {
-    await this.assertUserCan.execute(createdBy, 'canSharePublicLinks');
+    await this.assertUserCan.execute(createdBy, 'CanSharePublicLinks');
     const { token, hash } = generateInviteToken();
     const expires = expiresAt ? new Date(expiresAt) : null;
     const passwordHash = password ? await Bun.password.hash(password) : null;

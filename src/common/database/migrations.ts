@@ -214,12 +214,92 @@ export async function runMigrations(dbSql: typeof sql = sql): Promise<void> {
   await dbSql`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP WITH TIME ZONE DEFAULT NULL`;
   await dbSql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_owner BOOLEAN DEFAULT FALSE`;
   await dbSql`ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_enabled BOOLEAN DEFAULT TRUE`;
+  await dbSql`ALTER TABLE users ADD COLUMN IF NOT EXISTS web_search_enabled BOOLEAN DEFAULT TRUE`;
+  await dbSql`ALTER TABLE lists ADD COLUMN IF NOT EXISTS web_search_enabled BOOLEAN DEFAULT FALSE`;
+
+  await dbSql`
+    CREATE TABLE IF NOT EXISTS background_jobs (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      kind VARCHAR(100) NOT NULL,
+      list_id UUID REFERENCES lists(id) ON DELETE SET NULL,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status VARCHAR(50) NOT NULL DEFAULT 'queued'
+        CHECK (status IN ('queued', 'running', 'completed', 'failed', 'cancelled')),
+      phase VARCHAR(100) NOT NULL DEFAULT 'queued',
+      progress_done INTEGER NOT NULL DEFAULT 0,
+      progress_total INTEGER NOT NULL DEFAULT 0,
+      message TEXT DEFAULT '',
+      error TEXT DEFAULT NULL,
+      payload JSONB NOT NULL DEFAULT '{}',
+      result JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      started_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+      finished_at TIMESTAMP WITH TIME ZONE DEFAULT NULL
+    )
+  `;
+
+  await dbSql`
+    CREATE INDEX IF NOT EXISTS idx_background_jobs_status_created
+      ON background_jobs (status, created_at)
+  `;
+
+  await dbSql`
+    CREATE INDEX IF NOT EXISTS idx_background_jobs_list_status
+      ON background_jobs (list_id, status, created_at DESC)
+  `;
+
+  await dbSql`
+    CREATE TABLE IF NOT EXISTS background_job_items (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      job_id UUID NOT NULL REFERENCES background_jobs(id) ON DELETE CASCADE,
+      item_id UUID REFERENCES items(id) ON DELETE SET NULL,
+      link_url TEXT DEFAULT NULL,
+      status VARCHAR(50) NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'running', 'done', 'failed', 'skipped')),
+      error TEXT DEFAULT NULL,
+      payload JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+
+  await dbSql`
+    CREATE INDEX IF NOT EXISTS idx_background_job_items_job_status
+      ON background_job_items (job_id, status)
+  `;
 
   await dbSql`
     UPDATE users SET is_owner = true
     WHERE id = (SELECT id FROM users ORDER BY created_at ASC LIMIT 1)
       AND NOT EXISTS (SELECT 1 FROM users WHERE is_owner = true)
   `;
+
+  const { runPascalCaseDataMigrations } = await import('./pascalize-data.migration');
+  await runPascalCaseDataMigrations(dbSql as never);
+
+  console.log('[INFO] Applying database performance indexes...');
+  await dbSql`CREATE INDEX IF NOT EXISTS idx_user_custom_themes_user_id ON user_custom_themes (user_id)`;
+  await dbSql`CREATE INDEX IF NOT EXISTS idx_lists_user_id ON lists (user_id)`;
+  await dbSql`CREATE INDEX IF NOT EXISTS idx_list_shares_user_id ON list_shares (user_id)`;
+  await dbSql`CREATE INDEX IF NOT EXISTS idx_friend_requests_receiver_id ON friend_requests (receiver_id)`;
+  await dbSql`CREATE INDEX IF NOT EXISTS idx_friends_user_b_id ON friends (user_b_id)`;
+  await dbSql`CREATE INDEX IF NOT EXISTS idx_list_email_invites_list_id ON list_email_invites (list_id)`;
+  await dbSql`CREATE UNIQUE INDEX IF NOT EXISTS idx_list_email_invites_token_hash ON list_email_invites (token_hash)`;
+  await dbSql`CREATE INDEX IF NOT EXISTS idx_list_link_tokens_list_id ON list_link_tokens (list_id)`;
+  await dbSql`CREATE INDEX IF NOT EXISTS idx_notifications_user_id_created_at ON notifications (user_id, created_at DESC)`;
+  await dbSql`CREATE INDEX IF NOT EXISTS idx_items_list_id ON items (list_id)`;
+  await dbSql`CREATE INDEX IF NOT EXISTS idx_item_links_item_id ON item_links (item_id)`;
+  await dbSql`CREATE INDEX IF NOT EXISTS idx_claims_item_id ON claims (item_id)`;
+  await dbSql`CREATE INDEX IF NOT EXISTS idx_claims_user_id ON claims (user_id)`;
+  await dbSql`CREATE INDEX IF NOT EXISTS idx_comments_list_id ON comments (list_id)`;
+  await dbSql`CREATE INDEX IF NOT EXISTS idx_comments_user_id ON comments (user_id)`;
+  await dbSql`CREATE INDEX IF NOT EXISTS idx_comments_parent_id ON comments (parent_id)`;
+  await dbSql`CREATE INDEX IF NOT EXISTS idx_audit_log_actor_id ON audit_log (actor_id)`;
+  await dbSql`CREATE INDEX IF NOT EXISTS idx_audit_log_target_id ON audit_log (target_id)`;
+  await dbSql`CREATE INDEX IF NOT EXISTS idx_content_reports_reporter_id ON content_reports (reporter_id)`;
+  await dbSql`CREATE INDEX IF NOT EXISTS idx_content_reports_target_id ON content_reports (target_id)`;
+  await dbSql`CREATE INDEX IF NOT EXISTS idx_content_reports_resolved_by ON content_reports (resolved_by)`;
 
   console.log('[INFO] Database migrations completed successfully.');
 }

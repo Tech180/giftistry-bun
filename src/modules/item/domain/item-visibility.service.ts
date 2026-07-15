@@ -14,7 +14,7 @@ export function parseOtherUsersCanSee(description: string | null): boolean {
   try {
     if (description.startsWith('{') && description.endsWith('}')) {
       const parsed = JSON.parse(description);
-      if (parsed && typeof parsed === 'object' && parsed.otherUsersCanSee === false) {
+      if (parsed && typeof parsed === 'object' && parsed.OtherUsersCanSee === false) {
         return false;
       }
     }

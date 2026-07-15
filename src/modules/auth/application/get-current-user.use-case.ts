@@ -21,6 +21,7 @@ export interface CurrentUser {
   ForcePasswordChange?: boolean;
   Policy?: unknown;
   AiEnabled?: boolean;
+  WebSearchEnabled?: boolean;
 }
 
 export class GetCurrentUserUseCase {
@@ -56,6 +57,7 @@ export class GetCurrentUserUseCase {
       ForcePasswordChange: user.ForcePasswordChange,
       Policy: user.PolicyJson,
       AiEnabled: user.AiEnabled !== false,
+      WebSearchEnabled: user.WebSearchEnabled !== false,
     };
   }
 }

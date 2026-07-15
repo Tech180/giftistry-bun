@@ -79,6 +79,33 @@ function mapResetPasswordPayload(raw: {
   };
 }
 
+const giftistryUserPolicySchema = t.Object({
+  CanCreateWishlists: t.Optional(t.Boolean()),
+  MaxActiveWishlists: t.Optional(t.Number()),
+  CanUseComments: t.Optional(t.Boolean()),
+  CanUseAiFeatures: t.Optional(t.Boolean()),
+  CanSharePublicLinks: t.Optional(t.Boolean()),
+  CanUploadImages: t.Optional(t.Boolean()),
+  CanSendFriendRequests: t.Optional(t.Boolean()),
+  CanUseCustomThemes: t.Optional(t.Boolean()),
+});
+
+const sitePolicySchema = t.Object({
+  RegistrationMode: t.Optional(t.Union([
+    t.Literal('open'),
+    t.Literal('invite_only'),
+    t.Literal('disabled'),
+  ])),
+  RequireEmailVerification: t.Optional(t.Boolean()),
+  LoginAttemptsBeforeLockout: t.Optional(t.Number()),
+  LockoutDurationMinutes: t.Optional(t.Number()),
+  MaintenanceMode: t.Optional(t.Boolean()),
+  MaintenanceMessage: t.Optional(t.String()),
+  AllowPasswordLogin: t.Optional(t.Boolean()),
+  AllowedEmailDomains: t.Optional(t.Array(t.String())),
+  DefaultUserPolicy: t.Optional(giftistryUserPolicySchema),
+});
+
 export const adminRoutes = (useCases: AdminUseCases) => new Elysia({ prefix: '/api/admin' })
   .use(authMiddleware)
   .get('/overview', async ({ getAuthUser }) => {
@@ -112,7 +139,7 @@ export const adminRoutes = (useCases: AdminUseCases) => new Elysia({ prefix: '/a
           IsAdmin: t.Optional(t.Boolean()),
           EmailVerified: t.Optional(t.Boolean()),
           ForcePasswordChange: t.Optional(t.Boolean()),
-          Policy: t.Optional(t.Any()),
+          Policy: t.Optional(giftistryUserPolicySchema),
         }),
       }),
     }),
@@ -161,7 +188,7 @@ export const adminRoutes = (useCases: AdminUseCases) => new Elysia({ prefix: '/a
           IsHidden: t.Optional(t.Boolean()),
           ForcePasswordChange: t.Optional(t.Boolean()),
           LoginAttemptsBeforeLockout: t.Optional(t.Number()),
-          Policy: t.Optional(t.Any()),
+          Policy: t.Optional(giftistryUserPolicySchema),
         }),
       }),
     }),
@@ -216,7 +243,7 @@ export const adminRoutes = (useCases: AdminUseCases) => new Elysia({ prefix: '/a
   }, {
     body: t.Object({
       Giftistry: t.Object({
-        SitePolicy: t.Any(),
+        SitePolicy: sitePolicySchema,
       }),
     }),
   })

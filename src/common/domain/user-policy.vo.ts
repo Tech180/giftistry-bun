@@ -33,7 +33,7 @@ export class UserPolicyVO {
 
   canCreateWishlist(currentCount: number): boolean {
     if (this.isAdmin()) return true;
-    const max = this.context.Policy.maxActiveWishlists;
+    const max = this.context.Policy.MaxActiveWishlists;
     if (!max) return true;
     return currentCount < max;
   }

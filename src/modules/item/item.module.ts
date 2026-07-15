@@ -8,6 +8,7 @@ import type { ListShareRepository } from '@/modules/wishlist/domain/ports/list-s
 import type { UserRepository } from '@/modules/auth/domain/ports/user.repository';
 import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
 import type { MetadataScraper } from './domain/ports/metadata-scraper.port';
+import type { ServerConfigRepository } from '@/modules/system/domain/ports/server-config.repository';
 import { PostgresItemReviewRepository } from './infrastructure/postgres-item-review.repository';
 import { GeminiReviewExtractor } from './infrastructure/gemini-review-extractor';
 import { AddItemUseCase } from './application/add-item.use-case';
@@ -25,9 +26,16 @@ import { EnrichLinkMetadataUseCase } from './application/enrich-link-metadata.us
 import { ExtractItemReviewsUseCase } from './application/extract-item-reviews.use-case';
 import { GetItemReviewsUseCase } from './application/get-item-reviews.use-case';
 import { SummarizeItemDescriptionUseCase } from './application/summarize-item-description.use-case';
+import { ParseImportPreviewUseCase } from './application/parse-import-preview.use-case';
+import { BulkAddItemsUseCase } from './application/bulk-add-items.use-case';
+import { SyncItemLinksUseCase } from './application/sync-item-links.use-case';
 import { GeminiDescriptionSummarizer } from './infrastructure/gemini-description-summarizer';
 import { GeminiMetadataPopulator } from './infrastructure/gemini-metadata-populator';
 import { GeminiCategoryClassifier } from './infrastructure/gemini-category-classifier';
+import { GeminiItemImportParser } from './infrastructure/gemini-item-import-parser';
+import { DefaultImportFileTextExtractor } from './infrastructure/import-file-text-extractor';
+import { HttpPageContextFetcher } from './infrastructure/http-page-context-fetcher';
+import { PlaywrightProductResearcher } from './infrastructure/playwright-product-researcher';
 import { itemRoutes } from './presentation/item.routes';
 
 export interface ItemModuleDeps {
@@ -39,19 +47,27 @@ export interface ItemModuleDeps {
   userRepo: UserRepository;
   assertUserCanUseCase: AssertUserCanUseCase;
   metadataScraper: MetadataScraper;
+  serverConfigRepo: ServerConfigRepository;
   middleware: RouteMiddleware;
 }
 
 export function createItemModule(deps: ItemModuleDeps) {
   const itemReviewRepo = new PostgresItemReviewRepository();
   const reviewExtractor = new GeminiReviewExtractor();
+  const pageContextFetcher = new HttpPageContextFetcher();
+  const productResearcher = new PlaywrightProductResearcher();
 
   const extractMetadataUseCase = new ExtractMetadataUseCase(
     deps.metadataScraper,
     new GeminiMetadataPopulator(),
     new GeminiCategoryClassifier(),
     deps.userRepo,
-    deps.assertUserCanUseCase
+    deps.assertUserCanUseCase,
+    deps.wishlistRepo,
+    deps.itemRepo,
+    deps.serverConfigRepo,
+    pageContextFetcher,
+    productResearcher
   );
   const enrichLinkMetadataUseCase = new EnrichLinkMetadataUseCase(deps.metadataScraper, deps.itemRepo);
   const extractItemReviewsUseCase = new ExtractItemReviewsUseCase(
@@ -60,14 +76,25 @@ export function createItemModule(deps: ItemModuleDeps) {
     deps.itemRepo,
     deps.wishlistRepo,
     deps.userRepo,
-    deps.assertUserCanUseCase
+    deps.assertUserCanUseCase,
+    deps.serverConfigRepo
   );
   const getItemReviewsUseCase = new GetItemReviewsUseCase(itemReviewRepo);
   const summarizeItemDescriptionUseCase = new SummarizeItemDescriptionUseCase(
     deps.wishlistRepo,
     deps.userRepo,
     deps.assertUserCanUseCase,
-    new GeminiDescriptionSummarizer()
+    new GeminiDescriptionSummarizer(),
+    deps.serverConfigRepo
+  );
+  const parseImportPreviewUseCase = new ParseImportPreviewUseCase(
+    new DefaultImportFileTextExtractor(),
+    new GeminiItemImportParser(),
+    deps.wishlistRepo,
+    deps.itemRepo,
+    deps.userRepo,
+    deps.assertUserCanUseCase,
+    deps.serverConfigRepo
   );
 
   const validateItemAudienceUseCase = new ValidateItemAudienceUseCase(deps.listShareRepo, deps.itemRepo);
@@ -77,39 +104,48 @@ export function createItemModule(deps: ItemModuleDeps) {
     deps.audienceRepo
   );
 
-  return new Elysia().use(
+  const addItemUseCase = new AddItemUseCase(
+    deps.itemRepo,
+    deps.audienceRepo,
+    enrichLinkMetadataUseCase,
+    extractItemReviewsUseCase
+  );
+
+  const useCases = {
+    addItem: addItemUseCase,
+    listItems: new ListItemsUseCase(deps.itemRepo, deps.wishlistRepo, deps.audienceRepo),
+    claimItem: new ClaimItemUseCase(deps.itemRepo, deps.wishlistRepo, assertItemVisibleUseCase),
+    addItemLink: new AddItemLinkUseCase(
+      deps.itemRepo,
+      assertItemVisibleUseCase,
+      enrichLinkMetadataUseCase,
+      extractItemReviewsUseCase
+    ),
+    deleteItem: new DeleteItemUseCase(deps.itemRepo, assertItemVisibleUseCase),
+    updateItem: new UpdateItemUseCase(
+      deps.itemRepo,
+      deps.audienceRepo,
+      assertItemVisibleUseCase,
+      enrichLinkMetadataUseCase,
+      extractItemReviewsUseCase
+    ),
+    getFieldDefinitions: new GetFieldDefinitionsUseCase(deps.fieldRepo),
+    unclaimItem: new UnclaimItemUseCase(deps.itemRepo, assertItemVisibleUseCase),
+    validateItemAudience: validateItemAudienceUseCase,
+    extractMetadata: extractMetadataUseCase,
+    getItemReviews: getItemReviewsUseCase,
+    summarizeItemDescription: summarizeItemDescriptionUseCase,
+    parseImportPreview: parseImportPreviewUseCase,
+    bulkAddItems: new BulkAddItemsUseCase(addItemUseCase, validateItemAudienceUseCase),
+    syncItemLinks: new SyncItemLinksUseCase(deps.itemRepo),
+  };
+
+  const module = new Elysia().use(
     itemRoutes(
-      {
-        addItem: new AddItemUseCase(
-          deps.itemRepo,
-          deps.audienceRepo,
-          enrichLinkMetadataUseCase,
-          extractItemReviewsUseCase
-        ),
-        listItems: new ListItemsUseCase(deps.itemRepo, deps.wishlistRepo, deps.audienceRepo),
-        claimItem: new ClaimItemUseCase(deps.itemRepo, deps.wishlistRepo, assertItemVisibleUseCase),
-        addItemLink: new AddItemLinkUseCase(
-          deps.itemRepo,
-          assertItemVisibleUseCase,
-          enrichLinkMetadataUseCase,
-          extractItemReviewsUseCase
-        ),
-        deleteItem: new DeleteItemUseCase(deps.itemRepo, assertItemVisibleUseCase),
-        updateItem: new UpdateItemUseCase(
-          deps.itemRepo,
-          deps.audienceRepo,
-          assertItemVisibleUseCase,
-          enrichLinkMetadataUseCase,
-          extractItemReviewsUseCase
-        ),
-        getFieldDefinitions: new GetFieldDefinitionsUseCase(deps.fieldRepo),
-        unclaimItem: new UnclaimItemUseCase(deps.itemRepo, assertItemVisibleUseCase),
-        validateItemAudience: validateItemAudienceUseCase,
-        extractMetadata: extractMetadataUseCase,
-        getItemReviews: getItemReviewsUseCase,
-        summarizeItemDescription: summarizeItemDescriptionUseCase,
-      },
+      useCases,
       deps.middleware
     )
   );
+
+  return { module, useCases };
 }

@@ -8,7 +8,7 @@ export class SaveCustomThemeUseCase {
   ) {}
 
   async execute(userId: string, theme: CustomThemeInput): Promise<CustomTheme> {
-    await this.assertUserCan.execute(userId, 'canUseCustomThemes');
+    await this.assertUserCan.execute(userId, 'CanUseCustomThemes');
     return this.userRepo.saveCustomTheme(userId, theme);
   }
 }

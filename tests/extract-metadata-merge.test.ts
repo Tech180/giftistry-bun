@@ -3,45 +3,75 @@ import {
   mergeExtractedMetadata,
   shouldAiPopulate,
   shouldRunAiPopulate,
-} from '../src/modules/item/infrastructure/gemini-metadata-populator';
+} from '../src/modules/item/domain/merge-extracted-metadata';
 import type { MetadataScraper } from '../src/modules/item/domain/ports/metadata-scraper.port';
 import type { MetadataPopulator } from '../src/modules/item/domain/ports/metadata-populator.port';
 import type { CategoryClassifier } from '../src/modules/item/domain/ports/category-classifier.port';
+import type { PageContextFetcher } from '../src/modules/item/domain/ports/page-context.port';
+import type { ServerConfigRepository } from '../src/modules/system/domain/ports/server-config.repository';
 import type { UserRepository } from '../src/modules/auth/domain/ports/user.repository';
 import type { AssertUserCanUseCase } from '../src/common/application/user-policy.use-cases';
+import type { WishlistRepository } from '../src/modules/wishlist/domain/ports/wishlist.repository';
+import { ExtractMetadataUseCase } from '../src/modules/item/application/extract-metadata.use-case';
 
 let aiEnabled = true;
+let aiWebSearchEnabled = true;
 let userAiEnabled = true;
 let policyAllowsAi = true;
 
-mock.module('../src/common/infrastructure/config.loader', () => ({
-  loadConfig: () => ({
-    aiEnabled,
-    aiProvider: 'gemini',
-    aiApiKey: 'test-key',
-    aiModel: '',
-    aiPopulatePrompt: '',
-    aiCategoryPrompt: '',
-    aiEndpoint: '',
-  }),
-}));
+function createConfigRepo(): ServerConfigRepository {
+  return {
+    load: () =>
+      ({
+        AiEnabled: aiEnabled,
+        AiWebSearchEnabled: aiWebSearchEnabled,
+        AiFastProvider: 'openrouter',
+        AiFastApiKey: 'test-key',
+        AiFastModel: '',
+        AiFastEndpoint: '',
+        AiIntelligentProvider: 'openrouter',
+        AiIntelligentApiKey: 'test-key',
+        AiIntelligentModel: '',
+        AiIntelligentEndpoint: '',
+        AiPopulatePrompt: '',
+        AiCategoryPrompt: '',
+      }) as never,
+  } as ServerConfigRepository;
+}
 
-mock.module('../src/modules/item/infrastructure/gemini-metadata-populator', () => ({
-  fetchPageContext: async () => 'Title: Test Product',
-  mergeExtractedMetadata,
-  shouldAiPopulate,
-  shouldRunAiPopulate,
-}));
-
-const { ExtractMetadataUseCase } = await import('../src/modules/item/application/extract-metadata.use-case');
+function createPageContextFetcher(): PageContextFetcher {
+  return {
+    fetchHtml: async () => '',
+    fetchContext: async () => 'Title: Test Product',
+    resolveWebsiteName: () => 'Example Shop',
+    buildContextFromHtml: () => 'Title: Test Product',
+  };
+}
 
 function createUserRepo(): UserRepository {
   return {
     findById: async () => ({
       Id: 'user-1',
       AiEnabled: userAiEnabled,
+      WebSearchEnabled: true,
     }),
   } as unknown as UserRepository;
+}
+
+function createWishlistRepo(webSearchEnabled = true): WishlistRepository {
+  return {
+    findById: async () => ({
+      Id: 'list-1',
+      AiEnabled: true,
+      WebSearchEnabled: webSearchEnabled,
+    }),
+  } as unknown as WishlistRepository;
+}
+
+function createItemRepo() {
+  return {
+    findByListId: async () => [],
+  } as unknown as import('../src/modules/item/domain/ports/item.repository').ItemRepository;
 }
 
 function createAssertUserCan(): AssertUserCanUseCase {
@@ -97,7 +127,7 @@ describe('ExtractMetadataUseCase AI merge', () => {
     };
 
     const mockClassifier: CategoryClassifier = {
-      classify: async () => 'clothing',
+      classify: async () => ({ category: 'clothing', alternatives: [] }),
     };
 
     const useCase = new ExtractMetadataUseCase(
@@ -105,7 +135,11 @@ describe('ExtractMetadataUseCase AI merge', () => {
       mockPopulator,
       mockClassifier,
       createUserRepo(),
-      createAssertUserCan()
+      createAssertUserCan(),
+      createWishlistRepo(),
+      createItemRepo(),
+      createConfigRepo(),
+      createPageContextFetcher()
     );
     const result = await useCase.execute('https://shop.example/item', 'user-1');
 
@@ -161,7 +195,7 @@ describe('ExtractMetadataUseCase AI merge', () => {
     const mockClassifier: CategoryClassifier = {
       classify: async () => {
         classifyCalled = true;
-        return 'tech';
+        return { category: 'tech', alternatives: [] };
       },
     };
 
@@ -170,7 +204,11 @@ describe('ExtractMetadataUseCase AI merge', () => {
       mockPopulator,
       mockClassifier,
       createUserRepo(),
-      createAssertUserCan()
+      createAssertUserCan(),
+      createWishlistRepo(),
+      createItemRepo(),
+      createConfigRepo(),
+      createPageContextFetcher()
     );
     const result = await useCase.execute('https://shop.example/shoes', 'user-1');
 
@@ -224,7 +262,7 @@ describe('ExtractMetadataUseCase AI merge', () => {
     const mockClassifier: CategoryClassifier = {
       classify: async () => {
         classifyCalled = true;
-        return 'tech';
+        return { category: 'tech', alternatives: [] };
       },
     };
 
@@ -233,7 +271,11 @@ describe('ExtractMetadataUseCase AI merge', () => {
       mockPopulator,
       mockClassifier,
       createUserRepo(),
-      createAssertUserCan()
+      createAssertUserCan(),
+      createWishlistRepo(),
+      createItemRepo(),
+      createConfigRepo(),
+      createPageContextFetcher()
     );
     const result = await useCase.execute('https://shop.example/gadget', 'user-1');
 
@@ -286,7 +328,7 @@ describe('ExtractMetadataUseCase AI merge', () => {
     };
 
     const mockClassifier: CategoryClassifier = {
-      classify: async () => 'tech',
+      classify: async () => ({ category: 'tech', alternatives: [] }),
     };
 
     const useCase = new ExtractMetadataUseCase(
@@ -294,7 +336,11 @@ describe('ExtractMetadataUseCase AI merge', () => {
       mockPopulator,
       mockClassifier,
       createUserRepo(),
-      createAssertUserCan()
+      createAssertUserCan(),
+      createWishlistRepo(),
+      createItemRepo(),
+      createConfigRepo(),
+      createPageContextFetcher()
     );
     const result = await useCase.execute('https://shop.example/gadget', 'user-1');
 
@@ -341,7 +387,7 @@ describe('ExtractMetadataUseCase AI merge', () => {
     };
 
     const mockClassifier: CategoryClassifier = {
-      classify: async () => 'clothing',
+      classify: async () => ({ category: 'clothing', alternatives: [] }),
     };
 
     const useCase = new ExtractMetadataUseCase(
@@ -349,12 +395,172 @@ describe('ExtractMetadataUseCase AI merge', () => {
       mockPopulator,
       mockClassifier,
       createUserRepo(),
-      createAssertUserCan()
+      createAssertUserCan(),
+      createWishlistRepo(),
+      createItemRepo(),
+      createConfigRepo(),
+      createPageContextFetcher()
     );
     const result = await useCase.execute('https://shop.example/hoodie', 'user-1');
 
     expect(result.data.predefinedFields?.Color).toBe('Black');
     expect(result.data.predefinedFields?.ShirtSize).toBe('L');
     expect(result.data.userDefinedFields?.Brand).toBe('Acme');
+  });
+
+  test('passes web search context to populator when list web search gates pass', async () => {
+    aiEnabled = true;
+    aiWebSearchEnabled = true;
+    userAiEnabled = true;
+    policyAllowsAi = true;
+
+    let populateInput: {
+      searchContext?: string;
+      reconcileSources?: boolean;
+    } | null = null;
+
+    const mockScraper: MetadataScraper = {
+      scrape: async () => ({
+        diagnostics: {
+          source: 'fetch',
+          confidence: 'high',
+          blocked: false,
+          fieldsFound: ['title', 'price'],
+        },
+        data: {
+          title: 'AYANEO Pocket MICRO 2',
+          price: 299,
+          description: null,
+          color: null,
+          size: null,
+          category: 'tech',
+          imageUrl: null,
+        },
+      }),
+    };
+
+    const mockPopulator: MetadataPopulator = {
+      populate: async (input) => {
+        populateInput = input;
+        return {
+          title: 'AYANEO Pocket MICRO 2',
+          price: 299,
+          description: 'Compact Android gaming handheld for portable play.',
+          color: null,
+          size: null,
+          category: null,
+          imageUrl: null,
+          predefinedFields: { StorageCapacity: '256GB' },
+          userDefinedFields: { RAM: '8GB' },
+        };
+      },
+    };
+
+    const mockClassifier: CategoryClassifier = {
+      classify: async () => ({ category: 'tech', alternatives: [] }),
+    };
+
+    const mockResearcher = {
+      research: async () => 'Search query: AYANEO Pocket MICRO 2 specifications',
+    };
+
+    const useCase = new ExtractMetadataUseCase(
+      mockScraper,
+      mockPopulator,
+      mockClassifier,
+      createUserRepo(),
+      createAssertUserCan(),
+      createWishlistRepo(true),
+      createItemRepo(),
+      createConfigRepo(),
+      createPageContextFetcher(),
+      mockResearcher
+    );
+
+    const result = await useCase.execute('https://shop.example/gadget', 'user-1', {
+      listId: 'list-1',
+    });
+
+    expect(populateInput?.searchContext).toContain('AYANEO Pocket MICRO 2 specifications');
+    expect(populateInput?.reconcileSources).toBe(true);
+    expect(result.data.userDefinedFields?.RAM).toBe('8GB');
+    expect(result.data.description).not.toContain('8GB');
+  });
+
+  test('skips web search when list web search is disabled', async () => {
+    aiEnabled = true;
+    aiWebSearchEnabled = true;
+    userAiEnabled = true;
+    policyAllowsAi = true;
+
+    let populateInput: {
+      searchContext?: string;
+      reconcileSources?: boolean;
+    } | null = null;
+
+    const mockScraper: MetadataScraper = {
+      scrape: async () => ({
+        diagnostics: {
+          source: 'fetch',
+          confidence: 'high',
+          blocked: false,
+          fieldsFound: ['title', 'price'],
+        },
+        data: {
+          title: 'AYANEO Pocket MICRO 2',
+          price: 299,
+          description: null,
+          color: null,
+          size: null,
+          category: 'tech',
+          imageUrl: null,
+        },
+      }),
+    };
+
+    const mockPopulator: MetadataPopulator = {
+      populate: async (input) => {
+        populateInput = input;
+        return {
+          title: 'AYANEO Pocket MICRO 2',
+          price: 299,
+          description: 'Compact Android gaming handheld for portable play.',
+          color: null,
+          size: null,
+          category: null,
+          imageUrl: null,
+          predefinedFields: {},
+          userDefinedFields: {},
+        };
+      },
+    };
+
+    const mockClassifier: CategoryClassifier = {
+      classify: async () => ({ category: 'tech', alternatives: [] }),
+    };
+
+    const mockResearcher = {
+      research: async () => 'Search query: AYANEO Pocket MICRO 2 specifications',
+    };
+
+    const useCase = new ExtractMetadataUseCase(
+      mockScraper,
+      mockPopulator,
+      mockClassifier,
+      createUserRepo(),
+      createAssertUserCan(),
+      createWishlistRepo(false),
+      createItemRepo(),
+      createConfigRepo(),
+      createPageContextFetcher(),
+      mockResearcher
+    );
+
+    await useCase.execute('https://shop.example/gadget', 'user-1', {
+      listId: 'list-1',
+    });
+
+    expect(populateInput?.searchContext).toBeUndefined();
+    expect(populateInput?.reconcileSources).toBeFalsy();
   });
 });

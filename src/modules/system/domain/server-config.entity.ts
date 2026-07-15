@@ -1,96 +1,128 @@
-import { AI_DEFAULT_PROMPTS } from '@/modules/item/infrastructure/ai-default-prompts';
+import { AI_DEFAULT_PROMPTS } from './ai-default-prompts';
 
 export type DbConnectionType = 'local' | 'remote';
 export type SmtpConnectionType = 'local' | 'remote';
-export type AiProvider = 'gemini' | 'openai' | 'anthropic' | 'local' | 'openrouter';
+/** Settings and slot connections only support local + OpenRouter. */
+export type AiProvider = 'local' | 'openrouter';
 
 export interface ServerConfig {
-  dbType: DbConnectionType;
-  dbUrl?: string;
-  smtpType: SmtpConnectionType;
-  smtpHost?: string;
-  smtpPort?: number;
-  smtpUser?: string;
-  smtpPass?: string;
-  smtpSecure?: boolean;
-  smtpFrom?: string;
-  aiEnabled?: boolean;
-  aiProvider?: AiProvider;
-  aiApiKey?: string;
-  aiModel?: string;
-  aiPrompt?: string;
-  aiDescriptionPrompt?: string;
-  aiPopulatePrompt?: string;
-  aiCategoryPrompt?: string;
-  aiEndpoint?: string;
+  DbType: DbConnectionType;
+  DbUrl?: string;
+  SmtpType: SmtpConnectionType;
+  SmtpHost?: string;
+  SmtpPort?: number;
+  SmtpUser?: string;
+  SmtpPass?: string;
+  SmtpSecure?: boolean;
+  SmtpFrom?: string;
+  AiEnabled?: boolean;
+  AiWebSearchEnabled?: boolean;
+  AiRateLimitEnabled?: boolean;
+  AiFastProvider?: AiProvider;
+  AiFastEndpoint?: string;
+  AiFastApiKey?: string;
+  AiFastModel?: string;
+  AiIntelligentProvider?: AiProvider;
+  AiIntelligentEndpoint?: string;
+  AiIntelligentApiKey?: string;
+  AiIntelligentModel?: string;
+  AiPrompt?: string;
+  AiDescriptionPrompt?: string;
+  AiPopulatePrompt?: string;
+  AiCategoryPrompt?: string;
+  AiImportPrompt?: string;
+  AiCompletionTimeoutMs?: number;
+  ScrapeFetchTimeoutMs?: number;
+  ScrapePlaywrightTimeoutMs?: number;
 }
 
 export interface AdminSetupCredentials {
-  username: string;
-  email: string;
-  password: string;
-  firstName?: string;
-  lastName?: string;
+  Username: string;
+  Email: string;
+  Password: string;
+  FirstName?: string;
+  LastName?: string;
 }
 
 export interface SetupPayload {
-  dbType: string;
-  dbUrl?: string;
-  smtpType: string;
-  smtpHost?: string;
-  smtpPort?: number;
-  smtpUser?: string;
-  smtpPass?: string;
-  smtpSecure?: boolean;
-  smtpFrom?: string;
-  admin: AdminSetupCredentials;
+  DbType: string;
+  DbUrl?: string;
+  SmtpType: string;
+  SmtpHost?: string;
+  SmtpPort?: number;
+  SmtpUser?: string;
+  SmtpPass?: string;
+  SmtpSecure?: boolean;
+  SmtpFrom?: string;
+  Admin: AdminSetupCredentials;
 }
 
 export interface SystemSettingsPayload {
-  dbType: string;
-  dbUrl?: string;
-  smtpType: string;
-  smtpHost?: string;
-  smtpPort?: number;
-  smtpUser?: string;
-  smtpPass?: string;
-  smtpSecure?: boolean;
-  smtpFrom?: string;
-  aiEnabled?: boolean;
-  aiProvider?: string;
-  aiApiKey?: string;
-  aiModel?: string;
-  aiPrompt?: string;
-  aiDescriptionPrompt?: string;
-  aiPopulatePrompt?: string;
-  aiCategoryPrompt?: string;
-  aiEndpoint?: string;
+  DbType: string;
+  DbUrl?: string;
+  SmtpType: string;
+  SmtpHost?: string;
+  SmtpPort?: number;
+  SmtpUser?: string;
+  SmtpPass?: string;
+  SmtpSecure?: boolean;
+  SmtpFrom?: string;
+  AiEnabled?: boolean;
+  AiWebSearchEnabled?: boolean;
+  AiRateLimitEnabled?: boolean;
+  AiFastProvider?: string;
+  AiFastEndpoint?: string;
+  AiFastApiKey?: string;
+  AiFastModel?: string;
+  AiIntelligentProvider?: string;
+  AiIntelligentEndpoint?: string;
+  AiIntelligentApiKey?: string;
+  AiIntelligentModel?: string;
+  AiPrompt?: string;
+  AiDescriptionPrompt?: string;
+  AiPopulatePrompt?: string;
+  AiCategoryPrompt?: string;
+  AiImportPrompt?: string;
+  AiCompletionTimeoutMs?: number;
+  ScrapeFetchTimeoutMs?: number;
+  ScrapePlaywrightTimeoutMs?: number;
 }
 
 export interface SystemSettingsView {
-  dbType: DbConnectionType;
-  dbUrl: string;
-  smtpType: SmtpConnectionType;
-  smtpHost: string;
-  smtpPort: number;
-  smtpUser: string;
-  smtpPass: string;
-  smtpSecure: boolean;
-  smtpFrom: string;
-  aiEnabled: boolean;
-  aiProvider: string;
-  aiApiKey: string;
-  aiModel: string;
-  aiPrompt: string;
-  aiDescriptionPrompt: string;
-  aiPopulatePrompt: string;
-  aiCategoryPrompt: string;
-  aiEndpoint: string;
-  aiDefaultPrompts: {
-    review: string;
-    description: string;
-    populate: string;
-    category: string;
+  DbType: DbConnectionType;
+  DbUrl: string;
+  SmtpType: SmtpConnectionType;
+  SmtpHost: string;
+  SmtpPort: number;
+  SmtpUser: string;
+  SmtpPass: string;
+  SmtpSecure: boolean;
+  SmtpFrom: string;
+  AiEnabled: boolean;
+  AiWebSearchEnabled: boolean;
+  AiRateLimitEnabled: boolean;
+  AiFastProvider: AiProvider;
+  AiFastEndpoint: string;
+  AiFastApiKey: string;
+  AiFastModel: string;
+  AiIntelligentProvider: AiProvider;
+  AiIntelligentEndpoint: string;
+  AiIntelligentApiKey: string;
+  AiIntelligentModel: string;
+  AiPrompt: string;
+  AiDescriptionPrompt: string;
+  AiPopulatePrompt: string;
+  AiCategoryPrompt: string;
+  AiImportPrompt: string;
+  AiCompletionTimeoutMs: number;
+  ScrapeFetchTimeoutMs: number;
+  ScrapePlaywrightTimeoutMs: number;
+  AiDefaultPrompts: {
+    Review: string;
+    Description: string;
+    Populate: string;
+    Category: string;
+    Import: string;
   };
 }
 
@@ -110,7 +142,50 @@ export interface CreateAdminUserParams {
 
 const MASKED_SECRET = '******';
 
-import { AI_DEFAULT_PROMPTS } from '@/modules/item/infrastructure/ai-default-prompts';
+export const DEFAULT_SCRAPE_FETCH_TIMEOUT_MS = 8000;
+export const DEFAULT_SCRAPE_PLAYWRIGHT_TIMEOUT_MS = 25000;
+export const SCRAPE_FETCH_TIMEOUT_MIN_MS = 1000;
+export const SCRAPE_FETCH_TIMEOUT_MAX_MS = 60_000;
+export const SCRAPE_PLAYWRIGHT_TIMEOUT_MIN_MS = 1000;
+export const SCRAPE_PLAYWRIGHT_TIMEOUT_MAX_MS = 120_000;
+
+export const DEFAULT_AI_COMPLETION_TIMEOUT_MS = 10 * 60 * 1000;
+export const AI_COMPLETION_TIMEOUT_MIN_MS = 30_000;
+export const AI_COMPLETION_TIMEOUT_MAX_MS = 30 * 60 * 1000;
+
+export function normalizeAiProvider(value: unknown): AiProvider {
+  const raw = String(value ?? '')
+    .trim()
+    .toLowerCase();
+  return raw === 'local' ? 'local' : 'openrouter';
+}
+
+export function clampScrapeFetchTimeoutMs(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return DEFAULT_SCRAPE_FETCH_TIMEOUT_MS;
+  return Math.min(
+    SCRAPE_FETCH_TIMEOUT_MAX_MS,
+    Math.max(SCRAPE_FETCH_TIMEOUT_MIN_MS, Math.round(n))
+  );
+}
+
+export function clampScrapePlaywrightTimeoutMs(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return DEFAULT_SCRAPE_PLAYWRIGHT_TIMEOUT_MS;
+  return Math.min(
+    SCRAPE_PLAYWRIGHT_TIMEOUT_MAX_MS,
+    Math.max(SCRAPE_PLAYWRIGHT_TIMEOUT_MIN_MS, Math.round(n))
+  );
+}
+
+export function clampAiCompletionTimeoutMs(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return DEFAULT_AI_COMPLETION_TIMEOUT_MS;
+  return Math.min(
+    AI_COMPLETION_TIMEOUT_MAX_MS,
+    Math.max(AI_COMPLETION_TIMEOUT_MIN_MS, Math.round(n))
+  );
+}
 
 export function maskSecret(value?: string): string {
   return value ? MASKED_SECRET : '';
@@ -125,24 +200,46 @@ export function resolveMaskedSecret(incoming: string | undefined, existing: stri
 
 export function toSystemSettingsView(config: ServerConfig): SystemSettingsView {
   return {
-    dbType: config.dbType,
-    dbUrl: config.dbUrl || '',
-    smtpType: config.smtpType,
-    smtpHost: config.smtpHost || '',
-    smtpPort: config.smtpPort !== undefined ? config.smtpPort : 1025,
-    smtpUser: config.smtpUser || '',
-    smtpPass: maskSecret(config.smtpPass),
-    smtpSecure: !!config.smtpSecure,
-    smtpFrom: config.smtpFrom || 'noreply@giftistry.local',
-    aiEnabled: !!config.aiEnabled,
-    aiProvider: config.aiProvider || 'gemini',
-    aiApiKey: maskSecret(config.aiApiKey),
-    aiModel: config.aiModel || '',
-    aiPrompt: config.aiPrompt || '',
-    aiDescriptionPrompt: config.aiDescriptionPrompt || '',
-    aiPopulatePrompt: config.aiPopulatePrompt || '',
-    aiCategoryPrompt: config.aiCategoryPrompt || '',
-    aiEndpoint: config.aiEndpoint || '',
-    aiDefaultPrompts: { ...AI_DEFAULT_PROMPTS },
+    DbType: config.DbType,
+    DbUrl: config.DbUrl || '',
+    SmtpType: config.SmtpType,
+    SmtpHost: config.SmtpHost || '',
+    SmtpPort: config.SmtpPort !== undefined ? config.SmtpPort : 1025,
+    SmtpUser: config.SmtpUser || '',
+    SmtpPass: maskSecret(config.SmtpPass),
+    SmtpSecure: !!config.SmtpSecure,
+    SmtpFrom: config.SmtpFrom || 'noreply@giftistry.local',
+    AiEnabled: !!config.AiEnabled,
+    AiWebSearchEnabled: !!config.AiWebSearchEnabled,
+    AiRateLimitEnabled: config.AiRateLimitEnabled !== false,
+    AiFastProvider: normalizeAiProvider(config.AiFastProvider),
+    AiFastEndpoint: config.AiFastEndpoint || '',
+    AiFastApiKey: maskSecret(config.AiFastApiKey),
+    AiFastModel: config.AiFastModel || '',
+    AiIntelligentProvider: normalizeAiProvider(config.AiIntelligentProvider),
+    AiIntelligentEndpoint: config.AiIntelligentEndpoint || '',
+    AiIntelligentApiKey: maskSecret(config.AiIntelligentApiKey),
+    AiIntelligentModel: config.AiIntelligentModel || '',
+    AiPrompt: config.AiPrompt || '',
+    AiDescriptionPrompt: config.AiDescriptionPrompt || '',
+    AiPopulatePrompt: config.AiPopulatePrompt || '',
+    AiCategoryPrompt: config.AiCategoryPrompt || '',
+    AiImportPrompt: config.AiImportPrompt || '',
+    AiCompletionTimeoutMs: clampAiCompletionTimeoutMs(
+      config.AiCompletionTimeoutMs ?? DEFAULT_AI_COMPLETION_TIMEOUT_MS
+    ),
+    ScrapeFetchTimeoutMs: clampScrapeFetchTimeoutMs(
+      config.ScrapeFetchTimeoutMs ?? DEFAULT_SCRAPE_FETCH_TIMEOUT_MS
+    ),
+    ScrapePlaywrightTimeoutMs: clampScrapePlaywrightTimeoutMs(
+      config.ScrapePlaywrightTimeoutMs ?? DEFAULT_SCRAPE_PLAYWRIGHT_TIMEOUT_MS
+    ),
+    AiDefaultPrompts: {
+      Review: AI_DEFAULT_PROMPTS.review,
+      Description: AI_DEFAULT_PROMPTS.description,
+      Populate: AI_DEFAULT_PROMPTS.populate,
+      Category: AI_DEFAULT_PROMPTS.category,
+      Import: AI_DEFAULT_PROMPTS.import,
+    },
   };
 }

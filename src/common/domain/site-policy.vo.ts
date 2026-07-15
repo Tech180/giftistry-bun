@@ -16,7 +16,7 @@ export class SitePolicyVO {
   static default(): SitePolicyVO {
     return new SitePolicyVO({
       ...DEFAULT_SITE_POLICY,
-      defaultUserPolicy: { ...DEFAULT_SITE_POLICY.defaultUserPolicy },
+      DefaultUserPolicy: { ...DEFAULT_SITE_POLICY.DefaultUserPolicy },
     });
   }
 
@@ -25,18 +25,18 @@ export class SitePolicyVO {
   }
 
   allowsPasswordLogin(): boolean {
-    return this.data.allowPasswordLogin;
+    return this.data.AllowPasswordLogin;
   }
 
   isMaintenanceMode(): boolean {
-    return this.data.maintenanceMode;
+    return this.data.MaintenanceMode;
   }
 
   getLoginAttemptsBeforeLockout(): number {
-    return this.data.loginAttemptsBeforeLockout;
+    return this.data.LoginAttemptsBeforeLockout;
   }
 
   getLockoutDurationMinutes(): number {
-    return this.data.lockoutDurationMinutes;
+    return this.data.LockoutDurationMinutes;
   }
 }

@@ -14,6 +14,8 @@ import type { ListListSharesUseCase } from '../application/list-list-shares.use-
 import type { UpdateListShareUseCase } from '../application/update-list-share.use-case';
 import type { RemoveListShareUseCase } from '../application/remove-list-share.use-case';
 import type { BulkShareWishlistUseCase } from '../application/bulk-share-wishlist.use-case';
+import type { ExportWishlistPdfUseCase } from '../application/export-wishlist-pdf.use-case';
+import type { ExportWishlistDataUseCase } from '../application/export-wishlist-data.use-case';
 
 export interface WishlistUseCases {
   createWishlist: CreateWishlistUseCase;
@@ -32,4 +34,7 @@ export interface WishlistUseCases {
   updateListShare: UpdateListShareUseCase;
   removeListShare: RemoveListShareUseCase;
   bulkShareWishlist: BulkShareWishlistUseCase;
+  exportWishlistPdf: ExportWishlistPdfUseCase;
+  exportWishlistData: ExportWishlistDataUseCase;
 }
+

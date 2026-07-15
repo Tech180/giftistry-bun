@@ -18,8 +18,10 @@ export interface Wishlist {
   Category?: string;
   RevealSuggestions?: boolean;
   AiEnabled?: boolean;
+  WebSearchEnabled?: boolean;
   OwnerUsername?: string;
   OwnerFirstName?: string;
+  OwnerLastName?: string;
   OwnerAvatar?: string | null;
   Role?: 'owner' | 'collaborator' | 'viewer';
   Shares?: ListShareWithUser[];
@@ -36,8 +38,10 @@ export class WishlistEntity implements Wishlist {
   Category?: string;
   RevealSuggestions?: boolean;
   AiEnabled?: boolean;
+  WebSearchEnabled?: boolean;
   OwnerUsername?: string;
   OwnerFirstName?: string;
+  OwnerLastName?: string;
   OwnerAvatar?: string | null;
   Role?: 'owner' | 'collaborator' | 'viewer';
   Shares?: ListShareWithUser[];

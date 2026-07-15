@@ -1,10 +1,22 @@
-import { describe, expect, test } from 'bun:test';
+import { mock } from 'bun:test';
+
+mock.module('@/common/infrastructure/config.loader', () => ({
+  loadConfig: () => ({
+    DbType: 'local',
+    SmtpType: 'local',
+    AiEnabled: true,
+    AiWebSearchEnabled: false,
+    AiRateLimitEnabled: false,
+    AiFastProvider: 'local',
+    AiFastEndpoint: 'http://localhost',
+  }),
+}));
+
+import { describe, expect, test, beforeAll } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseMetadata, extractTitleFromSlug, extractMetadata } from '@/modules/item/infrastructure/scraping/parser';
 import { validateScrapeResult } from '@/modules/item/infrastructure/scraping/validators';
-import { ExtractMetadataUseCase } from '@/modules/item/application/extract-metadata.use-case';
-import { EnrichLinkMetadataUseCase } from '@/modules/item/application/enrich-link-metadata.use-case';
 import { extractFromCapturedJson } from '@/modules/item/infrastructure/scraping/extractors/embedded-json.extractor';
 import { computeConfidence, computeFieldsFound } from '@/modules/item/infrastructure/scraping/extractors/merge';
 import { dicksExtractor } from '@/modules/item/infrastructure/scraping/retailers/dicks.extractor';
@@ -13,6 +25,7 @@ import type { MetadataScraper } from '@/modules/item/domain/ports/metadata-scrap
 import type { ItemRepository } from '@/modules/item/domain/ports/item.repository';
 import type { UserRepository } from '@/modules/auth/domain/ports/user.repository';
 import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
+import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
 
 const FIXTURES = join(import.meta.dir, 'fixtures/scraping');
 
@@ -286,6 +299,15 @@ describe('embedded json extractor', () => {
 });
 
 describe('metadata scraper use cases', () => {
+  let ExtractMetadataUseCase: any;
+  let EnrichLinkMetadataUseCase: any;
+
+  beforeAll(async () => {
+    const extractMod = await import('@/modules/item/application/extract-metadata.use-case');
+    const enrichMod = await import('@/modules/item/application/enrich-link-metadata.use-case');
+    ExtractMetadataUseCase = extractMod.ExtractMetadataUseCase;
+    EnrichLinkMetadataUseCase = enrichMod.EnrichLinkMetadataUseCase;
+  });
   test('ExtractMetadataUseCase delegates to MetadataScraper port', async () => {
     const mockScraper: MetadataScraper = {
       scrape: async () => ({
@@ -316,7 +338,7 @@ describe('metadata scraper use cases', () => {
       imageUrl: null,
     }) };
 
-    const mockClassifier = { classify: async () => 'uncategorized' };
+    const mockClassifier = { classify: async () => ({ category: 'uncategorized', alternatives: [] }) };
 
     const mockUserRepo = {
       findById: async () => ({ Id: 'user-1', AiEnabled: true }),
@@ -326,12 +348,44 @@ describe('metadata scraper use cases', () => {
       execute: async () => {},
     } as unknown as AssertUserCanUseCase;
 
+    const mockWishlistRepo = {
+      findById: async () => ({ Id: 'list-1', AiEnabled: true, WebSearchEnabled: true }),
+    } as unknown as WishlistRepository;
+
+    const mockItemRepo = {
+      findByListId: async () => [],
+    } as unknown as ItemRepository;
+
+    const mockConfigRepo = {
+      load: () => ({
+        AiEnabled: true,
+        AiWebSearchEnabled: false,
+        AiFastProvider: 'local',
+        AiFastApiKey: '',
+        AiFastModel: '',
+        AiFastEndpoint: 'http://localhost',
+        AiPopulatePrompt: '',
+        AiCategoryPrompt: '',
+      }),
+    };
+
+    const mockPageContextFetcher = {
+      fetchHtml: async () => '',
+      fetchContext: async () => '',
+      resolveWebsiteName: () => 'Example',
+      buildContextFromHtml: () => '',
+    };
+
     const useCase = new ExtractMetadataUseCase(
       mockScraper,
       mockPopulator,
       mockClassifier,
       mockUserRepo,
-      mockAssertUserCan
+      mockAssertUserCan,
+      mockWishlistRepo,
+      mockItemRepo,
+      mockConfigRepo,
+      mockPageContextFetcher
     );
     const result = await useCase.execute('https://example.com/product', 'user-1');
 

@@ -42,7 +42,7 @@ export function createFriendsModule(deps: FriendsModuleDeps) {
       declineFriendRequest: new DeclineFriendRequestUseCase(deps.friendRequestRepo),
       cancelFriendRequest: new CancelFriendRequestUseCase(deps.friendRequestRepo),
       unfriend: new UnfriendUseCase(deps.friendRepo),
-      searchUsers: new SearchUsersUseCase(deps.userRepo),
+      searchUsers: new SearchUsersUseCase(deps.userRepo, deps.friendRepo),
     })
   );
 }

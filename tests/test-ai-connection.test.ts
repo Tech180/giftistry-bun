@@ -14,14 +14,14 @@ describe('TestAiConnectionUseCase', () => {
 
   test('rejects non-local providers', async () => {
     const useCase = new TestAiConnectionUseCase();
-    await expect(useCase.execute({ aiProvider: 'openrouter' })).rejects.toThrow(
+    await expect(useCase.execute({ AiProvider: 'openrouter' })).rejects.toThrow(
       'AI connection test is only supported for local providers'
     );
   });
 
   test('requires a local endpoint URL', async () => {
     const useCase = new TestAiConnectionUseCase();
-    await expect(useCase.execute({ aiProvider: 'local' })).rejects.toThrow(
+    await expect(useCase.execute({ AiProvider: 'local' })).rejects.toThrow(
       'API endpoint URL is required for local AI provider'
     );
   });
@@ -43,15 +43,15 @@ describe('TestAiConnectionUseCase', () => {
 
     const useCase = new TestAiConnectionUseCase();
     const result = await useCase.execute({
-      aiProvider: 'local',
-      aiEndpoint: 'http://192.168.100.80:11434',
-      aiModel: 'qwen3.6:latest',
+      AiProvider: 'local',
+      AiEndpoint: 'http://192.168.100.80:11434',
+      AiModel: 'qwen3.6:latest',
     });
 
-    expect(result.reachable).toBe(true);
-    expect(result.working).toBe(true);
-    expect(result.modelAvailable).toBe(true);
-    expect(result.message).toContain('qwen3.6:latest');
+    expect(result.Reachable).toBe(true);
+    expect(result.Working).toBe(true);
+    expect(result.ModelAvailable).toBe(true);
+    expect(result.Message).toContain('qwen3.6:latest');
   });
 
   test('falls back to chat completion when Ollama metadata check is unavailable', async () => {
@@ -74,14 +74,14 @@ describe('TestAiConnectionUseCase', () => {
 
     const useCase = new TestAiConnectionUseCase();
     const result = await useCase.execute({
-      aiProvider: 'local',
-      aiEndpoint: 'http://localhost:11434/v1',
-      aiModel: 'llama3',
+      AiProvider: 'local',
+      AiEndpoint: 'http://localhost:11434/v1',
+      AiModel: 'llama3',
     });
 
-    expect(result.reachable).toBe(true);
-    expect(result.working).toBe(true);
-    expect(result.message).toContain('responding');
+    expect(result.Reachable).toBe(true);
+    expect(result.Working).toBe(true);
+    expect(result.Message).toContain('responding');
   });
 
   test('throws when configured model is missing', async () => {
@@ -95,9 +95,9 @@ describe('TestAiConnectionUseCase', () => {
     const useCase = new TestAiConnectionUseCase();
     await expect(
       useCase.execute({
-        aiProvider: 'local',
-        aiEndpoint: 'http://localhost:11434/v1',
-        aiModel: 'missing-model',
+        AiProvider: 'local',
+        AiEndpoint: 'http://localhost:11434/v1',
+        AiModel: 'missing-model',
       })
     ).rejects.toThrow('Model "missing-model" was not found');
   });

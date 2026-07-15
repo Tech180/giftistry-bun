@@ -2,87 +2,6 @@ import { Elysia, t } from 'elysia';
 import { authMiddleware } from '@/modules/auth/auth.module';
 import { AppError } from '@/common/middlewares/error.middleware';
 import type { SystemUseCases } from './system-use-cases.interface';
-import type { SetupPayload, SystemSettingsPayload } from '../domain/server-config.entity';
-
-function mapSetupPayload(raw: {
-  DbType: string;
-  DbUrl?: string;
-  SmtpType: string;
-  SmtpHost?: string;
-  SmtpPort?: number;
-  SmtpUser?: string;
-  SmtpPass?: string;
-  SmtpSecure?: boolean;
-  SmtpFrom?: string;
-  Admin: {
-    Username: string;
-    Email: string;
-    Password: string;
-    FirstName?: string;
-    LastName?: string;
-  };
-}): SetupPayload {
-  return {
-    dbType: raw.DbType,
-    dbUrl: raw.DbUrl,
-    smtpType: raw.SmtpType,
-    smtpHost: raw.SmtpHost,
-    smtpPort: raw.SmtpPort,
-    smtpUser: raw.SmtpUser,
-    smtpPass: raw.SmtpPass,
-    smtpSecure: raw.SmtpSecure,
-    smtpFrom: raw.SmtpFrom,
-    admin: {
-      username: raw.Admin.Username,
-      email: raw.Admin.Email,
-      password: raw.Admin.Password,
-      firstName: raw.Admin.FirstName,
-      lastName: raw.Admin.LastName,
-    },
-  };
-}
-
-function mapSystemSettingsPayload(raw: {
-  DbType: string;
-  DbUrl?: string;
-  SmtpType: string;
-  SmtpHost?: string;
-  SmtpPort?: number;
-  SmtpUser?: string;
-  SmtpPass?: string;
-  SmtpSecure?: boolean;
-  SmtpFrom?: string;
-  AiEnabled?: boolean;
-  AiProvider?: string;
-  AiApiKey?: string;
-  AiModel?: string;
-  AiPrompt?: string;
-  AiDescriptionPrompt?: string;
-  AiPopulatePrompt?: string;
-  AiCategoryPrompt?: string;
-  AiEndpoint?: string;
-}): SystemSettingsPayload {
-  return {
-    dbType: raw.DbType,
-    dbUrl: raw.DbUrl,
-    smtpType: raw.SmtpType,
-    smtpHost: raw.SmtpHost,
-    smtpPort: raw.SmtpPort,
-    smtpUser: raw.SmtpUser,
-    smtpPass: raw.SmtpPass,
-    smtpSecure: raw.SmtpSecure,
-    smtpFrom: raw.SmtpFrom,
-    aiEnabled: raw.AiEnabled,
-    aiProvider: raw.AiProvider,
-    aiApiKey: raw.AiApiKey,
-    aiModel: raw.AiModel,
-    aiPrompt: raw.AiPrompt,
-    aiDescriptionPrompt: raw.AiDescriptionPrompt,
-    aiPopulatePrompt: raw.AiPopulatePrompt,
-    aiCategoryPrompt: raw.AiCategoryPrompt,
-    aiEndpoint: raw.AiEndpoint,
-  };
-}
 
 export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '/api/system' })
   .get('/status', async () => {
@@ -93,7 +12,7 @@ export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '
     };
   })
   .post('/setup', async ({ body: { Giftistry: { Setup } } }) => {
-    await useCases.runInitialSetup.execute(mapSetupPayload(Setup));
+    await useCases.runInitialSetup.execute(Setup);
     return { success: true };
   }, {
     body: t.Object({
@@ -138,7 +57,7 @@ export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '
       throw new AppError('Forbidden: Admin access required', 403, 'FORBIDDEN');
     }
 
-    await useCases.saveSystemSettings.execute(mapSystemSettingsPayload(settings));
+    await useCases.saveSystemSettings.execute(settings);
     return { success: true };
   }, {
     body: t.Object({
@@ -154,14 +73,24 @@ export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '
           SmtpSecure: t.Optional(t.Boolean()),
           SmtpFrom: t.Optional(t.String()),
           AiEnabled: t.Optional(t.Boolean()),
-          AiProvider: t.Optional(t.String()),
-          AiApiKey: t.Optional(t.String()),
-          AiModel: t.Optional(t.String()),
+          AiWebSearchEnabled: t.Optional(t.Boolean()),
+          AiRateLimitEnabled: t.Optional(t.Boolean()),
+          AiFastProvider: t.Optional(t.String()),
+          AiFastEndpoint: t.Optional(t.String()),
+          AiFastApiKey: t.Optional(t.String()),
+          AiFastModel: t.Optional(t.String()),
+          AiIntelligentProvider: t.Optional(t.String()),
+          AiIntelligentEndpoint: t.Optional(t.String()),
+          AiIntelligentApiKey: t.Optional(t.String()),
+          AiIntelligentModel: t.Optional(t.String()),
           AiPrompt: t.Optional(t.String()),
           AiDescriptionPrompt: t.Optional(t.String()),
           AiPopulatePrompt: t.Optional(t.String()),
           AiCategoryPrompt: t.Optional(t.String()),
-          AiEndpoint: t.Optional(t.String()),
+          AiImportPrompt: t.Optional(t.String()),
+          AiCompletionTimeoutMs: t.Optional(t.Numeric()),
+          ScrapeFetchTimeoutMs: t.Optional(t.Numeric()),
+          ScrapePlaywrightTimeoutMs: t.Optional(t.Numeric()),
         }),
       }),
     }),
@@ -172,11 +101,17 @@ export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '
       throw new AppError('Forbidden: Admin access required', 403, 'FORBIDDEN');
     }
 
+    const slot = payload.AiModelSlot === 'intelligent' ? 'intelligent' : 'fast';
+    const model =
+      slot === 'intelligent'
+        ? payload.AiIntelligentModel
+        : payload.AiFastModel;
+
     const result = await useCases.testAiConnection.execute({
-      aiProvider: payload.AiProvider || 'local',
-      aiEndpoint: payload.AiEndpoint,
-      aiApiKey: payload.AiApiKey,
-      aiModel: payload.AiModel,
+      AiProvider: payload.AiProvider || 'local',
+      AiEndpoint: payload.AiEndpoint,
+      AiApiKey: payload.AiApiKey,
+      AiModel: model,
     });
 
     return { success: true, data: result };
@@ -187,9 +122,31 @@ export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '
           AiProvider: t.String(),
           AiEndpoint: t.Optional(t.Nullable(t.String())),
           AiApiKey: t.Optional(t.Nullable(t.String())),
-          AiModel: t.Optional(t.Nullable(t.String())),
+          AiFastModel: t.Optional(t.Nullable(t.String())),
+          AiIntelligentModel: t.Optional(t.Nullable(t.String())),
+          AiModelSlot: t.Optional(t.Union([t.Literal('fast'), t.Literal('intelligent')])),
         }),
       }),
+    }),
+  })
+  .get('/models', async ({ getAuthUser, query }) => {
+    const user = await getAuthUser();
+    if (!user.IsAdmin) {
+      throw new AppError('Forbidden: Admin access required', 403, 'FORBIDDEN');
+    }
+
+    const data = await useCases.listSystemModels.execute({
+      Provider: query.Provider,
+      Endpoint: query.Endpoint,
+      ApiKey: query.ApiKey,
+    });
+
+    return { success: true, data };
+  }, {
+    query: t.Object({
+      Provider: t.String(),
+      Endpoint: t.Optional(t.String()),
+      ApiKey: t.Optional(t.String()),
     }),
   })
   .post('/transfer-ownership', async ({ getAuthUser, body: { Giftistry: { Ownership: payload } }, request }) => {

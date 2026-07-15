@@ -3,6 +3,7 @@ import type { ExtractedMetadata, ScrapeDiagnostics, ScrapeMode } from '../extrac
 export interface ScrapeResult {
   data: ExtractedMetadata;
   diagnostics: ScrapeDiagnostics;
+  websiteName?: string;
 }
 
 export interface MetadataScraper {

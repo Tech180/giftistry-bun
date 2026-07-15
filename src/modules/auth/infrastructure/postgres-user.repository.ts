@@ -22,7 +22,7 @@ const USER_SELECT = `
   is_disabled as "IsDisabled", is_hidden as "IsHidden", locked_until as "LockedUntil",
   failed_login_count as "FailedLoginCount", force_password_change as "ForcePasswordChange",
   login_attempts_before_lockout as "LoginAttemptsBeforeLockout", session_version as "SessionVersion",
-  policy_json as "PolicyJson", ai_enabled as "AiEnabled"
+  policy_json as "PolicyJson", ai_enabled as "AiEnabled", web_search_enabled as "WebSearchEnabled"
 `;
 
 function mapUserRow(row: Record<string, unknown>): User {
@@ -55,6 +55,7 @@ function mapUserRow(row: Record<string, unknown>): User {
     SessionVersion: row.SessionVersion as number | undefined,
     PolicyJson: mergeUserPolicy(typeof row.PolicyJson === 'string' ? JSON.parse(row.PolicyJson) : row.PolicyJson),
     AiEnabled: row.AiEnabled !== false,
+    WebSearchEnabled: row.WebSearchEnabled !== false,
   };
 }
 
@@ -122,6 +123,7 @@ export class PostgresUserRepository implements UserRepository {
     twoFactorRecoveryCodes?: string | null;
     isAdmin?: boolean;
     aiEnabled?: boolean;
+    webSearchEnabled?: boolean;
   }): Promise<User> {
     const user = await this.findById(id);
     if (!user) throw new Error('User not found');
@@ -136,7 +138,7 @@ export class PostgresUserRepository implements UserRepository {
 
     const [curr] = await sql<any[]>`
       SELECT email_verified, email_verification_token, email_verification_expires,
-             two_factor_enabled, two_factor_secret, two_factor_recovery_codes, is_admin, ai_enabled
+             two_factor_enabled, two_factor_secret, two_factor_recovery_codes, is_admin, ai_enabled, web_search_enabled
       FROM users WHERE id = ${id}
     `;
 
@@ -148,6 +150,8 @@ export class PostgresUserRepository implements UserRepository {
     const twoFactorRecoveryCodes = updates.twoFactorRecoveryCodes !== undefined ? updates.twoFactorRecoveryCodes : curr.two_factor_recovery_codes;
     const isAdmin = updates.isAdmin !== undefined ? updates.isAdmin : curr.is_admin;
     const aiEnabled = updates.aiEnabled !== undefined ? updates.aiEnabled : curr.ai_enabled !== false;
+    const webSearchEnabled =
+      updates.webSearchEnabled !== undefined ? updates.webSearchEnabled : curr.web_search_enabled !== false;
 
     const [row] = await sql<any[]>`
       UPDATE users SET
@@ -156,7 +160,7 @@ export class PostgresUserRepository implements UserRepository {
         email_verified = ${emailVerified}, email_verification_token = ${emailVerificationToken},
         email_verification_expires = ${emailVerificationExpires}, two_factor_enabled = ${twoFactorEnabled},
         two_factor_secret = ${twoFactorSecret}, two_factor_recovery_codes = ${twoFactorRecoveryCodes},
-        is_admin = ${isAdmin}, ai_enabled = ${aiEnabled}
+        is_admin = ${isAdmin}, ai_enabled = ${aiEnabled}, web_search_enabled = ${webSearchEnabled}
       WHERE id = ${id}
       RETURNING ${sql.unsafe(USER_SELECT)}
     `;

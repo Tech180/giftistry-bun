@@ -10,6 +10,7 @@ import { sql } from './common/database/connection';
 import { verifyToken } from '@/common/utils/token';
 import { getListAccessContext } from '@/common/middlewares/list-access.middleware';
 import { pascalizeKeys } from '@/common/utils/api-case.util';
+import { setWishlistJobPublisher } from '@/modules/jobs/infrastructure/wishlist-job-publisher';
 
 function getNumericStatus(status: any, defaultStatus = 200): number {
   if (typeof status === 'number') return status;
@@ -50,10 +51,24 @@ function createCachedCssResponse(content: string, request: Request): Response {
 }
 
 const container = createAppContainer();
-const { authModule, wishlistModule, itemModule, commentModule, friendsModule, notificationsModule, invitesModule, systemModule, adminModule, authMiddleware, userRepo: userRepoForWs } = container;
+const {
+  authModule,
+  wishlistModule,
+  itemModule,
+  jobsModule,
+  jobRunner,
+  commentModule,
+  friendsModule,
+  notificationsModule,
+  invitesModule,
+  systemModule,
+  adminModule,
+  authMiddleware,
+  userRepo: userRepoForWs,
+} = container;
 const rooms = new Map<string, Map<string, { username: string; userId: string }>>();
 
-function getOnlineUsers(listId: string): { userId: string; username: string }[] {
+function getOnlineUsers(listId: string): { UserId: string; Username: string }[] {
   const room = rooms.get(listId);
   if (!room) return [];
 
@@ -64,12 +79,15 @@ function getOnlineUsers(listId: string): { userId: string; username: string }[] 
     }
   }
 
-  return Array.from(uniqueUsers.entries()).map(([userId, username]) => ({ userId, username }));
+  return Array.from(uniqueUsers.entries()).map(([userId, username]) => ({
+    UserId: userId,
+    Username: username,
+  }));
 }
 
 function publishPresence(listId: string, ws?: { publish: (topic: string, data: string) => void; send?: (data: string) => void }) {
   const users = getOnlineUsers(listId);
-  const payload = JSON.stringify({ type: 'presence', users });
+  const payload = JSON.stringify({ Type: 'presence', Users: users });
 
   if (ws?.publish) {
     ws.publish(listId, payload);
@@ -142,7 +160,7 @@ export const app = new Elysia()
       // If error payload is returned by handleRoute or middleware, convert its message property to Message
       const { Status, status, Code, code, Message, message, ...rest } = responseValue as any;
       payload = {
-        Message: Message || message,
+        Message: Message ?? message,
         ...rest
       };
     } else if (responseValue && typeof responseValue === 'object') {
@@ -170,6 +188,7 @@ export const app = new Elysia()
   .use(notificationsModule)
   .use(wishlistModule)
   .use(itemModule)
+  .use(jobsModule)
   .use(commentModule)
   .use(friendsModule)
   .use(invitesModule)
@@ -221,14 +240,14 @@ export const app = new Elysia()
       const { listId } = ws.data.params;
       try {
         const data = typeof message === 'string' ? JSON.parse(message) : message;
-        if (data && data.type === 'typing') {
+        if (data && data.Type === 'typing') {
           const user = (ws.data as any).user;
           if (user) {
             ws.publish(listId, JSON.stringify({
-              type: 'typing',
-              userId: user.Id,
-              username: user.Username,
-              isTyping: !!data.isTyping
+              Type: 'typing',
+              UserId: user.Id,
+              Username: user.Username,
+              IsTyping: !!data.IsTyping,
             }));
           }
         }
@@ -390,5 +409,9 @@ await runMigrations().catch((err) => {
 
 if (process.env.NODE_ENV !== 'test') {
   app.listen(env.PORT);
+  setWishlistJobPublisher((listId, payload) => {
+    app.server?.publish(listId, JSON.stringify(payload));
+  });
+  jobRunner.start();
   console.log(`Giftistry API is running at http://${app.server?.hostname}:${app.server?.port}`);
 }
