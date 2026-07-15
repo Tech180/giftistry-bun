@@ -51,6 +51,7 @@ export const jobsRoutes = (deps: JobsRouteDeps) =>
             content: payload.Content,
             contentEncoding: payload.ContentEncoding,
             grabInfo: !!payload.GrabInfo,
+            allowAi: payload.AllowAi !== false,
           },
           `${user.userId}:${ip}:wishlist-import`
         );
@@ -72,6 +73,7 @@ export const jobsRoutes = (deps: JobsRouteDeps) =>
                 t.Literal('data-url'),
               ]),
               GrabInfo: t.Optional(t.Boolean()),
+              AllowAi: t.Optional(t.Boolean()),
             }),
           }),
         }),

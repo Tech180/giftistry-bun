@@ -31,17 +31,17 @@ describe('AI rate limit toggle', () => {
         rateLimit({
           windowMs: 60_000,
           max: 1,
-          paths: ['/items/import-preview'],
+          paths: ['/items/extract-metadata'],
           respectAiRateLimitToggle: true,
         })
       )
-      .post('/api/items/import-preview', () => ({ ok: true }));
+      .post('/api/items/extract-metadata', () => ({ ok: true }));
 
     const first = await app.handle(
-      new Request('http://localhost/api/items/import-preview', { method: 'POST' })
+      new Request('http://localhost/api/items/extract-metadata', { method: 'POST' })
     );
     const second = await app.handle(
-      new Request('http://localhost/api/items/import-preview', { method: 'POST' })
+      new Request('http://localhost/api/items/extract-metadata', { method: 'POST' })
     );
 
     expect(first.status).toBe(200);

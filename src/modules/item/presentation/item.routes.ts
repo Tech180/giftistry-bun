@@ -102,48 +102,6 @@ export const itemRoutes = (
       })
     })
   })
-  .post('/wishlists/:listId/items/bulk', async ({ getAuthUser, checkListAccess, params: { listId }, body: { Giftistry: { Items: { Items } } } }) => {
-    const { role } = await checkListAccess('collaborator');
-    const user = await getAuthUser();
-    const result = await useCases.bulkAddItems.execute(listId, user.userId, role, Items.map((row) => ({
-      name: row.Name,
-      description: row.Description ?? null,
-      priorityId: row.PriorityId ?? null,
-      isHiddenIdea: row.IsHiddenIdea ?? false,
-      linkUrl: row.LinkUrl ?? null,
-      price: row.Price !== undefined && row.Price !== null ? Number(row.Price) : null,
-      websiteName: row.WebsiteName ?? null,
-      category: row.Category ?? 'uncategorized',
-      priority: row.Priority !== undefined && row.Priority !== null ? Number(row.Priority) : null,
-      sharedWithUserIds: row.SharedWithUserIds,
-    })));
-    return { success: true, data: result };
-  }, {
-    detail: {
-      tags: ['Items'],
-      summary: 'Bulk add items to wishlist',
-      description: 'Create multiple wishlist items in one request. Partial failures are reported per index.',
-      security: [{ bearerAuth: [] }]
-    },
-    body: t.Object({
-      Giftistry: t.Object({
-        Items: t.Object({
-          Items: t.Array(t.Object({
-            Name: t.String(),
-            Description: t.Optional(t.Nullable(t.String())),
-            PriorityId: t.Optional(t.Nullable(t.String())),
-            IsHiddenIdea: t.Optional(t.Boolean()),
-            LinkUrl: t.Optional(t.Nullable(t.String())),
-            Price: t.Optional(t.Nullable(t.Numeric())),
-            WebsiteName: t.Optional(t.Nullable(t.String())),
-            Category: t.Optional(t.Nullable(t.String())),
-            Priority: t.Optional(t.Nullable(t.Numeric())),
-            SharedWithUserIds: t.Optional(t.Array(t.String())),
-          })),
-        })
-      })
-    })
-  })
   .get('/items/:itemId/reviews', async ({ checkListAccess, params: { itemId } }) => {
     await checkListAccess('viewer');
     const reviews = await useCases.getItemReviews.execute(itemId);
@@ -258,74 +216,7 @@ export const itemRoutes = (
       security: [{ bearerAuth: [] }]
     }
   })
-  .use(rateLimit({ windowMs: 60000, max: 30, paths: ['/items/extract-metadata', '/items/summarize-description', '/items/import-preview'], respectAiRateLimitToggle: true }))
-  .post('/items/import-preview', async ({ getAuthUser, body: { Giftistry: { Items: payload } } }) => {
-    try {
-      const user = await getAuthUser();
-      if (payload.ListId) {
-        await getListAccessContext(user.userId, { listId: payload.ListId }, 'collaborator');
-      }
-      const result = await useCases.parseImportPreview.execute(user.userId, {
-        listId: payload.ListId,
-        fileName: payload.FileName,
-        format: payload.Format,
-        content: payload.Content,
-        contentEncoding: payload.ContentEncoding,
-      });
-      return {
-        success: true,
-        data: {
-          Items: result.items.map((item) => ({
-            Name: item.name,
-            Category: item.category,
-            Priority: item.priority,
-            Description: item.description,
-            Price: item.price ?? null,
-            WebsiteLink: item.websiteLink,
-            IsFavorite: item.isFavorite === true,
-            Color: item.color,
-            Size: item.size,
-          })),
-          Warnings: result.warnings,
-          SourceFormat: result.sourceFormat,
-          ParseMode: result.parseMode,
-          SuggestedWishlistTitle: result.suggestedWishlistTitle,
-        },
-      };
-    } catch (e) {
-      const message = e instanceof Error ? e.message : 'Import preview failed';
-      return { success: false, message };
-    }
-  }, {
-    detail: {
-      tags: ['Items'],
-      summary: 'Preview wishlist import from file',
-      description: 'Parse an uploaded wishlist export into editable item previews. Giftistry JSON/CSV parse deterministically; other formats use AI.',
-      security: [{ bearerAuth: [] }]
-    },
-    body: t.Object({
-      Giftistry: t.Object({
-        Items: t.Object({
-          ListId: t.Optional(t.String()),
-          FileName: t.String(),
-          Format: t.Optional(t.Union([
-            t.Literal('csv'),
-            t.Literal('xlsx'),
-            t.Literal('txt'),
-            t.Literal('json'),
-            t.Literal('pdf'),
-            t.Literal('unknown'),
-          ])),
-          Content: t.String(),
-          ContentEncoding: t.Union([
-            t.Literal('text'),
-            t.Literal('base64'),
-            t.Literal('data-url'),
-          ]),
-        })
-      })
-    })
-  })
+  .use(rateLimit({ windowMs: 60000, max: 30, paths: ['/items/extract-metadata', '/items/summarize-description'], respectAiRateLimitToggle: true }))
   .post('/items/extract-metadata', async ({ getAuthUser, request, body: { Giftistry: { Items: { Url, ListId } } } }) => {
     try {
       const user = await getAuthUser();

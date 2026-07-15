@@ -34,6 +34,7 @@ export class StartWishlistImportJobUseCase {
       payload: {
         ...payload,
         grabInfo: !!payload.grabInfo,
+        allowAi: payload.allowAi !== false,
       },
     });
 

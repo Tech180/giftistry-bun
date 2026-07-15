@@ -276,6 +276,7 @@ export class RunWishlistImportJobUseCase {
         format: (payload.format as never) || undefined,
         content: payload.content,
         contentEncoding: payload.contentEncoding,
+        allowAi: payload.allowAi !== false,
       })
     );
   }

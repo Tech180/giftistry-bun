@@ -26,6 +26,8 @@ export interface ParseImportPreviewInput {
   format?: ImportFileFormat;
   content: string;
   contentEncoding: ImportContentEncoding;
+  /** When false, do not fall back to AI after deterministic parse fails. Default true. */
+  allowAi?: boolean;
 }
 
 export class ParseImportPreviewUseCase {
@@ -87,6 +89,14 @@ export class ParseImportPreviewUseCase {
           deterministic.suggestedWishlistTitle ||
           filenameStemAsTitle(input.fileName),
       };
+    }
+
+    if (input.allowAi === false) {
+      throw new AppError(
+        'This file is not a Giftistry export. Enable AI import or upload a Giftistry JSON, CSV, XLSX, or TXT export.',
+        422,
+        'IMPORT_FORMAT_UNSUPPORTED'
+      );
     }
 
     await this.assertAiAllowed(userId, input.listId);

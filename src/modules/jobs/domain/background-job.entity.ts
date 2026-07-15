@@ -24,6 +24,8 @@ export interface WishlistImportJobPayload {
   content: string;
   contentEncoding: 'text' | 'base64' | 'data-url';
   grabInfo: boolean;
+  /** When false, skip AI fallback after deterministic Giftistry parse fails. */
+  allowAi?: boolean;
 }
 
 export interface BackgroundJob {
