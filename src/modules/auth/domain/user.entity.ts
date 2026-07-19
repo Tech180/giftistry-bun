@@ -4,7 +4,7 @@ import { AppError } from '@/common/middlewares/error.middleware';
 export interface User {
   Id: string;
   Username: string;
-  Email: string;
+  Email: string | null;
   FirstName: string;
   LastName: string;
   AuthHash: string;
@@ -30,6 +30,9 @@ export interface User {
   PolicyJson?: GiftistryUserPolicy | Record<string, unknown> | null;
   AiEnabled?: boolean;
   WebSearchEnabled?: boolean;
+  HasPasskey?: boolean;
+  IsOnboarded?: boolean;
+  OauthSub?: string | null;
 }
 
 export type SafeUser = Omit<User, 'AuthHash'>;
@@ -42,7 +45,7 @@ export function toSafeUser(user: User): SafeUser {
 export class UserEntity implements User {
   Id!: string;
   Username!: string;
-  Email!: string;
+  Email!: string | null;
   FirstName!: string;
   LastName!: string;
   AuthHash!: string;
@@ -66,6 +69,8 @@ export class UserEntity implements User {
   LoginAttemptsBeforeLockout?: number;
   SessionVersion?: number;
   PolicyJson?: GiftistryUserPolicy | Record<string, unknown> | null;
+  IsOnboarded?: boolean;
+  OauthSub?: string | null;
 
   constructor(data: User) {
     Object.assign(this, data);
@@ -94,10 +99,6 @@ export class UserEntity implements User {
 
     if (sitePolicy.MaintenanceMode && !this.IsAdmin) {
       throw new AppError(sitePolicy.MaintenanceMessage || 'Server is in maintenance mode', 503, 'MAINTENANCE');
-    }
-
-    if (sitePolicy.RequireEmailVerification && !this.EmailVerified && !this.IsAdmin) {
-      throw new AppError('Please verify your email before logging in', 403, 'FORBIDDEN');
     }
   }
 

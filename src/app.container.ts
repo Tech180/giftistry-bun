@@ -37,6 +37,8 @@ import { createInvitesModule } from '@/modules/invites/invites.module';
 import { createNotificationsModule } from '@/modules/notifications/notifications.module';
 import { createAdminModule } from '@/modules/admin/admin.module';
 import { createSystemModule } from '@/modules/system/system.module';
+import { SaveSystemSettingsUseCase } from '@/modules/system/application/save-system-settings.use-case';
+import { TestAiConnectionUseCase } from '@/modules/system/application/test-ai-connection.use-case';
 import { createJobsModule } from '@/modules/jobs/jobs.module';
 import { PostgresBackgroundJobRepository } from '@/modules/jobs/infrastructure/postgres-background-job.repository';
 import type { BackgroundJobRunner } from '@/modules/jobs/application/background-job-runner';
@@ -94,14 +96,20 @@ export function createAppContainer(): AppContainer {
   const createNotificationUseCase = new CreateNotificationUseCase(notificationRepo);
   registerCreateNotificationHandlers(eventBus, createNotificationUseCase);
 
+  const testAiConnectionUseCase = new TestAiConnectionUseCase();
+  const saveSystemSettingsUseCase = new SaveSystemSettingsUseCase(serverConfigRepo, testAiConnectionUseCase);
+
   const authModule = createAuthModule({
     userRepo,
     passkeyRepo,
     emailSender,
     getSitePolicyUseCase,
+    saveSitePolicyUseCase,
     writeAuditLogUseCase,
     assertUserCanUseCase,
     wishlistRepo,
+    serverConfigRepo,
+    saveSystemSettingsUseCase,
   });
 
   const checkListAccessUseCase = createCheckListAccessUseCase(listShareRepo);
@@ -179,6 +187,7 @@ export function createAppContainer(): AppContainer {
   const { module: systemModule } = createSystemModule({
     serverConfigRepo,
     getSitePolicyUseCase,
+    saveSitePolicyUseCase,
     writeAuditLogUseCase,
   });
 

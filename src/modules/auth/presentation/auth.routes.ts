@@ -6,6 +6,7 @@ import type { UserRepository } from '../domain/ports/user.repository';
 import { rateLimit } from '@/common/middlewares/rate-limit.middleware';
 import { isAvatarColor } from '@/common/utils/avatar.util';
 import { loadConfig } from '@/common/infrastructure/config.loader';
+import { getPublicAppUrl } from '@/common/utils/public-app-url.util';
 
 const getCookie = (cookieHeader: string | undefined, name: string): string | null => {
   if (!cookieHeader) return null;
@@ -86,6 +87,7 @@ export function createAuthMiddleware(userRepo: UserRepository) {
             IsDisabled: user.IsDisabled,
             ForcePasswordChange: user.ForcePasswordChange,
             Policy: user.PolicyJson,
+            IsOnboarded: user.IsOnboarded === true,
           };
         },
         getOptionalAuthUser: async () => {
@@ -249,7 +251,7 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
   .group('/api/auth', (group) => group
     .use(rateLimit({ windowMs: 60000, max: 5 }))
     .post('/signup', async ({ set, body: { Giftistry: { Auth: { Username, Email, Password, FirstName, LastName } } } }) => {
-      const user = await useCases.signup.execute(Username, Email, Password, FirstName ?? undefined, LastName ?? undefined);
+      const user = await useCases.signup.execute(Username, Email ?? null, Password, FirstName ?? undefined, LastName ?? undefined);
       const token = await createToken({ userId: user.Id, sessionVersion: user.SessionVersion ?? 0 });
       setJwtCookie(set, token);
       return { success: true, User: user, Token: token };
@@ -257,13 +259,13 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
       detail: {
         tags: ['Authentication'],
         summary: 'Register a new user',
-        description: 'Creates a new user profile, generates email verification, and sets the JWT session cookie.',
+        description: 'Creates a new user profile (email optional), optionally sends email verification, and sets the JWT session cookie.',
       },
       body: t.Object({
         Giftistry: t.Object({
           Auth: t.Object({
             Username: t.String({ minLength: 3, maxLength: 50 }),
-            Email: t.String({ format: 'email' }),
+            Email: t.Optional(t.Union([t.String({ format: 'email' }), t.Literal('')])),
             FirstName: t.Optional(t.Nullable(t.String({ minLength: 1, maxLength: 100 }))),
             LastName: t.Optional(t.Nullable(t.String({ minLength: 1, maxLength: 100 }))),
             Password: t.String({ minLength: 6 }),
@@ -271,8 +273,8 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
         }),
       }),
     })
-    .post('/login', async ({ set, body: { Giftistry: { Auth: { Email, Password } } } }) => {
-      const user = await useCases.login.execute(Email, Password);
+    .post('/login', async ({ set, body: { Giftistry: { Auth: { Username, Password } } } }) => {
+      const user = await useCases.login.execute(Username, Password);
 
       if (user.TwoFactorEnabled) {
         const ticket = await useCases.twoFactorLogin.createTicket(user.Id);
@@ -281,30 +283,19 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
 
       const token = await createToken({ userId: user.Id, sessionVersion: user.SessionVersion ?? 0 });
       setJwtCookie(set, token);
-      return { success: true, User: user, Token: token };
+      const passkeys = await useCases.listPasskeys.execute(user.Id);
+      return { success: true, User: { ...user, HasPasskey: passkeys.length > 0 }, Token: token };
     }, {
       detail: {
         tags: ['Authentication'],
         summary: 'Authenticate a user',
-        description: 'Verifies email/password and sets the HTTP-only JWT session cookie. Redirects to 2FA if enabled.',
+        description: 'Verifies username/password and sets the HTTP-only JWT session cookie. Redirects to 2FA if enabled.',
       },
       body: t.Object({
         Giftistry: t.Object({
           Auth: t.Object({
-            Email: t.String(),
+            Username: t.String(),
             Password: t.String(),
-          }),
-        }),
-      }),
-    })
-    .post('/verify-email', async ({ body: { Giftistry: { Auth: { Token } } } }) => {
-      await useCases.verifyEmail.execute(Token);
-      return { success: true };
-    }, {
-      body: t.Object({
-        Giftistry: t.Object({
-          Auth: t.Object({
-            Token: t.String(),
           }),
         }),
       }),
@@ -320,7 +311,8 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
       const user = await useCases.passkeyLogin.verify(AuthenticationResponse, challenge || '', origin);
       const token = await createToken({ userId: user.Id, sessionVersion: user.SessionVersion ?? 0 });
       setJwtCookie(set, token);
-      return { success: true, User: user, Token: token };
+      const passkeys = await useCases.listPasskeys.execute(user.Id);
+      return { success: true, User: { ...user, HasPasskey: passkeys.length > 0 }, Token: token };
     }, {
       body: t.Object({
         Giftistry: t.Object({
@@ -330,11 +322,28 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
         }),
       }),
     })
+    .post('/passkey/check', async ({ body: { Giftistry: { Auth: { Username } } } }) => {
+      const user = await userRepo.findByUsername(Username);
+      if (!user) {
+        return { success: true, HasPasskey: false };
+      }
+      const passkeys = await useCases.listPasskeys.execute(user.Id);
+      return { success: true, HasPasskey: passkeys.length > 0 };
+    }, {
+      body: t.Object({
+        Giftistry: t.Object({
+          Auth: t.Object({
+            Username: t.String(),
+          }),
+        }),
+      }),
+    })
     .post('/2fa/login', async ({ set, body: { Giftistry: { Auth: { Ticket, Code } } } }) => {
       const user = await useCases.twoFactorLogin.execute(Ticket, Code);
       const token = await createToken({ userId: user.Id, sessionVersion: user.SessionVersion ?? 0 });
       setJwtCookie(set, token);
-      return { success: true, User: user, Token: token };
+      const passkeys = await useCases.listPasskeys.execute(user.Id);
+      return { success: true, User: { ...user, HasPasskey: passkeys.length > 0 }, Token: token };
     }, {
       body: t.Object({
         Giftistry: t.Object({
@@ -344,6 +353,34 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
           }),
         }),
       }),
+    })
+    .get('/oauth/authorize', async ({ set }) => {
+      const result = await useCases.beginOidcLogin.execute();
+      set.status = 302;
+      set.headers['Location'] = result.AuthorizationUrl;
+      return '';
+    })
+    .get('/oauth/callback', async ({ query, set }) => {
+      const code = typeof query.code === 'string' ? query.code : '';
+      const state = typeof query.state === 'string' ? query.state : '';
+      if (!code || !state) {
+        throw new AppError('Missing OAuth callback parameters', 400, 'BAD_REQUEST');
+      }
+
+      const user = await useCases.handleOidcCallback.execute(code, state);
+      const token = await createToken({ userId: user.Id, sessionVersion: user.SessionVersion ?? 0 });
+      setJwtCookie(set, token);
+
+      const redirectBase = getPublicAppUrl() || 'http://localhost:3000';
+      const redirectUrl = new URL('/login', redirectBase);
+      redirectUrl.searchParams.set('token', token);
+      if (user.IsOnboarded !== true) {
+        redirectUrl.pathname = '/onboarding';
+      }
+
+      set.status = 302;
+      set.headers['Location'] = redirectUrl.toString();
+      return '';
     })
     .use(createAuthMiddleware(userRepo))
     .get('/me', async ({ getAuthUser }) => {
@@ -366,9 +403,10 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
         userPolicy?.CanUseAiFeatures !== false
       );
 
+      const passkeys = await useCases.listPasskeys.execute(user.Id);
       return {
         success: true,
-        User: user,
+        User: { ...user, HasPasskey: passkeys.length > 0 },
         Capabilities: {
           CanUseAi: canUseAi,
           CanUseWebSearch: canUseWebSearch,
@@ -381,6 +419,88 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
         description: 'Extracts the JWT from cookie/bearer token and returns the authenticated user context with user capabilities.',
         security: [{ bearerAuth: [] }],
       },
+    })
+    .get('/onboarding', async ({ getAuthUser }) => {
+      const authUser = await getAuthUser();
+      const state = await useCases.getOnboardingState.execute(authUser.userId);
+      return { success: true, ...state };
+    })
+    .patch('/onboarding', async ({ getAuthUser, body: { Giftistry: { Onboarding } } }) => {
+      const authUser = await getAuthUser();
+      const payload = Onboarding ?? {};
+
+      if (payload.Username || payload.FirstName || payload.LastName || payload.Theme || payload.Bio) {
+        await useCases.updateProfile.execute(authUser.userId, {
+          username: payload.Username,
+          firstName: payload.FirstName ?? undefined,
+          lastName: payload.LastName ?? undefined,
+          bio: payload.Bio ?? undefined,
+          theme: payload.Theme ?? undefined,
+        });
+      }
+
+      if (payload.CompleteOwner) {
+        if (!authUser.IsOwner) {
+          throw new AppError('Forbidden: Owner access required', 403, 'FORBIDDEN');
+        }
+        await useCases.completeOwnerOnboarding.execute(authUser.userId, {
+          Skip: payload.SkipOwner === true,
+          PublicAppUrl: payload.PublicAppUrl,
+          RegistrationMode: payload.RegistrationMode,
+          SmtpType: payload.SmtpType,
+          SmtpHost: payload.SmtpHost,
+          SmtpPort: payload.SmtpPort,
+          SmtpUser: payload.SmtpUser,
+          SmtpPass: payload.SmtpPass,
+          SmtpSecure: payload.SmtpSecure,
+          SmtpFrom: payload.SmtpFrom,
+          AiEnabled: payload.AiEnabled,
+          AiWebSearchEnabled: payload.AiWebSearchEnabled,
+        });
+      }
+
+      let user = null;
+      if (payload.CompleteUser) {
+        user = await useCases.completeUserOnboarding.execute(authUser.userId);
+      }
+
+      const state = await useCases.getOnboardingState.execute(authUser.userId);
+      return {
+        success: true,
+        ...state,
+        ...(user ? { User: user } : {}),
+      };
+    }, {
+      body: t.Object({
+        Giftistry: t.Object({
+          Onboarding: t.Object({
+            SkipStep: t.Optional(t.String()),
+            CompleteUser: t.Optional(t.Boolean()),
+            CompleteOwner: t.Optional(t.Boolean()),
+            SkipOwner: t.Optional(t.Boolean()),
+            Username: t.Optional(t.String()),
+            FirstName: t.Optional(t.String()),
+            LastName: t.Optional(t.String()),
+            Bio: t.Optional(t.String()),
+            Theme: t.Optional(t.String()),
+            PublicAppUrl: t.Optional(t.String()),
+            RegistrationMode: t.Optional(t.Union([
+              t.Literal('open'),
+              t.Literal('invite_only'),
+              t.Literal('disabled'),
+            ])),
+            SmtpType: t.Optional(t.Union([t.Literal('local'), t.Literal('remote')])),
+            SmtpHost: t.Optional(t.String()),
+            SmtpPort: t.Optional(t.Numeric()),
+            SmtpUser: t.Optional(t.String()),
+            SmtpPass: t.Optional(t.String()),
+            SmtpSecure: t.Optional(t.Boolean()),
+            SmtpFrom: t.Optional(t.String()),
+            AiEnabled: t.Optional(t.Boolean()),
+            AiWebSearchEnabled: t.Optional(t.Boolean()),
+          }),
+        }),
+      }),
     })
     .get('/passkeys', async ({ getAuthUser }) => {
       const authUser = await getAuthUser();
@@ -440,7 +560,8 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
         webSearchEnabled: WebSearchEnabled,
       });
 
-      return { success: true, User: user };
+      const passkeys = await useCases.listPasskeys.execute(user.Id);
+      return { success: true, User: { ...user, HasPasskey: passkeys.length > 0 } };
     }, {
       detail: {
         tags: ['Authentication'],
@@ -462,11 +583,6 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
           }),
         }),
       }),
-    })
-    .post('/resend-verification', async ({ getAuthUser }) => {
-      const authUser = await getAuthUser();
-      await useCases.resendVerification.execute(authUser.userId, authUser.email, authUser.Username);
-      return { success: true };
     })
     .post('/account/disable', async ({ getAuthUser, request }) => {
       const authUser = await getAuthUser();

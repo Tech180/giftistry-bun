@@ -3,6 +3,7 @@ import path from 'path';
 import { cors } from '@elysiajs/cors';
 import { swagger } from '@elysiajs/swagger';
 import { env } from './common/consts/env.consts';
+import { getPublicAppUrl } from './common/utils/public-app-url.util';
 import { handleError } from './common/middlewares/error.middleware';
 import { createAppContainer } from './app.container';
 import { runMigrations } from './common/database/migrations';
@@ -11,6 +12,10 @@ import { verifyToken } from '@/common/utils/token';
 import { getListAccessContext } from '@/common/middlewares/list-access.middleware';
 import { pascalizeKeys } from '@/common/utils/api-case.util';
 import { setWishlistJobPublisher } from '@/modules/jobs/infrastructure/wishlist-job-publisher';
+import { setCommentPublisher } from '@/modules/comment/infrastructure/comment-publisher';
+import { setNotificationPublisher } from '@/modules/notifications/infrastructure/notification-publisher';
+import { PostgresWishlistRepository } from '@/modules/wishlist/infrastructure/postgres-wishlist.repository';
+import { shouldDeliverCommentEventToUser } from '@/modules/comment/domain/should-deliver-comment-event.util';
 
 function getNumericStatus(status: any, defaultStatus = 200): number {
   if (typeof status === 'number') return status;
@@ -66,7 +71,11 @@ const {
   authMiddleware,
   userRepo: userRepoForWs,
 } = container;
-const rooms = new Map<string, Map<string, { username: string; userId: string }>>();
+const rooms = new Map<
+  string,
+  Map<string, { username: string; userId: string; send: (data: string) => void }>
+>();
+const wishlistRepoForWs = new PostgresWishlistRepository();
 
 function getOnlineUsers(listId: string): { UserId: string; Username: string }[] {
   const room = rooms.get(listId);
@@ -97,10 +106,36 @@ function publishPresence(listId: string, ws?: { publish: (topic: string, data: s
   }
 }
 
+function resolveCorsOrigin(request: Request): boolean | string {
+  if (!env.isProduction) {
+    return true;
+  }
+
+  const publicUrl = getPublicAppUrl();
+  if (!publicUrl) {
+    return false;
+  }
+
+  const origin = request.headers.get('origin');
+  if (!origin) {
+    return publicUrl;
+  }
+
+  try {
+    const allowedOrigin = new URL(publicUrl).origin;
+    if (origin === allowedOrigin) {
+      return true;
+    }
+    return new URL(origin).hostname === new URL(publicUrl).hostname;
+  } catch {
+    return false;
+  }
+}
+
 export const app = new Elysia()
   .use(cors({
     credentials: true,
-    origin: () => true
+    origin: resolveCorsOrigin,
   }))
   .use(swagger({
     path: '/docs',
@@ -232,7 +267,11 @@ export const app = new Elysia()
       }
       
       const name = user.Username;
-      rooms.get(listId)!.set(wsId, { username: name, userId: user.Id });
+      rooms.get(listId)!.set(wsId, {
+        username: name,
+        userId: user.Id,
+        send: (data: string) => ws.send(data),
+      });
 
       publishPresence(listId, ws);
     },
@@ -267,6 +306,31 @@ export const app = new Elysia()
           publishPresence(listId, ws);
         }
       }
+    }
+  })
+  .ws('/ws/user', {
+    query: t.Object({
+      token: t.String()
+    }),
+    async open(ws) {
+      const { token } = ws.data.query;
+      const payload = await verifyToken(token);
+      if (!payload) {
+        ws.close();
+        return;
+      }
+      
+      const user = await userRepoForWs.findById(payload.userId);
+      if (!user) {
+        ws.close();
+        return;
+      }
+      
+      const wsId = crypto.randomUUID();
+      (ws.data as any).wsId = wsId;
+      (ws.data as any).user = user;
+      
+      ws.subscribe(user.Id);
     }
   })
   .get('/api/themes/core/css', async ({ set, request }) => {
@@ -408,9 +472,78 @@ await runMigrations().catch((err) => {
 });
 
 if (process.env.NODE_ENV !== 'test') {
+  if (env.isProduction && !getPublicAppUrl()) {
+    console.warn(
+      '[boot] GIFTISTRY_PUBLIC_APP_URL is not set in production. Email links, CORS, and WebAuthn may not work correctly.'
+    );
+  }
+
   app.listen(env.PORT);
-  setWishlistJobPublisher((listId, payload) => {
-    app.server?.publish(listId, JSON.stringify(payload));
+  setWishlistJobPublisher((listId, userId, payload) => {
+    if (listId) {
+      app.server?.publish(listId, JSON.stringify(payload));
+    }
+    if (userId) {
+      app.server?.publish(userId, JSON.stringify(payload));
+    }
+  });
+  setCommentPublisher((listId, payload) => {
+    const room = rooms.get(listId);
+    if (!room || room.size === 0) {
+      return;
+    }
+
+    const eventType = typeof payload.Type === 'string' ? payload.Type : '';
+    const comment = payload.Comment as { IsOwnerVisible?: boolean } | undefined;
+    const needsOwnerFilter =
+      eventType === 'comment.created' && comment?.IsOwnerVisible === false;
+
+    const deliver = (wishlistOwnerId: string, listHasExpired: boolean) => {
+      const json = JSON.stringify(payload);
+      for (const entry of room.values()) {
+        if (
+          !shouldDeliverCommentEventToUser({
+            eventType,
+            commentIsOwnerVisible: comment?.IsOwnerVisible,
+            recipientUserId: entry.userId,
+            wishlistOwnerId,
+            listHasExpired,
+          })
+        ) {
+          continue;
+        }
+        try {
+          entry.send(json);
+        } catch (err) {
+          console.error('[ERROR] Failed to send comment WS event:', err);
+        }
+      }
+    };
+
+    if (!needsOwnerFilter) {
+      deliver('', false);
+      return;
+    }
+
+    void wishlistRepoForWs
+      .findById(listId)
+      .then((wishlist) => {
+        if (!wishlist) {
+          deliver('', false);
+          return;
+        }
+        const listHasExpired = wishlist.ExpiresAt
+          ? new Date() > new Date(wishlist.ExpiresAt)
+          : false;
+        deliver(wishlist.UserId, listHasExpired);
+      })
+      .catch((err) => {
+        console.error('[ERROR] Failed to resolve wishlist for comment WS filter:', err);
+        // Fail closed for surprise events: do not broadcast to everyone without owner filter
+      });
+  });
+  setNotificationPublisher((userId, payload) => {
+    app.server?.publish(userId, JSON.stringify(payload));
   });
   jobRunner.start();
   console.log(`Giftistry API is running at http://${app.server?.hostname}:${app.server?.port}`);

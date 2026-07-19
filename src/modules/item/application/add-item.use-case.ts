@@ -4,8 +4,27 @@ import type { Item } from '../domain/item.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
 import type { EnrichLinkMetadataUseCase } from './enrich-link-metadata.use-case';
 import type { ExtractItemReviewsUseCase } from './extract-item-reviews.use-case';
-import { serializeItemDescription } from '../domain/item-description.util';
 import type { ItemDescriptionMetadata } from '../domain/item-description.util';
+import {
+  resolvePlainDescriptionText,
+} from '../domain/resolve-item-metadata.util';
+import type { ItemMetadataWrite } from '../domain/ports/item.repository';
+
+function toMetadataWrite(
+  metadata: ItemDescriptionMetadata | null | undefined
+): ItemMetadataWrite | null {
+  if (!metadata) return null;
+  return {
+    IsFavorite: metadata.IsFavorite === true,
+    IsPinned: metadata.IsPinned === true,
+    DesiredQuantity: metadata.DesiredQuantity ?? null,
+    MultiCount: metadata.MultiCount === true,
+    OtherUsersCanSee:
+      metadata.OtherUsersCanSee === undefined ? null : metadata.OtherUsersCanSee,
+    CustomFields: metadata.CustomFields ?? null,
+    Variations: metadata.Variations ?? null,
+  };
+}
 
 export class AddItemUseCase {
   constructor(
@@ -51,11 +70,29 @@ export class AddItemUseCase {
     }
 
     let resolvedDescription = description;
+    let metadataWrite: ItemMetadataWrite | null = null;
     if (metadata) {
-      resolvedDescription = serializeItemDescription(metadata.Text || description || '', metadata);
+      resolvedDescription = resolvePlainDescriptionText(description, metadata);
+      metadataWrite = toMetadataWrite(metadata);
     }
 
-    const item = await this.itemRepo.create(listId, priorityId, suggestedByUserId, name, resolvedDescription, isHiddenIdea, category, isSuggestion, priority);
+    const item = await this.itemRepo.create(
+      listId,
+      priorityId,
+      suggestedByUserId,
+      name,
+      resolvedDescription,
+      isHiddenIdea,
+      category,
+      isSuggestion,
+      priority,
+      metadataWrite
+    );
+
+    if (metadata?.LinkedItemIds?.length) {
+      await this.itemRepo.replaceLinkedItemIds(item.Id, metadata.LinkedItemIds);
+      item.LinkedItemIds = metadata.LinkedItemIds;
+    }
 
     const sharedWith = await this.audienceRepo.setAudience(item.Id, sharedWithUserIds);
 

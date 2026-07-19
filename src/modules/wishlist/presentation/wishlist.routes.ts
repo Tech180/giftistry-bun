@@ -1,7 +1,6 @@
 import { Elysia, t } from 'elysia';
 import type { RouteMiddleware } from '@/common/types/route-middleware';
 import { getListAccessContext } from '@/common/middlewares/list-access.middleware';
-import { AppError } from '@/common/middlewares/error.middleware';
 import type { WishlistUseCases } from './wishlist-use-cases.interface';
 import type { InvitesUseCases } from '@/modules/invites/presentation/invites-use-cases.interface';
 
@@ -25,9 +24,6 @@ export const wishlistRoutes = (
   })
   .post('/wishlists', async ({ getAuthUser, body: { Giftistry: { Lists: { Title, ExpiresAt, AllowGroupFunds, Category, RevealSuggestions, AiEnabled, WebSearchEnabled } } } }) => {
     const user = await getAuthUser();
-    if (!user.EmailVerified) {
-      throw new AppError('Forbidden: You must verify your email before creating lists.', 403, 'FORBIDDEN');
-    }
     const wishlist = await useCases.createWishlist.execute(
       user.userId,
       Title,
@@ -60,17 +56,32 @@ export const wishlistRoutes = (
       })
     })
   })
-  .get('/wishlists', async ({ getAuthUser }) => {
+  .get('/wishlists', async ({ getAuthUser, query }) => {
     const user = await getAuthUser();
-    const wishlists = await useCases.listWishlists.execute(user.userId);
+    const wishlists = await useCases.listWishlists.execute(user.userId, {
+      bucket: (query.bucket as 'my' | 'shared' | 'archive' | 'all' | undefined) ?? 'all',
+      q: query.q ?? '',
+    });
     return { success: true, data: wishlists };
   }, {
     detail: {
       tags: ['Wishlists'],
       summary: 'List user wishlists',
-      description: 'Fetch all wishlists owned by the authenticated user.',
+      description:
+        'Fetch wishlists for the authenticated user. Optional bucket (my|shared|archive|all) and q search filter. Always includes Counts for all buckets.',
       security: [{ bearerAuth: [] }]
-    }
+    },
+    query: t.Object({
+      bucket: t.Optional(
+        t.Union([
+          t.Literal('my'),
+          t.Literal('shared'),
+          t.Literal('archive'),
+          t.Literal('all'),
+        ])
+      ),
+      q: t.Optional(t.String()),
+    }),
   })
   .post('/priorities', async ({ getAuthUser, body: { Giftistry: { Priorities: { Label, Weight } } } }) => {
     const user = await getAuthUser();
@@ -129,10 +140,7 @@ export const wishlistRoutes = (
   })
   .use(middleware.listAccess)
   .post('/wishlists/:listId/shares', async ({ params: { listId }, getAuthUser, checkListAccess, body: { Giftistry: { Lists: { Email, Role } } } }) => {
-    const user = await getAuthUser();
-    if (!user.EmailVerified) {
-      throw new AppError('Forbidden: You must verify your email before sharing lists.', 403, 'FORBIDDEN');
-    }
+    await getAuthUser();
     await checkListAccess('owner');
     const share = await useCases.shareWishlist.execute(listId, Email, Role);
     return { success: true, data: share };

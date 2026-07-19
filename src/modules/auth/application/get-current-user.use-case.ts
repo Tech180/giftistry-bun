@@ -3,10 +3,10 @@ import { AppError } from '@/common/middlewares/error.middleware';
 
 export interface CurrentUser {
   userId: string;
-  email: string;
+  email: string | null;
   Id: string;
   Username: string;
-  Email: string;
+  Email: string | null;
   FirstName: string;
   LastName: string;
   CreatedAt?: Date;
@@ -22,6 +22,7 @@ export interface CurrentUser {
   Policy?: unknown;
   AiEnabled?: boolean;
   WebSearchEnabled?: boolean;
+  IsOnboarded?: boolean;
 }
 
 export class GetCurrentUserUseCase {
@@ -58,6 +59,7 @@ export class GetCurrentUserUseCase {
       Policy: user.PolicyJson,
       AiEnabled: user.AiEnabled !== false,
       WebSearchEnabled: user.WebSearchEnabled !== false,
+      IsOnboarded: user.IsOnboarded === true,
     };
   }
 }

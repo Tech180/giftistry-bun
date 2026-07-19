@@ -50,7 +50,11 @@ export function createAdminModule(deps: AdminModuleDeps) {
     ),
     updateUser: new UpdateAdminUserUseCase(deps.adminUserRepo, deps.writeAuditLogUseCase),
     updateUserPolicy: new UpdateUserPolicyUseCase(deps.adminUserRepo, deps.writeAuditLogUseCase),
-    resetPassword: new ResetUserPasswordUseCase(deps.adminUserRepo, deps.writeAuditLogUseCase),
+    resetPassword: new ResetUserPasswordUseCase(
+      deps.adminUserRepo,
+      deps.writeAuditLogUseCase,
+      deps.getSitePolicyUseCase
+    ),
     unlockUser: new UnlockUserUseCase(deps.adminUserRepo, deps.writeAuditLogUseCase),
     revokeSessions: new RevokeUserSessionsUseCase(deps.adminUserRepo, deps.writeAuditLogUseCase),
     deleteUser: new DeleteAdminUserUseCase(deps.adminUserRepo, deps.writeAuditLogUseCase),

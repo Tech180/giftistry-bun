@@ -10,9 +10,9 @@ export class LoginUseCase {
     private getSitePolicy: GetSitePolicyUseCase
   ) {}
 
-  async execute(email: string, password: string): Promise<SafeUser> {
-    if (!email || !password) {
-      throw new AppError('Email and password are required', 400, 'BAD_REQUEST');
+  async execute(username: string, password: string): Promise<SafeUser> {
+    if (!username || !password) {
+      throw new AppError('Username and password are required', 400, 'BAD_REQUEST');
     }
 
     const sitePolicy = await this.getSitePolicy.execute();
@@ -20,9 +20,9 @@ export class LoginUseCase {
       throw new AppError('Password login is disabled on this server', 403, 'FORBIDDEN');
     }
 
-    const userRow = await this.userRepo.findByEmail(email);
+    const userRow = await this.userRepo.findByUsername(username);
     if (!userRow) {
-      throw new AppError('Invalid email or password', 401, 'UNAUTHORIZED');
+      throw new AppError('Invalid username or password', 401, 'UNAUTHORIZED');
     }
 
     const user = UserEntity.from(userRow);
@@ -32,7 +32,7 @@ export class LoginUseCase {
     if (!isMatch) {
       const { failedLoginCount, lockedUntil } = user.recordFailedLogin(sitePolicy);
       await this.userRepo.updateLockout(user.Id, failedLoginCount, lockedUntil);
-      throw new AppError('Invalid email or password', 401, 'UNAUTHORIZED');
+      throw new AppError('Invalid username or password', 401, 'UNAUTHORIZED');
     }
 
     await this.userRepo.resetLockoutAndRecordLogin(user.Id);

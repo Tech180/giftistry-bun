@@ -39,7 +39,19 @@ export interface UserRepository {
   findByEmail(email: string): Promise<User | null>;
   findByUsername(username: string): Promise<User | null>;
   findById(id: string): Promise<User | null>;
-  create(username: string, email: string, firstName: string, lastName: string, authHash: string, isAdmin?: boolean, isOwner?: boolean): Promise<User>;
+  findByOauthSub(oauthSub: string): Promise<User | null>;
+  create(username: string, email: string | null, firstName: string, lastName: string, authHash: string, isAdmin?: boolean, isOwner?: boolean): Promise<User>;
+  createOauthUser(params: {
+    username: string;
+    email: string | null;
+    firstName: string;
+    lastName: string;
+    oauthSub: string;
+    isAdmin?: boolean;
+    isOwner?: boolean;
+  }): Promise<User>;
+  linkOauthSub(userId: string, oauthSub: string): Promise<User>;
+  setOnboarded(id: string, isOnboarded?: boolean): Promise<User>;
   update(id: string, updates: {
     username?: string;
     firstName?: string;
@@ -54,8 +66,10 @@ export interface UserRepository {
     twoFactorEnabled?: boolean;
     twoFactorSecret?: string | null;
     twoFactorRecoveryCodes?: string | null;
+    isAdmin?: boolean;
     aiEnabled?: boolean;
     webSearchEnabled?: boolean;
+    isOnboarded?: boolean;
   }): Promise<User>;
   count(): Promise<number>;
   updateLastOnline(id: string): Promise<void>;

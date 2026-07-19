@@ -89,7 +89,7 @@ export class AcceptEmailInviteUseCase {
     }
 
     const user = await this.userRepo.findById(userId);
-    if (!user || user.Email.toLowerCase() !== emailInvite.Email.toLowerCase()) {
+    if (!user || !user.Email || user.Email.toLowerCase() !== emailInvite.Email.toLowerCase()) {
       throw new AppError('This invite was sent to a different email address', 403, 'FORBIDDEN');
     }
 

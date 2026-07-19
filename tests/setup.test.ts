@@ -1,17 +1,24 @@
-import { expect, test, describe, beforeAll, afterAll } from "bun:test";
+import { expect, test, describe, beforeAll, afterAll, beforeEach, afterEach } from "bun:test";
 import { app } from '../src/index';
 import { sql } from '../src/common/database/connection';
 import { testPassword } from './helper';
+import { getEnv, loadRuntimeConfig, setEnvForTests } from '../src/common/consts/env.consts';
 import * as fs from 'fs';
 import * as path from 'path';
 
 describe("Homelab Setup Wizard Endpoints", () => {
   const timestamp = Date.now();
-  const setupAdminEmail = `setup_admin_${timestamp}@example.com`;
   const setupAdminUsername = `setup_admin_${timestamp}`;
 
   let originalConfig: string | null = null;
   const configPath = path.join(process.cwd(), 'config.json');
+
+  const resetUninitializedConfig = () => {
+    if (!fs.existsSync(configPath)) return;
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
+    config.AllowSetup = true;
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+  };
 
   beforeAll(async () => {
     if (fs.existsSync(configPath)) {
@@ -46,6 +53,7 @@ describe("Homelab Setup Wizard Endpoints", () => {
   });
 
   test("Run system setup and bootstrap admin", async () => {
+    resetUninitializedConfig();
     const res = await app.handle(
       new Request("http://localhost/api/system/setup", {
         method: "POST",
@@ -54,10 +62,8 @@ describe("Homelab Setup Wizard Endpoints", () => {
           Giftistry: {
             Setup: {
               DbType: "local",
-              SmtpType: "local",
               Admin: {
                 Username: setupAdminUsername,
-                Email: setupAdminEmail,
                 Password: testPassword
               }
             }
@@ -95,10 +101,8 @@ describe("Homelab Setup Wizard Endpoints", () => {
           Giftistry: {
             Setup: {
               DbType: "local",
-              SmtpType: "local",
               Admin: {
                 Username: "another_admin",
-                Email: "another@example.com",
                 Password: testPassword
               }
             }
@@ -106,8 +110,114 @@ describe("Homelab Setup Wizard Endpoints", () => {
         })
       })
     );
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(403);
     const body = await res.json() as any;
-    expect(body.Result.Message).toContain("System already setup");
+    expect(body.Result.Message).toContain("sealed");
+  });
+});
+
+describe("Setup hardening", () => {
+  const tokenTimestamp = Date.now();
+  const tokenAdminUsername = `token_admin_${tokenTimestamp}`;
+  const setupToken = `setup-token-${tokenTimestamp}`;
+  const configPath = path.join(process.cwd(), 'config.json');
+  let savedRuntimeConfig: ReturnType<typeof getEnv> | null = null;
+
+  const resetUninitializedConfig = () => {
+    if (!fs.existsSync(configPath)) return;
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
+    config.AllowSetup = true;
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+  };
+
+  beforeEach(async () => {
+    await sql`DELETE FROM user_passkeys`;
+    await sql`DELETE FROM users`;
+    resetUninitializedConfig();
+  });
+
+  afterEach(async () => {
+    setEnvForTests(savedRuntimeConfig);
+    savedRuntimeConfig = null;
+    await sql`DELETE FROM users WHERE username = ${tokenAdminUsername}`;
+  });
+
+  test("Setup is blocked when GIFTISTRY_ALLOW_SETUP is false", async () => {
+    savedRuntimeConfig = getEnv();
+    setEnvForTests({
+      ...loadRuntimeConfig(),
+      GIFTISTRY_ALLOW_SETUP: false,
+    });
+
+    const res = await app.handle(
+      new Request("http://localhost/api/system/setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          Giftistry: {
+            Setup: {
+              DbType: "local",
+              Admin: {
+                Username: tokenAdminUsername,
+                Password: testPassword,
+              },
+            },
+          },
+        }),
+      })
+    );
+    expect(res.status).toBe(403);
+    const body = await res.json() as any;
+    expect(body.Result.Message).toContain("Setup is disabled");
+  });
+
+  test("Setup requires matching token when GIFTISTRY_SETUP_TOKEN is set", async () => {
+    savedRuntimeConfig = getEnv();
+    setEnvForTests({
+      ...loadRuntimeConfig(),
+      GIFTISTRY_SETUP_TOKEN: setupToken,
+    });
+
+    const denied = await app.handle(
+      new Request("http://localhost/api/system/setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          Giftistry: {
+            Setup: {
+              DbType: "local",
+              Admin: {
+                Username: tokenAdminUsername,
+                Password: testPassword,
+              },
+            },
+          },
+        }),
+      })
+    );
+    expect(denied.status).toBe(403);
+
+    const allowed = await app.handle(
+      new Request("http://localhost/api/system/setup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Giftistry-Setup-Token": setupToken,
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Setup: {
+              DbType: "local",
+              SetupToken: setupToken,
+              Admin: {
+                Username: tokenAdminUsername,
+                Password: testPassword,
+              },
+            },
+          },
+        }),
+      })
+    );
+    expect(allowed.status).toBe(200);
   });
 });

@@ -229,7 +229,7 @@ describe("Wishlist Lifecycle & Shares", () => {
       })
     );
     const newItemsBody = await newItemsRes.json() as any;
-    expect(newItemsBody.Result.length).toBe(1);
+    expect(newItemsBody.Result.Items.length).toBe(1);
     expect(newItemsBody.Result[0].Name).toBe("Unclaimed Rollover Item");
 
     await cleanUpWishlist(oldListId);

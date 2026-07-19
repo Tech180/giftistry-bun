@@ -1,7 +1,34 @@
 import { Elysia, t } from 'elysia';
 import { authMiddleware } from '@/modules/auth/auth.module';
 import { AppError } from '@/common/middlewares/error.middleware';
+import { env } from '@/common/consts/env.consts';
+import { timingSafeEqualString } from '@/common/utils/public-app-url.util';
 import type { SystemUseCases } from './system-use-cases.interface';
+
+const SETUP_TOKEN_HEADER = 'x-giftistry-setup-token';
+
+function assertSetupToken(request: Request, bodyToken?: string): void {
+  const expected = env.GIFTISTRY_SETUP_TOKEN;
+  if (!expected) return;
+
+  const headerToken = request.headers.get(SETUP_TOKEN_HEADER) ?? '';
+  const provided = headerToken || bodyToken || '';
+  if (!provided || !timingSafeEqualString(provided, expected)) {
+    throw new AppError('Invalid or missing setup token', 403, 'FORBIDDEN');
+  }
+}
+
+const oauthSettingsFields = {
+  PublicAppUrl: t.Optional(t.String()),
+  OAuthEnabled: t.Optional(t.Boolean()),
+  OAuthIssuerUrl: t.Optional(t.String()),
+  OAuthClientId: t.Optional(t.String()),
+  OAuthClientSecret: t.Optional(t.String()),
+  OAuthScopes: t.Optional(t.String()),
+  OAuthButtonText: t.Optional(t.String()),
+  OAuthAutoRegister: t.Optional(t.Boolean()),
+  OAuthAutoLaunch: t.Optional(t.Boolean()),
+};
 
 export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '/api/system' })
   .get('/status', async () => {
@@ -11,16 +38,18 @@ export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '
       ...status,
     };
   })
-  .post('/setup', async ({ body: { Giftistry: { Setup } } }) => {
+  .post('/setup', async ({ body: { Giftistry: { Setup } }, request }) => {
+    assertSetupToken(request, Setup.SetupToken);
     await useCases.runInitialSetup.execute(Setup);
     return { success: true };
   }, {
     body: t.Object({
       Giftistry: t.Object({
         Setup: t.Object({
+          SetupToken: t.Optional(t.String()),
           DbType: t.String(),
           DbUrl: t.Optional(t.String()),
-          SmtpType: t.String(),
+          SmtpType: t.Optional(t.String()),
           SmtpHost: t.Optional(t.String()),
           SmtpPort: t.Optional(t.Numeric()),
           SmtpUser: t.Optional(t.String()),
@@ -29,8 +58,8 @@ export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '
           SmtpFrom: t.Optional(t.String()),
           Admin: t.Object({
             Username: t.String(),
-            Email: t.String(),
-            Password: t.String(),
+            Email: t.Optional(t.String()),
+            Password: t.String({ minLength: 8 }),
             FirstName: t.Optional(t.String()),
             LastName: t.Optional(t.String()),
           }),
@@ -72,6 +101,7 @@ export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '
           SmtpPass: t.Optional(t.String()),
           SmtpSecure: t.Optional(t.Boolean()),
           SmtpFrom: t.Optional(t.String()),
+          ...oauthSettingsFields,
           AiEnabled: t.Optional(t.Boolean()),
           AiWebSearchEnabled: t.Optional(t.Boolean()),
           AiRateLimitEnabled: t.Optional(t.Boolean()),

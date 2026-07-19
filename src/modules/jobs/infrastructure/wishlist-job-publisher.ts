@@ -1,7 +1,11 @@
 import type { BackgroundJob, BackgroundJobItem } from '../domain/background-job.entity';
 import { toJobPublicView } from '../domain/background-job.entity';
 
-export type WishlistJobPublisher = (listId: string, payload: Record<string, unknown>) => void;
+export type WishlistJobPublisher = (
+  listId: string | null,
+  userId: string | null,
+  payload: Record<string, unknown>
+) => void;
 
 let publisher: WishlistJobPublisher | null = null;
 
@@ -14,8 +18,9 @@ export function publishJobProgress(
   type: 'job.progress' | 'job.completed' | 'job.failed',
   items?: BackgroundJobItem[] | null
 ): void {
-  if (!job.ListId || !publisher) return;
-  publisher(job.ListId, {
+  if (!publisher) return;
+  if (!job.ListId && !job.UserId) return;
+  publisher(job.ListId || null, job.UserId || null, {
     Type: type,
     Job: toJobPublicView(job, items),
   });

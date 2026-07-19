@@ -6,9 +6,12 @@ import { toJobPublicView } from '../domain/background-job.entity';
 import type { BackgroundJob } from '../domain/background-job.entity';
 import type { StartWishlistImportJobUseCase } from '../application/start-wishlist-import-job.use-case';
 import type { BackgroundJobRepository } from '../domain/ports/background-job.repository';
+import type { ItemUseCases } from '@/modules/item/application/item-use-cases.interface';
+import type { ImportFileFormat } from '@/modules/item/domain/imported-item-preview';
 
 export interface JobsRouteDeps {
   startWishlistImport: StartWishlistImportJobUseCase;
+  parseImportPreview: ItemUseCases['parseImportPreview'];
   jobRepo: BackgroundJobRepository;
   middleware: RouteMiddleware;
 }
@@ -26,6 +29,43 @@ export const jobsRoutes = (deps: JobsRouteDeps) =>
   new Elysia({ prefix: '/api' })
     .use(deps.middleware.auth)
     .use(deps.middleware.listAccess)
+    .post(
+      '/jobs/wishlist-import/preview',
+      async ({ getAuthUser, body: { Giftistry: { Jobs: payload } } }) => {
+        const user = await getAuthUser();
+        if (payload.ListId) {
+          await getListAccessContext(user.userId, { listId: payload.ListId }, 'collaborator');
+        }
+        const format = payload.Format as ImportFileFormat | null | undefined;
+        const result = await deps.parseImportPreview.execute(user.userId, {
+          listId: payload.ListId ?? undefined,
+          fileName: payload.FileName,
+          format: format ?? undefined,
+          content: payload.Content,
+          contentEncoding: payload.ContentEncoding,
+          allowAi: payload.AllowAi !== false,
+        });
+        return { success: true, data: result };
+      },
+      {
+        body: t.Object({
+          Giftistry: t.Object({
+            Jobs: t.Object({
+              ListId: t.Optional(t.Nullable(t.String())),
+              FileName: t.String(),
+              Format: t.Optional(t.Nullable(t.String())),
+              Content: t.String(),
+              ContentEncoding: t.Union([
+                t.Literal('text'),
+                t.Literal('base64'),
+                t.Literal('data-url'),
+              ]),
+              AllowAi: t.Optional(t.Boolean()),
+            }),
+          }),
+        }),
+      }
+    )
     .post(
       '/jobs/wishlist-import',
       async ({ getAuthUser, body: { Giftistry: { Jobs: payload } }, request }) => {

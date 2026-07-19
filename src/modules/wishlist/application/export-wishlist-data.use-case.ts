@@ -3,7 +3,8 @@ import type { ListItemsUseCase } from '@/modules/item/application/list-items.use
 import type { UserRepository } from '@/modules/auth/domain/ports/user.repository';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { parseItemDescription } from '@/modules/item/domain/item-description.util';
-import { STANDARD_CATEGORIES } from '@/modules/item/domain/standard-categories';
+import { formatCategoryLabel } from '@/modules/item/domain/format-category-label.util';
+import { sortWishlistItemsByExportOrder } from '@/modules/item/domain/sort-wishlist-items.util';
 import ExcelJS from 'exceljs';
 
 export interface WishlistExportResult {
@@ -42,16 +43,6 @@ const getExportFilename = (title: string, exporterName: string | undefined, ext:
   const exporterClean = toPascalCase(exporterName || 'Export');
   return `${pascalTitle}_${dateStr}_${exporterClean}.${ext}`;
 };
-
-function formatCategoryLabel(category: string): string {
-  const std = STANDARD_CATEGORIES.find(s => s.id === category);
-  if (std) return std.label;
-  if (!category || category === 'uncategorized') return 'Uncategorized';
-  return category
-    .split(/[_-]/)
-    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(' ');
-}
 
 function getAudienceDisplayName(user: any): string {
   const first = user.FirstName?.trim();
@@ -456,36 +447,15 @@ export class ExportWishlistDataUseCase {
   }
 
   private getSortedItemsWithPriority(items: any[]) {
-    return items
-      .map(item => {
-        const parsed = parseItemDescription(item.Description);
-        const isFav = !!(parsed.metadata?.IsFavorite || parsed.metadata?.IsPinned);
-        return {
-          ...item,
-          isFav,
-          categoryFormatted: formatCategoryLabel(item.Category)
-        };
-      })
-      .sort((a, b) => {
-        if (a.categoryFormatted === 'Uncategorized' && b.categoryFormatted !== 'Uncategorized') return 1;
-        if (a.categoryFormatted !== 'Uncategorized' && b.categoryFormatted === 'Uncategorized') return -1;
-        const catCompare = a.categoryFormatted.localeCompare(b.categoryFormatted);
-        if (catCompare !== 0) return catCompare;
-
-        if (a.isFav && !b.isFav) return -1;
-        if (!a.isFav && b.isFav) return 1;
-
-        const aPri = a.Priority !== undefined && a.Priority !== null ? a.Priority : null;
-        const bPri = b.Priority !== undefined && b.Priority !== null ? b.Priority : null;
-        if (aPri !== null && bPri !== null) {
-          if (aPri !== bPri) return aPri - bPri;
-        } else if (aPri !== null && bPri === null) {
-          return -1;
-        } else if (aPri === null && bPri !== null) {
-          return 1;
-        }
-
-        return a.Name.localeCompare(b.Name);
-      });
+    return sortWishlistItemsByExportOrder(
+      items.map((item) => ({
+        ...item,
+        Metadata: parseItemDescription(item.Description).metadata,
+      }))
+    ).map((item) => ({
+      ...item,
+      categoryFormatted: formatCategoryLabel(item.Category || 'uncategorized'),
+      isFav: !!(item.Metadata?.IsFavorite || item.Metadata?.IsPinned),
+    }));
   }
 }

@@ -1,0 +1,13 @@
+# Docker build context is the parent directory (projects/).
+# Keep images lean — exclude VCS and local artifacts.
+
+**/node_modules
+**/.git
+**/build
+**/dist
+**/.env
+**/config.json
+giftistry-bun/deploy/config/config.json
+giftistry-react/build
+**/*.log
+**/.cache

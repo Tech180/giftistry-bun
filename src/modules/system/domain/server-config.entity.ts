@@ -15,6 +15,20 @@ export interface ServerConfig {
   SmtpPass?: string;
   SmtpSecure?: boolean;
   SmtpFrom?: string;
+  PublicAppUrl?: string;
+  AllowSetup?: boolean;
+  /** Server owner first-run onboarding completed once. */
+  OwnerOnboardingCompleted?: boolean;
+  /** @deprecated Prefer OwnerOnboardingCompleted; still read for migration. */
+  AdminOnboardingCompleted?: boolean;
+  OAuthEnabled?: boolean;
+  OAuthIssuerUrl?: string;
+  OAuthClientId?: string;
+  OAuthClientSecret?: string;
+  OAuthScopes?: string;
+  OAuthButtonText?: string;
+  OAuthAutoRegister?: boolean;
+  OAuthAutoLaunch?: boolean;
   AiEnabled?: boolean;
   AiWebSearchEnabled?: boolean;
   AiRateLimitEnabled?: boolean;
@@ -38,7 +52,7 @@ export interface ServerConfig {
 
 export interface AdminSetupCredentials {
   Username: string;
-  Email: string;
+  Email?: string;
   Password: string;
   FirstName?: string;
   LastName?: string;
@@ -47,7 +61,8 @@ export interface AdminSetupCredentials {
 export interface SetupPayload {
   DbType: string;
   DbUrl?: string;
-  SmtpType: string;
+  /** Optional; defaults to local (env/Mailpit) when omitted from first-run setup. */
+  SmtpType?: string;
   SmtpHost?: string;
   SmtpPort?: number;
   SmtpUser?: string;
@@ -55,6 +70,7 @@ export interface SetupPayload {
   SmtpSecure?: boolean;
   SmtpFrom?: string;
   Admin: AdminSetupCredentials;
+  SetupToken?: string;
 }
 
 export interface SystemSettingsPayload {
@@ -67,6 +83,15 @@ export interface SystemSettingsPayload {
   SmtpPass?: string;
   SmtpSecure?: boolean;
   SmtpFrom?: string;
+  PublicAppUrl?: string;
+  OAuthEnabled?: boolean;
+  OAuthIssuerUrl?: string;
+  OAuthClientId?: string;
+  OAuthClientSecret?: string;
+  OAuthScopes?: string;
+  OAuthButtonText?: string;
+  OAuthAutoRegister?: boolean;
+  OAuthAutoLaunch?: boolean;
   AiEnabled?: boolean;
   AiWebSearchEnabled?: boolean;
   AiRateLimitEnabled?: boolean;
@@ -98,6 +123,16 @@ export interface SystemSettingsView {
   SmtpPass: string;
   SmtpSecure: boolean;
   SmtpFrom: string;
+  PublicAppUrl: string;
+  AllowSetup: boolean;
+  OAuthEnabled: boolean;
+  OAuthIssuerUrl: string;
+  OAuthClientId: string;
+  OAuthClientSecret: string;
+  OAuthScopes: string;
+  OAuthButtonText: string;
+  OAuthAutoRegister: boolean;
+  OAuthAutoLaunch: boolean;
   AiEnabled: boolean;
   AiWebSearchEnabled: boolean;
   AiRateLimitEnabled: boolean;
@@ -134,7 +169,7 @@ export interface TransferTargetUser {
 
 export interface CreateAdminUserParams {
   username: string;
-  email: string;
+  email: string | null;
   firstName: string;
   lastName: string;
   authHash: string;
@@ -209,6 +244,16 @@ export function toSystemSettingsView(config: ServerConfig): SystemSettingsView {
     SmtpPass: maskSecret(config.SmtpPass),
     SmtpSecure: !!config.SmtpSecure,
     SmtpFrom: config.SmtpFrom || 'noreply@giftistry.local',
+    PublicAppUrl: config.PublicAppUrl || '',
+    AllowSetup: config.AllowSetup !== false,
+    OAuthEnabled: !!config.OAuthEnabled,
+    OAuthIssuerUrl: config.OAuthIssuerUrl || '',
+    OAuthClientId: config.OAuthClientId || '',
+    OAuthClientSecret: maskSecret(config.OAuthClientSecret),
+    OAuthScopes: config.OAuthScopes || 'openid email profile',
+    OAuthButtonText: config.OAuthButtonText || 'Sign in with SSO',
+    OAuthAutoRegister: config.OAuthAutoRegister !== false,
+    OAuthAutoLaunch: !!config.OAuthAutoLaunch,
     AiEnabled: !!config.AiEnabled,
     AiWebSearchEnabled: !!config.AiWebSearchEnabled,
     AiRateLimitEnabled: config.AiRateLimitEnabled !== false,

@@ -1,4 +1,25 @@
 import type { Item, ItemLink, Claim } from '../item.entity';
+import type { ItemDescriptionMetadata } from '../item-description.util';
+
+export interface CreateClaimInput {
+  itemId: string;
+  userId: string;
+  amount: number | null;
+  claimedByName: string | null;
+  anonymous: boolean;
+  quantity: number;
+  selection: string | null;
+}
+
+export interface ItemMetadataWrite {
+  IsFavorite?: boolean;
+  IsPinned?: boolean;
+  DesiredQuantity?: number | null;
+  MultiCount?: boolean;
+  OtherUsersCanSee?: boolean | null;
+  CustomFields?: ItemDescriptionMetadata['CustomFields'] | null;
+  Variations?: ItemDescriptionMetadata['Variations'] | null;
+}
 
 export interface ItemRepository {
   findById(id: string): Promise<Item | null>;
@@ -12,9 +33,10 @@ export interface ItemRepository {
     isHiddenIdea: boolean,
     category: string,
     isSuggestion?: boolean,
-    priority?: number | null
+    priority?: number | null,
+    metadata?: ItemMetadataWrite | null
   ): Promise<Item>;
-  
+
   createLink(
     itemId: string,
     url: string,
@@ -36,7 +58,7 @@ export interface ItemRepository {
   ): Promise<ItemLink>;
   deleteLinksByItemId(itemId: string): Promise<void>;
   findLinksByItemId(itemId: string): Promise<ItemLink[]>;
-  
+
   createClaim(
     itemId: string,
     userId: string | null,
@@ -46,6 +68,7 @@ export interface ItemRepository {
     quantity?: number,
     selection?: string | null
   ): Promise<Claim>;
+  createClaimsAtomic(claims: CreateClaimInput[]): Promise<Claim[]>;
   findClaimsByItemId(itemId: string): Promise<Claim[]>;
   findClaimsByListId(listId: string): Promise<Claim[]>;
   update(
@@ -54,8 +77,13 @@ export interface ItemRepository {
     description: string | null,
     priorityId: string | null,
     category: string,
-    priority?: number | null
+    priority?: number | null,
+    metadata?: ItemMetadataWrite | null
   ): Promise<Item>;
   delete(id: string): Promise<void>;
   deleteClaim(itemId: string, userId: string): Promise<void>;
+
+  findLinkedItemIds(itemId: string): Promise<string[]>;
+  findLinkedItemIdsByListId(listId: string): Promise<Map<string, string[]>>;
+  replaceLinkedItemIds(itemId: string, linkedItemIds: string[]): Promise<void>;
 }

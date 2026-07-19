@@ -1,6 +1,10 @@
 import { loadConfig, saveConfig, sql } from '@/common/database/connection';
 import { initializeSchema } from '@/common/database/init-schema';
-import type { ServerConfigRepository } from '../domain/ports/server-config.repository';
+import { AppError } from '@/common/middlewares/error.middleware';
+import type {
+  CreateAdminUserWithLockParams,
+  ServerConfigRepository,
+} from '../domain/ports/server-config.repository';
 import type {
   CreateAdminUserParams,
   ServerConfig,
@@ -34,9 +38,15 @@ export class PostgresServerConfigRepository implements ServerConfigRepository {
     return false;
   }
 
-  async findExistingUser(username: string, email: string): Promise<{ id: string } | null> {
+  async findExistingUser(username: string, email: string | null): Promise<{ id: string } | null> {
+    if (email) {
+      const [existing] = await sql<{ id: string }[]>`
+        SELECT id FROM users WHERE username = ${username} OR email = ${email}
+      `;
+      return existing ?? null;
+    }
     const [existing] = await sql<{ id: string }[]>`
-      SELECT id FROM users WHERE username = ${username} OR email = ${email}
+      SELECT id FROM users WHERE username = ${username}
     `;
     return existing ?? null;
   }
@@ -55,6 +65,49 @@ export class PostgresServerConfigRepository implements ServerConfigRepository {
         true
       )
     `;
+  }
+
+  async createAdminUserWithLock(params: CreateAdminUserWithLockParams): Promise<void> {
+    await sql.begin(async (tx) => {
+      await tx`SELECT pg_advisory_xact_lock(${params.lockKey})`;
+
+      const [countRow] = await tx<{ count: number }[]>`
+        SELECT COUNT(*)::integer as count FROM users
+      `;
+      if (countRow && countRow.count > 0) {
+        throw new AppError('Forbidden: System already setup', 400, 'BAD_REQUEST');
+      }
+
+      if (params.email) {
+        const [existing] = await tx<{ id: string }[]>`
+          SELECT id FROM users WHERE username = ${params.username} OR email = ${params.email}
+        `;
+        if (existing) {
+          throw new AppError('User already exists in setup phase', 400, 'BAD_REQUEST');
+        }
+      } else {
+        const [existing] = await tx<{ id: string }[]>`
+          SELECT id FROM users WHERE username = ${params.username}
+        `;
+        if (existing) {
+          throw new AppError('User already exists in setup phase', 400, 'BAD_REQUEST');
+        }
+      }
+
+      await tx`
+        INSERT INTO users (username, email, first_name, last_name, auth_hash, is_admin, is_owner, email_verified)
+        VALUES (
+          ${params.username},
+          ${params.email},
+          ${params.firstName},
+          ${params.lastName},
+          ${params.authHash},
+          true,
+          true,
+          true
+        )
+      `;
+    });
   }
 
   async isUserOwner(userId: string): Promise<boolean> {

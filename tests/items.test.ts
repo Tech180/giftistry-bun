@@ -151,7 +151,7 @@ describe("Items, Links & Claims", () => {
     );
     expect(listRes.status).toBe(200);
     const body = await listRes.json() as any;
-    const updatedItem = body.Result.find((i: any) => i.Id === itemId);
+    const updatedItem = body.Result.Items.find((i: any) => i.Id === itemId);
     expect(updatedItem).toBeTruthy();
     expect(updatedItem.Links.length).toBe(1);
     expect(updatedItem.Links[0].Url).toBe("https://www.target.com/ps5-pro");
@@ -211,9 +211,10 @@ describe("Items, Links & Claims", () => {
     );
     expect(res.status).toBe(200);
     const body = await res.json() as any;
-    expect(body.Result.length).toBe(1);
-    expect(body.Result[0].Name).toBe("PlayStation 5 Pro");
-    expect(body.Result[0].Claims.length).toBe(0);
+    expect(body.Result.Items.length).toBe(1);
+    expect(body.Result.Items[0].Name).toBe("PlayStation 5 Pro");
+    expect(body.Result.Items[0].Claims.length).toBe(0);
+    expect(Array.isArray(body.Result.Groups)).toBe(true);
   });
 
   test("Collaborator fetches items (should see secret items and claim details)", async () => {
@@ -227,8 +228,8 @@ describe("Items, Links & Claims", () => {
     );
     expect(res.status).toBe(200);
     const body = await res.json() as any;
-    expect(body.Result.length).toBe(2);
-    const names = body.Result.map((i: any) => i.Name);
+    expect(body.Result.Items.length).toBe(2);
+    const names = body.Result.Items.map((i: any) => i.Name);
     expect(names).toContain("PlayStation 5 Pro");
     expect(names).toContain("Secret Book");
   });
@@ -333,7 +334,7 @@ describe("Items, Links & Claims", () => {
       })
     );
     const unrelatedBody = await unrelatedGetRes.json() as any;
-    const itemForUnrelated = unrelatedBody.Result.find((item: any) => item.Id === testItemId);
+    const itemForUnrelated = unrelatedBody.Result.Items.find((item: any) => item.Id === testItemId);
     expect(itemForUnrelated.Claims[0].ClaimedByName).toBe("Anonymous");
 
     await cleanUpWishlist(testListId);
@@ -432,7 +433,7 @@ describe("Items, Links & Claims", () => {
     );
     expect(getItemsRes.status).toBe(200);
     const items = await getItemsRes.json() as any;
-    const claimedItem = items.Result.find((i: any) => i.Id === testItemId);
+    const claimedItem = items.Result.Items.find((i: any) => i.Id === testItemId);
     expect(claimedItem.IsClaimed).toBe(true);
     expect(claimedItem.Claims.length).toBe(1);
 
@@ -463,7 +464,7 @@ describe("Items, Links & Claims", () => {
     );
     expect(getItemsRes2.status).toBe(200);
     const items2 = await getItemsRes2.json() as any;
-    const unclaimedItem = items2.Result.find((i: any) => i.Id === testItemId);
+    const unclaimedItem = items2.Result.Items.find((i: any) => i.Id === testItemId);
     expect(unclaimedItem.IsClaimed).toBe(false);
     expect(unclaimedItem.Claims.length).toBe(0);
 
@@ -531,7 +532,7 @@ describe("Item Audience Restriction", () => {
       })
     );
     const ownerBody = await ownerRes.json() as any;
-    expect(ownerBody.Result.some((i: any) => i.Name === "Private Gift for A")).toBe(true);
+    expect(ownerBody.Result.Items.some((i: any) => i.Name === "Private Gift for A")).toBe(true);
 
     const collabARes = await app.handle(
       new Request(`http://localhost/api/wishlists/${listId}/items`, {
@@ -540,7 +541,7 @@ describe("Item Audience Restriction", () => {
       })
     );
     const collabABody = await collabARes.json() as any;
-    expect(collabABody.Result.some((i: any) => i.Name === "Private Gift for A")).toBe(true);
+    expect(collabABody.Result.Items.some((i: any) => i.Name === "Private Gift for A")).toBe(true);
 
     const collabBRes = await app.handle(
       new Request(`http://localhost/api/wishlists/${listId}/items`, {
@@ -549,7 +550,7 @@ describe("Item Audience Restriction", () => {
       })
     );
     const collabBBody = await collabBRes.json() as any;
-    expect(collabBBody.Result.some((i: any) => i.Name === "Private Gift for A")).toBe(false);
+    expect(collabBBody.Result.Items.some((i: any) => i.Name === "Private Gift for A")).toBe(false);
   });
 
   test("Owner creates Only Me item hidden from collaborators", async () => {
@@ -583,7 +584,7 @@ describe("Item Audience Restriction", () => {
       })
     );
     const ownerBody = await ownerRes.json() as any;
-    expect(ownerBody.Result.some((i: any) => i.Name === "Owner Secret Item")).toBe(true);
+    expect(ownerBody.Result.Items.some((i: any) => i.Name === "Owner Secret Item")).toBe(true);
 
     for (const token of [collaboratorA.token, collaboratorB.token]) {
       const listRes = await app.handle(
@@ -593,7 +594,7 @@ describe("Item Audience Restriction", () => {
         })
       );
       const listBody = await listRes.json() as any;
-      expect(listBody.Result.some((i: any) => i.Name === "Owner Secret Item")).toBe(false);
+      expect(listBody.Result.Items.some((i: any) => i.Name === "Owner Secret Item")).toBe(false);
     }
   });
 
@@ -644,7 +645,7 @@ describe("Item Audience Restriction", () => {
         })
       );
       const body = await listRes.json() as any;
-      expect(body.Result.some((i: any) => i.Name === "Public Item For All")).toBe(true);
+      expect(body.Result.Items.some((i: any) => i.Name === "Public Item For All")).toBe(true);
     }
   });
 
@@ -675,7 +676,7 @@ describe("Item Audience Restriction", () => {
       })
     );
     const collabBBody = await collabBRes.json() as any;
-    expect(collabBBody.Result.some((i: any) => i.Id === restrictedItemId)).toBe(true);
+    expect(collabBBody.Result.Items.some((i: any) => i.Id === restrictedItemId)).toBe(true);
 
     const collabARes = await app.handle(
       new Request(`http://localhost/api/wishlists/${listId}/items`, {
@@ -684,7 +685,7 @@ describe("Item Audience Restriction", () => {
       })
     );
     const collabABody = await collabARes.json() as any;
-    expect(collabABody.Result.some((i: any) => i.Id === restrictedItemId)).toBe(false);
+    expect(collabABody.Result.Items.some((i: any) => i.Id === restrictedItemId)).toBe(false);
   });
 
   test("Collaborator creates restricted suggestion hidden from owner", async () => {
@@ -715,7 +716,7 @@ describe("Item Audience Restriction", () => {
       })
     );
     const ownerBody = await ownerRes.json() as any;
-    expect(ownerBody.Result.some((i: any) => i.Name === "Secret Suggestion for B")).toBe(false);
+    expect(ownerBody.Result.Items.some((i: any) => i.Name === "Secret Suggestion for B")).toBe(false);
 
     const collabBRes = await app.handle(
       new Request(`http://localhost/api/wishlists/${listId}/items`, {
@@ -724,6 +725,6 @@ describe("Item Audience Restriction", () => {
       })
     );
     const collabBBody = await collabBRes.json() as any;
-    expect(collabBBody.Result.some((i: any) => i.Name === "Secret Suggestion for B")).toBe(true);
+    expect(collabBBody.Result.Items.some((i: any) => i.Name === "Secret Suggestion for B")).toBe(true);
   });
 });

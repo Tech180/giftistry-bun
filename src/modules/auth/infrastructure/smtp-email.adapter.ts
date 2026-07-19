@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import { env } from '@/common/consts/env.consts';
 import { loadConfig } from '@/common/database/connection';
+import { getPublicAppUrl } from '@/common/utils/public-app-url.util';
 import type { EmailSender } from '../domain/ports/email-sender.port';
 
 export class SmtpEmailAdapter implements EmailSender {
@@ -39,7 +40,7 @@ export class SmtpEmailAdapter implements EmailSender {
 
   async sendVerificationEmail(email: string, username: string, token: string): Promise<void> {
     const { transporter, from } = this.getTransporter();
-    const verificationUrl = `http://localhost:3000/verify-email?token=${token}`;
+    const verificationUrl = `${getPublicAppUrl()}/verify-email?token=${token}`;
 
     try {
       await transporter.sendMail({

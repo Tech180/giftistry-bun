@@ -14,11 +14,13 @@ import { GeminiReviewExtractor } from './infrastructure/gemini-review-extractor'
 import { AddItemUseCase } from './application/add-item.use-case';
 import { ListItemsUseCase } from './application/list-items.use-case';
 import { ClaimItemUseCase } from './application/claim-item.use-case';
+import { ClaimItemWithLinkedUseCase } from './application/claim-item-with-linked.use-case';
 import { AddItemLinkUseCase } from './application/add-item-link.use-case';
 import { DeleteItemUseCase } from './application/delete-item.use-case';
 import { UpdateItemUseCase } from './application/update-item.use-case';
 import { GetFieldDefinitionsUseCase } from './application/get-field-definitions.use-case';
 import { UnclaimItemUseCase } from './application/unclaim-item.use-case';
+import { BuildItemClaimProjectionsUseCase } from './application/build-item-claim-projections.use-case';
 import { ValidateItemAudienceUseCase } from './application/validate-item-audience.use-case';
 import { AssertItemVisibleUseCase } from './application/assert-item-visible.use-case';
 import { ExtractMetadataUseCase } from './application/extract-metadata.use-case';
@@ -111,10 +113,21 @@ export function createItemModule(deps: ItemModuleDeps) {
     extractItemReviewsUseCase
   );
 
+  const claimItemUseCase = new ClaimItemUseCase(
+    deps.itemRepo,
+    deps.wishlistRepo,
+    assertItemVisibleUseCase
+  );
+
   const useCases = {
     addItem: addItemUseCase,
     listItems: new ListItemsUseCase(deps.itemRepo, deps.wishlistRepo, deps.audienceRepo),
-    claimItem: new ClaimItemUseCase(deps.itemRepo, deps.wishlistRepo, assertItemVisibleUseCase),
+    claimItem: claimItemUseCase,
+    claimItemWithLinked: new ClaimItemWithLinkedUseCase(
+      deps.itemRepo,
+      claimItemUseCase,
+      assertItemVisibleUseCase
+    ),
     addItemLink: new AddItemLinkUseCase(
       deps.itemRepo,
       assertItemVisibleUseCase,
@@ -131,6 +144,10 @@ export function createItemModule(deps: ItemModuleDeps) {
     ),
     getFieldDefinitions: new GetFieldDefinitionsUseCase(deps.fieldRepo),
     unclaimItem: new UnclaimItemUseCase(deps.itemRepo, assertItemVisibleUseCase),
+    buildItemClaimProjections: new BuildItemClaimProjectionsUseCase(
+      deps.itemRepo,
+      deps.wishlistRepo
+    ),
     validateItemAudience: validateItemAudienceUseCase,
     extractMetadata: extractMetadataUseCase,
     getItemReviews: getItemReviewsUseCase,

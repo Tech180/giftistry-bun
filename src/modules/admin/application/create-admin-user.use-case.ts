@@ -3,6 +3,7 @@ import type { WriteAuditLogUseCase } from '@/common/application/write-audit-log.
 import { GetSitePolicyUseCase } from '@/common/application/get-site-policy.use-case';
 import { mergeUserPolicy } from '@/common/types/user-policy';
 import { AppError } from '@/common/middlewares/error.middleware';
+import { validatePasswordPolicy } from '@/common/domain/password-policy';
 import { generateAvatarColor } from '@/common/utils/avatar.util';
 
 export interface CreateAdminUserPayload {
@@ -29,12 +30,14 @@ export class CreateAdminUserUseCase {
       throw new AppError('Username, email, and password are required', 400, 'BAD_REQUEST');
     }
 
+    const sitePolicy = await this.getSitePolicy.execute();
+    validatePasswordPolicy(payload.password, { requireStrong: sitePolicy.RequireStrongPasswords });
+
     const exists = await this.adminUserRepo.existsByUsernameOrEmail(payload.username, payload.email);
     if (exists) {
       throw new AppError('User with this username or email already exists', 409, 'USER_EXISTS');
     }
 
-    const sitePolicy = await this.getSitePolicy.execute();
     const authHash = await Bun.password.hash(payload.password);
     const avatar = generateAvatarColor();
     const policy = mergeUserPolicy(payload.policy ?? sitePolicy.DefaultUserPolicy);

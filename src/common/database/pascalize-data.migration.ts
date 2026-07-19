@@ -41,6 +41,7 @@ const SITE_POLICY_KEYS: Array<[string, string]> = [
   ['maintenanceMode', 'MaintenanceMode'],
   ['maintenanceMessage', 'MaintenanceMessage'],
   ['allowPasswordLogin', 'AllowPasswordLogin'],
+  ['requireStrongPasswords', 'RequireStrongPasswords'],
   ['allowedEmailDomains', 'AllowedEmailDomains'],
   ['defaultUserPolicy', 'DefaultUserPolicy'],
 ];

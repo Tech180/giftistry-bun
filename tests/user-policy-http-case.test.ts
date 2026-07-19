@@ -45,6 +45,7 @@ describe('mergeSitePolicy', () => {
       MaintenanceMode: true,
       MaintenanceMessage: 'Down',
       AllowPasswordLogin: false,
+      RequireStrongPasswords: false,
       AllowedEmailDomains: ['example.com'],
       DefaultUserPolicy: {
         CanCreateWishlists: false,
@@ -60,11 +61,16 @@ describe('mergeSitePolicy', () => {
       MaintenanceMode: true,
       MaintenanceMessage: 'Down',
       AllowPasswordLogin: false,
+      RequireStrongPasswords: false,
       AllowedEmailDomains: ['example.com'],
       DefaultUserPolicy: {
         CanCreateWishlists: false,
         MaxActiveWishlists: 1,
       },
     });
+  });
+
+  test('defaults RequireStrongPasswords to true', () => {
+    expect(mergeSitePolicy({}).RequireStrongPasswords).toBe(true);
   });
 });

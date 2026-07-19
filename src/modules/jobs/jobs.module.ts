@@ -35,6 +35,7 @@ export function createJobsModule(deps: JobsModuleDeps) {
     module: new Elysia().use(
       jobsRoutes({
         startWishlistImport,
+        parseImportPreview: deps.itemUseCases.parseImportPreview,
         jobRepo,
         middleware: deps.middleware,
       })

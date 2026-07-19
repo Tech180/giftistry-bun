@@ -93,4 +93,46 @@ describe('ParseImportPreviewUseCase allowAi', () => {
     expect(result.items[0].name).toBe('Mug');
     expect(parse).not.toHaveBeenCalled();
   });
+
+  test('rejects PDF when allowAi is false without calling AI', async () => {
+    const parse = mock(() => {
+      throw new Error('AI parse should not run');
+    });
+    const useCase = new ParseImportPreviewUseCase(
+      {
+        extract: async () => ({
+          text: '%PDF-1.4 binary-ish content',
+          format: 'pdf',
+          warnings: [],
+        }),
+      } as never,
+      { parse } as never,
+      { findById: async () => null } as never,
+      { findByListId: async () => [] } as never,
+      { findById: async () => ({ Id: 'u1', AiEnabled: true }) } as never,
+      { execute: async () => undefined } as never,
+      {
+        load: () => ({
+          AiEnabled: true,
+          AiImportPrompt: '',
+        }),
+      } as never
+    );
+
+    try {
+      await useCase.execute('user-1', {
+        fileName: 'catalog.pdf',
+        format: 'pdf',
+        content: 'base64data',
+        contentEncoding: 'base64',
+        allowAi: false,
+      });
+      throw new Error('expected failure');
+    } catch (err) {
+      expect(err).toBeInstanceOf(AppError);
+      expect((err as AppError).errorCode).toBe('IMPORT_FORMAT_UNSUPPORTED');
+    }
+
+    expect(parse).not.toHaveBeenCalled();
+  });
 });

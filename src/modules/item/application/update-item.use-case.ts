@@ -5,8 +5,25 @@ import type { AssertItemVisibleUseCase } from './assert-item-visible.use-case';
 import type { EnrichLinkMetadataUseCase } from './enrich-link-metadata.use-case';
 import type { ExtractItemReviewsUseCase } from './extract-item-reviews.use-case';
 import { AppError } from '@/common/middlewares/error.middleware';
-import { serializeItemDescription } from '../domain/item-description.util';
 import type { ItemDescriptionMetadata } from '../domain/item-description.util';
+import { resolvePlainDescriptionText } from '../domain/resolve-item-metadata.util';
+import type { ItemMetadataWrite } from '../domain/ports/item.repository';
+
+function toMetadataWrite(
+  metadata: ItemDescriptionMetadata | null | undefined
+): ItemMetadataWrite | null {
+  if (!metadata) return null;
+  return {
+    IsFavorite: metadata.IsFavorite === true,
+    IsPinned: metadata.IsPinned === true,
+    DesiredQuantity: metadata.DesiredQuantity ?? null,
+    MultiCount: metadata.MultiCount === true,
+    OtherUsersCanSee:
+      metadata.OtherUsersCanSee === undefined ? null : metadata.OtherUsersCanSee,
+    CustomFields: metadata.CustomFields ?? null,
+    Variations: metadata.Variations ?? null,
+  };
+}
 
 export class UpdateItemUseCase {
   constructor(
@@ -46,15 +63,40 @@ export class UpdateItemUseCase {
     }
 
     let resolvedDescription = description;
+    let metadataWrite: ItemMetadataWrite | null | undefined = undefined;
     if (metadata !== undefined) {
       if (metadata === null) {
-        resolvedDescription = null;
+        resolvedDescription = resolvePlainDescriptionText(description, null);
+        metadataWrite = {
+          IsFavorite: false,
+          IsPinned: false,
+          DesiredQuantity: null,
+          MultiCount: false,
+          OtherUsersCanSee: null,
+          CustomFields: null,
+          Variations: null,
+        };
       } else {
-        resolvedDescription = serializeItemDescription(metadata.Text || description || '', metadata);
+        resolvedDescription = resolvePlainDescriptionText(description, metadata);
+        metadataWrite = toMetadataWrite(metadata);
       }
     }
 
-    const updated = await this.itemRepo.update(itemId, name, resolvedDescription, priorityId, category, priority);
+    const updated = await this.itemRepo.update(
+      itemId,
+      name,
+      resolvedDescription,
+      priorityId,
+      category,
+      priority,
+      metadataWrite ?? null
+    );
+
+    if (metadata !== undefined) {
+      const linkedIds = metadata?.LinkedItemIds ?? [];
+      await this.itemRepo.replaceLinkedItemIds(itemId, linkedIds);
+      updated.LinkedItemIds = linkedIds;
+    }
 
     let sharedWith = await this.audienceRepo.findByItemId(itemId);
     if (sharedWithUserIds !== undefined) {

@@ -19,6 +19,7 @@ export interface SitePolicy {
   MaintenanceMode: boolean;
   MaintenanceMessage: string;
   AllowPasswordLogin: boolean;
+  RequireStrongPasswords: boolean;
   AllowedEmailDomains: string[];
   DefaultUserPolicy: GiftistryUserPolicy;
 }
@@ -35,13 +36,14 @@ export const DEFAULT_USER_POLICY: GiftistryUserPolicy = {
 };
 
 export const DEFAULT_SITE_POLICY: SitePolicy = {
-  RegistrationMode: 'open',
+  RegistrationMode: 'invite_only',
   RequireEmailVerification: false,
   LoginAttemptsBeforeLockout: 5,
   LockoutDurationMinutes: 0,
   MaintenanceMode: false,
   MaintenanceMessage: 'Giftistry is undergoing maintenance. Please check back soon.',
   AllowPasswordLogin: true,
+  RequireStrongPasswords: true,
   AllowedEmailDomains: [],
   DefaultUserPolicy: { ...DEFAULT_USER_POLICY },
 };
@@ -74,6 +76,7 @@ export function mergeSitePolicy(raw: unknown): SitePolicy {
     MaintenanceMode: obj.MaintenanceMode ?? base.MaintenanceMode,
     MaintenanceMessage: obj.MaintenanceMessage ?? base.MaintenanceMessage,
     AllowPasswordLogin: obj.AllowPasswordLogin ?? base.AllowPasswordLogin,
+    RequireStrongPasswords: obj.RequireStrongPasswords ?? base.RequireStrongPasswords,
     AllowedEmailDomains: Array.isArray(obj.AllowedEmailDomains)
       ? obj.AllowedEmailDomains
       : base.AllowedEmailDomains,

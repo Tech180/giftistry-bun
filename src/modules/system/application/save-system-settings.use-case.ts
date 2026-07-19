@@ -10,6 +10,7 @@ import {
   resolveMaskedSecret,
   type SystemSettingsPayload,
 } from '../domain/server-config.entity';
+import { resolveOAuthClientSecret } from '@/common/utils/oauth-config.util';
 import type { TestAiConnectionUseCase } from './test-ai-connection.use-case';
 
 export class SaveSystemSettingsUseCase {
@@ -119,6 +120,24 @@ export class SaveSystemSettingsUseCase {
       SmtpPass: smtpPass,
       SmtpSecure: settings.SmtpSecure,
       SmtpFrom: settings.SmtpFrom,
+      PublicAppUrl: settings.PublicAppUrl?.trim() || config.PublicAppUrl,
+      AllowSetup: config.AllowSetup,
+      OwnerOnboardingCompleted:
+        config.OwnerOnboardingCompleted === true || config.AdminOnboardingCompleted === true
+          ? true
+          : config.OwnerOnboardingCompleted,
+      AdminOnboardingCompleted: undefined,
+      OAuthEnabled: settings.OAuthEnabled ?? config.OAuthEnabled,
+      OAuthIssuerUrl: settings.OAuthIssuerUrl ?? config.OAuthIssuerUrl,
+      OAuthClientId: settings.OAuthClientId ?? config.OAuthClientId,
+      OAuthClientSecret: resolveMaskedSecret(
+        settings.OAuthClientSecret,
+        resolveOAuthClientSecret(config) || config.OAuthClientSecret
+      ),
+      OAuthScopes: settings.OAuthScopes ?? config.OAuthScopes,
+      OAuthButtonText: settings.OAuthButtonText ?? config.OAuthButtonText,
+      OAuthAutoRegister: settings.OAuthAutoRegister ?? config.OAuthAutoRegister,
+      OAuthAutoLaunch: settings.OAuthAutoLaunch ?? config.OAuthAutoLaunch,
       AiEnabled: settings.AiEnabled,
       AiWebSearchEnabled: settings.AiWebSearchEnabled,
       AiRateLimitEnabled: settings.AiRateLimitEnabled !== false,

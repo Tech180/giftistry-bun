@@ -82,7 +82,7 @@ describe('Account actions and disabled-user enforcement', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          Giftistry: { Auth: { Email: disableUser.email, Password: testPassword } },
+          Giftistry: { Auth: { Username: disableUser.username, Password: testPassword } },
         }),
       })
     );

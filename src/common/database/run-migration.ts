@@ -28,6 +28,9 @@ export async function up() {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_expires TIMESTAMP WITH TIME ZONE DEFAULT NULL;
   `;
   await sql`
+    ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
+  `;
+  await sql`
     ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_enabled BOOLEAN DEFAULT FALSE;
   `;
   await sql`

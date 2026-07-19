@@ -56,7 +56,7 @@ const auth: RequestDef[] = [
     path: '/api/auth/login',
     body: bodyJson({
       Giftistry: {
-        Auth: { Email: 'user@example.com', Password: 'securepassword123' },
+        Auth: { Username: 'user', Password: 'securepassword123' },
       },
     }),
   },

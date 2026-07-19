@@ -30,7 +30,7 @@ export async function initializeSchema(dbSql: typeof sql = sql) {
     CREATE TABLE users (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         username VARCHAR(50) UNIQUE NOT NULL,
-        email VARCHAR(255) UNIQUE NOT NULL,
+        email VARCHAR(255) UNIQUE,
         first_name VARCHAR(100) NOT NULL,
         last_name VARCHAR(100) NOT NULL,
         auth_hash VARCHAR(255) NOT NULL,
@@ -50,7 +50,9 @@ export async function initializeSchema(dbSql: typeof sql = sql) {
         web_search_enabled BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         last_online TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        last_login_at TIMESTAMP WITH TIME ZONE DEFAULT NULL
+        last_login_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+        is_onboarded BOOLEAN DEFAULT FALSE,
+        oauth_sub VARCHAR(255) UNIQUE
     )
   `;
 
@@ -210,7 +212,23 @@ export async function initializeSchema(dbSql: typeof sql = sql) {
         is_suggestion BOOLEAN DEFAULT FALSE,
         category VARCHAR(100) DEFAULT 'uncategorized',
         priority INTEGER DEFAULT NULL,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        is_favorite BOOLEAN NOT NULL DEFAULT FALSE,
+        is_pinned BOOLEAN NOT NULL DEFAULT FALSE,
+        desired_quantity INTEGER DEFAULT NULL,
+        multi_count BOOLEAN NOT NULL DEFAULT FALSE,
+        other_users_can_see BOOLEAN DEFAULT NULL,
+        custom_fields JSONB NOT NULL DEFAULT '{}'::jsonb,
+        variations JSONB NOT NULL DEFAULT '[]'::jsonb
+    )
+  `;
+
+  await dbSql`
+    CREATE TABLE item_item_links (
+        item_id UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+        linked_item_id UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+        PRIMARY KEY (item_id, linked_item_id),
+        CHECK (item_id <> linked_item_id)
     )
   `;
 

@@ -22,14 +22,15 @@ const USER_SELECT = `
   is_disabled as "IsDisabled", is_hidden as "IsHidden", locked_until as "LockedUntil",
   failed_login_count as "FailedLoginCount", force_password_change as "ForcePasswordChange",
   login_attempts_before_lockout as "LoginAttemptsBeforeLockout", session_version as "SessionVersion",
-  policy_json as "PolicyJson", ai_enabled as "AiEnabled", web_search_enabled as "WebSearchEnabled"
+  policy_json as "PolicyJson", ai_enabled as "AiEnabled", web_search_enabled as "WebSearchEnabled",
+  is_onboarded as "IsOnboarded", oauth_sub as "OauthSub"
 `;
 
 function mapUserRow(row: Record<string, unknown>): User {
   return {
     Id: row.Id as string,
     Username: row.Username as string,
-    Email: row.Email as string,
+    Email: (row.Email as string | null) ?? null,
     FirstName: row.FirstName as string,
     LastName: row.LastName as string,
     AuthHash: row.AuthHash as string,
@@ -56,6 +57,8 @@ function mapUserRow(row: Record<string, unknown>): User {
     PolicyJson: mergeUserPolicy(typeof row.PolicyJson === 'string' ? JSON.parse(row.PolicyJson) : row.PolicyJson),
     AiEnabled: row.AiEnabled !== false,
     WebSearchEnabled: row.WebSearchEnabled !== false,
+    IsOnboarded: row.IsOnboarded === true,
+    OauthSub: (row.OauthSub as string | null) ?? null,
   };
 }
 
@@ -96,11 +99,76 @@ export class PostgresUserRepository implements UserRepository {
     return row ? mapUserRow(row) : null;
   }
 
-  async create(username: string, email: string, firstName: string, lastName: string, authHash: string, isAdmin: boolean = false, isOwner: boolean = false): Promise<User> {
+  async findByOauthSub(oauthSub: string): Promise<User | null> {
+    const [row] = await sql<any[]>`
+      SELECT ${sql.unsafe(USER_SELECT)}
+      FROM users
+      WHERE oauth_sub = ${oauthSub}
+    `;
+    return row ? mapUserRow(row) : null;
+  }
+
+  async createOauthUser(params: {
+    username: string;
+    email: string | null;
+    firstName: string;
+    lastName: string;
+    oauthSub: string;
+    isAdmin?: boolean;
+    isOwner?: boolean;
+  }): Promise<User> {
+    const avatar = generateAvatarColor();
+    const unusableHash = await Bun.password.hash(crypto.randomUUID());
+    const [row] = await sql<any[]>`
+      INSERT INTO users (
+        username, email, first_name, last_name, auth_hash, is_admin, is_owner, avatar,
+        policy_json, email_verified, oauth_sub, is_onboarded
+      )
+      VALUES (
+        ${params.username},
+        ${params.email},
+        ${params.firstName},
+        ${params.lastName},
+        ${unusableHash},
+        ${params.isAdmin ?? false},
+        ${params.isOwner ?? false},
+        ${avatar},
+        ${JSON.stringify(mergeUserPolicy({}))}::jsonb,
+        true,
+        ${params.oauthSub},
+        false
+      )
+      RETURNING ${sql.unsafe(USER_SELECT)}
+    `;
+    if (!row) throw new Error('Failed to create OAuth user');
+    return mapUserRow(row);
+  }
+
+  async linkOauthSub(userId: string, oauthSub: string): Promise<User> {
+    const [row] = await sql<any[]>`
+      UPDATE users SET oauth_sub = ${oauthSub}
+      WHERE id = ${userId}
+      RETURNING ${sql.unsafe(USER_SELECT)}
+    `;
+    if (!row) throw new Error('Failed to link OAuth subject');
+    return mapUserRow(row);
+  }
+
+  async setOnboarded(id: string, isOnboarded: boolean = true): Promise<User> {
+    const [row] = await sql<any[]>`
+      UPDATE users SET is_onboarded = ${isOnboarded}
+      WHERE id = ${id}
+      RETURNING ${sql.unsafe(USER_SELECT)}
+    `;
+    if (!row) throw new Error('Failed to update onboarding state');
+    return mapUserRow(row);
+  }
+
+  async create(username: string, email: string | null, firstName: string, lastName: string, authHash: string, isAdmin: boolean = false, isOwner: boolean = false): Promise<User> {
     const avatar = generateAvatarColor();
     const [row] = await sql<any[]>`
-      INSERT INTO users (username, email, first_name, last_name, auth_hash, is_admin, is_owner, avatar, policy_json)
-      VALUES (${username}, ${email}, ${firstName}, ${lastName}, ${authHash}, ${isAdmin}, ${isOwner}, ${avatar}, ${JSON.stringify(mergeUserPolicy({}))}::jsonb)
+      INSERT INTO users (username, email, first_name, last_name, auth_hash, is_admin, is_owner, avatar, policy_json, email_verified)
+      VALUES (${username}, ${email}, ${firstName}, ${lastName}, ${authHash}, ${isAdmin}, ${isOwner}, ${avatar}, ${JSON.stringify(mergeUserPolicy({}))}::jsonb, true)
       RETURNING ${sql.unsafe(USER_SELECT)}
     `;
     if (!row) throw new Error('Failed to create user');
@@ -124,6 +192,7 @@ export class PostgresUserRepository implements UserRepository {
     isAdmin?: boolean;
     aiEnabled?: boolean;
     webSearchEnabled?: boolean;
+    isOnboarded?: boolean;
   }): Promise<User> {
     const user = await this.findById(id);
     if (!user) throw new Error('User not found');
@@ -138,7 +207,8 @@ export class PostgresUserRepository implements UserRepository {
 
     const [curr] = await sql<any[]>`
       SELECT email_verified, email_verification_token, email_verification_expires,
-             two_factor_enabled, two_factor_secret, two_factor_recovery_codes, is_admin, ai_enabled, web_search_enabled
+             two_factor_enabled, two_factor_secret, two_factor_recovery_codes, is_admin,
+             ai_enabled, web_search_enabled, is_onboarded
       FROM users WHERE id = ${id}
     `;
 
@@ -152,6 +222,7 @@ export class PostgresUserRepository implements UserRepository {
     const aiEnabled = updates.aiEnabled !== undefined ? updates.aiEnabled : curr.ai_enabled !== false;
     const webSearchEnabled =
       updates.webSearchEnabled !== undefined ? updates.webSearchEnabled : curr.web_search_enabled !== false;
+    const isOnboarded = updates.isOnboarded !== undefined ? updates.isOnboarded : curr.is_onboarded === true;
 
     const [row] = await sql<any[]>`
       UPDATE users SET
@@ -160,7 +231,8 @@ export class PostgresUserRepository implements UserRepository {
         email_verified = ${emailVerified}, email_verification_token = ${emailVerificationToken},
         email_verification_expires = ${emailVerificationExpires}, two_factor_enabled = ${twoFactorEnabled},
         two_factor_secret = ${twoFactorSecret}, two_factor_recovery_codes = ${twoFactorRecoveryCodes},
-        is_admin = ${isAdmin}, ai_enabled = ${aiEnabled}, web_search_enabled = ${webSearchEnabled}
+        is_admin = ${isAdmin}, ai_enabled = ${aiEnabled}, web_search_enabled = ${webSearchEnabled},
+        is_onboarded = ${isOnboarded}
       WHERE id = ${id}
       RETURNING ${sql.unsafe(USER_SELECT)}
     `;

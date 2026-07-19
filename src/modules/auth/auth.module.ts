@@ -3,15 +3,16 @@ import type { UserRepository } from './domain/ports/user.repository';
 import type { PasskeyRepository } from './domain/ports/passkey.repository';
 import type { EmailSender } from './domain/ports/email-sender.port';
 import type { GetSitePolicyUseCase } from '@/common/application/get-site-policy.use-case';
+import type { SaveSitePolicyUseCase } from '@/common/application/save-site-policy.use-case';
 import type { WriteAuditLogUseCase } from '@/common/application/write-audit-log.use-case';
 import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
+import type { ServerConfigRepository } from '@/modules/system/domain/ports/server-config.repository';
+import type { SaveSystemSettingsUseCase } from '@/modules/system/application/save-system-settings.use-case';
 import { SignupUseCase } from './application/signup.use-case';
 import { LoginUseCase } from './application/login.use-case';
 import { UpdateProfileUseCase } from './application/update-profile.use-case';
 import { UserPreviewUseCase } from './application/user-preview.use-case';
-import { VerifyEmailUseCase } from './application/verify-email.use-case';
-import { ResendVerificationUseCase } from './application/resend-verification.use-case';
 import { ListCustomThemesUseCase } from './application/list-custom-themes.use-case';
 import { SaveCustomThemeUseCase } from './application/save-custom-theme.use-case';
 import { DeleteCustomThemeUseCase } from './application/delete-custom-theme.use-case';
@@ -26,6 +27,12 @@ import { Disable2faUseCase } from './application/disable-2fa.use-case';
 import { DisableAccountUseCase } from './application/disable-account.use-case';
 import { DeleteAccountUseCase } from './application/delete-account.use-case';
 import { GetCurrentUserUseCase } from './application/get-current-user.use-case';
+import { GetOnboardingStateUseCase } from './application/get-onboarding-state.use-case';
+import { CompleteUserOnboardingUseCase } from './application/complete-user-onboarding.use-case';
+import { CompleteOwnerOnboardingUseCase } from './application/complete-owner-onboarding.use-case';
+import { BeginOidcLoginUseCase } from './application/begin-oidc-login.use-case';
+import { HandleOidcCallbackUseCase } from './application/handle-oidc-callback.use-case';
+import { OpenIdClientAdapter } from './infrastructure/openid-client.adapter';
 import { authRoutes, createAuthMiddleware } from './presentation/auth.routes';
 
 export interface AuthModuleDeps {
@@ -33,23 +40,25 @@ export interface AuthModuleDeps {
   passkeyRepo: PasskeyRepository;
   emailSender: EmailSender;
   getSitePolicyUseCase: GetSitePolicyUseCase;
+  saveSitePolicyUseCase: SaveSitePolicyUseCase;
   writeAuditLogUseCase: WriteAuditLogUseCase;
   assertUserCanUseCase: AssertUserCanUseCase;
   wishlistRepo: WishlistRepository;
+  serverConfigRepo: ServerConfigRepository;
+  saveSystemSettingsUseCase: SaveSystemSettingsUseCase;
 }
 
 export let authMiddleware: ReturnType<typeof createAuthMiddleware>;
 
 export function createAuthModule(deps: AuthModuleDeps) {
   authMiddleware = createAuthMiddleware(deps.userRepo);
+  const oidcClient = new OpenIdClientAdapter(deps.serverConfigRepo);
 
   const authUseCases = {
-    signup: new SignupUseCase(deps.userRepo, deps.getSitePolicyUseCase, deps.emailSender),
+    signup: new SignupUseCase(deps.userRepo, deps.getSitePolicyUseCase),
     login: new LoginUseCase(deps.userRepo, deps.getSitePolicyUseCase),
     updateProfile: new UpdateProfileUseCase(deps.userRepo),
     userPreview: new UserPreviewUseCase(deps.userRepo, deps.wishlistRepo),
-    verifyEmail: new VerifyEmailUseCase(deps.userRepo),
-    resendVerification: new ResendVerificationUseCase(deps.userRepo, deps.emailSender),
     listCustomThemes: new ListCustomThemesUseCase(deps.userRepo),
     saveCustomTheme: new SaveCustomThemeUseCase(deps.userRepo, deps.assertUserCanUseCase),
     deleteCustomTheme: new DeleteCustomThemeUseCase(deps.userRepo),
@@ -64,6 +73,22 @@ export function createAuthModule(deps: AuthModuleDeps) {
     disableAccount: new DisableAccountUseCase(deps.userRepo, deps.writeAuditLogUseCase),
     deleteAccount: new DeleteAccountUseCase(deps.userRepo, deps.writeAuditLogUseCase),
     getCurrentUser: new GetCurrentUserUseCase(deps.userRepo),
+    getOnboardingState: new GetOnboardingStateUseCase(deps.userRepo, deps.serverConfigRepo),
+    completeUserOnboarding: new CompleteUserOnboardingUseCase(deps.userRepo),
+    completeOwnerOnboarding: new CompleteOwnerOnboardingUseCase(
+      deps.userRepo,
+      deps.serverConfigRepo,
+      deps.getSitePolicyUseCase,
+      deps.saveSitePolicyUseCase,
+      deps.saveSystemSettingsUseCase
+    ),
+    beginOidcLogin: new BeginOidcLoginUseCase(oidcClient, deps.serverConfigRepo),
+    handleOidcCallback: new HandleOidcCallbackUseCase(
+      oidcClient,
+      deps.userRepo,
+      deps.serverConfigRepo,
+      deps.getSitePolicyUseCase
+    ),
   };
 
   return new Elysia().use(authRoutes(authUseCases, deps.userRepo));

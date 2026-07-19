@@ -217,6 +217,76 @@ export async function runMigrations(dbSql: typeof sql = sql): Promise<void> {
   await dbSql`ALTER TABLE users ADD COLUMN IF NOT EXISTS web_search_enabled BOOLEAN DEFAULT TRUE`;
   await dbSql`ALTER TABLE lists ADD COLUMN IF NOT EXISTS web_search_enabled BOOLEAN DEFAULT FALSE`;
 
+  await dbSql`ALTER TABLE items ADD COLUMN IF NOT EXISTS is_favorite BOOLEAN NOT NULL DEFAULT FALSE`;
+  await dbSql`ALTER TABLE items ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN NOT NULL DEFAULT FALSE`;
+  await dbSql`ALTER TABLE items ADD COLUMN IF NOT EXISTS desired_quantity INTEGER DEFAULT NULL`;
+  await dbSql`ALTER TABLE items ADD COLUMN IF NOT EXISTS multi_count BOOLEAN NOT NULL DEFAULT FALSE`;
+  await dbSql`ALTER TABLE items ADD COLUMN IF NOT EXISTS other_users_can_see BOOLEAN DEFAULT NULL`;
+  await dbSql`ALTER TABLE items ADD COLUMN IF NOT EXISTS custom_fields JSONB NOT NULL DEFAULT '{}'::jsonb`;
+  await dbSql`ALTER TABLE items ADD COLUMN IF NOT EXISTS variations JSONB NOT NULL DEFAULT '[]'::jsonb`;
+
+  await dbSql`
+    CREATE TABLE IF NOT EXISTS item_item_links (
+      item_id UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+      linked_item_id UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+      PRIMARY KEY (item_id, linked_item_id),
+      CHECK (item_id <> linked_item_id)
+    )
+  `;
+  await dbSql`CREATE INDEX IF NOT EXISTS idx_item_item_links_linked_item_id ON item_item_links (linked_item_id)`;
+
+  // Backfill metadata columns + linked-item junction from legacy Description JSON.
+  const legacyItems = await dbSql<{
+    id: string;
+    description: string | null;
+  }[]>`
+    SELECT id, description
+    FROM items
+    WHERE description IS NOT NULL
+      AND trim(description) LIKE '{%'
+      AND trim(description) LIKE '%}'
+  `;
+
+  for (const legacy of legacyItems) {
+    try {
+      const parsed = JSON.parse(legacy.description!);
+      if (!parsed || typeof parsed !== 'object') continue;
+
+      const customFields = parsed.CustomFields ?? {};
+      const variations = Array.isArray(parsed.Variations) ? parsed.Variations : [];
+      const plainText =
+        typeof parsed.Text === 'string' && parsed.Text.trim() ? parsed.Text.trim() : null;
+
+      await dbSql`
+        UPDATE items
+        SET is_favorite = COALESCE(${parsed.IsFavorite === true}, is_favorite),
+            is_pinned = COALESCE(${parsed.IsPinned === true}, is_pinned),
+            desired_quantity = COALESCE(${parsed.DesiredQuantity ?? null}, desired_quantity),
+            multi_count = COALESCE(${parsed.MultiCount === true}, multi_count),
+            other_users_can_see = COALESCE(${
+              parsed.OtherUsersCanSee === undefined ? null : parsed.OtherUsersCanSee === true
+            }, other_users_can_see),
+            custom_fields = COALESCE(${JSON.stringify(customFields)}::jsonb, custom_fields),
+            variations = COALESCE(${JSON.stringify(variations)}::jsonb, variations),
+            description = ${plainText}
+        WHERE id = ${legacy.id}
+      `;
+
+      const linkedIds: string[] = Array.isArray(parsed.LinkedItemIds)
+        ? parsed.LinkedItemIds.filter((id: unknown) => typeof id === 'string' && id !== legacy.id)
+        : [];
+      for (const linkedId of linkedIds) {
+        await dbSql`
+          INSERT INTO item_item_links (item_id, linked_item_id)
+          VALUES (${legacy.id}, ${linkedId})
+          ON CONFLICT DO NOTHING
+        `.catch(() => undefined);
+      }
+    } catch {
+      // Ignore malformed legacy description JSON
+    }
+  }
+
   await dbSql`
     CREATE TABLE IF NOT EXISTS background_jobs (
       id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -300,6 +370,18 @@ export async function runMigrations(dbSql: typeof sql = sql): Promise<void> {
   await dbSql`CREATE INDEX IF NOT EXISTS idx_content_reports_reporter_id ON content_reports (reporter_id)`;
   await dbSql`CREATE INDEX IF NOT EXISTS idx_content_reports_target_id ON content_reports (target_id)`;
   await dbSql`CREATE INDEX IF NOT EXISTS idx_content_reports_resolved_by ON content_reports (resolved_by)`;
+
+  await dbSql`
+    ALTER TABLE users ALTER COLUMN email DROP NOT NULL
+  `;
+
+  console.log('[INFO] Applying user onboarding and OAuth columns...');
+  await dbSql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS is_onboarded BOOLEAN DEFAULT FALSE
+  `;
+  await dbSql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS oauth_sub VARCHAR(255) UNIQUE
+  `;
 
   console.log('[INFO] Database migrations completed successfully.');
 }

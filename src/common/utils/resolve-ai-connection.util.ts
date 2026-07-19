@@ -1,5 +1,6 @@
 import type { AiProvider } from '@/modules/system/domain/server-config.entity';
 import { normalizeAiProvider } from '@/modules/system/domain/server-config.entity';
+import { env } from '@/common/consts/env.consts';
 import { resolveAiModel, type AiModelSlot } from './resolve-ai-model.util';
 
 export type { AiModelSlot };
@@ -51,11 +52,7 @@ export function resolveAiConnection(
         };
 
   if (resolved.provider === 'openrouter' && !resolved.apiKey) {
-    resolved.apiKey = (
-      Bun.env.OPENROUTER_API_KEY ||
-      Bun.env.GEMINI_API_KEY ||
-      ''
-    ).trim();
+    resolved.apiKey = (env.OPENROUTER_API_KEY || env.GEMINI_API_KEY || '').trim();
   }
 
   return resolved;
@@ -65,5 +62,5 @@ export function isAiSlotConfigured(connection: ResolvedAiConnection): boolean {
   if (connection.provider === 'local') {
     return !!connection.endpoint;
   }
-  return !!connection.apiKey || !!Bun.env.OPENROUTER_API_KEY || !!Bun.env.GEMINI_API_KEY;
+  return !!connection.apiKey || !!env.OPENROUTER_API_KEY || !!env.GEMINI_API_KEY;
 }

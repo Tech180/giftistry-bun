@@ -165,12 +165,25 @@ export const itemRoutes = (
       })
     })
   })
-  .post('/items/:itemId/claims', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: { Amount, ClaimedByName, Anonymous, Quantity, Selection } } } }) => {
+  .post('/items/:itemId/claims', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: { Amount, ClaimedByName, Anonymous, Quantity, Selection, IncludeLinked } } } }) => {
     const { role } = await checkListAccess('viewer');
     if (role === 'owner') {
       throw new AppError('Forbidden: List owner cannot claim items on their own list', 403, 'FORBIDDEN');
     }
     const user = await getAuthUser();
+    if (IncludeLinked) {
+      const claims = await useCases.claimItemWithLinked.execute(itemId, user.userId, {
+        amount: Amount ?? null,
+        claimedByName: ClaimedByName ?? null,
+        anonymous: Anonymous ?? false,
+        quantity: Quantity ?? 1,
+        selection: Selection ?? null,
+        includeLinked: true,
+      });
+      const itemIds = [...new Set(claims.map((c) => c.ItemId))];
+      const items = await useCases.buildItemClaimProjections.execute(itemIds, user.userId);
+      return { success: true, data: { Claims: claims, Items: items } };
+    }
     const claim = await useCases.claimItem.execute(
       itemId,
       user.userId,
@@ -180,12 +193,13 @@ export const itemRoutes = (
       Quantity ?? 1,
       Selection ?? null
     );
-    return { success: true, data: claim };
+    const items = await useCases.buildItemClaimProjections.execute([itemId], user.userId);
+    return { success: true, data: { Claims: claim, Items: items } };
   }, {
     detail: {
       tags: ['Items'],
       summary: 'Claim item in wishlist',
-      description: 'Claim/purchase a wishlist item. Owners cannot claim their own items.',
+      description: 'Claim/purchase a wishlist item. Owners cannot claim their own items. Set IncludeLinked to also claim unclaimed linked items.',
       security: [{ bearerAuth: [] }]
     },
     body: t.Object({
@@ -196,6 +210,7 @@ export const itemRoutes = (
           Anonymous: t.Optional(t.Boolean()),
           Quantity: t.Optional(t.Numeric()),
           Selection: t.Optional(t.Nullable(t.String())),
+          IncludeLinked: t.Optional(t.Boolean()),
         })
       })
     })
@@ -207,7 +222,14 @@ export const itemRoutes = (
     }
     const user = await getAuthUser();
     await useCases.unclaimItem.execute(itemId, user.userId);
-    return { success: true, message: 'Item unclaimed successfully' };
+    const items = await useCases.buildItemClaimProjections.execute([itemId], user.userId);
+    return {
+      success: true,
+      data: {
+        Message: 'Item unclaimed successfully',
+        Items: items,
+      },
+    };
   }, {
     detail: {
       tags: ['Items'],

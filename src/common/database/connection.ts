@@ -1,10 +1,8 @@
 import postgres from 'postgres';
 import { env } from '../consts/env.consts';
 import * as fs from 'fs';
-import * as path from 'path';
+import { getConfigFilePath } from '@/common/utils/config-path.util';
 import { normalizeAiProvider, type AiProvider } from '@/modules/system/domain/server-config.entity';
-
-const CONFIG_PATH = path.join(process.cwd(), 'config.json');
 
 export interface SystemConfig {
   DbType: 'local' | 'remote';
@@ -16,6 +14,22 @@ export interface SystemConfig {
   SmtpPass?: string;
   SmtpSecure?: boolean;
   SmtpFrom?: string;
+  /** Public-facing SPA origin (emails, WebAuthn, CORS). Overridable by GIFTISTRY_PUBLIC_APP_URL. */
+  PublicAppUrl?: string;
+  /** When false, first-run setup is sealed. Env GIFTISTRY_ALLOW_SETUP can still block. */
+  AllowSetup?: boolean;
+  /** Server owner first-run onboarding completed once. */
+  OwnerOnboardingCompleted?: boolean;
+  /** @deprecated Prefer OwnerOnboardingCompleted; still read for migration. */
+  AdminOnboardingCompleted?: boolean;
+  OAuthEnabled?: boolean;
+  OAuthIssuerUrl?: string;
+  OAuthClientId?: string;
+  OAuthClientSecret?: string;
+  OAuthScopes?: string;
+  OAuthButtonText?: string;
+  OAuthAutoRegister?: boolean;
+  OAuthAutoLaunch?: boolean;
   AiEnabled?: boolean;
   AiWebSearchEnabled?: boolean;
   AiRateLimitEnabled?: boolean;
@@ -101,6 +115,54 @@ function normalizeConfig(data: Record<string, unknown>): SystemConfig {
       return value !== undefined ? Boolean(value) : undefined;
     })(),
     SmtpFrom: pick(data, 'SmtpFrom', 'smtpFrom', ''),
+    PublicAppUrl: String(pick(data, 'PublicAppUrl', 'publicAppUrl', '')).trim() || undefined,
+    AllowSetup: (() => {
+      const value = pick<unknown>(data, 'AllowSetup', 'allowSetup', undefined);
+      return value !== undefined ? Boolean(value) : undefined;
+    })(),
+    OwnerOnboardingCompleted: (() => {
+      const ownerValue = pick<unknown>(
+        data,
+        'OwnerOnboardingCompleted',
+        'ownerOnboardingCompleted',
+        undefined
+      );
+      if (ownerValue !== undefined) return Boolean(ownerValue);
+      const legacyValue = pick<unknown>(
+        data,
+        'AdminOnboardingCompleted',
+        'adminOnboardingCompleted',
+        undefined
+      );
+      return legacyValue !== undefined ? Boolean(legacyValue) : undefined;
+    })(),
+    AdminOnboardingCompleted: (() => {
+      const value = pick<unknown>(
+        data,
+        'AdminOnboardingCompleted',
+        'adminOnboardingCompleted',
+        undefined
+      );
+      return value !== undefined ? Boolean(value) : undefined;
+    })(),
+    OAuthEnabled: (() => {
+      const value = pick<unknown>(data, 'OAuthEnabled', 'oauthEnabled', undefined);
+      return value !== undefined ? Boolean(value) : undefined;
+    })(),
+    OAuthIssuerUrl: String(pick(data, 'OAuthIssuerUrl', 'oauthIssuerUrl', '')).trim() || undefined,
+    OAuthClientId: String(pick(data, 'OAuthClientId', 'oauthClientId', '')).trim() || undefined,
+    OAuthClientSecret:
+      String(pick(data, 'OAuthClientSecret', 'oauthClientSecret', '')).trim() || undefined,
+    OAuthScopes: String(pick(data, 'OAuthScopes', 'oauthScopes', '')).trim() || undefined,
+    OAuthButtonText: String(pick(data, 'OAuthButtonText', 'oauthButtonText', '')).trim() || undefined,
+    OAuthAutoRegister: (() => {
+      const value = pick<unknown>(data, 'OAuthAutoRegister', 'oauthAutoRegister', undefined);
+      return value !== undefined ? Boolean(value) : undefined;
+    })(),
+    OAuthAutoLaunch: (() => {
+      const value = pick<unknown>(data, 'OAuthAutoLaunch', 'oauthAutoLaunch', undefined);
+      return value !== undefined ? Boolean(value) : undefined;
+    })(),
     AiEnabled: (() => {
       const value = pick<unknown>(data, 'AiEnabled', 'aiEnabled', undefined);
       return value !== undefined ? Boolean(value) : undefined;
@@ -178,9 +240,10 @@ function hasCamelConfigKeys(data: Record<string, unknown>): boolean {
 }
 
 export function loadConfig(): SystemConfig {
-  if (fs.existsSync(CONFIG_PATH)) {
+  const configPath = getConfigFilePath();
+  if (fs.existsSync(configPath)) {
     try {
-      const data = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8')) as Record<string, unknown>;
+      const data = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
       const config = normalizeConfig(data);
       if (needsConfigRewrite(data)) {
         saveConfig(config);
@@ -193,6 +256,7 @@ export function loadConfig(): SystemConfig {
   return {
     DbType: 'local',
     SmtpType: 'local',
+    AllowSetup: true,
     AiRateLimitEnabled: true,
     AiFastProvider: 'openrouter',
     AiIntelligentProvider: 'openrouter',
@@ -200,7 +264,8 @@ export function loadConfig(): SystemConfig {
 }
 
 export function saveConfig(config: SystemConfig) {
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf-8');
+  const configPath = getConfigFilePath();
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
   reinitializeDbConnection();
 }
 

@@ -83,6 +83,42 @@ export class PostgresCommentRepository implements CommentRepository {
     }));
   }
 
+  async findById(commentId: string): Promise<Comment | null> {
+    const [row] = await sql<any[]>`
+      SELECT id as "Id", list_id as "ListId", user_id as "UserId", commenter_name as "CommenterName", 
+             content as "Content", is_owner_visible as "IsOwnerVisible", is_rollover as "IsRollover", 
+             is_deleted as "IsDeleted", parent_id as "ParentId", image_url as "ImageUrl", created_at as "CreatedAt"
+      FROM comments
+      WHERE id = ${commentId}
+    `;
+    if (!row) return null;
+
+    const reactions = await sql<any[]>`
+      SELECT user_id as "UserId", username as "Username", reaction as "Reaction"
+      FROM comment_reactions
+      WHERE comment_id = ${commentId}
+    `;
+
+    return {
+      Id: row.Id,
+      ListId: row.ListId,
+      UserId: row.UserId,
+      CommenterName: row.CommenterName,
+      Content: row.Content,
+      IsOwnerVisible: row.IsOwnerVisible,
+      IsRollover: row.IsRollover,
+      IsDeleted: row.IsDeleted,
+      ParentId: row.ParentId,
+      ImageUrl: row.ImageUrl,
+      CreatedAt: new Date(row.CreatedAt),
+      Reactions: reactions.map(rx => ({
+        userId: rx.UserId,
+        username: rx.Username,
+        reaction: rx.Reaction,
+      })),
+    };
+  }
+
   async toggleReaction(
     commentId: string,
     userId: string,

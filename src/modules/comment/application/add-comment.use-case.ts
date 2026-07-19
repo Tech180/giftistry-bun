@@ -5,6 +5,7 @@ import { CommentEntity } from '../domain/comment.entity';
 import { WishlistEntity } from '@/modules/wishlist/domain/wishlist.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
 import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
+import { publishCommentEvent } from '../infrastructure/comment-publisher';
 
 export class AddCommentUseCase {
   constructor(
@@ -57,7 +58,7 @@ export class AddCommentUseCase {
       IsRollover: isRollover,
     }).resolveOwnerVisibility(isOwner, isOwnerVisible);
 
-    return await this.commentRepo.create(
+    const comment = await this.commentRepo.create(
       listId,
       userId,
       commenterName,
@@ -67,5 +68,9 @@ export class AddCommentUseCase {
       parentId,
       imageUrl
     );
+
+    publishCommentEvent(listId, 'comment.created', { Comment: comment });
+
+    return comment;
   }
 }

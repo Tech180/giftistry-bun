@@ -102,6 +102,7 @@ const sitePolicySchema = t.Object({
   MaintenanceMode: t.Optional(t.Boolean()),
   MaintenanceMessage: t.Optional(t.String()),
   AllowPasswordLogin: t.Optional(t.Boolean()),
+  RequireStrongPasswords: t.Optional(t.Boolean()),
   AllowedEmailDomains: t.Optional(t.Array(t.String())),
   DefaultUserPolicy: t.Optional(giftistryUserPolicySchema),
 });
@@ -133,7 +134,7 @@ export const adminRoutes = (useCases: AdminUseCases) => new Elysia({ prefix: '/a
         AdminUser: t.Object({
           Username: t.String(),
           Email: t.String(),
-          Password: t.String(),
+          Password: t.String({ minLength: 6 }),
           FirstName: t.Optional(t.String()),
           LastName: t.Optional(t.String()),
           IsAdmin: t.Optional(t.Boolean()),
@@ -202,7 +203,7 @@ export const adminRoutes = (useCases: AdminUseCases) => new Elysia({ prefix: '/a
     body: t.Object({
       Giftistry: t.Object({
         Password: t.Object({
-          Password: t.String(),
+          Password: t.String({ minLength: 6 }),
           ForcePasswordChange: t.Optional(t.Boolean()),
         }),
       }),

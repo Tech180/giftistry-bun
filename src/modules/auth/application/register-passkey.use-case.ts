@@ -30,7 +30,6 @@ export class RegisterPasskeyUseCase {
       authenticatorSelection: {
         residentKey: 'required',
         userVerification: 'preferred',
-        authenticatorAttachment: 'platform',
       },
     });
 

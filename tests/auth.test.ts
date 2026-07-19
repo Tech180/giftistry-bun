@@ -136,7 +136,7 @@ describe("Authentication & Global Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              Email: testEmail,
+              Username: testUsername,
               Password: testPassword
             }
           }
@@ -163,7 +163,7 @@ describe("Authentication & Global Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              Email: testEmail,
+              Username: testUsername,
               Password: testPassword
             }
           }
@@ -220,7 +220,7 @@ describe("Authentication & Global Endpoints", () => {
           body: JSON.stringify({
             Giftistry: {
               Auth: {
-                Email: "invalid_rate_limit_test@example.com",
+                Username: "invalid_rate_limit_test",
                 Password: "wrongpassword"
               }
             }
@@ -240,7 +240,7 @@ describe("Authentication & Global Endpoints", () => {
           body: JSON.stringify({
             Giftistry: {
               Auth: {
-                Email: "invalid_rate_limit_test@example.com",
+                Username: "invalid_rate_limit_test",
                 Password: "wrongpassword"
               }
             }
@@ -380,12 +380,11 @@ describe("Authentication & Global Endpoints", () => {
     expect(res304.headers.get("ETag")).toBe(etag);
   });
 
-  test("Email Verification Flow & Restriction", async () => {
-    // 1. Signup a new test user (will be unverified by default)
+  test("Signup with email can create wishlists without verification", async () => {
     const timestamp2 = Date.now() + 1;
-    const unverifiedEmail = `unverified_${timestamp2}@example.com`;
-    const unverifiedUsername = `unverified_${timestamp2}`;
-    
+    const email = `user_${timestamp2}@example.com`;
+    const username = `user_${timestamp2}`;
+
     const signupRes = await app.handle(
       new Request("http://localhost/api/auth/signup", {
         method: "POST",
@@ -393,8 +392,8 @@ describe("Authentication & Global Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              Username: unverifiedUsername,
-              Email: unverifiedEmail,
+              Username: username,
+              Email: email,
               Password: testPassword
             }
           }
@@ -403,21 +402,21 @@ describe("Authentication & Global Endpoints", () => {
     );
     expect(signupRes.status).toBe(200);
     const signupBody = await signupRes.json() as any;
-    const unverifiedToken = signupBody.Result.Token;
-    const unverifiedUserId = signupBody.Result.User.Id;
+    const userToken = signupBody.Result.Token;
+    const userId = signupBody.Result.User.Id;
+    expect(signupBody.Result.User.EmailVerified).toBe(true);
 
-    // 2. Try to create a wishlist: should be Forbidden 403
     const createWishlistRes = await app.handle(
       new Request("http://localhost/api/wishlists", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${unverifiedToken}`
+          "Authorization": `Bearer ${userToken}`
         },
         body: JSON.stringify({
           Giftistry: {
             Lists: {
-              Title: "Unverified Wishlist",
+              Title: "Ready Wishlist",
               Category: "generic",
               RevealSuggestions: true
             }
@@ -425,59 +424,14 @@ describe("Authentication & Global Endpoints", () => {
         })
       })
     );
-    expect(createWishlistRes.status).toBe(403);
-    const errBody = await createWishlistRes.json() as any;
-    expect(errBody.Result.Message).toContain("verify your email");
-
-    // 3. Fetch verification token from DB
-    const [dbUser] = await sql<any[]>`SELECT email_verification_token FROM users WHERE id = ${unverifiedUserId}`;
-    const verificationToken = dbUser.email_verification_token;
-    expect(verificationToken).not.toBeNull();
-
-    // 4. Verify email via endpoint
-    const verifyRes = await app.handle(
-      new Request("http://localhost/api/auth/verify-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          Giftistry: {
-            Auth: {
-              Token: verificationToken
-            }
-          }
-        })
-      })
-    );
-    expect(verifyRes.status).toBe(200);
-
-    // 5. Try creating wishlist again: should succeed now!
-    const createWishlistRes2 = await app.handle(
-      new Request("http://localhost/api/wishlists", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${unverifiedToken}`
-        },
-        body: JSON.stringify({
-          Giftistry: {
-            Lists: {
-              Title: "Verified Wishlist",
-              Category: "generic",
-              RevealSuggestions: true
-            }
-          }
-        })
-      })
-    );
-    expect(createWishlistRes2.status).toBe(200);
-    const listBody = await createWishlistRes2.json() as any;
+    expect(createWishlistRes.status).toBe(200);
+    const listBody = await createWishlistRes.json() as any;
     const wishlistId = listBody.Result.Id;
 
-    // Cleanup
     if (wishlistId) {
       await sql`DELETE FROM lists WHERE id = ${wishlistId}`;
     }
-    await cleanUpUser(unverifiedUserId);
+    await cleanUpUser(userId);
   });
 
   test("TOTP 2FA Flow (Setup, Enable, Login, Disable)", async () => {
@@ -531,7 +485,7 @@ describe("Authentication & Global Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              Email: testEmail,
+              Username: testUsername,
               Password: testPassword
             }
           }
@@ -573,7 +527,7 @@ describe("Authentication & Global Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              Email: testEmail,
+              Username: testUsername,
               Password: testPassword
             }
           }
@@ -613,7 +567,7 @@ describe("Authentication & Global Endpoints", () => {
         body: JSON.stringify({
           Giftistry: {
             Auth: {
-              Email: testEmail,
+              Username: testUsername,
               Password: testPassword
             }
           }

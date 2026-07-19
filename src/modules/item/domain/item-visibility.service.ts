@@ -42,7 +42,10 @@ export function canUserViewItem(ctx: ItemVisibilityContext): boolean {
   const isOwner = wishlistEntity.isOwner(currentUserId);
   const hasExpired = wishlistEntity.isExpired();
   const isSuggestion = isItemSuggestion(item, wishlist.UserId);
-  const otherUsersCanSee = parseOtherUsersCanSee(item.Description);
+  const otherUsersCanSee =
+    item.OtherUsersCanSee !== undefined && item.OtherUsersCanSee !== null
+      ? item.OtherUsersCanSee !== false
+      : parseOtherUsersCanSee(item.Description);
 
   const shouldHideSuggestion = isOwner && (!hasExpired || !wishlist.RevealSuggestions);
 

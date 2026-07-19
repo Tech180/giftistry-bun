@@ -2,8 +2,6 @@ import type { SignupUseCase } from '../application/signup.use-case';
 import type { LoginUseCase } from '../application/login.use-case';
 import type { UpdateProfileUseCase } from '../application/update-profile.use-case';
 import type { UserPreviewUseCase } from '../application/user-preview.use-case';
-import type { VerifyEmailUseCase } from '../application/verify-email.use-case';
-import type { ResendVerificationUseCase } from '../application/resend-verification.use-case';
 import type { ListCustomThemesUseCase } from '../application/list-custom-themes.use-case';
 import type { SaveCustomThemeUseCase } from '../application/save-custom-theme.use-case';
 import type { DeleteCustomThemeUseCase } from '../application/delete-custom-theme.use-case';
@@ -18,14 +16,17 @@ import type { Disable2faUseCase } from '../application/disable-2fa.use-case';
 import type { DisableAccountUseCase } from '../application/disable-account.use-case';
 import type { DeleteAccountUseCase } from '../application/delete-account.use-case';
 import type { GetCurrentUserUseCase } from '../application/get-current-user.use-case';
+import type { GetOnboardingStateUseCase } from '../application/get-onboarding-state.use-case';
+import type { CompleteUserOnboardingUseCase } from '../application/complete-user-onboarding.use-case';
+import type { CompleteOwnerOnboardingUseCase } from '../application/complete-owner-onboarding.use-case';
+import type { BeginOidcLoginUseCase } from '../application/begin-oidc-login.use-case';
+import type { HandleOidcCallbackUseCase } from '../application/handle-oidc-callback.use-case';
 
 export interface AuthUseCases {
   signup: SignupUseCase;
   login: LoginUseCase;
   updateProfile: UpdateProfileUseCase;
   userPreview: UserPreviewUseCase;
-  verifyEmail: VerifyEmailUseCase;
-  resendVerification: ResendVerificationUseCase;
   listCustomThemes: ListCustomThemesUseCase;
   saveCustomTheme: SaveCustomThemeUseCase;
   deleteCustomTheme: DeleteCustomThemeUseCase;
@@ -40,4 +41,9 @@ export interface AuthUseCases {
   disableAccount: DisableAccountUseCase;
   deleteAccount: DeleteAccountUseCase;
   getCurrentUser: GetCurrentUserUseCase;
+  getOnboardingState: GetOnboardingStateUseCase;
+  completeUserOnboarding: CompleteUserOnboardingUseCase;
+  completeOwnerOnboarding: CompleteOwnerOnboardingUseCase;
+  beginOidcLogin: BeginOidcLoginUseCase;
+  handleOidcCallback: HandleOidcCallbackUseCase;
 }

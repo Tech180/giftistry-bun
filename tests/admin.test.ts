@@ -78,7 +78,7 @@ describe('Admin API', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          Giftistry: { Auth: { Email: userEmail, Password: 'password123' } },
+          Giftistry: { Auth: { Username: userUsername, Password: 'password123' } },
         }),
       })
     );
