@@ -1,4 +1,4 @@
-import type { Item, ItemLink, Claim } from '../item.entity';
+import type { Item, ItemLink, Claim, ItemPhoto } from '../item.entity';
 import type { ItemDescriptionMetadata } from '../item-description.util';
 
 export interface CreateClaimInput {
@@ -19,6 +19,11 @@ export interface ItemMetadataWrite {
   OtherUsersCanSee?: boolean | null;
   CustomFields?: ItemDescriptionMetadata['CustomFields'] | null;
   Variations?: ItemDescriptionMetadata['Variations'] | null;
+  /**
+   * Ordered photos. On create: default []. On update: `undefined` leaves existing
+   * photos unchanged; `[]` or values replaces the full set.
+   */
+  Photos?: ItemPhoto[] | null;
 }
 
 export interface ItemRepository {
@@ -86,4 +91,8 @@ export interface ItemRepository {
   findLinkedItemIds(itemId: string): Promise<string[]>;
   findLinkedItemIdsByListId(listId: string): Promise<Map<string, string[]>>;
   replaceLinkedItemIds(itemId: string, linkedItemIds: string[]): Promise<void>;
+
+  findRelatedItemIds(itemId: string): Promise<string[]>;
+  findRelatedItemIdsByListId(listId: string): Promise<Map<string, string[]>>;
+  replaceRelatedItemIds(itemId: string, relatedItemIds: string[]): Promise<void>;
 }

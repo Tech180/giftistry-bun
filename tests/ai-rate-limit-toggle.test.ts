@@ -31,17 +31,17 @@ describe('AI rate limit toggle', () => {
         rateLimit({
           windowMs: 60_000,
           max: 1,
-          paths: ['/items/extract-metadata'],
+          paths: ['/jobs/item-enrich'],
           respectAiRateLimitToggle: true,
         })
       )
-      .post('/api/items/extract-metadata', () => ({ ok: true }));
+      .post('/api/jobs/item-enrich', () => ({ ok: true }));
 
     const first = await app.handle(
-      new Request('http://localhost/api/items/extract-metadata', { method: 'POST' })
+      new Request('http://localhost/api/jobs/item-enrich', { method: 'POST' })
     );
     const second = await app.handle(
-      new Request('http://localhost/api/items/extract-metadata', { method: 'POST' })
+      new Request('http://localhost/api/jobs/item-enrich', { method: 'POST' })
     );
 
     expect(first.status).toBe(200);
@@ -56,20 +56,20 @@ describe('AI rate limit toggle', () => {
         rateLimit({
           windowMs: 60_000,
           max: 1,
-          paths: ['/items/extract-metadata'],
+          paths: ['/jobs/item-enrich'],
           respectAiRateLimitToggle: true,
         })
       )
-      .post('/api/items/extract-metadata', () => ({ ok: true }));
+      .post('/api/jobs/item-enrich', () => ({ ok: true }));
 
     const first = await app.handle(
-      new Request('http://localhost/api/items/extract-metadata', {
+      new Request('http://localhost/api/jobs/item-enrich', {
         method: 'POST',
         headers: { 'x-forwarded-for': '203.0.113.50' },
       })
     );
     const second = await app.handle(
-      new Request('http://localhost/api/items/extract-metadata', {
+      new Request('http://localhost/api/jobs/item-enrich', {
         method: 'POST',
         headers: { 'x-forwarded-for': '203.0.113.50' },
       })

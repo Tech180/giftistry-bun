@@ -171,9 +171,22 @@ Ensure PostgreSQL is running locally and `config.json` exists (copy from `deploy
 
 ---
 
+## HTTPie collection
+
+API request samples for HTTPie Desktop live in `collections/` and are **derived from OpenAPI** (`GET /docs/json`), not hand-listed per route.
+
+```bash
+cd giftistry-bun
+bun run collections:generate
+```
+
+Use a curated overlay (`collections/request-overlay.ts`) only for nicer example bodies/names. After route changes, regenerate and commit the updated JSON if you keep exports in git.
+
+Import the collection and `httpie-environment-local.json` into the same HTTPie space, then select **Local**. URLs use `{{baseUrl}}`; set the secret `{{token}}` after login for bearer auth.
+
 ## Troubleshooting
 
 - **Build fails on theming-engine** — confirm `theming-engine/` is a sibling of `giftistry-bun/` and compose build context is the parent directory.
 - **JWT boot error** — set a strong `JWT_SECRET` (≥ 32 chars) or mount `JWT_SECRET` via credentials directory.
 - **WebSocket errors** — nginx must proxy `/ws/` with `Upgrade` headers (included in `deploy/docker/nginx.conf`).
-- **Setup blocked** — check `GIFTISTRY_ALLOW_SETUP`, `config.json` → `AllowSetup`, and whether a user already exists.
+- **Setup blocked** — check `GIFTISTRY_ALLOW_SETUP`, `config.json` → `AllowSetup`, and whether a user already exists. The server owner can re-enable setup under **Settings → Admin → Server** (Danger zone). Env `GIFTISTRY_ALLOW_SETUP=false` still overrides that. For headless recovery: `bun run giftistry-admin -- set-allow-setup true`.

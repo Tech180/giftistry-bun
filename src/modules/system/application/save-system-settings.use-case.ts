@@ -4,14 +4,21 @@ import { AppError } from '@/common/middlewares/error.middleware';
 import type { ServerConfigRepository } from '../domain/ports/server-config.repository';
 import {
   clampAiCompletionTimeoutMs,
+  clampGrabInfoActiveStreamLimit,
+  clampGrabInfoConcurrency,
   clampScrapeFetchTimeoutMs,
   clampScrapePlaywrightTimeoutMs,
   normalizeAiProvider,
+  normalizeGrabInfoConcurrencyUnlimited,
   resolveMaskedSecret,
   type SystemSettingsPayload,
 } from '../domain/server-config.entity';
 import { resolveOAuthClientSecret } from '@/common/utils/oauth-config.util';
 import type { TestAiConnectionUseCase } from './test-ai-connection.use-case';
+
+export type SaveSystemSettingsOptions = {
+  actorIsOwner?: boolean;
+};
 
 export class SaveSystemSettingsUseCase {
   constructor(
@@ -19,7 +26,18 @@ export class SaveSystemSettingsUseCase {
     private testAiConnection: TestAiConnectionUseCase
   ) {}
 
-  async execute(settings: SystemSettingsPayload): Promise<void> {
+  async execute(
+    settings: SystemSettingsPayload,
+    options: SaveSystemSettingsOptions = {}
+  ): Promise<void> {
+    if (settings.AllowSetup !== undefined && !options.actorIsOwner) {
+      throw new AppError(
+        'Only the server owner can change setup availability',
+        403,
+        'FORBIDDEN'
+      );
+    }
+
     if (settings.DbType === 'remote') {
       if (!settings.DbUrl) {
         throw new AppError('Database connection URL is required for remote database type', 400, 'BAD_REQUEST');
@@ -121,7 +139,10 @@ export class SaveSystemSettingsUseCase {
       SmtpSecure: settings.SmtpSecure,
       SmtpFrom: settings.SmtpFrom,
       PublicAppUrl: settings.PublicAppUrl?.trim() || config.PublicAppUrl,
-      AllowSetup: config.AllowSetup,
+      AllowSetup:
+        settings.AllowSetup !== undefined
+          ? Boolean(settings.AllowSetup)
+          : config.AllowSetup,
       OwnerOnboardingCompleted:
         config.OwnerOnboardingCompleted === true || config.AdminOnboardingCompleted === true
           ? true
@@ -162,6 +183,15 @@ export class SaveSystemSettingsUseCase {
       ),
       ScrapePlaywrightTimeoutMs: clampScrapePlaywrightTimeoutMs(
         settings.ScrapePlaywrightTimeoutMs ?? config.ScrapePlaywrightTimeoutMs
+      ),
+      GrabInfoConcurrency: clampGrabInfoConcurrency(
+        settings.GrabInfoConcurrency ?? config.GrabInfoConcurrency
+      ),
+      GrabInfoConcurrencyUnlimited: normalizeGrabInfoConcurrencyUnlimited(
+        settings.GrabInfoConcurrencyUnlimited ?? config.GrabInfoConcurrencyUnlimited
+      ),
+      GrabInfoActiveStreamLimit: clampGrabInfoActiveStreamLimit(
+        settings.GrabInfoActiveStreamLimit ?? config.GrabInfoActiveStreamLimit
       ),
     });
   }

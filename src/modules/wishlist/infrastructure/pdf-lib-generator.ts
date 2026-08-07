@@ -636,7 +636,7 @@ export class PdfLibGenerator implements PdfGenerator {
     try {
       const parsed = JSON.parse(trimmed);
       if (parsed && typeof parsed === 'object') {
-        const text = parsed.Text ?? parsed.text ?? '';
+        const text = parsed.Text ?? '';
         if (text && typeof text === 'string' && text.trim()) {
           return text.trim();
         }

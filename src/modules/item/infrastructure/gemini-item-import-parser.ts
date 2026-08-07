@@ -2,11 +2,12 @@ import type {
   ItemImportParser,
   ItemImportParserConfig,
   ItemImportParserInput,
+  ItemImportParserProgress,
 } from '../domain/ports/item-import-parser.port';
 import type { ImportedItemPreview } from '../domain/imported-item-preview';
 import { normalizeImportedItem, parsePriceValue } from '../domain/giftistry-export-detect';
-import { completeTextPrompt } from './ai-text-completion';
-import { getDefaultAiPrompt } from '@/modules/system/domain/ai-default-prompts';
+import { completeTextPromptStream } from './ai-text-completion';
+import { getDefaultAiPrompt } from '@/modules/system/domain/prompts';
 
 export function compileImportPrompt(
   customPrompt: string,
@@ -80,17 +81,24 @@ export function mapAiImportItems(payload: unknown): ImportedItemPreview[] {
 export class GeminiItemImportParser implements ItemImportParser {
   async parse(
     input: ItemImportParserInput,
-    config: ItemImportParserConfig
+    config: ItemImportParserConfig,
+    onProgress?: (progress: ItemImportParserProgress) => void | Promise<void>
   ): Promise<ImportedItemPreview[]> {
     const prompt = compileImportPrompt(config.customPrompt, input);
-    const text = await completeTextPrompt(prompt, {
-      provider: config.provider,
-      apiKey: config.apiKey,
-      model: config.model,
-      endpoint: config.endpoint,
-      jsonResponse: true,
-    });
-    const parsed = extractJsonObject(text);
+    const result = await completeTextPromptStream(
+      prompt,
+      {
+        provider: config.provider,
+        apiKey: config.apiKey,
+        model: config.model,
+        endpoint: config.endpoint,
+        jsonResponse: true,
+      },
+      async (delta) => {
+        await onProgress?.({ tokensPerSecond: delta.tokensPerSecond });
+      }
+    );
+    const parsed = extractJsonObject(result.text);
     return mapAiImportItems(parsed);
   }
 }

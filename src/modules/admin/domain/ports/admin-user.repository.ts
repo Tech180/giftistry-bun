@@ -1,6 +1,6 @@
 import type {
   AdminUserDto,
-  AdminUserRow,
+  AdminUserListItemDto,
   UserDeleteTarget,
   UserPolicyState,
 } from '../admin-user.entity';
@@ -16,7 +16,7 @@ export interface AdminUserListFilters {
 }
 
 export interface AdminUserListResult {
-  users: AdminUserDto[];
+  users: AdminUserListItemDto[];
   page: number;
   total: number;
 }
@@ -38,7 +38,7 @@ export interface AdminUserDetailResult {
 
 export interface CreateAdminUserInput {
   username: string;
-  email: string;
+  email: string | null;
   password: string;
   firstName?: string;
   lastName?: string;
@@ -66,6 +66,7 @@ export interface AdminUserProfileState {
   bio: string | null;
   avatar: string | null;
   email_verified: boolean;
+  is_owner: boolean;
 }
 
 export interface OverviewUserStats {
@@ -88,7 +89,7 @@ export interface AdminUserRepository {
   countEnabledAdmins(excludeUserId?: string): Promise<number>;
   list(filters: AdminUserListFilters): Promise<AdminUserListResult>;
   findByIdWithDetails(id: string): Promise<AdminUserDetailResult | null>;
-  existsByUsernameOrEmail(username: string, email: string): Promise<boolean>;
+  existsByUsernameOrEmail(username: string, email: string | null): Promise<boolean>;
   existsByEmail(email: string, excludeId: string): Promise<boolean>;
   existsByUsername(username: string, excludeId: string): Promise<boolean>;
   create(input: CreateAdminUserInput, authHash: string, avatar: string): Promise<string>;

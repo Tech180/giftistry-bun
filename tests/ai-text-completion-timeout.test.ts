@@ -60,13 +60,22 @@ describe('completeTextPrompt timeout handling', () => {
     let seenInit: RequestInit | undefined;
     globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
       seenInit = init;
-      return new Response(JSON.stringify({ choices: [{ message: { content: '{"Items":[]}' } }] }), {
+      const encoder = new TextEncoder();
+      const payload =
+        'data: {"choices":[{"delta":{"content":"ok"}}]}\n\ndata: [DONE]\n\n';
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(payload));
+          controller.close();
+        },
+      });
+      return new Response(stream, {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/event-stream' },
       });
     }) as typeof fetch;
 
-    await completeTextPrompt('hello', {
+    const text = await completeTextPrompt('hello', {
       provider: 'local',
       apiKey: '',
       model: 'tiny',
@@ -74,6 +83,7 @@ describe('completeTextPrompt timeout handling', () => {
       jsonResponse: true,
     });
 
+    expect(text).toBe('ok');
     expect((seenInit as { timeout?: unknown } | undefined)?.timeout).toBe(false);
     expect(seenInit?.signal).toBeDefined();
   });

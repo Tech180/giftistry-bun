@@ -1,4 +1,3 @@
-import ExcelJS from 'exceljs';
 import { PDFParse } from 'pdf-parse';
 import { AppError } from '@/common/middlewares/error.middleware';
 import type { ImportFileFormat } from '../domain/imported-item-preview';
@@ -7,6 +6,12 @@ import type {
   ImportFileTextExtractorInput,
   ImportFileTextExtractorResult,
 } from '../domain/ports/import-file-text-extractor.port';
+import {
+  cellValueToText,
+  workbookBytesToText,
+} from './xlsx-workbook-to-text.util';
+
+export { cellValueToText };
 
 const MAX_DECODED_BYTES = 5 * 1024 * 1024;
 const MAX_LLM_CHARS = 100_000;
@@ -55,42 +60,6 @@ function truncateText(text: string): { text: string; truncated: boolean } {
   return { text: text.slice(0, MAX_LLM_CHARS), truncated: true };
 }
 
-async function workbookToText(bytes: Uint8Array): Promise<string> {
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(Buffer.from(bytes));
-  const lines: string[] = [];
-
-  workbook.eachSheet((sheet) => {
-    lines.push(`# Sheet: ${sheet.name}`);
-    sheet.eachRow((row) => {
-      const values = (row.values as unknown[])
-        .slice(1)
-        .map((value) => cellValueToText(value));
-      lines.push(values.join('\t'));
-    });
-  });
-
-  return lines.join('\n');
-}
-
-/** Prefer hyperlink href over display text (e.g. "amazon.com"). */
-export function cellValueToText(value: unknown): string {
-  if (value == null) return '';
-  if (typeof value !== 'object') return String(value);
-
-  const record = value as { text?: unknown; hyperlink?: unknown; result?: unknown };
-  if (typeof record.hyperlink === 'string' && record.hyperlink.trim()) {
-    return record.hyperlink.trim();
-  }
-  if (typeof record.text === 'string') {
-    return record.text;
-  }
-  if (typeof record.result === 'string' || typeof record.result === 'number') {
-    return String(record.result);
-  }
-  return String(value);
-}
-
 async function pdfToText(bytes: Uint8Array): Promise<string> {
   const parser = new PDFParse({ data: bytes });
   try {
@@ -113,7 +82,12 @@ export class DefaultImportFileTextExtractor implements ImportFileTextExtractor {
       if (!decoded.bytes) {
         throw new AppError('XLSX imports require base64 or data-url encoding', 400, 'BAD_REQUEST');
       }
-      text = await workbookToText(decoded.bytes);
+      try {
+        text = await workbookBytesToText(decoded.bytes);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Invalid XLSX file';
+        throw new AppError(`Failed to read XLSX: ${message}`, 400, 'BAD_REQUEST');
+      }
     } else if (format === 'pdf') {
       if (!decoded.bytes) {
         throw new AppError('PDF imports require base64 or data-url encoding', 400, 'BAD_REQUEST');

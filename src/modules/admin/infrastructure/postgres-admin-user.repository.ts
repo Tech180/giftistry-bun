@@ -11,7 +11,7 @@ import type {
   OverviewUserStats,
   UpdateAdminUserInput,
 } from '../domain/ports/admin-user.repository';
-import { mapAdminUser } from '../domain/admin-user.entity';
+import { mapAdminUser, mapAdminUserListItem } from '../domain/admin-user.entity';
 import type { GiftistryUserPolicy } from '@/common/types/user-policy';
 
 const adminUserSelect = `
@@ -39,6 +39,18 @@ const adminUserSelect = `
   u.policy_json as "PolicyJson"
 `;
 
+const adminUserListSelect = `
+  u.id as "Id",
+  u.username as "Username",
+  u.email as "Email",
+  u.is_owner as "IsOwner",
+  u.is_admin as "IsAdmin",
+  u.is_disabled as "IsDisabled",
+  u.locked_until as "LockedUntil",
+  u.last_login_at as "LastLoginAt",
+  u.last_online as "LastOnline"
+`;
+
 export class PostgresAdminUserRepository implements AdminUserRepository {
   async countEnabledAdmins(excludeUserId?: string): Promise<number> {
     const rows = excludeUserId
@@ -63,8 +75,7 @@ export class PostgresAdminUserRepository implements AdminUserRepository {
     const offset = (page - 1) * limit;
 
     const rows = await sql`
-      SELECT ${sql.unsafe(adminUserSelect)},
-        (SELECT COUNT(*)::integer FROM lists l WHERE l.user_id = u.id) as "WishlistCount",
+      SELECT ${sql.unsafe(adminUserListSelect)},
         (SELECT COUNT(*)::integer FROM lists l WHERE l.user_id = u.id AND l.is_active = true) as "ActiveListsCount"
       FROM users u
       WHERE
@@ -86,7 +97,7 @@ export class PostgresAdminUserRepository implements AdminUserRepository {
     `;
 
     return {
-      users: rows.map((row) => mapAdminUser(row)),
+      users: rows.map((row) => mapAdminUserListItem(row)),
       page,
       total: countRow?.count ?? 0,
     };
@@ -126,8 +137,12 @@ export class PostgresAdminUserRepository implements AdminUserRepository {
     };
   }
 
-  async existsByUsernameOrEmail(username: string, email: string): Promise<boolean> {
-    const [existing] = await sql`SELECT id FROM users WHERE username = ${username} OR email = ${email}`;
+  async existsByUsernameOrEmail(username: string, email: string | null): Promise<boolean> {
+    if (email) {
+      const [existing] = await sql`SELECT id FROM users WHERE username = ${username} OR email = ${email}`;
+      return !!existing;
+    }
+    const [existing] = await sql`SELECT id FROM users WHERE username = ${username}`;
     return !!existing;
   }
 
@@ -155,7 +170,7 @@ export class PostgresAdminUserRepository implements AdminUserRepository {
         ${authHash},
         ${!!input.isAdmin},
         ${avatar},
-        ${input.emailVerified ?? true},
+        ${input.emailVerified ?? false},
         ${input.forcePasswordChange ?? false},
         ${JSON.stringify(input.policy)}::jsonb
       )
@@ -166,7 +181,7 @@ export class PostgresAdminUserRepository implements AdminUserRepository {
 
   async getProfileState(id: string): Promise<AdminUserProfileState | null> {
     const [curr] = await sql`
-      SELECT username, email, first_name, last_name, bio, avatar, email_verified
+      SELECT username, email, first_name, last_name, bio, avatar, email_verified, is_owner
       FROM users WHERE id = ${id}
     `;
     return curr ?? null;
@@ -188,13 +203,14 @@ export class PostgresAdminUserRepository implements AdminUserRepository {
 
   async getPolicyState(id: string) {
     const [target] = await sql`
-      SELECT id, is_admin, is_disabled, is_hidden, login_attempts_before_lockout, force_password_change, policy_json
+      SELECT id, is_admin, is_owner, is_disabled, is_hidden, login_attempts_before_lockout, force_password_change, policy_json
       FROM users WHERE id = ${id}
     `;
     if (!target) return null;
     return {
       id: target.id,
       isAdmin: target.is_admin,
+      isOwner: target.is_owner,
       isDisabled: target.is_disabled,
       isHidden: target.is_hidden,
       loginAttemptsBeforeLockout: target.login_attempts_before_lockout,

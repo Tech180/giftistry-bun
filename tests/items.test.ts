@@ -1,6 +1,7 @@
 import { expect, test, describe, beforeAll, afterAll } from "bun:test";
 import { app } from '../src/index';
 import { createTestUser, createTestWishlist, shareTestWishlist, cleanUpUser, cleanUpWishlist } from './helper';
+import { sql } from '../src/common/database/connection';
 
 describe("Items, Links & Claims", () => {
   let owner: any;
@@ -726,5 +727,255 @@ describe("Item Audience Restriction", () => {
     );
     const collabBBody = await collabBRes.json() as any;
     expect(collabBBody.Result.Items.some((i: any) => i.Name === "Secret Suggestion for B")).toBe(true);
+  });
+});
+
+describe("Item photos", () => {
+  // 1x1 PNG — well under 20MB item photo limit
+  const tinyPngDataUrl =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  const tinyJpegDataUrl =
+    "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAGcP//EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAQUCf//EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQMBAT8Bf//EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQIBAT8Bf//EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEABj8Cf//EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAT8hf//Z";
+
+  let photoOwner: Awaited<ReturnType<typeof createTestUser>>;
+  let photoListId: string;
+  let photoItemId: string;
+
+  beforeAll(async () => {
+    const timestamp = Date.now();
+    photoOwner = await createTestUser(
+      `photo_owner_${timestamp}`,
+      `photo_owner_${timestamp}@example.com`
+    );
+    // First signed-up user can become owner/admin; strip that so policy checks apply.
+    await sql`
+      UPDATE users
+      SET is_admin = false, is_owner = false
+      WHERE id = ${photoOwner.userId}
+    `;
+    photoListId = await createTestWishlist(photoOwner.token, "Photo testing wishlist");
+  });
+
+  afterAll(async () => {
+    await cleanUpWishlist(photoListId);
+    await cleanUpUser(photoOwner.userId);
+  });
+
+  test("creates item with ordered photos and lists them ordered by SortOrder", async () => {
+    const res = await app.handle(
+      new Request(`http://localhost/api/wishlists/${photoListId}/items`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${photoOwner.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              Name: "Photo gadget",
+              Metadata: {
+                Photos: [{ DataUrl: tinyPngDataUrl }, { DataUrl: tinyJpegDataUrl }],
+              },
+            },
+          },
+        }),
+      })
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as any;
+    photoItemId = body.Result.Id;
+    expect(Array.isArray(body.Result.Photos)).toBe(true);
+    expect(body.Result.Photos.length).toBe(2);
+    expect(body.Result.Photos[0].SortOrder).toBe(0);
+    expect(body.Result.Photos[0].Url).toBe(tinyPngDataUrl);
+    expect(body.Result.Photos[1].SortOrder).toBe(1);
+    expect(body.Result.Photos[1].Url).toBe(tinyJpegDataUrl);
+    expect(body.Result.Photos[0].Id).toBeTruthy();
+
+    const listRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${photoListId}/items`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${photoOwner.token}` },
+      })
+    );
+    expect(listRes.status).toBe(200);
+    const listBody = (await listRes.json()) as any;
+    const listed = listBody.Result.Items.find((i: any) => i.Id === photoItemId);
+    expect(listed?.Photos?.length).toBe(2);
+    expect(listed.Photos[0].SortOrder).toBe(0);
+    expect(listed.Photos[0].Url).toBe(tinyPngDataUrl);
+  });
+
+  test("replaces photos with a new ordered set", async () => {
+    const res = await app.handle(
+      new Request(`http://localhost/api/items/${photoItemId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${photoOwner.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              Name: "Photo gadget",
+              Metadata: {
+                Photos: [{ DataUrl: tinyJpegDataUrl }],
+              },
+            },
+          },
+        }),
+      })
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as any;
+    // update may return success envelope without full item — list to verify
+    const listRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${photoListId}/items`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${photoOwner.token}` },
+      })
+    );
+    const listBody = (await listRes.json()) as any;
+    const listed = listBody.Result.Items.find((i: any) => i.Id === photoItemId);
+    expect(listed.Photos.length).toBe(1);
+    expect(listed.Photos[0].Url).toBe(tinyJpegDataUrl);
+    expect(listed.Photos[0].SortOrder).toBe(0);
+  });
+
+  test("clears photos with empty array", async () => {
+    const res = await app.handle(
+      new Request(`http://localhost/api/items/${photoItemId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${photoOwner.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              Name: "Photo gadget",
+              Metadata: { Photos: [] },
+            },
+          },
+        }),
+      })
+    );
+    expect(res.status).toBe(200);
+
+    const listRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${photoListId}/items`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${photoOwner.token}` },
+      })
+    );
+    const listBody = (await listRes.json()) as any;
+    const listed = listBody.Result.Items.find((i: any) => i.Id === photoItemId);
+    expect(listed.Photos ?? []).toEqual([]);
+  });
+
+  test("rejects more than 10 photos", async () => {
+    const photos = Array.from({ length: 11 }, () => ({ DataUrl: tinyPngDataUrl }));
+    const res = await app.handle(
+      new Request(`http://localhost/api/wishlists/${photoListId}/items`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${photoOwner.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              Name: "Too many photos",
+              Metadata: { Photos: photos },
+            },
+          },
+        }),
+      })
+    );
+    // Route schema maxItems: 10 → 422; use-case also enforces with 400.
+    expect([400, 422]).toContain(res.status);
+  });
+
+  test("rejects non-data-URL photo payload", async () => {
+    const res = await app.handle(
+      new Request(`http://localhost/api/wishlists/${photoListId}/items`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${photoOwner.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              Name: "Bad photo url",
+              Metadata: {
+                Photos: [{ DataUrl: "https://example.com/not-a-data-url.png" }],
+              },
+            },
+          },
+        }),
+      })
+    );
+    expect(res.status).toBe(400);
+  });
+
+  test("rejects oversized photo payload", async () => {
+    // Base64 length * 0.75 must exceed 20MB decoded estimate
+    const oversized = "data:image/png;base64," + "A".repeat(28 * 1024 * 1024);
+    const res = await app.handle(
+      new Request(`http://localhost/api/wishlists/${photoListId}/items`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${photoOwner.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              Name: "Huge photo",
+              Metadata: { Photos: [{ DataUrl: oversized }] },
+            },
+          },
+        }),
+      })
+    );
+    expect(res.status).toBe(400);
+  });
+
+  test("rejects photos when CanUploadImages is false", async () => {
+    await sql`
+      UPDATE users
+      SET is_admin = false,
+          is_owner = false,
+          policy_json = ${sql.json({ CanUploadImages: false } as never)}
+      WHERE id = ${photoOwner.userId}
+    `;
+
+    try {
+      const res = await app.handle(
+        new Request(`http://localhost/api/wishlists/${photoListId}/items`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${photoOwner.token}`,
+          },
+          body: JSON.stringify({
+            Giftistry: {
+              Items: {
+                Name: "Policy denied photo",
+                Metadata: { Photos: [{ DataUrl: tinyPngDataUrl }] },
+              },
+            },
+          }),
+        })
+      );
+      expect(res.status).toBe(403);
+    } finally {
+      await sql`
+        UPDATE users
+        SET policy_json = ${sql.json({} as never)}
+        WHERE id = ${photoOwner.userId}
+      `;
+    }
   });
 });

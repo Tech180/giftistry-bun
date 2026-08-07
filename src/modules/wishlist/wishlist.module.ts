@@ -28,6 +28,7 @@ import { DeletePriorityUseCase } from './application/delete-priority.use-case';
 import { ListExpiredWishlistsUseCase } from './application/list-expired-wishlists.use-case';
 import { ShareWishlistUseCase } from './application/share-wishlist.use-case';
 import { DeactivateWishlistUseCase } from './application/deactivate-wishlist.use-case';
+import { ActivateWishlistUseCase } from './application/activate-wishlist.use-case';
 import { GetWishlistUseCase } from './application/get-wishlist.use-case';
 import { RolloverWishlistUseCase } from './application/rollover-wishlist.use-case';
 import { UpdateWishlistUseCase } from './application/update-wishlist.use-case';
@@ -103,6 +104,7 @@ export function createWishlistModule(deps: WishlistModuleDeps) {
         listExpiredWishlists: new ListExpiredWishlistsUseCase(deps.wishlistRepo),
         shareWishlist: new ShareWishlistUseCase(deps.listShareRepo, deps.userRepo, deps.eventBus),
         deactivateWishlist: new DeactivateWishlistUseCase(deps.wishlistRepo),
+        activateWishlist: new ActivateWishlistUseCase(deps.wishlistRepo),
         getWishlist: new GetWishlistUseCase(deps.wishlistRepo),
         rolloverWishlist: new RolloverWishlistUseCase(
           deps.wishlistRepo,

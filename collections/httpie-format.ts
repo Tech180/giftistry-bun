@@ -333,11 +333,11 @@ export function buildCollection(
   requests: RequestDef[],
   options?: { baseUrl?: string; bearerToken?: string; icon?: { name: IconName; color: Color } }
 ): HttpieCollection {
-  const baseUrl = options?.baseUrl ?? '{{environment}}';
+  const baseUrl = options?.baseUrl ?? '{{baseUrl}}';
   return {
     name,
     icon: options?.icon ?? { name: 'default', color: 'pink' },
-    auth: authBearer(options?.bearerToken ?? '<token>'),
+    auth: authBearer(options?.bearerToken ?? '{{token}}'),
     requests: requests.map((def) => buildRequest(baseUrl, def)),
   };
 }
@@ -368,9 +368,14 @@ export function localEnvironment(url = 'http://localhost:3001'): HttpieEnvironme
   return {
     name: 'Local',
     isDefault: true,
-    isLocalOnly: true,
+    // Keep shareable with space imports (local-only envs are easy to miss / leave inactive).
+    isLocalOnly: false,
     color: 'green',
-    variables: [{ name: 'environment', value: url, isSecret: false }],
+    variables: [
+      { name: 'baseUrl', value: url, isSecret: false },
+      // Paste JWT from login/setup; collection bearer auth uses {{token}}.
+      { name: 'token', value: '', isSecret: true },
+    ],
   };
 }
 

@@ -1,5 +1,5 @@
 import type { ItemRepository, ItemMetadataWrite } from '../domain/ports/item.repository';
-import type { Item, ItemLink, Claim } from '../domain/item.entity';
+import type { Item, ItemLink, Claim, ItemPhoto } from '../domain/item.entity';
 import { sql } from '@/common/database/connection';
 
 const ITEM_SELECT = `
@@ -11,8 +11,42 @@ const ITEM_SELECT = `
   i.is_favorite as "IsFavorite", i.is_pinned as "IsPinned",
   i.desired_quantity as "DesiredQuantity", i.multi_count as "MultiCount",
   i.other_users_can_see as "OtherUsersCanSee",
-  i.custom_fields as "CustomFields", i.variations as "Variations"
+  i.custom_fields as "CustomFields", i.variations as "Variations",
+  i.photos as "Photos"
 `;
+
+function parseJsonValue(raw: unknown): unknown {
+  let value: unknown = raw;
+  // Heal double-encoded jsonb (plain string stored in a jsonb column).
+  for (let i = 0; i < 2 && typeof value === 'string'; i++) {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  return value;
+}
+
+function mapPhotos(raw: unknown): ItemPhoto[] {
+  const parsed = parseJsonValue(raw);
+  if (!Array.isArray(parsed)) return [];
+  return parsed
+    .map((entry, index) => {
+      if (!entry || typeof entry !== 'object') return null;
+      const row = entry as Record<string, unknown>;
+      const id = typeof row.Id === 'string' ? row.Id : null;
+      const url = typeof row.Url === 'string' ? row.Url : null;
+      if (!id || !url) return null;
+      const sortOrder =
+        typeof row.SortOrder === 'number' && Number.isFinite(row.SortOrder)
+          ? row.SortOrder
+          : index;
+      return { Id: id, Url: url, SortOrder: sortOrder };
+    })
+    .filter((p): p is ItemPhoto => p !== null)
+    .sort((a, b) => a.SortOrder - b.SortOrder);
+}
 
 function mapItemRow(row: any): Item {
   return {
@@ -38,6 +72,7 @@ function mapItemRow(row: any): Item {
         : row.OtherUsersCanSee === true,
     CustomFields: row.CustomFields ?? null,
     Variations: Array.isArray(row.Variations) ? row.Variations : null,
+    Photos: mapPhotos(row.Photos),
   };
 }
 
@@ -52,6 +87,7 @@ function metadataDefaults(metadata?: ItemMetadataWrite | null) {
       metadata?.OtherUsersCanSee !== undefined ? metadata.OtherUsersCanSee : null,
     customFields: JSON.stringify(metadata?.CustomFields ?? {}),
     variations: JSON.stringify(metadata?.Variations ?? []),
+    photos: (metadata?.Photos ?? []) as ItemPhoto[],
   };
 }
 
@@ -66,6 +102,7 @@ export class PostgresItemRepository implements ItemRepository {
     if (!row) return null;
     const item = mapItemRow(row);
     item.LinkedItemIds = await this.findLinkedItemIds(id);
+    item.RelatedItemIds = await this.findRelatedItemIds(id);
     return item;
   }
 
@@ -78,9 +115,11 @@ export class PostgresItemRepository implements ItemRepository {
       ORDER BY i.created_at DESC
     `;
     const linkedMap = await this.findLinkedItemIdsByListId(listId);
+    const relatedMap = await this.findRelatedItemIdsByListId(listId);
     return rows.map((row: any) => {
       const item = mapItemRow(row);
       item.LinkedItemIds = linkedMap.get(item.Id) ?? [];
+      item.RelatedItemIds = relatedMap.get(item.Id) ?? [];
       return item;
     });
   }
@@ -103,13 +142,14 @@ export class PostgresItemRepository implements ItemRepository {
         list_id, priority_id, suggested_by_user_id, name, description,
         is_hidden_idea, category, is_suggestion, priority,
         is_favorite, is_pinned, desired_quantity, multi_count,
-        other_users_can_see, custom_fields, variations
+        other_users_can_see, custom_fields, variations, photos
       )
       VALUES (
         ${listId}, ${priorityId}, ${suggestedByUserId}, ${name}, ${description},
         ${isHiddenIdea}, ${category}, ${isSuggestion}, ${priority},
         ${meta.isFavorite}, ${meta.isPinned}, ${meta.desiredQuantity}, ${meta.multiCount},
-        ${meta.otherUsersCanSee}, ${meta.customFields}::jsonb, ${meta.variations}::jsonb
+        ${meta.otherUsersCanSee}, ${meta.customFields}::jsonb, ${meta.variations}::jsonb,
+        ${sql.json(meta.photos as never)}
       )
       RETURNING id as "Id", list_id as "ListId", priority_id as "PriorityId",
                 suggested_by_user_id as "SuggestedByUserId", name as "Name",
@@ -119,7 +159,8 @@ export class PostgresItemRepository implements ItemRepository {
                 is_favorite as "IsFavorite", is_pinned as "IsPinned",
                 desired_quantity as "DesiredQuantity", multi_count as "MultiCount",
                 other_users_can_see as "OtherUsersCanSee",
-                custom_fields as "CustomFields", variations as "Variations"
+                custom_fields as "CustomFields", variations as "Variations",
+                photos as "Photos"
     `;
     if (!row) throw new Error('Failed to create item');
     return mapItemRow(row);
@@ -347,6 +388,44 @@ export class PostgresItemRepository implements ItemRepository {
   ): Promise<Item> {
     if (metadata) {
       const meta = metadataDefaults(metadata);
+      const updatePhotos = metadata.Photos !== undefined;
+      const photosValue = (metadata.Photos ?? []) as ItemPhoto[];
+
+      if (updatePhotos) {
+        const [row] = await sql`
+          UPDATE items
+          SET name = ${name},
+              description = ${description},
+              priority_id = ${priorityId},
+              category = ${category},
+              priority = ${priority},
+              is_favorite = ${meta.isFavorite},
+              is_pinned = ${meta.isPinned},
+              desired_quantity = ${meta.desiredQuantity},
+              multi_count = ${meta.multiCount},
+              other_users_can_see = ${meta.otherUsersCanSee},
+              custom_fields = ${meta.customFields}::jsonb,
+              variations = ${meta.variations}::jsonb,
+              photos = ${sql.json(photosValue as never)}
+          WHERE id = ${id}
+          RETURNING id as "Id", list_id as "ListId", priority_id as "PriorityId",
+                    suggested_by_user_id as "SuggestedByUserId", name as "Name",
+                    description as "Description", is_hidden_idea as "IsHiddenIdea",
+                    is_suggestion as "IsSuggestion", category as "Category",
+                    priority as "Priority", created_at as "CreatedAt",
+                    is_favorite as "IsFavorite", is_pinned as "IsPinned",
+                    desired_quantity as "DesiredQuantity", multi_count as "MultiCount",
+                    other_users_can_see as "OtherUsersCanSee",
+                    custom_fields as "CustomFields", variations as "Variations",
+                    photos as "Photos"
+        `;
+        if (!row) throw new Error('Item not found or failed to update');
+        const item = mapItemRow(row);
+        item.LinkedItemIds = await this.findLinkedItemIds(id);
+        item.RelatedItemIds = await this.findRelatedItemIds(id);
+        return item;
+      }
+
       const [row] = await sql`
         UPDATE items
         SET name = ${name},
@@ -370,11 +449,13 @@ export class PostgresItemRepository implements ItemRepository {
                   is_favorite as "IsFavorite", is_pinned as "IsPinned",
                   desired_quantity as "DesiredQuantity", multi_count as "MultiCount",
                   other_users_can_see as "OtherUsersCanSee",
-                  custom_fields as "CustomFields", variations as "Variations"
+                  custom_fields as "CustomFields", variations as "Variations",
+                  photos as "Photos"
       `;
       if (!row) throw new Error('Item not found or failed to update');
       const item = mapItemRow(row);
       item.LinkedItemIds = await this.findLinkedItemIds(id);
+      item.RelatedItemIds = await this.findRelatedItemIds(id);
       return item;
     }
 
@@ -394,11 +475,13 @@ export class PostgresItemRepository implements ItemRepository {
                 is_favorite as "IsFavorite", is_pinned as "IsPinned",
                 desired_quantity as "DesiredQuantity", multi_count as "MultiCount",
                 other_users_can_see as "OtherUsersCanSee",
-                custom_fields as "CustomFields", variations as "Variations"
+                custom_fields as "CustomFields", variations as "Variations",
+                photos as "Photos"
     `;
     if (!row) throw new Error('Item not found or failed to update');
     const item = mapItemRow(row);
     item.LinkedItemIds = await this.findLinkedItemIds(id);
+    item.RelatedItemIds = await this.findRelatedItemIds(id);
     return item;
   }
 
@@ -407,6 +490,7 @@ export class PostgresItemRepository implements ItemRepository {
       await tx`DELETE FROM claims WHERE item_id = ${id}`;
       await tx`DELETE FROM item_links WHERE item_id = ${id}`;
       await tx`DELETE FROM item_item_links WHERE item_id = ${id} OR linked_item_id = ${id}`;
+      await tx`DELETE FROM item_item_related WHERE item_id = ${id} OR related_item_id = ${id}`;
       await tx`DELETE FROM items WHERE id = ${id}`;
     });
   }
@@ -448,6 +532,45 @@ export class PostgresItemRepository implements ItemRepository {
         await tx`
           INSERT INTO item_item_links (item_id, linked_item_id)
           VALUES (${itemId}, ${linkedId})
+          ON CONFLICT DO NOTHING
+        `;
+      }
+    });
+  }
+
+  async findRelatedItemIds(itemId: string): Promise<string[]> {
+    const rows = await sql<{ RelatedItemId: string }[]>`
+      SELECT related_item_id as "RelatedItemId"
+      FROM item_item_related
+      WHERE item_id = ${itemId}
+    `;
+    return rows.map((row) => row.RelatedItemId);
+  }
+
+  async findRelatedItemIdsByListId(listId: string): Promise<Map<string, string[]>> {
+    const rows = await sql<{ ItemId: string; RelatedItemId: string }[]>`
+      SELECT r.item_id as "ItemId", r.related_item_id as "RelatedItemId"
+      FROM item_item_related r
+      JOIN items i ON i.id = r.item_id
+      WHERE i.list_id = ${listId}
+    `;
+    const map = new Map<string, string[]>();
+    for (const row of rows) {
+      const existing = map.get(row.ItemId) ?? [];
+      existing.push(row.RelatedItemId);
+      map.set(row.ItemId, existing);
+    }
+    return map;
+  }
+
+  async replaceRelatedItemIds(itemId: string, relatedItemIds: string[]): Promise<void> {
+    const unique = [...new Set(relatedItemIds.filter((id) => id && id !== itemId))];
+    await sql.begin(async (tx) => {
+      await tx`DELETE FROM item_item_related WHERE item_id = ${itemId}`;
+      for (const relatedId of unique) {
+        await tx`
+          INSERT INTO item_item_related (item_id, related_item_id)
+          VALUES (${itemId}, ${relatedId})
           ON CONFLICT DO NOTHING
         `;
       }

@@ -8,7 +8,7 @@ import type { CategoryClassifier, CategoryClassificationResult } from '../domain
 import type { ProductResearcher } from '../domain/ports/product-researcher.port';
 import type { PageContextFetcher } from '../domain/ports/page-context.port';
 import type { ItemRepository } from '../domain/ports/item.repository';
-import type { ExtractedMetadata } from '../domain/extracted-metadata';
+import type { AiPopulateStatus, ExtractedMetadata } from '../domain/extracted-metadata';
 import { mergeExtractedMetadata, shouldRunAiPopulate } from '../domain/merge-extracted-metadata';
 import { normalizeCategoryLabel } from '../domain/normalize-category-label.util';
 import { mapScrapeToCustomFields } from '../domain/map-scrape-to-custom-fields';
@@ -21,8 +21,20 @@ import {
 import { coerceApparelSizeFields } from '../domain/coerce-apparel-size-fields.util';
 import { resolveDesiredQuantity } from '../domain/parse-pack-quantity.util';
 
+export type ExtractMetadataPhase =
+  | 'scraping'
+  | 'categorizing'
+  | 'researching'
+  | 'populating';
+
+export interface ExtractMetadataProgress {
+  phase: ExtractMetadataPhase;
+  tokensPerSecond?: number | null;
+}
+
 export interface ExtractMetadataOptions {
   listId?: string;
+  onProgress?: (update: ExtractMetadataProgress) => void | Promise<void>;
 }
 
 function attachScrapeCustomFields(data: ExtractedMetadata, url: string): ExtractedMetadata {
@@ -56,6 +68,13 @@ function buildFieldsFound(data: ExtractedMetadata): string[] {
   }
 
   return fieldsFound;
+}
+
+function withAiPopulate(
+  diagnostics: ScrapeResult['diagnostics'],
+  aiPopulate: AiPopulateStatus
+): ScrapeResult['diagnostics'] {
+  return { ...diagnostics, aiPopulate };
 }
 
 function finalizeExtractedData(
@@ -162,6 +181,11 @@ export class ExtractMetadataUseCase {
     userId: string,
     options: ExtractMetadataOptions = {}
   ): Promise<ScrapeResult> {
+    const report = async (update: ExtractMetadataProgress) => {
+      await options.onProgress?.(update);
+    };
+
+    await report({ phase: 'scraping' });
     const scrapeResult = await this.metadataScraper.scrape(url, 'full');
     const config = this.configRepo.load();
     const existingCategories = await loadExistingCategories(options.listId, this.itemRepo);
@@ -176,7 +200,7 @@ export class ExtractMetadataUseCase {
       return finalizeExtractedData(
         scrapeResult.data,
         url,
-        scrapeResult.diagnostics,
+        withAiPopulate(scrapeResult.diagnostics, 'skipped'),
         this.pageContextFetcher.resolveWebsiteName(url),
         existingCategories
       );
@@ -195,6 +219,7 @@ export class ExtractMetadataUseCase {
     };
 
     try {
+      await report({ phase: 'categorizing' });
       aiCategoryResult = await this.categoryClassifier.classify(
         {
           url,
@@ -209,6 +234,12 @@ export class ExtractMetadataUseCase {
           model,
           customPrompt: config.AiCategoryPrompt || '',
           endpoint,
+          onDelta: async (delta) => {
+            await report({
+              phase: 'categorizing',
+              tokensPerSecond: delta.tokensPerSecond,
+            });
+          },
         }
       );
     } catch (err) {
@@ -247,7 +278,7 @@ export class ExtractMetadataUseCase {
       return finalizeExtractedData(
         baseData,
         url,
-        scrapeResult.diagnostics,
+        withAiPopulate(scrapeResult.diagnostics, 'skipped'),
         websiteName,
         existingCategories
       );
@@ -256,6 +287,7 @@ export class ExtractMetadataUseCase {
     let searchContext: string | undefined;
     if (enableWebSearch && this.productResearcher) {
       try {
+        await report({ phase: 'researching' });
         const researched = await this.productResearcher.research({
           itemName: scrapeWithFields.title || '',
           websiteName,
@@ -273,13 +305,14 @@ export class ExtractMetadataUseCase {
       return finalizeExtractedData(
         baseData,
         url,
-        scrapeResult.diagnostics,
+        withAiPopulate(scrapeResult.diagnostics, 'skipped'),
         websiteName,
         existingCategories
       );
     }
 
     try {
+      await report({ phase: 'populating' });
       const aiData = await this.metadataPopulator.populate(
         {
           url,
@@ -297,6 +330,12 @@ export class ExtractMetadataUseCase {
           endpoint,
           linkedDescriptionPrompt: config.AiDescriptionPrompt || '',
           linkedCategoryPrompt: config.AiCategoryPrompt || '',
+          onDelta: async (delta) => {
+            await report({
+              phase: 'populating',
+              tokensPerSecond: delta.tokensPerSecond,
+            });
+          },
         }
       );
 
@@ -322,10 +361,13 @@ export class ExtractMetadataUseCase {
       return finalizeExtractedData(
         finalData,
         url,
-        {
-          ...scrapeResult.diagnostics,
-          confidence: finalData.title ? 'medium' : scrapeResult.diagnostics.confidence,
-        },
+        withAiPopulate(
+          {
+            ...scrapeResult.diagnostics,
+            confidence: finalData.title ? 'medium' : scrapeResult.diagnostics.confidence,
+          },
+          'succeeded'
+        ),
         websiteName,
         existingCategories
       );
@@ -334,7 +376,7 @@ export class ExtractMetadataUseCase {
       return finalizeExtractedData(
         baseData,
         url,
-        scrapeResult.diagnostics,
+        withAiPopulate(scrapeResult.diagnostics, 'failed'),
         websiteName,
         existingCategories
       );

@@ -19,9 +19,14 @@ export interface ItemImportParserConfig {
   endpoint: string;
 }
 
+export interface ItemImportParserProgress {
+  tokensPerSecond: number | null;
+}
+
 export interface ItemImportParser {
   parse(
     input: ItemImportParserInput,
-    config: ItemImportParserConfig
+    config: ItemImportParserConfig,
+    onProgress?: (progress: ItemImportParserProgress) => void | Promise<void>
   ): Promise<ImportedItemPreview[]>;
 }

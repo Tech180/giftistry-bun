@@ -22,7 +22,7 @@ export const wishlistRoutes = (
       security: [{ bearerAuth: [] }]
     }
   })
-  .post('/wishlists', async ({ getAuthUser, body: { Giftistry: { Lists: { Title, ExpiresAt, AllowGroupFunds, Category, RevealSuggestions, AiEnabled, WebSearchEnabled } } } }) => {
+  .post('/wishlists', async ({ getAuthUser, body: { Giftistry: { Lists: { Title, ExpiresAt, AllowGroupFunds, Category, RevealSuggestions, AiEnabled, WebSearchEnabled, ManualJobBackground } } } }) => {
     const user = await getAuthUser();
     const wishlist = await useCases.createWishlist.execute(
       user.userId,
@@ -32,7 +32,8 @@ export const wishlistRoutes = (
       Category,
       RevealSuggestions,
       AiEnabled,
-      WebSearchEnabled
+      WebSearchEnabled,
+      ManualJobBackground
     );
     return { success: true, data: wishlist };
   }, {
@@ -52,6 +53,7 @@ export const wishlistRoutes = (
           RevealSuggestions: t.Optional(t.Boolean()),
           AiEnabled: t.Optional(t.Boolean()),
           WebSearchEnabled: t.Optional(t.Boolean()),
+          ManualJobBackground: t.Optional(t.Boolean()),
         })
       })
     })
@@ -292,9 +294,21 @@ export const wishlistRoutes = (
       security: [{ bearerAuth: [] }]
     }
   })
-  .put('/wishlists/:listId', async ({ params: { listId }, checkListAccess, body: { Giftistry: { Lists: { Title, ExpiresAt, AllowGroupFunds, Category, RevealSuggestions, AiEnabled, WebSearchEnabled } } } }) => {
+  .put('/wishlists/:listId/activate', async ({ params: { listId }, checkListAccess }) => {
     await checkListAccess('owner');
-    const updated = await useCases.updateWishlist.execute(listId, Title, ExpiresAt, AllowGroupFunds ?? false, Category, RevealSuggestions, AiEnabled, WebSearchEnabled);
+    await useCases.activateWishlist.execute(listId);
+    return { success: true };
+  }, {
+    detail: {
+      tags: ['Wishlists'],
+      summary: 'Activate a wishlist',
+      description: 'Reactivate (un-archive) a wishlist by ID. Only allowed for the owner.',
+      security: [{ bearerAuth: [] }]
+    }
+  })
+  .put('/wishlists/:listId', async ({ params: { listId }, checkListAccess, body: { Giftistry: { Lists: { Title, ExpiresAt, AllowGroupFunds, Category, RevealSuggestions, AiEnabled, WebSearchEnabled, ManualJobBackground } } } }) => {
+    await checkListAccess('owner');
+    const updated = await useCases.updateWishlist.execute(listId, Title, ExpiresAt, AllowGroupFunds ?? false, Category, RevealSuggestions, AiEnabled, WebSearchEnabled, ManualJobBackground);
     return { success: true, data: updated };
   }, {
     detail: {
@@ -313,6 +327,7 @@ export const wishlistRoutes = (
           RevealSuggestions: t.Optional(t.Boolean()),
           AiEnabled: t.Optional(t.Boolean()),
           WebSearchEnabled: t.Optional(t.Boolean()),
+          ManualJobBackground: t.Optional(t.Boolean()),
         })
       })
     })

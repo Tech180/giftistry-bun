@@ -101,6 +101,7 @@ export async function initializeSchema(dbSql: typeof sql = sql) {
         reveal_suggestions BOOLEAN DEFAULT TRUE,
         ai_enabled BOOLEAN DEFAULT FALSE,
         web_search_enabled BOOLEAN DEFAULT FALSE,
+        manual_job_background BOOLEAN DEFAULT TRUE,
         visibility VARCHAR(50) DEFAULT 'private' CHECK (visibility IN ('private', 'friends', 'link')),
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     )
@@ -219,7 +220,8 @@ export async function initializeSchema(dbSql: typeof sql = sql) {
         multi_count BOOLEAN NOT NULL DEFAULT FALSE,
         other_users_can_see BOOLEAN DEFAULT NULL,
         custom_fields JSONB NOT NULL DEFAULT '{}'::jsonb,
-        variations JSONB NOT NULL DEFAULT '[]'::jsonb
+        variations JSONB NOT NULL DEFAULT '[]'::jsonb,
+        photos JSONB NOT NULL DEFAULT '[]'::jsonb
     )
   `;
 
@@ -230,6 +232,19 @@ export async function initializeSchema(dbSql: typeof sql = sql) {
         PRIMARY KEY (item_id, linked_item_id),
         CHECK (item_id <> linked_item_id)
     )
+  `;
+
+  await dbSql`
+    CREATE TABLE item_item_related (
+        item_id UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+        related_item_id UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+        PRIMARY KEY (item_id, related_item_id),
+        CHECK (item_id <> related_item_id)
+    )
+  `;
+
+  await dbSql`
+    CREATE INDEX idx_item_item_related_related_item_id ON item_item_related (related_item_id)
   `;
 
   await dbSql`

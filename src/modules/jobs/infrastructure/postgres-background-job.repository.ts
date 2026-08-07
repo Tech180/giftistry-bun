@@ -3,14 +3,18 @@ import type {
   BackgroundJob,
   BackgroundJobItem,
   BackgroundJobItemStatus,
+  BackgroundJobPayload,
   BackgroundJobPhase,
   BackgroundJobStatus,
-  WishlistImportJobPayload,
 } from '../domain/background-job.entity';
 import type {
   BackgroundJobRepository,
   CreateBackgroundJobInput,
 } from '../domain/ports/background-job.repository';
+import {
+  mergeResultProgressRate,
+  type JobProgressRate,
+} from '../domain/job-progress-rate.util';
 
 function mapJob(row: Record<string, unknown>): BackgroundJob {
   return {
@@ -24,7 +28,7 @@ function mapJob(row: Record<string, unknown>): BackgroundJob {
     ProgressTotal: Number(row.progress_total ?? 0),
     Message: String(row.message ?? ''),
     Error: row.error != null ? String(row.error) : null,
-    Payload: (row.payload ?? {}) as WishlistImportJobPayload,
+    Payload: (row.payload ?? {}) as BackgroundJobPayload,
     Result: (row.result ?? {}) as Record<string, unknown>,
     CreatedAt: row.created_at as Date | string,
     UpdatedAt: row.updated_at as Date | string,
@@ -112,12 +116,18 @@ export class PostgresBackgroundJobRepository implements BackgroundJobRepository 
       message?: string;
       error?: string | null;
       result?: Record<string, unknown>;
+      progressRate?: JobProgressRate | null;
       startedAt?: Date | null;
       finishedAt?: Date | null;
     }
   ): Promise<BackgroundJob | null> {
     const current = await this.findById(id);
     if (!current) return null;
+
+    let nextResult = patch.result !== undefined ? patch.result : current.Result;
+    if (patch.progressRate !== undefined) {
+      nextResult = mergeResultProgressRate(nextResult, patch.progressRate);
+    }
 
     const [row] = await sql`
       UPDATE background_jobs
@@ -129,7 +139,7 @@ export class PostgresBackgroundJobRepository implements BackgroundJobRepository 
         progress_total = ${patch.progressTotal ?? current.ProgressTotal},
         message = ${patch.message ?? current.Message},
         error = ${patch.error !== undefined ? patch.error : current.Error},
-        result = ${sql.json((patch.result ?? current.Result) as never)},
+        result = ${sql.json(nextResult as never)},
         started_at = ${
           patch.startedAt !== undefined
             ? patch.startedAt
@@ -373,6 +383,16 @@ export class PostgresBackgroundJobRepository implements BackgroundJobRepository 
       SET
         status = ${status},
         error = ${error ?? null},
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ${id}
+    `;
+  }
+
+  async updateItemPayload(id: string, patch: Record<string, unknown>): Promise<void> {
+    await sql`
+      UPDATE background_job_items
+      SET
+        payload = COALESCE(payload, '{}'::jsonb) || ${sql.json(patch as never)},
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ${id}
     `;

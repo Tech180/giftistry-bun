@@ -216,6 +216,7 @@ export async function runMigrations(dbSql: typeof sql = sql): Promise<void> {
   await dbSql`ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_enabled BOOLEAN DEFAULT TRUE`;
   await dbSql`ALTER TABLE users ADD COLUMN IF NOT EXISTS web_search_enabled BOOLEAN DEFAULT TRUE`;
   await dbSql`ALTER TABLE lists ADD COLUMN IF NOT EXISTS web_search_enabled BOOLEAN DEFAULT FALSE`;
+  await dbSql`ALTER TABLE lists ADD COLUMN IF NOT EXISTS manual_job_background BOOLEAN DEFAULT TRUE`;
 
   await dbSql`ALTER TABLE items ADD COLUMN IF NOT EXISTS is_favorite BOOLEAN NOT NULL DEFAULT FALSE`;
   await dbSql`ALTER TABLE items ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN NOT NULL DEFAULT FALSE`;
@@ -224,6 +225,7 @@ export async function runMigrations(dbSql: typeof sql = sql): Promise<void> {
   await dbSql`ALTER TABLE items ADD COLUMN IF NOT EXISTS other_users_can_see BOOLEAN DEFAULT NULL`;
   await dbSql`ALTER TABLE items ADD COLUMN IF NOT EXISTS custom_fields JSONB NOT NULL DEFAULT '{}'::jsonb`;
   await dbSql`ALTER TABLE items ADD COLUMN IF NOT EXISTS variations JSONB NOT NULL DEFAULT '[]'::jsonb`;
+  await dbSql`ALTER TABLE items ADD COLUMN IF NOT EXISTS photos JSONB NOT NULL DEFAULT '[]'::jsonb`;
 
   await dbSql`
     CREATE TABLE IF NOT EXISTS item_item_links (
@@ -234,6 +236,16 @@ export async function runMigrations(dbSql: typeof sql = sql): Promise<void> {
     )
   `;
   await dbSql`CREATE INDEX IF NOT EXISTS idx_item_item_links_linked_item_id ON item_item_links (linked_item_id)`;
+
+  await dbSql`
+    CREATE TABLE IF NOT EXISTS item_item_related (
+      item_id UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+      related_item_id UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+      PRIMARY KEY (item_id, related_item_id),
+      CHECK (item_id <> related_item_id)
+    )
+  `;
+  await dbSql`CREATE INDEX IF NOT EXISTS idx_item_item_related_related_item_id ON item_item_related (related_item_id)`;
 
   // Backfill metadata columns + linked-item junction from legacy Description JSON.
   const legacyItems = await dbSql<{

@@ -117,3 +117,7 @@ dist
 .tern-port
 
 .local
+
+config.json
+collections/httpie-collection-gifitstry.json
+collections/httpie-environment-local.json

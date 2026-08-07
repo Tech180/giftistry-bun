@@ -19,6 +19,7 @@ export interface Wishlist {
   RevealSuggestions?: boolean;
   AiEnabled?: boolean;
   WebSearchEnabled?: boolean;
+  ManualJobBackground?: boolean;
   OwnerUsername?: string;
   OwnerFirstName?: string;
   OwnerLastName?: string;
@@ -39,6 +40,7 @@ export class WishlistEntity implements Wishlist {
   RevealSuggestions?: boolean;
   AiEnabled?: boolean;
   WebSearchEnabled?: boolean;
+  ManualJobBackground?: boolean;
   OwnerUsername?: string;
   OwnerFirstName?: string;
   OwnerLastName?: string;

@@ -328,6 +328,19 @@ export class PostgresUserRepository implements UserRepository {
     `;
   }
 
+  async updatePassword(id: string, authHash: string): Promise<User> {
+    const [row] = await sql<any[]>`
+      UPDATE users SET
+        auth_hash = ${authHash},
+        force_password_change = false,
+        session_version = session_version + 1
+      WHERE id = ${id}
+      RETURNING ${sql.unsafe(USER_SELECT)}
+    `;
+    if (!row) throw new Error('Failed to update password');
+    return mapUserRow(row);
+  }
+
   async deleteAccount(id: string): Promise<void> {
     await sql`DELETE FROM users WHERE id = ${id}`;
   }

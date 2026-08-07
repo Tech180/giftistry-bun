@@ -3,6 +3,7 @@ import type { WriteAuditLogUseCase } from '@/common/application/write-audit-log.
 import type { GetSitePolicyUseCase } from '@/common/application/get-site-policy.use-case';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { validatePasswordPolicy } from '@/common/domain/password-policy';
+import { assertCanMutateAdminUser } from './assert-can-mutate-admin-user';
 
 export interface ResetPasswordPayload {
   password: string;
@@ -22,15 +23,20 @@ export class ResetUserPasswordUseCase {
     }
 
     const sitePolicy = await this.getSitePolicy.execute();
-    validatePasswordPolicy(payload.password, { requireStrong: sitePolicy.RequireStrongPasswords });
+    const forcePasswordChange = !!payload.forcePasswordChange;
+    validatePasswordPolicy(payload.password, {
+      requireStrong: sitePolicy.RequireStrongPasswords && !forcePasswordChange,
+    });
 
-    const exists = await this.adminUserRepo.exists(targetId);
-    if (!exists) {
+    const target = await this.adminUserRepo.getPolicyState(targetId);
+    if (!target) {
       throw new AppError('User not found', 404, 'NOT_FOUND');
     }
 
+    assertCanMutateAdminUser(actorId, targetId, target.isOwner);
+
     const authHash = await Bun.password.hash(payload.password);
-    await this.adminUserRepo.resetPassword(targetId, authHash, payload.forcePasswordChange ?? false);
+    await this.adminUserRepo.resetPassword(targetId, authHash, forcePasswordChange);
 
     await this.writeAuditLog.execute({
       actorId,

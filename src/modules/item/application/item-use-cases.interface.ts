@@ -14,6 +14,7 @@ import type { SummarizeItemDescriptionUseCase } from './summarize-item-descripti
 import type { ParseImportPreviewUseCase } from './parse-import-preview.use-case';
 import type { BulkAddItemsUseCase } from './bulk-add-items.use-case';
 import type { SyncItemLinksUseCase } from './sync-item-links.use-case';
+import type { SyncItemRelatedUseCase } from './sync-item-related.use-case';
 import type { BuildItemClaimProjectionsUseCase } from './build-item-claim-projections.use-case';
 
 export interface ItemUseCases {
@@ -33,5 +34,6 @@ export interface ItemUseCases {
   parseImportPreview: ParseImportPreviewUseCase;
   bulkAddItems: BulkAddItemsUseCase;
   syncItemLinks: SyncItemLinksUseCase;
+  syncItemRelated: SyncItemRelatedUseCase;
   buildItemClaimProjections: BuildItemClaimProjectionsUseCase;
 }

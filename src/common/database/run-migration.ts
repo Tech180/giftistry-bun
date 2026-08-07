@@ -100,6 +100,11 @@ export async function up() {
     ALTER TABLE lists ADD COLUMN IF NOT EXISTS ai_enabled BOOLEAN DEFAULT FALSE;
   `;
 
+  // 0i. Manual enrich continues in background when closing the add-item form
+  await sql`
+    ALTER TABLE lists ADD COLUMN IF NOT EXISTS manual_job_background BOOLEAN DEFAULT TRUE;
+  `;
+
   // Item audience restriction (per-item visibility to specific list participants)
   await sql`
     CREATE TABLE IF NOT EXISTS item_audiences (

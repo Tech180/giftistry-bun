@@ -1,9 +1,6 @@
 import { Elysia, t } from 'elysia';
 import type { RouteMiddleware } from '@/common/types/route-middleware';
-import { rateLimit, checkRateLimit } from '@/common/middlewares/rate-limit.middleware';
 import { AppError } from '@/common/middlewares/error.middleware';
-import { getListAccessContext } from '@/common/middlewares/list-access.middleware';
-import { loadConfig } from '@/common/infrastructure/config.loader';
 import type { ItemUseCases } from '../application/item-use-cases.interface';
 
 export const itemRoutes = (
@@ -93,10 +90,14 @@ export const itemRoutes = (
               Quantity: t.Numeric(),
             })))),
             LinkedItemIds: t.Optional(t.Nullable(t.Array(t.String()))),
+            RelatedItemIds: t.Optional(t.Nullable(t.Array(t.String()))),
             OtherUsersCanSee: t.Optional(t.Nullable(t.Boolean())),
             MultiCount: t.Optional(t.Nullable(t.Boolean())),
             IsFavorite: t.Optional(t.Nullable(t.Boolean())),
             IsPinned: t.Optional(t.Nullable(t.Boolean())),
+            Photos: t.Optional(t.Nullable(t.Array(t.Object({
+              DataUrl: t.String(),
+            }), { maxItems: 10 }))),
           })))
         })
       })
@@ -155,6 +156,26 @@ export const itemRoutes = (
       tags: ['Items'],
       summary: 'Sync bidirectional links for item',
       description: 'Synchronize the linked items bidirectional graph in a single call.',
+      security: [{ bearerAuth: [] }]
+    },
+    body: t.Object({
+      Giftistry: t.Object({
+        Items: t.Object({
+          TargetItemIds: t.Array(t.String()),
+        })
+      })
+    })
+  })
+  .post('/items/:itemId/related/sync', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: { TargetItemIds } } } }) => {
+    await checkListAccess('collaborator');
+    const user = await getAuthUser();
+    await useCases.syncItemRelated.execute(itemId, TargetItemIds, user.userId);
+    return { success: true };
+  }, {
+    detail: {
+      tags: ['Items'],
+      summary: 'Sync bidirectional related items for item',
+      description: 'Synchronize the related items bidirectional graph in a single call. Related items do not affect claiming.',
       security: [{ bearerAuth: [] }]
     },
     body: t.Object({
@@ -238,143 +259,6 @@ export const itemRoutes = (
       security: [{ bearerAuth: [] }]
     }
   })
-  .use(rateLimit({ windowMs: 60000, max: 30, paths: ['/items/extract-metadata', '/items/summarize-description'], respectAiRateLimitToggle: true }))
-  .post('/items/extract-metadata', async ({ getAuthUser, request, body: { Giftistry: { Items: { Url, ListId } } } }) => {
-    try {
-      const user = await getAuthUser();
-
-      const willWebSearch = await useCases.extractMetadata.willUseWebSearch(user.userId, ListId);
-      if (willWebSearch) {
-        const aiConfig = loadConfig();
-        if (aiConfig.AiRateLimitEnabled !== false) {
-          const ip =
-            request.headers.get('x-forwarded-for') ||
-            request.headers.get('x-real-ip') ||
-            '127.0.0.1';
-          checkRateLimit(`${ip}:/items/extract-metadata:web-search`, {
-            windowMs: 60000,
-            max: 5,
-          });
-        }
-      }
-
-      const result = await useCases.extractMetadata.execute(Url, user.userId, {
-        listId: ListId,
-      });
-      return {
-        success: true,
-        data: {
-          Title: result.data.title,
-          Price: result.data.price,
-          Description: result.data.description,
-          Category: result.data.category,
-          CategoryAlternatives: result.data.categoryAlternatives ?? [],
-          ImageUrl: result.data.imageUrl,
-          WebsiteName: result.websiteName ?? null,
-          CustomFields: {
-            Predefined: result.data.predefinedFields ?? {},
-            UserDefined: result.data.userDefinedFields ?? {},
-          },
-          Diagnostics: {
-            Source: result.diagnostics.source,
-            Confidence: result.diagnostics.confidence,
-            FieldsFound: result.diagnostics.fieldsFound,
-          },
-        },
-      };
-    } catch (e) {
-      const diagnostics =
-        e && typeof e === 'object' && 'diagnostics' in e
-          ? (e as { diagnostics?: { blocked?: boolean; validationReason?: string } }).diagnostics
-          : undefined;
-
-      return {
-        success: false,
-        message: e instanceof Error ? e.message : 'Error extracting metadata',
-        Diagnostics: {
-          Blocked: diagnostics?.blocked ?? false,
-          ValidationReason: diagnostics?.validationReason,
-        },
-      };
-    }
-  }, {
-    detail: {
-      tags: ['Items'],
-      summary: 'Extract metadata from link',
-      description: 'Scrapes webpage metadata like title and price from a URL to autopopulate the item creation form.',
-      security: [{ bearerAuth: [] }]
-    },
-    body: t.Object({
-      Giftistry: t.Object({
-        Items: t.Object({
-          Url: t.String(),
-          ListId: t.Optional(t.String()),
-        })
-      })
-    })
-  })
-  .post('/items/summarize-description', async ({ getAuthUser, body: { Giftistry: { Items } } }) => {
-    try {
-      const user = await getAuthUser();
-      await getListAccessContext(user.userId, { listId: Items.ListId }, 'collaborator');
-
-      const description = await useCases.summarizeItemDescription.execute(user.userId, {
-        listId: Items.ListId,
-        name: Items.Name,
-        text: Items.Text,
-        linkUrl: Items.LinkUrl,
-        websiteName: Items.WebsiteName,
-        price: Items.Price !== undefined && Items.Price !== null ? Number(Items.Price) : null,
-        category: Items.Category,
-        priority: Items.Priority !== undefined && Items.Priority !== null ? Number(Items.Priority) : null,
-        customFields: Items.CustomFields
-          ? {
-              Predefined: Items.CustomFields.Predefined,
-              UserDefined: Items.CustomFields.UserDefined,
-            }
-          : undefined,
-        variations: Items.Variations?.map((v) => ({ Name: v.Name, Quantity: Number(v.Quantity) })),
-        desiredQuantity: Items.DesiredQuantity !== undefined ? Number(Items.DesiredQuantity) : undefined,
-      });
-
-      return { success: true, data: { description } };
-    } catch (e) {
-      return {
-        success: false,
-        message: e instanceof Error ? e.message : 'Failed to summarize item description',
-      };
-    }
-  }, {
-    detail: {
-      tags: ['Items'],
-      summary: 'Summarize item notes with AI',
-      description: 'Generates concise wishlist notes from item details using the configured description prompt.',
-      security: [{ bearerAuth: [] }]
-    },
-    body: t.Object({
-      Giftistry: t.Object({
-        Items: t.Object({
-          ListId: t.String(),
-          Name: t.String(),
-          Text: t.Optional(t.String()),
-          LinkUrl: t.Optional(t.String()),
-          WebsiteName: t.Optional(t.String()),
-          Price: t.Optional(t.Nullable(t.Numeric())),
-          Category: t.Optional(t.String()),
-          Priority: t.Optional(t.Nullable(t.Numeric())),
-          CustomFields: t.Optional(t.Object({
-            Predefined: t.Optional(t.Record(t.String(), t.Nullable(t.String()))),
-            UserDefined: t.Optional(t.Record(t.String(), t.String())),
-          })),
-          Variations: t.Optional(t.Array(t.Object({
-            Name: t.String(),
-            Quantity: t.Numeric(),
-          }))),
-          DesiredQuantity: t.Optional(t.Numeric()),
-        }),
-      }),
-    }),
-  })
   .put('/items/:itemId', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: { Name, Description, PriorityId, Category, Priority, SharedWithUserIds, LinkUrl, Price, WebsiteName, Metadata } } } }) => {
     const access = await checkListAccess('collaborator');
     const user = await getAuthUser();
@@ -437,10 +321,14 @@ export const itemRoutes = (
               Quantity: t.Numeric(),
             })))),
             LinkedItemIds: t.Optional(t.Nullable(t.Array(t.String()))),
+            RelatedItemIds: t.Optional(t.Nullable(t.Array(t.String()))),
             OtherUsersCanSee: t.Optional(t.Nullable(t.Boolean())),
             MultiCount: t.Optional(t.Nullable(t.Boolean())),
             IsFavorite: t.Optional(t.Nullable(t.Boolean())),
             IsPinned: t.Optional(t.Nullable(t.Boolean())),
+            Photos: t.Optional(t.Nullable(t.Array(t.Object({
+              DataUrl: t.String(),
+            }), { maxItems: 10 }))),
           })))
         })
       })

@@ -10,13 +10,18 @@
   "entry": {
     "name": "Local",
     "isDefault": true,
-    "isLocalOnly": true,
+    "isLocalOnly": false,
     "color": "green",
     "variables": [
       {
-        "name": "environment",
+        "name": "baseUrl",
         "value": "http://localhost:3001",
         "isSecret": false
+      },
+      {
+        "name": "token",
+        "value": "",
+        "isSecret": true
       }
     ]
   }

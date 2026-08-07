@@ -33,6 +33,7 @@ describe('CreateWishlistUseCase defaults', () => {
             IsActive: true,
             AiEnabled: args[6],
             WebSearchEnabled: args[7],
+            ManualJobBackground: args[8],
           };
         },
       } as never,
@@ -64,6 +65,7 @@ describe('CreateWishlistUseCase defaults', () => {
     await useCase.execute('user-1', 'Holiday');
     expect(created[6]).toBe(true);
     expect(created[7]).toBe(true);
+    expect(created[8]).toBe(true);
   });
 
   test('defaults AI off when server AI is disabled', async () => {
@@ -76,6 +78,7 @@ describe('CreateWishlistUseCase defaults', () => {
     await useCase.execute('user-1', 'Holiday');
     expect(created[6]).toBe(false);
     expect(created[7]).toBe(false);
+    expect(created[8]).toBe(true);
   });
 
   test('defaults web search off when user opted out of web search', async () => {
@@ -88,6 +91,7 @@ describe('CreateWishlistUseCase defaults', () => {
     await useCase.execute('user-1', 'Holiday');
     expect(created[6]).toBe(true);
     expect(created[7]).toBe(false);
+    expect(created[8]).toBe(true);
   });
 
   test('respects explicit false overrides', async () => {
@@ -96,8 +100,9 @@ describe('CreateWishlistUseCase defaults', () => {
       created = args;
     });
 
-    await useCase.execute('user-1', 'Holiday', null, false, 'generic', true, false, false);
+    await useCase.execute('user-1', 'Holiday', null, false, 'generic', true, false, false, false);
     expect(created[6]).toBe(false);
     expect(created[7]).toBe(false);
+    expect(created[8]).toBe(false);
   });
 });

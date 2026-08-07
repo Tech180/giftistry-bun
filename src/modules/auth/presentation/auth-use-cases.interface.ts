@@ -21,10 +21,12 @@ import type { CompleteUserOnboardingUseCase } from '../application/complete-user
 import type { CompleteOwnerOnboardingUseCase } from '../application/complete-owner-onboarding.use-case';
 import type { BeginOidcLoginUseCase } from '../application/begin-oidc-login.use-case';
 import type { HandleOidcCallbackUseCase } from '../application/handle-oidc-callback.use-case';
+import type { ChangePasswordUseCase } from '../application/change-password.use-case';
 
 export interface AuthUseCases {
   signup: SignupUseCase;
   login: LoginUseCase;
+  changePassword: ChangePasswordUseCase;
   updateProfile: UpdateProfileUseCase;
   userPreview: UserPreviewUseCase;
   listCustomThemes: ListCustomThemesUseCase;

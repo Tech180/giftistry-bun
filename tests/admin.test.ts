@@ -112,6 +112,20 @@ describe('Admin API', () => {
     expect(usersRes.status).toBe(200);
     const usersBody = await usersRes.json();
     expect(usersBody.Result.Users.length).toBeGreaterThanOrEqual(2);
+    const listUser = usersBody.Result.Users[0];
+    expect(listUser).toMatchObject({
+      Id: expect.any(String),
+      Username: expect.any(String),
+      Email: expect.anything(),
+      IsOwner: expect.any(Boolean),
+      IsAdmin: expect.any(Boolean),
+      IsDisabled: expect.any(Boolean),
+      ActiveListsCount: expect.any(Number),
+    });
+    expect(listUser).not.toHaveProperty('Policy');
+    expect(listUser).not.toHaveProperty('Bio');
+    expect(listUser).not.toHaveProperty('WishlistCount');
+    expect(listUser).not.toHaveProperty('SessionVersion');
   });
 
   test('Admin can update site policy and user policy', async () => {

@@ -4,7 +4,7 @@ import { ParseImportPreviewUseCase } from '../src/modules/item/application/parse
 
 function buildUseCase(overrides: {
   extractText?: string;
-  extractFormat?: 'txt' | 'json' | 'csv';
+  extractFormat?: 'txt' | 'json' | 'csv' | 'xlsx';
   parse?: ReturnType<typeof mock>;
 } = {}) {
   const parse =
@@ -89,6 +89,67 @@ describe('ParseImportPreviewUseCase allowAi', () => {
     });
 
     expect(result.parseMode).toBe('deterministic');
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].name).toBe('Mug');
+    expect(parse).not.toHaveBeenCalled();
+  });
+
+  test('parses Giftistry XLSX tabular text without AI when allowAi is false', async () => {
+    const tabular = [
+      '# Sheet: Wishlist',
+      'Category\tPriority\tItem\tStar\tPrice\tWebsite\tDescription\tAudience\tSuggestion',
+      'Home:\t\t\t\t\t\t\t\t',
+      '\t1\tMug\t\t\t\tCeramic\t\t',
+    ].join('\n');
+
+    const { useCase, parse } = buildUseCase({
+      extractText: tabular,
+      extractFormat: 'xlsx',
+    });
+
+    const result = await useCase.execute('user-1', {
+      fileName: 'holiday.xlsx',
+      format: 'xlsx',
+      content: 'data-url',
+      contentEncoding: 'data-url',
+      allowAi: false,
+    });
+
+    expect(result.parseMode).toBe('deterministic');
+    expect(result.sourceFormat).toBe('xlsx');
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].name).toBe('Mug');
+    expect(parse).not.toHaveBeenCalled();
+  });
+
+  test('parses Giftistry TXT without AI when allowAi is false', async () => {
+    const txt = [
+      '============================================================',
+      'WISHLIST REGISTRY: HOLIDAY',
+      '============================================================',
+      '',
+      '[HOME]',
+      '------',
+      '  Mug (Priority: 1)',
+      '    Description: Ceramic',
+      '    Audience: Everyone',
+    ].join('\n');
+
+    const { useCase, parse } = buildUseCase({
+      extractText: txt,
+      extractFormat: 'txt',
+    });
+
+    const result = await useCase.execute('user-1', {
+      fileName: 'holiday.txt',
+      format: 'txt',
+      content: txt,
+      contentEncoding: 'text',
+      allowAi: false,
+    });
+
+    expect(result.parseMode).toBe('deterministic');
+    expect(result.sourceFormat).toBe('txt');
     expect(result.items).toHaveLength(1);
     expect(result.items[0].name).toBe('Mug');
     expect(parse).not.toHaveBeenCalled();

@@ -9,7 +9,7 @@ import type { UserPolicyUpdatePayload } from '../domain/admin-user.entity';
 
 function mapCreateAdminUserPayload(raw: {
   Username: string;
-  Email: string;
+  Email?: string;
   Password: string;
   FirstName?: string;
   LastName?: string;
@@ -107,18 +107,23 @@ const sitePolicySchema = t.Object({
   DefaultUserPolicy: t.Optional(giftistryUserPolicySchema),
 });
 
+const adminDetail = {
+  tags: ['Admin'] as string[],
+  security: [{ bearerAuth: [] as string[] }],
+};
+
 export const adminRoutes = (useCases: AdminUseCases) => new Elysia({ prefix: '/api/admin' })
   .use(authMiddleware)
   .get('/overview', async ({ getAuthUser }) => {
     AdminUser.assertAdmin(await getAuthUser());
     const result = await useCases.getOverview.execute();
     return { success: true, ...result };
-  })
+  }, { detail: { ...adminDetail, summary: 'Admin overview' } })
   .get('/users', async ({ getAuthUser, query }) => {
     AdminUser.assertAdmin(await getAuthUser());
     const result = await useCases.listUsers.execute(query);
     return { success: true, ...result };
-  })
+  }, { detail: { ...adminDetail, summary: 'List users' } })
   .post('/users', async ({ getAuthUser, body: { Giftistry: { AdminUser: payload } }, request }) => {
     const admin = await getAuthUser();
     AdminUser.assertAdmin(admin);
@@ -129,11 +134,12 @@ export const adminRoutes = (useCases: AdminUseCases) => new Elysia({ prefix: '/a
     );
     return { success: true, ...result };
   }, {
+    detail: { ...adminDetail, summary: 'Create user' },
     body: t.Object({
       Giftistry: t.Object({
         AdminUser: t.Object({
           Username: t.String(),
-          Email: t.String(),
+          Email: t.Optional(t.String()),
           Password: t.String({ minLength: 6 }),
           FirstName: t.Optional(t.String()),
           LastName: t.Optional(t.String()),
@@ -149,13 +155,14 @@ export const adminRoutes = (useCases: AdminUseCases) => new Elysia({ prefix: '/a
     AdminUser.assertAdmin(await getAuthUser());
     const result = await useCases.getUser.execute(id);
     return { success: true, ...result };
-  })
+  }, { detail: { ...adminDetail, summary: 'Get user' } })
   .patch('/users/:id', async ({ getAuthUser, params: { id }, body: { Giftistry: { User: updates } }, request }) => {
     const admin = await getAuthUser();
     AdminUser.assertAdmin(admin);
     await useCases.updateUser.execute(admin.Id, id, mapUpdateAdminUserPayload(updates), request.headers.get('x-forwarded-for'));
     return { success: true };
   }, {
+    detail: { ...adminDetail, summary: 'Update user' },
     body: t.Object({
       Giftistry: t.Object({
         User: t.Object({
@@ -181,6 +188,7 @@ export const adminRoutes = (useCases: AdminUseCases) => new Elysia({ prefix: '/a
     );
     return { success: true };
   }, {
+    detail: { ...adminDetail, summary: 'Update user policy' },
     body: t.Object({
       Giftistry: t.Object({
         Policy: t.Object({
@@ -200,6 +208,7 @@ export const adminRoutes = (useCases: AdminUseCases) => new Elysia({ prefix: '/a
     await useCases.resetPassword.execute(admin.Id, id, mapResetPasswordPayload(payload), request.headers.get('x-forwarded-for'));
     return { success: true };
   }, {
+    detail: { ...adminDetail, summary: 'Reset user password' },
     body: t.Object({
       Giftistry: t.Object({
         Password: t.Object({
@@ -214,24 +223,24 @@ export const adminRoutes = (useCases: AdminUseCases) => new Elysia({ prefix: '/a
     AdminUser.assertAdmin(admin);
     await useCases.unlockUser.execute(admin.Id, id, request.headers.get('x-forwarded-for'));
     return { success: true };
-  })
+  }, { detail: { ...adminDetail, summary: 'Unlock user' } })
   .post('/users/:id/revoke-sessions', async ({ getAuthUser, params: { id }, request }) => {
     const admin = await getAuthUser();
     AdminUser.assertAdmin(admin);
     await useCases.revokeSessions.execute(admin.Id, id, request.headers.get('x-forwarded-for'));
     return { success: true };
-  })
+  }, { detail: { ...adminDetail, summary: 'Revoke user sessions' } })
   .delete('/users/:id', async ({ getAuthUser, params: { id }, request }) => {
     const admin = await getAuthUser();
     AdminUser.assertAdmin(admin);
     await useCases.deleteUser.execute(admin.Id, id, request.headers.get('x-forwarded-for'));
     return { success: true };
-  })
+  }, { detail: { ...adminDetail, summary: 'Delete user' } })
   .get('/site-policy', async ({ getAuthUser }) => {
     AdminUser.assertAdmin(await getAuthUser());
     const result = await useCases.getSitePolicy.execute();
     return { success: true, ...result };
-  })
+  }, { detail: { ...adminDetail, summary: 'Get site policy' } })
   .patch('/site-policy', async ({ getAuthUser, body: { Giftistry: { SitePolicy: policy } }, request }) => {
     const admin = await getAuthUser();
     AdminUser.assertAdmin(admin);
@@ -242,6 +251,7 @@ export const adminRoutes = (useCases: AdminUseCases) => new Elysia({ prefix: '/a
     );
     return { success: true, ...result };
   }, {
+    detail: { ...adminDetail, summary: 'Update site policy' },
     body: t.Object({
       Giftistry: t.Object({
         SitePolicy: sitePolicySchema,
@@ -252,23 +262,23 @@ export const adminRoutes = (useCases: AdminUseCases) => new Elysia({ prefix: '/a
     AdminUser.assertAdmin(await getAuthUser());
     const result = await useCases.listAuditLog.execute(query);
     return { success: true, ...result };
-  })
+  }, { detail: { ...adminDetail, summary: 'Audit log' } })
   .get('/moderation/comments', async ({ getAuthUser, query }) => {
     AdminUser.assertAdmin(await getAuthUser());
     const result = await useCases.moderateComment.list(query);
     return { success: true, ...result };
-  })
+  }, { detail: { ...adminDetail, summary: 'List moderated comments' } })
   .delete('/moderation/comments/:id', async ({ getAuthUser, params: { id }, request }) => {
     const admin = await getAuthUser();
     AdminUser.assertAdmin(admin);
     await useCases.moderateComment.delete(admin.Id, id, request.headers.get('x-forwarded-for'));
     return { success: true };
-  })
+  }, { detail: { ...adminDetail, summary: 'Delete moderated comment' } })
   .get('/reports', async ({ getAuthUser, query }) => {
     AdminUser.assertAdmin(await getAuthUser());
     const result = await useCases.handleReport.list(query);
     return { success: true, ...result };
-  })
+  }, { detail: { ...adminDetail, summary: 'List reports' } })
   .patch('/reports/:id', async ({ getAuthUser, params: { id }, body: { Giftistry: { Report: payload } }, request }) => {
     const admin = await getAuthUser();
     AdminUser.assertAdmin(admin);
@@ -280,6 +290,7 @@ export const adminRoutes = (useCases: AdminUseCases) => new Elysia({ prefix: '/a
     );
     return { success: true };
   }, {
+    detail: { ...adminDetail, summary: 'Handle report' },
     body: t.Object({
       Giftistry: t.Object({
         Report: t.Object({

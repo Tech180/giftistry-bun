@@ -1,6 +1,6 @@
 {
   "name": "giftistry-api",
-  "version": "0.0.14",
+  "version": "0.0.15",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,6 +13,7 @@
     "check:sql": "bun run scripts/check-sql-imports.ts",
     "reset-database": "bun run scripts/reset-database.ts",
     "giftistry-admin": "bun run scripts/giftistry-admin.ts",
+    "collections:generate": "NODE_ENV=test bun collections/generate-httpie-collection.ts",
     "dev:all": "concurrently \"bun run dev\" \"cd ../giftistry-react && npm start\"",
     "postinstall": "bunx playwright install chromium"
   },
@@ -23,6 +24,7 @@
     "cheerio": "^1.0.0",
     "elysia": "^1.4.28",
     "exceljs": "^4.4.0",
+    "jszip": "^3.10.1",
     "nodemailer": "^9.0.1",
     "openid-client": "^6.8.4",
     "otplib": "^13.4.1",

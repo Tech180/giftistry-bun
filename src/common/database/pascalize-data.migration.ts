@@ -162,6 +162,9 @@ export function pascalizeItemDescriptionJson(raw: string): string | null {
   const linkedItemIds = prefer(parsed.LinkedItemIds, parsed.linkedItemIds);
   if (Array.isArray(linkedItemIds) && linkedItemIds.length > 0) out.LinkedItemIds = linkedItemIds;
 
+  const relatedItemIds = prefer(parsed.RelatedItemIds, parsed.relatedItemIds);
+  if (Array.isArray(relatedItemIds) && relatedItemIds.length > 0) out.RelatedItemIds = relatedItemIds;
+
   const otherUsersCanSee = prefer(parsed.OtherUsersCanSee, parsed.otherUsersCanSee);
   if (otherUsersCanSee !== undefined) out.OtherUsersCanSee = Boolean(otherUsersCanSee);
 

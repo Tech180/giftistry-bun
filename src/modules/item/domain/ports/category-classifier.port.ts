@@ -12,12 +12,17 @@ export interface CategoryClassifierInput {
   existingCategories?: string[];
 }
 
+export type CategoryClassifierDeltaHandler = (delta: {
+  tokensPerSecond: number | null;
+}) => void | Promise<void>;
+
 export interface CategoryClassifierConfig {
   provider: string;
   apiKey: string;
   model: string;
   endpoint: string;
   customPrompt: string;
+  onDelta?: CategoryClassifierDeltaHandler;
 }
 
 export interface CategoryClassifier {

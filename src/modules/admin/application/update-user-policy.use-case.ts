@@ -2,6 +2,7 @@ import type { AdminUserRepository } from '../domain/ports/admin-user.repository'
 import type { WriteAuditLogUseCase } from '@/common/application/write-audit-log.use-case';
 import { AdminUser, type UserPolicyUpdatePayload } from '../domain/admin-user.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
+import { assertCanMutateAdminUser } from './assert-can-mutate-admin-user';
 
 export class UpdateUserPolicyUseCase {
   constructor(
@@ -19,6 +20,8 @@ export class UpdateUserPolicyUseCase {
     if (!target) {
       throw new AppError('User not found', 404, 'NOT_FOUND');
     }
+
+    assertCanMutateAdminUser(actorId, targetId, target.isOwner);
 
     const otherEnabledAdmins = await this.adminUserRepo.countEnabledAdmins(targetId);
     const resolved = AdminUser.resolvePolicyUpdate(actorId, target, policyPayload, otherEnabledAdmins);

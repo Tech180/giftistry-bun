@@ -9,6 +9,10 @@ export interface MetadataPopulatorInput {
   reconcileSources?: boolean;
 }
 
+export type MetadataPopulatorDeltaHandler = (delta: {
+  tokensPerSecond: number | null;
+}) => void | Promise<void>;
+
 export interface MetadataPopulatorConfig {
   provider: string;
   apiKey: string;
@@ -17,6 +21,7 @@ export interface MetadataPopulatorConfig {
   endpoint: string;
   linkedDescriptionPrompt?: string;
   linkedCategoryPrompt?: string;
+  onDelta?: MetadataPopulatorDeltaHandler;
 }
 
 export interface MetadataPopulator {

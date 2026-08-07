@@ -31,6 +31,7 @@ import { SummarizeItemDescriptionUseCase } from './application/summarize-item-de
 import { ParseImportPreviewUseCase } from './application/parse-import-preview.use-case';
 import { BulkAddItemsUseCase } from './application/bulk-add-items.use-case';
 import { SyncItemLinksUseCase } from './application/sync-item-links.use-case';
+import { SyncItemRelatedUseCase } from './application/sync-item-related.use-case';
 import { GeminiDescriptionSummarizer } from './infrastructure/gemini-description-summarizer';
 import { GeminiMetadataPopulator } from './infrastructure/gemini-metadata-populator';
 import { GeminiCategoryClassifier } from './infrastructure/gemini-category-classifier';
@@ -110,7 +111,8 @@ export function createItemModule(deps: ItemModuleDeps) {
     deps.itemRepo,
     deps.audienceRepo,
     enrichLinkMetadataUseCase,
-    extractItemReviewsUseCase
+    extractItemReviewsUseCase,
+    deps.assertUserCanUseCase
   );
 
   const claimItemUseCase = new ClaimItemUseCase(
@@ -140,7 +142,8 @@ export function createItemModule(deps: ItemModuleDeps) {
       deps.audienceRepo,
       assertItemVisibleUseCase,
       enrichLinkMetadataUseCase,
-      extractItemReviewsUseCase
+      extractItemReviewsUseCase,
+      deps.assertUserCanUseCase
     ),
     getFieldDefinitions: new GetFieldDefinitionsUseCase(deps.fieldRepo),
     unclaimItem: new UnclaimItemUseCase(deps.itemRepo, assertItemVisibleUseCase),
@@ -155,6 +158,7 @@ export function createItemModule(deps: ItemModuleDeps) {
     parseImportPreview: parseImportPreviewUseCase,
     bulkAddItems: new BulkAddItemsUseCase(addItemUseCase, validateItemAudienceUseCase),
     syncItemLinks: new SyncItemLinksUseCase(deps.itemRepo),
+    syncItemRelated: new SyncItemRelatedUseCase(deps.itemRepo),
   };
 
   const module = new Elysia().use(

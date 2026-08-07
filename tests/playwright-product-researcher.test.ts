@@ -5,7 +5,7 @@ import {
   parseSearchResults,
 } from '../src/modules/item/infrastructure/playwright-product-researcher';
 import { sanitizeProductDescription } from '../src/modules/item/domain/sanitize-product-description.util';
-import { getDefaultAiPrompt } from '../src/modules/system/domain/ai-default-prompts';
+import { getDefaultAiPrompt } from '../src/modules/system/domain/prompts';
 import { compilePopulatePrompt } from '../src/modules/item/infrastructure/gemini-metadata-populator';
 
 const fixture = await Bun.file(`${import.meta.dir}/fixtures/duckduckgo-search-results.html`).text();

@@ -33,9 +33,9 @@ describe('HTTPie format helpers', () => {
       auth: true,
       body: bodyJson({ hello: 'world' }),
     };
-    const req = buildRequest('{{environment}}', def);
+    const req = buildRequest('{{baseUrl}}', def);
     expect(req.name).toBe('Items: Add Item');
-    expect(req.url).toBe('{{environment}}/api/wishlists/:listId/items');
+    expect(req.url).toBe('{{baseUrl}}/api/wishlists/:listId/items');
     expect(req.auth).toEqual({ type: 'inherited' });
     expect(req.body.type).toBe('text');
     expect(req.body.text?.format).toBe('application/json');
@@ -55,9 +55,9 @@ describe('HTTPie format helpers', () => {
     expect(req.body).toEqual(bodyNone());
   });
 
-  test('buildCollection sets collection-level bearer auth', () => {
-    const collection = buildCollection('Test', [], { bearerToken: '<token>' });
-    expect(collection.auth).toEqual(authBearer('<token>'));
+  test('buildCollection sets collection-level bearer auth from {{token}}', () => {
+    const collection = buildCollection('Test', []);
+    expect(collection.auth).toEqual(authBearer('{{token}}'));
   });
 
   test('validateCollectionSchema rejects invalid icon names', () => {
@@ -79,7 +79,9 @@ describe('HTTPie format helpers', () => {
     ]);
     const env = localEnvironment();
     expect(validateVariableReferences(collection, env)).toEqual([]);
-    expect(collectVariableReferences(collection).has('environment')).toBe(true);
+    expect(collectVariableReferences(collection).has('baseUrl')).toBe(true);
+    expect(collectVariableReferences(collection).has('token')).toBe(true);
+    expect(env.variables.some((v) => v.name === 'token' && v.isSecret)).toBe(true);
   });
 
   test('validateCollectionSchema rejects invalid urls and missing fields', () => {

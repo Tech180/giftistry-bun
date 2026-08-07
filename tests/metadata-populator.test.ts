@@ -230,6 +230,100 @@ describe('mergeExtractedMetadata', () => {
 
     expect(merged.description).toBeNull();
   });
+
+  test('prefers AI title over mid-length Amazon scrape when preferScrape is true', () => {
+    const merged = mergeExtractedMetadata(
+      {
+        title: 'Dyson V11 Torque Drive Cordless Vacuum Cleaner, Blue',
+        price: 599,
+        description: null,
+        color: 'Blue',
+        size: null,
+        category: null,
+        imageUrl: 'https://cdn.example/scrape.jpg',
+      },
+      {
+        title: 'Dyson V11 Cordless Vacuum Cleaner',
+        price: 1,
+        description: 'Cordless stick vacuum for whole-home cleaning.',
+        color: 'Blue',
+        size: null,
+        category: 'home',
+        imageUrl: 'https://cdn.example/ai.jpg',
+        predefinedFields: { Color: 'Blue' },
+        userDefinedFields: { Brand: 'Dyson' },
+      },
+      true
+    );
+
+    expect(merged.title).toBe('Dyson V11 Cordless Vacuum Cleaner');
+    expect(merged.price).toBe(599);
+    expect(merged.imageUrl).toBe('https://cdn.example/scrape.jpg');
+    expect(merged.color).toBe('Blue');
+    expect(merged.userDefinedFields?.Brand).toBe('Dyson');
+  });
+
+  test('falls back to scrape title when AI title is empty', () => {
+    const merged = mergeExtractedMetadata(
+      {
+        title: 'Dyson V11 Torque Drive Cordless Vacuum Cleaner, Blue',
+        price: 599,
+        description: null,
+        color: null,
+        size: null,
+        category: null,
+        imageUrl: null,
+      },
+      {
+        title: '',
+        price: null,
+        description: null,
+        color: null,
+        size: null,
+        category: null,
+        imageUrl: null,
+      },
+      true
+    );
+
+    expect(merged.title).toBe('Dyson V11 Torque Drive Cordless Vacuum Cleaner, Blue');
+  });
+
+  test('prefers AI attribute fields over scrape when both are set', () => {
+    const merged = mergeExtractedMetadata(
+      {
+        title: 'Tee',
+        price: 20,
+        description: null,
+        color: 'Red',
+        size: 'M',
+        category: 'clothing',
+        imageUrl: 'https://cdn.example/scrape.jpg',
+        predefinedFields: { ShirtSize: 'M' },
+        userDefinedFields: { Brand: 'ScrapeBrand' },
+      },
+      {
+        title: 'Tee',
+        price: 99,
+        description: null,
+        color: 'Navy',
+        size: 'L',
+        category: 'apparel',
+        imageUrl: 'https://cdn.example/ai.jpg',
+        predefinedFields: { ShirtSize: 'L' },
+        userDefinedFields: { Brand: 'AiBrand' },
+      },
+      true
+    );
+
+    expect(merged.color).toBe('Navy');
+    expect(merged.size).toBe('L');
+    expect(merged.category).toBe('apparel');
+    expect(merged.predefinedFields?.ShirtSize).toBe('L');
+    expect(merged.userDefinedFields?.Brand).toBe('AiBrand');
+    expect(merged.price).toBe(20);
+    expect(merged.imageUrl).toBe('https://cdn.example/scrape.jpg');
+  });
 });
 
 describe('shouldAiPopulate', () => {

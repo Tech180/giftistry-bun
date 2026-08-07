@@ -61,6 +61,7 @@ describe("System Administration Settings Endpoints", () => {
     adminUserId = body.Result.User.Id;
     adminToken = body.Result.Token;
     expect(body.Result.User.IsAdmin).toBe(true);
+    expect(body.Result.User.IsOwner).toBe(true);
   });
 
   test("Subsequent user signup is not Admin", async () => {
@@ -86,7 +87,7 @@ describe("System Administration Settings Endpoints", () => {
     expect(body.Result.User.IsAdmin).toBe(false);
   });
 
-  test("Admin user can fetch system settings", async () => {
+  test("Owner (first user) can fetch system settings", async () => {
     const res = await app.handle(
       new Request("http://localhost/api/system/settings", {
         method: "GET",
@@ -113,7 +114,7 @@ describe("System Administration Settings Endpoints", () => {
     expect(res.status).toBe(403);
   });
 
-  test("Admin user can update system settings with local type", async () => {
+  test("Owner can update system settings with local type", async () => {
     const res = await app.handle(
       new Request("http://localhost/api/system/settings", {
         method: "POST",

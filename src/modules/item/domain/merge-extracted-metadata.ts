@@ -28,27 +28,33 @@ export function mergeExtractedMetadata(
   preferScrape: boolean,
   options: { url?: string; scrapeApparelSizeKey?: string | null } = {}
 ): ExtractedMetadata {
-  const pick = (scrapeVal: string | null, aiVal: string | null, scrapeField = true) => {
+  /** AI-first for gift-facing text/attributes; scrape fills gaps. */
+  const pickAiFirst = (scrapeVal: string | null, aiVal: string | null) => {
+    if (aiVal?.trim()) return aiVal.trim();
+    return scrapeVal?.trim() || null;
+  };
+
+  /** High-confidence scrape wins for factual fields when preferScrape is set. */
+  const pickFact = (scrapeVal: string | null, aiVal: string | null) => {
     if (preferScrape && scrapeVal?.trim()) return scrapeVal.trim();
     if (aiVal?.trim()) return aiVal.trim();
     return scrapeVal?.trim() || null;
   };
 
   const pickTitle = () => {
-    const isScrapeVerbose = isVerboseProductTitle(scrape.title);
-    if (preferScrape && scrape.title.trim() && !isScrapeVerbose) {
-      return scrape.title.trim();
-    }
     if (ai.title.trim()) return ai.title.trim();
     return scrape.title.trim() || '';
   };
+
+  const color = pickAiFirst(scrape.color, ai.color);
+  const size = pickAiFirst(scrape.size, ai.size);
 
   const pickDescription = () => {
     const aiDescription = sanitizeProductDescription(ai.description, {
       predefinedFields: { ...scrape.predefinedFields, ...ai.predefinedFields },
       userDefinedFields: { ...scrape.userDefinedFields, ...ai.userDefinedFields },
-      color: pick(scrape.color, ai.color, preferScrape),
-      size: pick(scrape.size, ai.size, preferScrape),
+      color,
+      size,
     });
     if (aiDescription) return aiDescription;
 
@@ -57,28 +63,21 @@ export function mergeExtractedMetadata(
       return null;
     }
 
-    const sanitizedScrape = sanitizeProductDescription(scrapeDescription, {
+    return sanitizeProductDescription(scrapeDescription, {
       predefinedFields: scrape.predefinedFields,
       userDefinedFields: scrape.userDefinedFields,
       color: scrape.color,
       size: scrape.size,
     });
-
-    if (preferScrape && sanitizedScrape) return sanitizedScrape;
-    return sanitizedScrape || null;
   };
 
   const scrapePrice = scrape.price;
   const aiPrice = ai.price;
 
-  const mergedPredefined = mergeFieldMaps(
-    scrape.predefinedFields,
-    ai.predefinedFields,
-    preferScrape
-  );
+  // Attributes are always AI-first; preferScrape only affects price/imageUrl.
+  const mergedPredefined = mergeFieldMaps(scrape.predefinedFields, ai.predefinedFields, false);
   const title = pickTitle();
-  const size = pick(scrape.size, ai.size, preferScrape);
-  const category = pick(scrape.category, ai.category, preferScrape);
+  const category = pickAiFirst(scrape.category, ai.category);
   const scrapeKey = options.scrapeApparelSizeKey;
   const coercedPredefined = coerceApparelSizeFields({
     predefinedFields: mergedPredefined,
@@ -106,12 +105,12 @@ export function mergeExtractedMetadata(
     title,
     price: preferScrape && scrapePrice != null ? scrapePrice : (aiPrice ?? scrapePrice),
     description: pickDescription(),
-    color: pick(scrape.color, ai.color, preferScrape),
+    color,
     size,
     category,
-    imageUrl: pick(scrape.imageUrl, ai.imageUrl, preferScrape),
+    imageUrl: pickFact(scrape.imageUrl, ai.imageUrl),
     predefinedFields: coercedPredefined,
-    userDefinedFields: mergeFieldMaps(scrape.userDefinedFields, ai.userDefinedFields, preferScrape),
+    userDefinedFields: mergeFieldMaps(scrape.userDefinedFields, ai.userDefinedFields, false),
     desiredQuantity,
   };
 }

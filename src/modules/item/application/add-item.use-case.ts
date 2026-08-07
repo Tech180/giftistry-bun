@@ -9,11 +9,14 @@ import {
   resolvePlainDescriptionText,
 } from '../domain/resolve-item-metadata.util';
 import type { ItemMetadataWrite } from '../domain/ports/item.repository';
+import { normalizeItemPhotosWrite } from '../domain/normalize-item-photos.util';
+import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
 
 function toMetadataWrite(
   metadata: ItemDescriptionMetadata | null | undefined
 ): ItemMetadataWrite | null {
   if (!metadata) return null;
+  const photos = normalizeItemPhotosWrite(metadata.Photos);
   return {
     IsFavorite: metadata.IsFavorite === true,
     IsPinned: metadata.IsPinned === true,
@@ -23,6 +26,7 @@ function toMetadataWrite(
       metadata.OtherUsersCanSee === undefined ? null : metadata.OtherUsersCanSee,
     CustomFields: metadata.CustomFields ?? null,
     Variations: metadata.Variations ?? null,
+    ...(photos !== undefined ? { Photos: photos ?? [] } : {}),
   };
 }
 
@@ -31,7 +35,8 @@ export class AddItemUseCase {
     private itemRepo: ItemRepository,
     private audienceRepo: ItemAudienceRepository,
     private enrichLinkMetadata: EnrichLinkMetadataUseCase,
-    private extractItemReviews: ExtractItemReviewsUseCase
+    private extractItemReviews: ExtractItemReviewsUseCase,
+    private assertUserCan: AssertUserCanUseCase
   ) {}
 
   async execute(
@@ -74,6 +79,12 @@ export class AddItemUseCase {
     if (metadata) {
       resolvedDescription = resolvePlainDescriptionText(description, metadata);
       metadataWrite = toMetadataWrite(metadata);
+      if (metadataWrite?.Photos && metadataWrite.Photos.length > 0) {
+        if (!suggestedByUserId) {
+          throw new AppError('User is required to upload photos', 400, 'BAD_REQUEST');
+        }
+        await this.assertUserCan.execute(suggestedByUserId, 'CanUploadImages');
+      }
     }
 
     const item = await this.itemRepo.create(
@@ -92,6 +103,11 @@ export class AddItemUseCase {
     if (metadata?.LinkedItemIds?.length) {
       await this.itemRepo.replaceLinkedItemIds(item.Id, metadata.LinkedItemIds);
       item.LinkedItemIds = metadata.LinkedItemIds;
+    }
+
+    if (metadata?.RelatedItemIds?.length) {
+      await this.itemRepo.replaceRelatedItemIds(item.Id, metadata.RelatedItemIds);
+      item.RelatedItemIds = metadata.RelatedItemIds;
     }
 
     const sharedWith = await this.audienceRepo.setAudience(item.Id, sharedWithUserIds);

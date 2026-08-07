@@ -39,6 +39,18 @@ bun dev          # hot reload
 bun test         # test suite (uses isolated test DB)
 ```
 
+### HTTPie collection
+
+The HTTPie Desktop collection under `collections/` is generated from the live OpenAPI document (`GET /docs/json`), with a small curated overlay for example bodies.
+
+```bash
+bun run collections:generate
+```
+
+Import both `httpie-collection-giftistry.json` and `httpie-environment-local.json` into the same space, and select the **Local** environment. Requests use `{{baseUrl}}` (default `http://localhost:3001`). Paste a JWT into the secret `{{token}}` variable after login; collection bearer auth inherits it.
+
+Regenerate after adding or changing routes. Coverage tests under `collections/` assert the export stays in sync with OpenAPI.
+
 ## Environment variables
 
 | Variable | Secret? | Description |

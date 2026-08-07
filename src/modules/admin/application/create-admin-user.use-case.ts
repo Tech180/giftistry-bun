@@ -8,7 +8,7 @@ import { generateAvatarColor } from '@/common/utils/avatar.util';
 
 export interface CreateAdminUserPayload {
   username: string;
-  email: string;
+  email?: string | null;
   password: string;
   firstName?: string;
   lastName?: string;
@@ -26,14 +26,19 @@ export class CreateAdminUserUseCase {
   ) {}
 
   async execute(actorId: string, payload: CreateAdminUserPayload, ip?: string | null) {
-    if (!payload.username || !payload.email || !payload.password) {
-      throw new AppError('Username, email, and password are required', 400, 'BAD_REQUEST');
+    if (!payload.username || !payload.password) {
+      throw new AppError('Username and password are required', 400, 'BAD_REQUEST');
     }
 
-    const sitePolicy = await this.getSitePolicy.execute();
-    validatePasswordPolicy(payload.password, { requireStrong: sitePolicy.RequireStrongPasswords });
+    const email = payload.email?.trim() ? payload.email.trim() : null;
 
-    const exists = await this.adminUserRepo.existsByUsernameOrEmail(payload.username, payload.email);
+    const sitePolicy = await this.getSitePolicy.execute();
+    const forcePasswordChange = !!payload.forcePasswordChange;
+    validatePasswordPolicy(payload.password, {
+      requireStrong: sitePolicy.RequireStrongPasswords && !forcePasswordChange,
+    });
+
+    const exists = await this.adminUserRepo.existsByUsernameOrEmail(payload.username, email);
     if (exists) {
       throw new AppError('User with this username or email already exists', 409, 'USER_EXISTS');
     }
@@ -45,13 +50,13 @@ export class CreateAdminUserUseCase {
     const userId = await this.adminUserRepo.create(
       {
         username: payload.username,
-        email: payload.email,
+        email,
         password: payload.password,
         firstName: payload.firstName,
         lastName: payload.lastName,
         isAdmin: payload.isAdmin,
-        emailVerified: payload.emailVerified,
-        forcePasswordChange: payload.forcePasswordChange,
+        emailVerified: email ? !!payload.emailVerified : false,
+        forcePasswordChange,
         policy,
       },
       authHash,

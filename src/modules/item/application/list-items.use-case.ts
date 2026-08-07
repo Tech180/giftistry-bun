@@ -132,6 +132,7 @@ export class ListItemsUseCase {
           Claims: claimsResult,
           IsClaimed: shouldHideClaims ? false : claims.length > 0,
           Metadata: metadata,
+          Photos: item.Photos ?? [],
           IsFavorite: item.IsFavorite === true || metadata?.IsFavorite === true,
           IsPinned: item.IsPinned === true || metadata?.IsPinned === true,
           DesiredQuantity: item.DesiredQuantity ?? metadata?.DesiredQuantity ?? null,

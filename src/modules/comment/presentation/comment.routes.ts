@@ -2,6 +2,7 @@ import { Elysia, t } from 'elysia';
 import type { RouteMiddleware } from '@/common/types/route-middleware';
 import { AppError } from '@/common/middlewares/error.middleware';
 import type { CommentUseCases } from './comment-use-cases.interface';
+import { assertImageDataUrl, COMMENT_IMAGE_MAX_BYTES } from '@/common/utils/image-data-url.util';
 
 export const commentRoutes = (
   useCases: CommentUseCases,
@@ -32,24 +33,7 @@ export const commentRoutes = (
     }
 
     if (ImageUrl) {
-      if (!ImageUrl.startsWith('data:')) {
-        throw new AppError('Invalid image format. Must be a base64 Data URL.', 400, 'BAD_REQUEST');
-      }
-      const matches = ImageUrl.match(/^data:(image\/[a-z+]+);base64,(.+)$/);
-      if (!matches) {
-        throw new AppError('Invalid base64 Data URL encoding.', 400, 'BAD_REQUEST');
-      }
-      const mimeType = matches[1];
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-      if (!allowedTypes.includes(mimeType)) {
-        throw new AppError(`Invalid image format: ${mimeType}. Allowed formats: JPEG, PNG, GIF, WEBP.`, 400, 'BAD_REQUEST');
-      }
-      const base64Data = matches[2];
-      const estimatedSize = base64Data.length * 0.75;
-      const maxSize = 10 * 1024 * 1024; // 10MB
-      if (estimatedSize > maxSize) {
-        throw new AppError('Image size exceeds the 10MB limit.', 400, 'BAD_REQUEST');
-      }
+      assertImageDataUrl(ImageUrl, { maxBytes: COMMENT_IMAGE_MAX_BYTES });
     }
 
     const resolvedCommenterName = CommenterName?.trim() || user.Username;

@@ -5,7 +5,7 @@ import type {
   ReviewData,
 } from '../domain/ports/review-extractor.port';
 import { buildLocalAiUrl, normalizeLocalAiEndpoint } from '@/modules/system/domain/normalize-local-ai-endpoint';
-import { getDefaultAiPrompt } from '@/modules/system/domain/ai-default-prompts';
+import { getDefaultAiPrompt } from '@/modules/system/domain/prompts';
 
 export function compileReviewPrompt(
   customPrompt: string,

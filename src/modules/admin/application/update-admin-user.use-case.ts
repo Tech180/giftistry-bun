@@ -1,6 +1,7 @@
 import type { AdminUserRepository } from '../domain/ports/admin-user.repository';
 import type { WriteAuditLogUseCase } from '@/common/application/write-audit-log.use-case';
 import { AppError } from '@/common/middlewares/error.middleware';
+import { assertCanMutateAdminUser } from './assert-can-mutate-admin-user';
 
 export interface UpdateAdminUserPayload {
   username?: string;
@@ -23,6 +24,8 @@ export class UpdateAdminUserUseCase {
     if (!current) {
       throw new AppError('User not found', 404, 'NOT_FOUND');
     }
+
+    assertCanMutateAdminUser(actorId, id, current.is_owner);
 
     if (updates.email) {
       const dup = await this.adminUserRepo.existsByEmail(updates.email, id);

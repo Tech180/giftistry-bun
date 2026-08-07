@@ -19,6 +19,10 @@ import { tryParseGiftistryExportDeterministic } from '../domain/try-parse-giftis
 import { resolveItemCategory } from '../domain/resolve-item-category.util';
 import { resolveDesiredQuantity } from '../domain/parse-pack-quantity.util';
 import type { ImportedItemPreview } from '../domain/imported-item-preview';
+import {
+  tokensPerSecondRate,
+  type JobProgressRate,
+} from '@/modules/jobs/domain/job-progress-rate.util';
 
 export interface ParseImportPreviewInput {
   listId?: string;
@@ -28,6 +32,16 @@ export interface ParseImportPreviewInput {
   contentEncoding: ImportContentEncoding;
   /** When false, do not fall back to AI after deterministic parse fails. Default true. */
   allowAi?: boolean;
+}
+
+export interface ParseImportPreviewProgress {
+  message: string;
+  progressDone?: number;
+  ProgressRate?: JobProgressRate | null;
+}
+
+function formatFoundMessage(count: number): string {
+  return `Found ${count} item${count === 1 ? '' : 's'}`;
 }
 
 export class ParseImportPreviewUseCase {
@@ -41,7 +55,11 @@ export class ParseImportPreviewUseCase {
     private configRepo: ServerConfigRepository
   ) {}
 
-  async execute(userId: string, input: ParseImportPreviewInput): Promise<ImportPreviewResult> {
+  async execute(
+    userId: string,
+    input: ParseImportPreviewInput,
+    onProgress?: (update: ParseImportPreviewProgress) => void | Promise<void>
+  ): Promise<ImportPreviewResult> {
     if (!input.fileName?.trim()) {
       throw new AppError('File name is required', 400, 'BAD_REQUEST');
     }
@@ -69,6 +87,8 @@ export class ParseImportPreviewUseCase {
     }
     const existingCategories = existingCategoryList.join(', ');
 
+    await onProgress?.({ message: 'Reading file…', progressDone: 5 });
+
     const extracted = await this.textExtractor.extract({
       fileName: input.fileName,
       format: input.format,
@@ -76,14 +96,22 @@ export class ParseImportPreviewUseCase {
       contentEncoding: input.contentEncoding,
     });
 
+    await onProgress?.({ message: 'Checking Giftistry format…', progressDone: 20 });
+
     const deterministic = tryParseGiftistryExportDeterministic(
       extracted.text,
       extracted.format
     );
     if (deterministic) {
+      const items = canonicalizePreviewItems(deterministic.items, existingCategoryList);
+      await onProgress?.({
+        message: formatFoundMessage(items.length),
+        progressDone: 40,
+        ProgressRate: null,
+      });
       return {
         ...deterministic,
-        items: canonicalizePreviewItems(deterministic.items, existingCategoryList),
+        items,
         warnings: [...extracted.warnings, ...deterministic.warnings],
         suggestedWishlistTitle:
           deterministic.suggestedWishlistTitle ||
@@ -107,6 +135,12 @@ export class ParseImportPreviewUseCase {
       throw new AppError('AI provider is not configured', 503, 'SERVICE_UNAVAILABLE');
     }
 
+    await onProgress?.({
+      message: 'Asking AI…',
+      progressDone: 25,
+      ProgressRate: null,
+    });
+
     try {
       const items = await this.importParser.parse(
         {
@@ -122,11 +156,25 @@ export class ParseImportPreviewUseCase {
           model,
           customPrompt: config.AiImportPrompt || '',
           endpoint,
+        },
+        async (progress) => {
+          await onProgress?.({
+            message: 'Asking AI…',
+            progressDone: 30,
+            ProgressRate: tokensPerSecondRate(progress.tokensPerSecond),
+          });
         }
       );
 
+      const canonical = canonicalizePreviewItems(items, existingCategoryList);
+      await onProgress?.({
+        message: formatFoundMessage(canonical.length),
+        progressDone: 40,
+        ProgressRate: null,
+      });
+
       return {
-        items: canonicalizePreviewItems(items, existingCategoryList),
+        items: canonical,
         warnings: [
           ...extracted.warnings,
           ...(items.length === 0 ? ['AI could not extract any items from this file.'] : []),

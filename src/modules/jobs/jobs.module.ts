@@ -7,6 +7,10 @@ import { PostgresBackgroundJobRepository } from './infrastructure/postgres-backg
 import { WebsocketJobProgressPublisher } from './infrastructure/websocket-job-progress-publisher';
 import { StartWishlistImportJobUseCase } from './application/start-wishlist-import-job.use-case';
 import { RunWishlistImportJobUseCase } from './application/run-wishlist-import-job.use-case';
+import { StartItemEnrichJobUseCase } from './application/start-item-enrich-job.use-case';
+import { RunItemEnrichJobUseCase } from './application/run-item-enrich-job.use-case';
+import { StartItemSummarizeJobUseCase } from './application/start-item-summarize-job.use-case';
+import { RunItemSummarizeJobUseCase } from './application/run-item-summarize-job.use-case';
 import { BackgroundJobRunner } from './application/background-job-runner';
 import { jobsRoutes } from './presentation/jobs.routes';
 
@@ -29,13 +33,31 @@ export function createJobsModule(deps: JobsModuleDeps) {
     deps.createWishlist,
     jobProgressPublisher
   );
-  const runner = new BackgroundJobRunner(jobRepo, runWishlistImport);
+  const startItemEnrich = new StartItemEnrichJobUseCase(jobRepo, deps.itemUseCases);
+  const runItemEnrich = new RunItemEnrichJobUseCase(
+    jobRepo,
+    deps.itemUseCases,
+    jobProgressPublisher
+  );
+  const startItemSummarize = new StartItemSummarizeJobUseCase(jobRepo);
+  const runItemSummarize = new RunItemSummarizeJobUseCase(
+    jobRepo,
+    deps.itemUseCases,
+    jobProgressPublisher
+  );
+  const runner = new BackgroundJobRunner(
+    jobRepo,
+    runWishlistImport,
+    runItemEnrich,
+    runItemSummarize
+  );
 
   return {
     module: new Elysia().use(
       jobsRoutes({
         startWishlistImport,
-        parseImportPreview: deps.itemUseCases.parseImportPreview,
+        startItemEnrich,
+        startItemSummarize,
         jobRepo,
         middleware: deps.middleware,
       })

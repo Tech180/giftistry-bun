@@ -564,3 +564,154 @@ describe('ExtractMetadataUseCase AI merge', () => {
     expect(populateInput?.reconcileSources).toBeFalsy();
   });
 });
+
+describe('ExtractMetadataUseCase AiPopulate diagnostics', () => {
+  test('marks AiPopulate succeeded when populate returns', async () => {
+    aiEnabled = true;
+    userAiEnabled = true;
+    policyAllowsAi = true;
+
+    const mockScraper: MetadataScraper = {
+      scrape: async () => ({
+        diagnostics: {
+          source: 'fetch',
+          confidence: 'low',
+          blocked: true,
+          fieldsFound: [],
+        },
+        data: {
+          title: '',
+          price: null,
+          description: null,
+          color: null,
+          size: null,
+          category: null,
+          imageUrl: null,
+        },
+      }),
+    };
+
+    const mockPopulator: MetadataPopulator = {
+      populate: async () => ({
+        title: 'AI Product',
+        price: 10,
+        description: 'Notes',
+        color: null,
+        size: null,
+        category: null,
+        imageUrl: null,
+      }),
+    };
+
+    const useCase = new ExtractMetadataUseCase(
+      mockScraper,
+      mockPopulator,
+      { classify: async () => ({ category: 'tech', alternatives: [] }) },
+      createUserRepo(),
+      createAssertUserCan(),
+      createWishlistRepo(),
+      createItemRepo(),
+      createConfigRepo(),
+      createPageContextFetcher()
+    );
+
+    const result = await useCase.execute('https://shop.example/item', 'user-1');
+    expect(result.diagnostics.aiPopulate).toBe('succeeded');
+    expect(result.data.title).toBe('AI Product');
+  });
+
+  test('marks AiPopulate failed and keeps scrape data when populate throws', async () => {
+    aiEnabled = true;
+    userAiEnabled = true;
+    policyAllowsAi = true;
+
+    const mockScraper: MetadataScraper = {
+      scrape: async () => ({
+        diagnostics: {
+          source: 'fetch',
+          confidence: 'high',
+          blocked: false,
+          fieldsFound: ['title', 'price'],
+        },
+        data: {
+          title: 'Dyson V11 Torque Drive Cordless Vacuum Cleaner, Blue',
+          price: 599,
+          description: null,
+          color: 'Blue',
+          size: null,
+          category: null,
+          imageUrl: null,
+        },
+      }),
+    };
+
+    const mockPopulator: MetadataPopulator = {
+      populate: async () => {
+        throw new Error('model unavailable');
+      },
+    };
+
+    const useCase = new ExtractMetadataUseCase(
+      mockScraper,
+      mockPopulator,
+      { classify: async () => ({ category: 'home', alternatives: [] }) },
+      createUserRepo(),
+      createAssertUserCan(),
+      createWishlistRepo(),
+      createItemRepo(),
+      createConfigRepo(),
+      createPageContextFetcher()
+    );
+
+    const result = await useCase.execute('https://shop.example/dyson', 'user-1');
+    expect(result.diagnostics.aiPopulate).toBe('failed');
+    expect(result.data.title).toBe('Dyson V11 Torque Drive Cordless Vacuum Cleaner, Blue');
+    expect(result.data.price).toBe(599);
+  });
+
+  test('marks AiPopulate skipped when server AI is disabled', async () => {
+    aiEnabled = false;
+    userAiEnabled = true;
+    policyAllowsAi = true;
+
+    const mockScraper: MetadataScraper = {
+      scrape: async () => ({
+        diagnostics: {
+          source: 'fetch',
+          confidence: 'high',
+          blocked: false,
+          fieldsFound: ['title'],
+        },
+        data: {
+          title: 'Sneaker',
+          price: null,
+          description: null,
+          color: null,
+          size: null,
+          category: null,
+          imageUrl: null,
+        },
+      }),
+    };
+
+    const useCase = new ExtractMetadataUseCase(
+      mockScraper,
+      {
+        populate: async () => {
+          throw new Error('should not run');
+        },
+      },
+      { classify: async () => ({ category: 'tech', alternatives: [] }) },
+      createUserRepo(),
+      createAssertUserCan(),
+      createWishlistRepo(),
+      createItemRepo(),
+      createConfigRepo(),
+      createPageContextFetcher()
+    );
+
+    const result = await useCase.execute('https://shop.example/item', 'user-1');
+    expect(result.diagnostics.aiPopulate).toBe('skipped');
+    expect(result.data.title).toBe('Sneaker');
+  });
+});

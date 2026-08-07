@@ -2,16 +2,18 @@ import type {
   BackgroundJob,
   BackgroundJobItem,
   BackgroundJobItemStatus,
+  BackgroundJobKind,
+  BackgroundJobPayload,
   BackgroundJobPhase,
   BackgroundJobStatus,
-  WishlistImportJobPayload,
 } from '../background-job.entity';
+import type { JobProgressRate } from '../job-progress-rate.util';
 
 export interface CreateBackgroundJobInput {
-  kind: 'wishlist-import';
+  kind: BackgroundJobKind;
   userId: string;
   listId?: string | null;
-  payload: WishlistImportJobPayload;
+  payload: BackgroundJobPayload;
 }
 
 export interface BackgroundJobRepository {
@@ -30,6 +32,8 @@ export interface BackgroundJobRepository {
       message?: string;
       error?: string | null;
       result?: Record<string, unknown>;
+      /** Live rate stored in Result.ProgressRate; null clears it. */
+      progressRate?: JobProgressRate | null;
       startedAt?: Date | null;
       finishedAt?: Date | null;
     }
@@ -62,4 +66,6 @@ export interface BackgroundJobRepository {
     status: BackgroundJobItemStatus,
     error?: string | null
   ): Promise<void>;
+  /** JSON-merge patch into background_job_items.payload. */
+  updateItemPayload(id: string, patch: Record<string, unknown>): Promise<void>;
 }

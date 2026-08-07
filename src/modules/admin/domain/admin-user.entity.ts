@@ -63,9 +63,37 @@ export interface AdminUserDto {
   Policy: GiftistryUserPolicy;
 }
 
+/** Fields needed by the admin users table — not a full AdminUserDto. */
+export interface AdminUserListItemDto {
+  Id: string;
+  Username: string;
+  Email: string;
+  IsOwner: boolean;
+  IsAdmin: boolean;
+  IsDisabled: boolean;
+  LockedUntil: Date | string | null;
+  ActiveListsCount: number;
+  LastLoginAt: Date | string | null;
+  LastOnline: Date | string | null;
+}
+
+export interface AdminUserListRow {
+  Id: string;
+  Username: string;
+  Email: string;
+  IsOwner?: boolean;
+  IsAdmin?: boolean;
+  IsDisabled?: boolean;
+  LockedUntil?: Date | string | null;
+  ActiveListsCount?: number;
+  LastLoginAt?: Date | string | null;
+  LastOnline?: Date | string | null;
+}
+
 export interface UserPolicyState {
   id: string;
   isAdmin: boolean;
+  isOwner: boolean;
   isDisabled: boolean;
   isHidden: boolean;
   loginAttemptsBeforeLockout: number;
@@ -117,6 +145,21 @@ export function mapAdminUser(row: AdminUserRow): AdminUserDto {
     Policy: mergeUserPolicy(
       typeof row.PolicyJson === 'string' ? JSON.parse(row.PolicyJson) : row.PolicyJson
     ),
+  };
+}
+
+export function mapAdminUserListItem(row: AdminUserListRow): AdminUserListItemDto {
+  return {
+    Id: row.Id,
+    Username: row.Username,
+    Email: row.Email,
+    IsOwner: !!row.IsOwner,
+    IsAdmin: !!row.IsAdmin,
+    IsDisabled: !!row.IsDisabled,
+    LockedUntil: row.LockedUntil ?? null,
+    ActiveListsCount: row.ActiveListsCount ?? 0,
+    LastLoginAt: row.LastLoginAt ?? null,
+    LastOnline: row.LastOnline ?? null,
   };
 }
 

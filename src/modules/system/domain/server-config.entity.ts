@@ -1,4 +1,4 @@
-import { AI_DEFAULT_PROMPTS } from './ai-default-prompts';
+import { AI_DEFAULT_PROMPTS } from './prompts';
 
 export type DbConnectionType = 'local' | 'remote';
 export type SmtpConnectionType = 'local' | 'remote';
@@ -48,6 +48,9 @@ export interface ServerConfig {
   AiCompletionTimeoutMs?: number;
   ScrapeFetchTimeoutMs?: number;
   ScrapePlaywrightTimeoutMs?: number;
+  GrabInfoConcurrency?: number;
+  GrabInfoConcurrencyUnlimited?: boolean;
+  GrabInfoActiveStreamLimit?: number;
 }
 
 export interface AdminSetupCredentials {
@@ -84,6 +87,8 @@ export interface SystemSettingsPayload {
   SmtpSecure?: boolean;
   SmtpFrom?: string;
   PublicAppUrl?: string;
+  /** Owner-only when writing; omit to leave config.AllowSetup unchanged. */
+  AllowSetup?: boolean;
   OAuthEnabled?: boolean;
   OAuthIssuerUrl?: string;
   OAuthClientId?: string;
@@ -111,6 +116,9 @@ export interface SystemSettingsPayload {
   AiCompletionTimeoutMs?: number;
   ScrapeFetchTimeoutMs?: number;
   ScrapePlaywrightTimeoutMs?: number;
+  GrabInfoConcurrency?: number;
+  GrabInfoConcurrencyUnlimited?: boolean;
+  GrabInfoActiveStreamLimit?: number;
 }
 
 export interface SystemSettingsView {
@@ -152,6 +160,9 @@ export interface SystemSettingsView {
   AiCompletionTimeoutMs: number;
   ScrapeFetchTimeoutMs: number;
   ScrapePlaywrightTimeoutMs: number;
+  GrabInfoConcurrency: number;
+  GrabInfoConcurrencyUnlimited: boolean;
+  GrabInfoActiveStreamLimit: number;
   AiDefaultPrompts: {
     Review: string;
     Description: string;
@@ -222,6 +233,47 @@ export function clampAiCompletionTimeoutMs(value: unknown): number {
   );
 }
 
+export const DEFAULT_GRAB_INFO_CONCURRENCY = 3;
+export const GRAB_INFO_CONCURRENCY_MIN = 1;
+export const GRAB_INFO_CONCURRENCY_MAX = 1000;
+export const DEFAULT_GRAB_INFO_CONCURRENCY_UNLIMITED = false;
+export const DEFAULT_GRAB_INFO_ACTIVE_STREAM_LIMIT = 16;
+export const GRAB_INFO_ACTIVE_STREAM_LIMIT_MIN = 1;
+export const GRAB_INFO_ACTIVE_STREAM_LIMIT_MAX = 1000;
+
+export function clampGrabInfoConcurrency(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return DEFAULT_GRAB_INFO_CONCURRENCY;
+  return Math.min(
+    GRAB_INFO_CONCURRENCY_MAX,
+    Math.max(GRAB_INFO_CONCURRENCY_MIN, Math.round(n))
+  );
+}
+
+export function normalizeGrabInfoConcurrencyUnlimited(value: unknown): boolean {
+  return value === true;
+}
+
+export function clampGrabInfoActiveStreamLimit(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return DEFAULT_GRAB_INFO_ACTIVE_STREAM_LIMIT;
+  return Math.min(
+    GRAB_INFO_ACTIVE_STREAM_LIMIT_MAX,
+    Math.max(GRAB_INFO_ACTIVE_STREAM_LIMIT_MIN, Math.round(n))
+  );
+}
+
+/** Effective mapPool size for grab phase: unlimited uses remaining work count. */
+export function resolveGrabInfoConcurrency(
+  config: Pick<ServerConfig, 'GrabInfoConcurrency' | 'GrabInfoConcurrencyUnlimited'>,
+  workCount: number
+): number {
+  if (normalizeGrabInfoConcurrencyUnlimited(config.GrabInfoConcurrencyUnlimited)) {
+    return Math.max(1, workCount);
+  }
+  return clampGrabInfoConcurrency(config.GrabInfoConcurrency);
+}
+
 export function maskSecret(value?: string): string {
   return value ? MASKED_SECRET : '';
 }
@@ -278,6 +330,15 @@ export function toSystemSettingsView(config: ServerConfig): SystemSettingsView {
     ),
     ScrapePlaywrightTimeoutMs: clampScrapePlaywrightTimeoutMs(
       config.ScrapePlaywrightTimeoutMs ?? DEFAULT_SCRAPE_PLAYWRIGHT_TIMEOUT_MS
+    ),
+    GrabInfoConcurrency: clampGrabInfoConcurrency(
+      config.GrabInfoConcurrency ?? DEFAULT_GRAB_INFO_CONCURRENCY
+    ),
+    GrabInfoConcurrencyUnlimited: normalizeGrabInfoConcurrencyUnlimited(
+      config.GrabInfoConcurrencyUnlimited
+    ),
+    GrabInfoActiveStreamLimit: clampGrabInfoActiveStreamLimit(
+      config.GrabInfoActiveStreamLimit ?? DEFAULT_GRAB_INFO_ACTIVE_STREAM_LIMIT
     ),
     AiDefaultPrompts: {
       Review: AI_DEFAULT_PROMPTS.review,

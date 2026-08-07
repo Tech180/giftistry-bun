@@ -76,4 +76,39 @@ describe('DefaultImportFileTextExtractor', () => {
     expect(result.format).toBe('txt');
     expect(result.truncated).toBe(false);
   });
+
+  test('extracts xlsx cells and prefers hyperlink href', async () => {
+    const ExcelJS = (await import('exceljs')).default;
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Wishlist');
+    sheet.addRow([
+      'Category',
+      'Priority',
+      'Item',
+      'Star',
+      'Price',
+      'Website',
+      'Description',
+      'Audience',
+      'Suggestion',
+    ]);
+    const row = sheet.addRow(['', 1, 'Mug', '', '$12.00', 'amazon.com', 'Ceramic', '', '']);
+    row.getCell(6).value = {
+      text: 'amazon.com',
+      hyperlink: 'https://www.amazon.com/dp/B0TEST123',
+    };
+    const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
+    const extractor = new DefaultImportFileTextExtractor();
+    const result = await extractor.extract({
+      fileName: 'holiday.xlsx',
+      format: 'xlsx',
+      content: buffer.toString('base64'),
+      contentEncoding: 'base64',
+    });
+    expect(result.format).toBe('xlsx');
+    expect(result.text).toContain('# Sheet: Wishlist');
+    expect(result.text).toContain('Mug');
+    expect(result.text).toContain('https://www.amazon.com/dp/B0TEST123');
+    expect(result.text).not.toMatch(/\tamazon\.com\t/);
+  });
 });

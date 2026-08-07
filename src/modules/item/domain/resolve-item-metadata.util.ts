@@ -15,7 +15,8 @@ export function resolveItemMetadata(item: Item): ItemDescriptionMetadata | null 
       (Object.keys(item.CustomFields.Predefined ?? {}).length > 0 ||
         Object.keys(item.CustomFields.UserDefined ?? {}).length > 0)) ||
     (item.Variations != null && item.Variations.length > 0) ||
-    (item.LinkedItemIds != null && item.LinkedItemIds.length > 0);
+    (item.LinkedItemIds != null && item.LinkedItemIds.length > 0) ||
+    (item.RelatedItemIds != null && item.RelatedItemIds.length > 0);
 
   if (!hasColumns && !fromDescription.metadata) {
     return fromDescription.isJson ? fromDescription.metadata : null;
@@ -66,6 +67,12 @@ export function resolveItemMetadata(item: Item): ItemDescriptionMetadata | null 
       ? item.LinkedItemIds
       : legacy?.LinkedItemIds;
   if (linked?.length) metadata.LinkedItemIds = linked;
+
+  const related =
+    item.RelatedItemIds && item.RelatedItemIds.length > 0
+      ? item.RelatedItemIds
+      : legacy?.RelatedItemIds;
+  if (related?.length) metadata.RelatedItemIds = related;
 
   return metadata;
 }

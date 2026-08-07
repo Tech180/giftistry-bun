@@ -8,11 +8,14 @@ import { AppError } from '@/common/middlewares/error.middleware';
 import type { ItemDescriptionMetadata } from '../domain/item-description.util';
 import { resolvePlainDescriptionText } from '../domain/resolve-item-metadata.util';
 import type { ItemMetadataWrite } from '../domain/ports/item.repository';
+import { normalizeItemPhotosWrite } from '../domain/normalize-item-photos.util';
+import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
 
 function toMetadataWrite(
   metadata: ItemDescriptionMetadata | null | undefined
 ): ItemMetadataWrite | null {
   if (!metadata) return null;
+  const photos = normalizeItemPhotosWrite(metadata.Photos);
   return {
     IsFavorite: metadata.IsFavorite === true,
     IsPinned: metadata.IsPinned === true,
@@ -22,6 +25,7 @@ function toMetadataWrite(
       metadata.OtherUsersCanSee === undefined ? null : metadata.OtherUsersCanSee,
     CustomFields: metadata.CustomFields ?? null,
     Variations: metadata.Variations ?? null,
+    ...(photos !== undefined ? { Photos: photos ?? [] } : {}),
   };
 }
 
@@ -31,7 +35,8 @@ export class UpdateItemUseCase {
     private audienceRepo: ItemAudienceRepository,
     private assertItemVisible: AssertItemVisibleUseCase,
     private enrichLinkMetadata: EnrichLinkMetadataUseCase,
-    private extractItemReviews: ExtractItemReviewsUseCase
+    private extractItemReviews: ExtractItemReviewsUseCase,
+    private assertUserCan: AssertUserCanUseCase
   ) {}
 
   async execute(
@@ -75,10 +80,14 @@ export class UpdateItemUseCase {
           OtherUsersCanSee: null,
           CustomFields: null,
           Variations: null,
+          Photos: [],
         };
       } else {
         resolvedDescription = resolvePlainDescriptionText(description, metadata);
         metadataWrite = toMetadataWrite(metadata);
+        if (metadataWrite?.Photos && metadataWrite.Photos.length > 0) {
+          await this.assertUserCan.execute(currentUserId, 'CanUploadImages');
+        }
       }
     }
 
@@ -96,6 +105,10 @@ export class UpdateItemUseCase {
       const linkedIds = metadata?.LinkedItemIds ?? [];
       await this.itemRepo.replaceLinkedItemIds(itemId, linkedIds);
       updated.LinkedItemIds = linkedIds;
+
+      const relatedIds = metadata?.RelatedItemIds ?? [];
+      await this.itemRepo.replaceRelatedItemIds(itemId, relatedIds);
+      updated.RelatedItemIds = relatedIds;
     }
 
     let sharedWith = await this.audienceRepo.findByItemId(itemId);

@@ -11,6 +11,7 @@ import type { ServerConfigRepository } from '@/modules/system/domain/ports/serve
 import type { SaveSystemSettingsUseCase } from '@/modules/system/application/save-system-settings.use-case';
 import { SignupUseCase } from './application/signup.use-case';
 import { LoginUseCase } from './application/login.use-case';
+import { ChangePasswordUseCase } from './application/change-password.use-case';
 import { UpdateProfileUseCase } from './application/update-profile.use-case';
 import { UserPreviewUseCase } from './application/user-preview.use-case';
 import { ListCustomThemesUseCase } from './application/list-custom-themes.use-case';
@@ -57,6 +58,7 @@ export function createAuthModule(deps: AuthModuleDeps) {
   const authUseCases = {
     signup: new SignupUseCase(deps.userRepo, deps.getSitePolicyUseCase),
     login: new LoginUseCase(deps.userRepo, deps.getSitePolicyUseCase),
+    changePassword: new ChangePasswordUseCase(deps.userRepo, deps.getSitePolicyUseCase),
     updateProfile: new UpdateProfileUseCase(deps.userRepo),
     userPreview: new UserPreviewUseCase(deps.userRepo, deps.wishlistRepo),
     listCustomThemes: new ListCustomThemesUseCase(deps.userRepo),

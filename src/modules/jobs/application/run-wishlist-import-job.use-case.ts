@@ -4,13 +4,22 @@ import type { ItemUseCases } from '@/modules/item/application/item-use-cases.int
 import type { CreateWishlistUseCase } from '@/modules/wishlist/application/create-wishlist.use-case';
 import type { ImportedItemPreview } from '@/modules/item/domain/imported-item-preview';
 import type { BackgroundJobRepository } from '../domain/ports/background-job.repository';
-import type { BackgroundJob, BackgroundJobItem } from '../domain/background-job.entity';
+import type {
+  BackgroundJob,
+  BackgroundJobItem,
+  WishlistImportJobPayload,
+} from '../domain/background-job.entity';
 import type { JobProgressPublisher } from '../domain/ports/job-progress-publisher.port';
 import { withJobHeartbeat } from './with-job-heartbeat.util';
 import { mergeGrabInfoDescription } from './merge-grab-info-description.util';
 import { resolveDesiredQuantity } from '@/modules/item/domain/parse-pack-quantity.util';
-
-const GRAB_CONCURRENCY = 3;
+import { loadConfig } from '@/common/infrastructure/config.loader';
+import { resolveGrabInfoConcurrency } from '@/modules/system/domain/server-config.entity';
+import { itemsPerSecondRate } from '../domain/job-progress-rate.util';
+import {
+  clearGrabPhasePayloadPatch,
+  grabPhasePayloadPatch,
+} from '../domain/grab-item-phase.util';
 
 export function importItemDedupeKey(name: string, linkUrl?: string | null): string {
   return `${name.trim().toLowerCase()}\0${(linkUrl || '').trim().toLowerCase()}`;
@@ -91,8 +100,9 @@ async function mapPool<T>(
   let index = 0;
   const runners = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
     while (index < items.length) {
-      const current = index++;
-      await worker(items[current]);
+      const item = items[index++];
+      if (item === undefined) continue;
+      await worker(item);
     }
   });
   await Promise.all(runners);
@@ -110,7 +120,7 @@ export class RunWishlistImportJobUseCase {
     try {
       if (await this.jobRepo.shouldStop(job.Id)) return;
 
-      const payload = job.Payload;
+      const payload = job.Payload as WishlistImportJobPayload;
       const existingItems = await this.jobRepo.listItems(job.Id);
       let listId = job.ListId || payload.listId || null;
 
@@ -266,18 +276,30 @@ export class RunWishlistImportJobUseCase {
   }
 
   private parsePreview(job: BackgroundJob) {
-    const payload = job.Payload;
+    const payload = job.Payload as WishlistImportJobPayload;
     return withJobHeartbeat(
       this.jobRepo,
       job.Id,
-      this.itemUseCases.parseImportPreview.execute(job.UserId, {
-        listId: payload.mode === 'existing-list' ? payload.listId || undefined : undefined,
-        fileName: payload.fileName,
-        format: (payload.format as never) || undefined,
-        content: payload.content,
-        contentEncoding: payload.contentEncoding,
-        allowAi: payload.allowAi !== false,
-      })
+      this.itemUseCases.parseImportPreview.execute(
+        job.UserId,
+        {
+          listId: payload.mode === 'existing-list' ? payload.listId || undefined : undefined,
+          fileName: payload.fileName,
+          format: (payload.format as never) || undefined,
+          content: payload.content,
+          contentEncoding: payload.contentEncoding,
+          allowAi: payload.allowAi !== false,
+        },
+        async (update) => {
+          await this.patch(job.Id, {
+            phase: 'parsing',
+            message: update.message,
+            progressDone: update.progressDone,
+            progressTotal: 100,
+            progressRate: update.ProgressRate !== undefined ? update.ProgressRate : null,
+          });
+        }
+      )
     );
   }
 
@@ -291,20 +313,28 @@ export class RunWishlistImportJobUseCase {
 
     let wishlistByLink = new Map<string, { itemId: string; name: string; description: string | null; category: string; priority: number | null; price: number | null; websiteName: string | null; linkUrl: string }>();
     try {
-      const listItems = await this.itemUseCases.listItems.execute(listId, job.UserId);
+      const { Items: listItems } = await this.itemUseCases.listItems.execute(
+        listId,
+        job.UserId
+      );
       for (const item of listItems) {
-        for (const link of item.Links ?? []) {
+        const links = (item.Links as Array<{
+          Url?: string | null;
+          ExtractedPrice?: number | null;
+          RetailerName?: string | null;
+        }> | null) ?? [];
+        for (const link of links) {
           const key = (link.Url || '').trim().toLowerCase();
           if (!key || wishlistByLink.has(key)) continue;
           wishlistByLink.set(key, {
-            itemId: item.Id,
-            name: item.Name,
-            description: item.Description,
-            category: item.Category || 'uncategorized',
-            priority: item.Priority ?? null,
+            itemId: String(item.Id),
+            name: String(item.Name ?? ''),
+            description: (item.Description as string | null) ?? null,
+            category: String(item.Category || 'uncategorized'),
+            priority: (item.Priority as number | null) ?? null,
             price: link.ExtractedPrice ?? null,
             websiteName: link.RetailerName ?? null,
-            linkUrl: link.Url,
+            linkUrl: link.Url ?? key,
           });
         }
       }
@@ -369,6 +399,7 @@ export class RunWishlistImportJobUseCase {
     for (let i = 0; i < chunks.length; i++) {
       if (await this.jobRepo.shouldStop(job.Id)) return null;
       const chunk = chunks[i];
+      if (!chunk) continue;
       const result = await this.itemUseCases.bulkAddItems.execute(
         listId,
         job.UserId,
@@ -383,6 +414,7 @@ export class RunWishlistImportJobUseCase {
       let createdIndex = 0;
       for (let rowIndex = 0; rowIndex < chunk.length; rowIndex++) {
         if (failedIndexes.has(rowIndex)) continue;
+        const inputRow = chunk[rowIndex];
         const created = result.items[createdIndex++] as {
           Id: string;
           Name: string;
@@ -399,12 +431,12 @@ export class RunWishlistImportJobUseCase {
         const link = created.Links?.[0];
         createdRows.push({
           itemId: created.Id,
-          linkUrl: link?.Url ?? chunk[rowIndex].linkUrl ?? null,
+          linkUrl: link?.Url ?? inputRow?.linkUrl ?? null,
           name: created.Name,
           description: created.Description ?? null,
           category: created.Category || 'uncategorized',
           priority: created.Priority ?? null,
-          price: link?.ExtractedPrice ?? chunk[rowIndex].price ?? null,
+          price: link?.ExtractedPrice ?? inputRow?.price ?? null,
           websiteName: link?.RetailerName ?? null,
         });
       }
@@ -492,6 +524,59 @@ export class RunWishlistImportJobUseCase {
 
     let completed = alreadyDone;
     let grabFailed = 0;
+    const grabBaseline = alreadyDone;
+    const grabStartedAt = Date.now();
+
+    const grabProgressRate = () =>
+      itemsPerSecondRate(completed - grabBaseline, Date.now() - grabStartedAt);
+
+    let lastStreamPublishAt = 0;
+    let streamPublishTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const publishGrabProgress = async () => {
+      lastStreamPublishAt = Date.now();
+      await this.patch(
+        job.Id,
+        {
+          phase: 'grabbing_info',
+          progressDone: addDone + completed,
+          progressTotal: addDone + linkedCount,
+          message: `Grabbing info ${completed}/${linkedCount}…`,
+          progressRate: grabProgressRate(),
+        },
+        jobItems
+      );
+    };
+
+    const scheduleStreamPublish = () => {
+      const elapsed = Date.now() - lastStreamPublishAt;
+      if (elapsed >= 250) {
+        void publishGrabProgress();
+        return;
+      }
+      if (streamPublishTimer) return;
+      streamPublishTimer = setTimeout(() => {
+        streamPublishTimer = null;
+        void publishGrabProgress();
+      }, 250 - elapsed);
+    };
+
+    const applyGrabItemProgress = async (
+      jobItem: BackgroundJobItem,
+      phase: 'scraping' | 'categorizing' | 'researching' | 'populating',
+      tokensPerSecond?: number | null
+    ) => {
+      const patch = grabPhasePayloadPatch(phase, tokensPerSecond);
+      jobItem.Payload = { ...jobItem.Payload, ...patch };
+      await this.jobRepo.updateItemPayload(jobItem.Id, patch);
+      scheduleStreamPublish();
+    };
+
+    const clearGrabItemProgress = async (jobItem: BackgroundJobItem) => {
+      const patch = clearGrabPhasePayloadPatch();
+      jobItem.Payload = { ...jobItem.Payload, ...patch };
+      await this.jobRepo.updateItemPayload(jobItem.Id, patch);
+    };
 
     await this.patch(
       job.Id,
@@ -500,31 +585,35 @@ export class RunWishlistImportJobUseCase {
         message: `Grabbing info ${completed}/${linkedCount}…`,
         progressDone: addDone + completed,
         progressTotal: addDone + linkedCount,
+        progressRate: null,
       },
       jobItems
     );
 
-    await mapPool(workRows, GRAB_CONCURRENCY, async (row) => {
+    const grabConcurrency = resolveGrabInfoConcurrency(loadConfig(), workRows.length);
+    await mapPool(workRows, grabConcurrency, async (row) => {
       if (await this.jobRepo.shouldStop(job.Id)) return;
       const jobItem = byItemId.get(row.itemId);
       if (jobItem) {
         jobItem.Status = 'running';
         await this.jobRepo.updateItemStatus(jobItem.Id, 'running');
-        await this.patch(
-          job.Id,
-          {
-            progressDone: addDone + completed,
-            progressTotal: addDone + linkedCount,
-            message: `Grabbing info ${completed}/${linkedCount}…`,
-          },
-          jobItems
-        );
+        await publishGrabProgress();
       }
       try {
         const extract = await withJobHeartbeat(
           this.jobRepo,
           job.Id,
-          this.itemUseCases.extractMetadata.execute(row.linkUrl!, job.UserId, { listId })
+          this.itemUseCases.extractMetadata.execute(row.linkUrl!, job.UserId, {
+            listId,
+            onProgress: async (update) => {
+              if (!jobItem) return;
+              await applyGrabItemProgress(
+                jobItem,
+                update.phase,
+                update.tokensPerSecond
+              );
+            },
+          })
         );
         const name = mergeString(extract.data.title, row.name, row.name);
         const packQty = resolveDesiredQuantity(
@@ -561,6 +650,7 @@ export class RunWishlistImportJobUseCase {
         if (jobItem) {
           jobItem.Status = 'done';
           await this.jobRepo.updateItemStatus(jobItem.Id, 'done');
+          await clearGrabItemProgress(jobItem);
         }
       } catch (err) {
         grabFailed += 1;
@@ -568,18 +658,15 @@ export class RunWishlistImportJobUseCase {
           jobItem.Status = 'failed';
           jobItem.Error = err instanceof Error ? err.message : 'Grab failed';
           await this.jobRepo.updateItemStatus(jobItem.Id, 'failed', jobItem.Error);
+          await clearGrabItemProgress(jobItem);
         }
       } finally {
         completed += 1;
-        await this.patch(
-          job.Id,
-          {
-            progressDone: addDone + completed,
-            progressTotal: addDone + linkedCount,
-            message: `Grabbing info ${completed}/${linkedCount}…`,
-          },
-          jobItems
-        );
+        if (streamPublishTimer) {
+          clearTimeout(streamPublishTimer);
+          streamPublishTimer = null;
+        }
+        await publishGrabProgress();
       }
     });
 
@@ -609,6 +696,7 @@ export class RunWishlistImportJobUseCase {
       progressDone: addDone + linkedCount,
       progressTotal: addDone + linkedCount,
       finishedAt: new Date(),
+      progressRate: null,
       result: {
         Created: counts.createdCount,
         Failed: counts.failedCount,
@@ -633,6 +721,7 @@ export class RunWishlistImportJobUseCase {
       progressDone: createdCount,
       progressTotal: Math.max(progressTotal, createdCount),
       finishedAt: new Date(),
+      progressRate: null,
       result: { Created: createdCount, Failed: failedCount },
     });
     if (updated) this.jobProgressPublisher.publish(updated, 'job.completed');

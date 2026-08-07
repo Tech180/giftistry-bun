@@ -30,6 +30,15 @@ const oauthSettingsFields = {
   OAuthAutoLaunch: t.Optional(t.Boolean()),
 };
 
+const systemPublicDetail = {
+  tags: ['System'] as string[],
+};
+
+const systemOwnerDetail = {
+  tags: ['System'] as string[],
+  security: [{ bearerAuth: [] as string[] }],
+};
+
 export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '/api/system' })
   .get('/status', async () => {
     const status = await useCases.getSystemStatus.execute();
@@ -37,12 +46,15 @@ export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '
       success: true,
       ...status,
     };
+  }, {
+    detail: { ...systemPublicDetail, summary: 'System status' },
   })
   .post('/setup', async ({ body: { Giftistry: { Setup } }, request }) => {
     assertSetupToken(request, Setup.SetupToken);
     await useCases.runInitialSetup.execute(Setup);
     return { success: true };
   }, {
+    detail: { ...systemPublicDetail, summary: 'Initial setup' },
     body: t.Object({
       Giftistry: t.Object({
         Setup: t.Object({
@@ -70,8 +82,8 @@ export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '
   .use(authMiddleware)
   .get('/settings', async ({ getAuthUser }) => {
     const user = await getAuthUser();
-    if (!user.IsAdmin) {
-      throw new AppError('Forbidden: Admin access required', 403, 'FORBIDDEN');
+    if (!user.IsOwner) {
+      throw new AppError('Forbidden: Owner access required', 403, 'FORBIDDEN');
     }
 
     const data = useCases.getSystemSettings.execute();
@@ -79,16 +91,21 @@ export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '
       success: true,
       data,
     };
+  }, {
+    detail: { ...systemOwnerDetail, summary: 'Get system settings' },
   })
   .post('/settings', async ({ getAuthUser, body: { Giftistry: { System: settings } } }) => {
     const user = await getAuthUser();
-    if (!user.IsAdmin) {
-      throw new AppError('Forbidden: Admin access required', 403, 'FORBIDDEN');
+    if (!user.IsOwner) {
+      throw new AppError('Forbidden: Owner access required', 403, 'FORBIDDEN');
     }
 
-    await useCases.saveSystemSettings.execute(settings);
+    await useCases.saveSystemSettings.execute(settings, {
+      actorIsOwner: true,
+    });
     return { success: true };
   }, {
+    detail: { ...systemOwnerDetail, summary: 'Save system settings' },
     body: t.Object({
       Giftistry: t.Object({
         System: t.Object({
@@ -101,6 +118,7 @@ export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '
           SmtpPass: t.Optional(t.String()),
           SmtpSecure: t.Optional(t.Boolean()),
           SmtpFrom: t.Optional(t.String()),
+          AllowSetup: t.Optional(t.Boolean()),
           ...oauthSettingsFields,
           AiEnabled: t.Optional(t.Boolean()),
           AiWebSearchEnabled: t.Optional(t.Boolean()),
@@ -121,14 +139,17 @@ export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '
           AiCompletionTimeoutMs: t.Optional(t.Numeric()),
           ScrapeFetchTimeoutMs: t.Optional(t.Numeric()),
           ScrapePlaywrightTimeoutMs: t.Optional(t.Numeric()),
+          GrabInfoConcurrency: t.Optional(t.Numeric()),
+          GrabInfoConcurrencyUnlimited: t.Optional(t.Boolean()),
+          GrabInfoActiveStreamLimit: t.Optional(t.Numeric()),
         }),
       }),
     }),
   })
   .post('/ai-check', async ({ getAuthUser, body: { Giftistry: { System: payload } } }) => {
     const user = await getAuthUser();
-    if (!user.IsAdmin) {
-      throw new AppError('Forbidden: Admin access required', 403, 'FORBIDDEN');
+    if (!user.IsOwner) {
+      throw new AppError('Forbidden: Owner access required', 403, 'FORBIDDEN');
     }
 
     const slot = payload.AiModelSlot === 'intelligent' ? 'intelligent' : 'fast';
@@ -146,6 +167,7 @@ export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '
 
     return { success: true, data: result };
   }, {
+    detail: { ...systemOwnerDetail, summary: 'Test AI connection' },
     body: t.Object({
       Giftistry: t.Object({
         System: t.Object({
@@ -161,8 +183,8 @@ export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '
   })
   .get('/models', async ({ getAuthUser, query }) => {
     const user = await getAuthUser();
-    if (!user.IsAdmin) {
-      throw new AppError('Forbidden: Admin access required', 403, 'FORBIDDEN');
+    if (!user.IsOwner) {
+      throw new AppError('Forbidden: Owner access required', 403, 'FORBIDDEN');
     }
 
     const data = await useCases.listSystemModels.execute({
@@ -173,6 +195,7 @@ export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '
 
     return { success: true, data };
   }, {
+    detail: { ...systemOwnerDetail, summary: 'List AI models' },
     query: t.Object({
       Provider: t.String(),
       Endpoint: t.Optional(t.String()),
@@ -191,6 +214,7 @@ export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '
       ...result,
     };
   }, {
+    detail: { ...systemOwnerDetail, summary: 'Transfer ownership' },
     body: t.Object({
       Giftistry: t.Object({
         Ownership: t.Object({
@@ -207,4 +231,6 @@ export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '
       request.headers.get('x-forwarded-for')
     );
     return { success: true };
+  }, {
+    detail: { ...systemOwnerDetail, summary: 'Delete server' },
   });

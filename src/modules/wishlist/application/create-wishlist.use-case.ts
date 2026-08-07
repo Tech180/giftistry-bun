@@ -27,7 +27,8 @@ export class CreateWishlistUseCase {
     category?: string,
     revealSuggestions: boolean = true,
     aiEnabled?: boolean,
-    webSearchEnabled?: boolean
+    webSearchEnabled?: boolean,
+    manualJobBackground?: boolean
   ): Promise<Wishlist> {
     if (!title) {
       throw new AppError('Wishlist title is required', 400, 'BAD_REQUEST');
@@ -72,6 +73,8 @@ export class CreateWishlistUseCase {
       resolvedWeb = false;
     }
 
+    const resolvedManualBackground = manualJobBackground !== false;
+
     let expiresAt: Date | null = null;
     if (expiresAtStr) {
       expiresAt = new Date(expiresAtStr);
@@ -88,7 +91,8 @@ export class CreateWishlistUseCase {
       category,
       revealSuggestions,
       resolvedAi,
-      resolvedWeb
+      resolvedWeb,
+      resolvedManualBackground
     );
   }
 }

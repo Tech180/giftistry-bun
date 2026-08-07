@@ -4,8 +4,8 @@ import type {
   CategoryClassifierConfig,
   CategoryClassifierInput,
 } from '../domain/ports/category-classifier.port';
-import { completeTextPrompt } from './ai-text-completion';
-import { getDefaultAiPrompt } from '@/modules/system/domain/ai-default-prompts';
+import { completeTextPromptStream } from './ai-text-completion';
+import { getDefaultAiPrompt } from '@/modules/system/domain/prompts';
 
 export function compileCategoryPrompt(
   customPrompt: string,
@@ -72,14 +72,20 @@ export class GeminiCategoryClassifier implements CategoryClassifier {
     config: CategoryClassifierConfig
   ): Promise<CategoryClassificationResult> {
     const prompt = compileCategoryPrompt(config.customPrompt, input);
-    const text = await completeTextPrompt(prompt, {
-      provider: config.provider,
-      apiKey: config.apiKey,
-      model: config.model,
-      endpoint: config.endpoint,
-      jsonResponse: true,
-    });
+    const result = await completeTextPromptStream(
+      prompt,
+      {
+        provider: config.provider,
+        apiKey: config.apiKey,
+        model: config.model,
+        endpoint: config.endpoint,
+        jsonResponse: true,
+      },
+      async (delta) => {
+        await config.onDelta?.({ tokensPerSecond: delta.tokensPerSecond });
+      }
+    );
 
-    return parseCategoryJson(text);
+    return parseCategoryJson(result.text);
   }
 }

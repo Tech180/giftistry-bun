@@ -49,126 +49,110 @@ export interface SystemConfig {
   AiCompletionTimeoutMs?: number;
   ScrapeFetchTimeoutMs?: number;
   ScrapePlaywrightTimeoutMs?: number;
+  GrabInfoConcurrency?: number;
+  GrabInfoConcurrencyUnlimited?: boolean;
+  GrabInfoActiveStreamLimit?: number;
 }
 
-function pick<T>(data: Record<string, unknown>, pascal: string, camel: string, fallback: T): T {
-  if (data[pascal] !== undefined && data[pascal] !== null) return data[pascal] as T;
-  if (data[camel] !== undefined && data[camel] !== null) return data[camel] as T;
+function pick<T>(data: Record<string, unknown>, key: string, fallback: T): T {
+  if (data[key] !== undefined && data[key] !== null) return data[key] as T;
   return fallback;
 }
 
-function hasKey(data: Record<string, unknown>, pascal: string, camel: string): boolean {
-  return data[pascal] !== undefined || data[camel] !== undefined;
+function hasKey(data: Record<string, unknown>, key: string): boolean {
+  return data[key] !== undefined;
 }
 
 function normalizeConfig(data: Record<string, unknown>): SystemConfig {
-  const legacyModel = String(pick(data, 'AiModel', 'aiModel', '')).trim();
-  const hasFast = hasKey(data, 'AiFastModel', 'aiFastModel');
-  const hasIntelligent = hasKey(data, 'AiIntelligentModel', 'aiIntelligentModel');
-  const fastModel = hasFast
-    ? String(pick(data, 'AiFastModel', 'aiFastModel', '')).trim()
-    : legacyModel;
+  const legacyModel = String(pick(data, 'AiModel', '')).trim();
+  const hasFast = hasKey(data, 'AiFastModel');
+  const hasIntelligent = hasKey(data, 'AiIntelligentModel');
+  const fastModel = hasFast ? String(pick(data, 'AiFastModel', '')).trim() : legacyModel;
   const intelligentModel = hasIntelligent
-    ? String(pick(data, 'AiIntelligentModel', 'aiIntelligentModel', '')).trim()
+    ? String(pick(data, 'AiIntelligentModel', '')).trim()
     : legacyModel;
 
-  const legacyProvider = pick<unknown>(data, 'AiProvider', 'aiProvider', undefined);
-  const legacyEndpoint = String(pick(data, 'AiEndpoint', 'aiEndpoint', '')).trim();
-  const legacyApiKey = String(pick(data, 'AiApiKey', 'aiApiKey', '')).trim();
+  const legacyProvider = pick<unknown>(data, 'AiProvider', undefined);
+  const legacyEndpoint = String(pick(data, 'AiEndpoint', '')).trim();
+  const legacyApiKey = String(pick(data, 'AiApiKey', '')).trim();
 
-  const fastProviderRaw = hasKey(data, 'AiFastProvider', 'aiFastProvider')
-    ? pick(data, 'AiFastProvider', 'aiFastProvider', legacyProvider)
+  const fastProviderRaw = hasKey(data, 'AiFastProvider')
+    ? pick(data, 'AiFastProvider', legacyProvider)
     : legacyProvider;
-  const intelligentProviderRaw = hasKey(data, 'AiIntelligentProvider', 'aiIntelligentProvider')
-    ? pick(data, 'AiIntelligentProvider', 'aiIntelligentProvider', legacyProvider)
+  const intelligentProviderRaw = hasKey(data, 'AiIntelligentProvider')
+    ? pick(data, 'AiIntelligentProvider', legacyProvider)
     : legacyProvider;
 
-  const fastEndpoint = hasKey(data, 'AiFastEndpoint', 'aiFastEndpoint')
-    ? String(pick(data, 'AiFastEndpoint', 'aiFastEndpoint', '')).trim()
+  const fastEndpoint = hasKey(data, 'AiFastEndpoint')
+    ? String(pick(data, 'AiFastEndpoint', '')).trim()
     : legacyEndpoint;
-  const intelligentEndpoint = hasKey(data, 'AiIntelligentEndpoint', 'aiIntelligentEndpoint')
-    ? String(pick(data, 'AiIntelligentEndpoint', 'aiIntelligentEndpoint', '')).trim()
+  const intelligentEndpoint = hasKey(data, 'AiIntelligentEndpoint')
+    ? String(pick(data, 'AiIntelligentEndpoint', '')).trim()
     : legacyEndpoint;
 
-  const fastApiKey = hasKey(data, 'AiFastApiKey', 'aiFastApiKey')
-    ? String(pick(data, 'AiFastApiKey', 'aiFastApiKey', '')).trim()
+  const fastApiKey = hasKey(data, 'AiFastApiKey')
+    ? String(pick(data, 'AiFastApiKey', '')).trim()
     : legacyApiKey;
-  const intelligentApiKey = hasKey(data, 'AiIntelligentApiKey', 'aiIntelligentApiKey')
-    ? String(pick(data, 'AiIntelligentApiKey', 'aiIntelligentApiKey', '')).trim()
+  const intelligentApiKey = hasKey(data, 'AiIntelligentApiKey')
+    ? String(pick(data, 'AiIntelligentApiKey', '')).trim()
     : legacyApiKey;
 
-  const rateLimitRaw = pick<unknown>(data, 'AiRateLimitEnabled', 'aiRateLimitEnabled', undefined);
+  const rateLimitRaw = pick<unknown>(data, 'AiRateLimitEnabled', undefined);
 
   return {
-    DbType: pick(data, 'DbType', 'dbType', 'local' as const),
-    DbUrl: pick(data, 'DbUrl', 'dbUrl', ''),
-    SmtpType: pick(data, 'SmtpType', 'smtpType', 'local' as const),
-    SmtpHost: pick(data, 'SmtpHost', 'smtpHost', ''),
+    DbType: pick(data, 'DbType', 'local' as const),
+    DbUrl: pick(data, 'DbUrl', ''),
+    SmtpType: pick(data, 'SmtpType', 'local' as const),
+    SmtpHost: pick(data, 'SmtpHost', ''),
     SmtpPort: (() => {
-      const value = pick<unknown>(data, 'SmtpPort', 'smtpPort', undefined);
+      const value = pick<unknown>(data, 'SmtpPort', undefined);
       return value !== undefined ? Number(value) : undefined;
     })(),
-    SmtpUser: pick(data, 'SmtpUser', 'smtpUser', ''),
-    SmtpPass: pick(data, 'SmtpPass', 'smtpPass', ''),
+    SmtpUser: pick(data, 'SmtpUser', ''),
+    SmtpPass: pick(data, 'SmtpPass', ''),
     SmtpSecure: (() => {
-      const value = pick<unknown>(data, 'SmtpSecure', 'smtpSecure', undefined);
+      const value = pick<unknown>(data, 'SmtpSecure', undefined);
       return value !== undefined ? Boolean(value) : undefined;
     })(),
-    SmtpFrom: pick(data, 'SmtpFrom', 'smtpFrom', ''),
-    PublicAppUrl: String(pick(data, 'PublicAppUrl', 'publicAppUrl', '')).trim() || undefined,
+    SmtpFrom: pick(data, 'SmtpFrom', ''),
+    PublicAppUrl: String(pick(data, 'PublicAppUrl', '')).trim() || undefined,
     AllowSetup: (() => {
-      const value = pick<unknown>(data, 'AllowSetup', 'allowSetup', undefined);
+      const value = pick<unknown>(data, 'AllowSetup', undefined);
       return value !== undefined ? Boolean(value) : undefined;
     })(),
     OwnerOnboardingCompleted: (() => {
-      const ownerValue = pick<unknown>(
-        data,
-        'OwnerOnboardingCompleted',
-        'ownerOnboardingCompleted',
-        undefined
-      );
+      const ownerValue = pick<unknown>(data, 'OwnerOnboardingCompleted', undefined);
       if (ownerValue !== undefined) return Boolean(ownerValue);
-      const legacyValue = pick<unknown>(
-        data,
-        'AdminOnboardingCompleted',
-        'adminOnboardingCompleted',
-        undefined
-      );
+      const legacyValue = pick<unknown>(data, 'AdminOnboardingCompleted', undefined);
       return legacyValue !== undefined ? Boolean(legacyValue) : undefined;
     })(),
     AdminOnboardingCompleted: (() => {
-      const value = pick<unknown>(
-        data,
-        'AdminOnboardingCompleted',
-        'adminOnboardingCompleted',
-        undefined
-      );
+      const value = pick<unknown>(data, 'AdminOnboardingCompleted', undefined);
       return value !== undefined ? Boolean(value) : undefined;
     })(),
     OAuthEnabled: (() => {
-      const value = pick<unknown>(data, 'OAuthEnabled', 'oauthEnabled', undefined);
+      const value = pick<unknown>(data, 'OAuthEnabled', undefined);
       return value !== undefined ? Boolean(value) : undefined;
     })(),
-    OAuthIssuerUrl: String(pick(data, 'OAuthIssuerUrl', 'oauthIssuerUrl', '')).trim() || undefined,
-    OAuthClientId: String(pick(data, 'OAuthClientId', 'oauthClientId', '')).trim() || undefined,
-    OAuthClientSecret:
-      String(pick(data, 'OAuthClientSecret', 'oauthClientSecret', '')).trim() || undefined,
-    OAuthScopes: String(pick(data, 'OAuthScopes', 'oauthScopes', '')).trim() || undefined,
-    OAuthButtonText: String(pick(data, 'OAuthButtonText', 'oauthButtonText', '')).trim() || undefined,
+    OAuthIssuerUrl: String(pick(data, 'OAuthIssuerUrl', '')).trim() || undefined,
+    OAuthClientId: String(pick(data, 'OAuthClientId', '')).trim() || undefined,
+    OAuthClientSecret: String(pick(data, 'OAuthClientSecret', '')).trim() || undefined,
+    OAuthScopes: String(pick(data, 'OAuthScopes', '')).trim() || undefined,
+    OAuthButtonText: String(pick(data, 'OAuthButtonText', '')).trim() || undefined,
     OAuthAutoRegister: (() => {
-      const value = pick<unknown>(data, 'OAuthAutoRegister', 'oauthAutoRegister', undefined);
+      const value = pick<unknown>(data, 'OAuthAutoRegister', undefined);
       return value !== undefined ? Boolean(value) : undefined;
     })(),
     OAuthAutoLaunch: (() => {
-      const value = pick<unknown>(data, 'OAuthAutoLaunch', 'oauthAutoLaunch', undefined);
+      const value = pick<unknown>(data, 'OAuthAutoLaunch', undefined);
       return value !== undefined ? Boolean(value) : undefined;
     })(),
     AiEnabled: (() => {
-      const value = pick<unknown>(data, 'AiEnabled', 'aiEnabled', undefined);
+      const value = pick<unknown>(data, 'AiEnabled', undefined);
       return value !== undefined ? Boolean(value) : undefined;
     })(),
     AiWebSearchEnabled: (() => {
-      const value = pick<unknown>(data, 'AiWebSearchEnabled', 'aiWebSearchEnabled', undefined);
+      const value = pick<unknown>(data, 'AiWebSearchEnabled', undefined);
       return value !== undefined ? Boolean(value) : undefined;
     })(),
     AiRateLimitEnabled: rateLimitRaw !== undefined ? Boolean(rateLimitRaw) : true,
@@ -180,63 +164,55 @@ function normalizeConfig(data: Record<string, unknown>): SystemConfig {
     AiIntelligentEndpoint: intelligentEndpoint,
     AiIntelligentApiKey: intelligentApiKey,
     AiIntelligentModel: intelligentModel,
-    AiPrompt: pick(data, 'AiPrompt', 'aiPrompt', ''),
-    AiDescriptionPrompt: pick(data, 'AiDescriptionPrompt', 'aiDescriptionPrompt', ''),
-    AiPopulatePrompt: pick(data, 'AiPopulatePrompt', 'aiPopulatePrompt', ''),
-    AiCategoryPrompt: pick(data, 'AiCategoryPrompt', 'aiCategoryPrompt', ''),
-    AiImportPrompt: pick(data, 'AiImportPrompt', 'aiImportPrompt', ''),
+    AiPrompt: pick(data, 'AiPrompt', ''),
+    AiDescriptionPrompt: pick(data, 'AiDescriptionPrompt', ''),
+    AiPopulatePrompt: pick(data, 'AiPopulatePrompt', ''),
+    AiCategoryPrompt: pick(data, 'AiCategoryPrompt', ''),
+    AiImportPrompt: pick(data, 'AiImportPrompt', ''),
     AiCompletionTimeoutMs: (() => {
-      const value = pick<unknown>(
-        data,
-        'AiCompletionTimeoutMs',
-        'aiCompletionTimeoutMs',
-        undefined
-      );
+      const value = pick<unknown>(data, 'AiCompletionTimeoutMs', undefined);
       return value !== undefined ? Number(value) : undefined;
     })(),
     ScrapeFetchTimeoutMs: (() => {
-      const value = pick<unknown>(data, 'ScrapeFetchTimeoutMs', 'scrapeFetchTimeoutMs', undefined);
+      const value = pick<unknown>(data, 'ScrapeFetchTimeoutMs', undefined);
       return value !== undefined ? Number(value) : undefined;
     })(),
     ScrapePlaywrightTimeoutMs: (() => {
-      const value = pick<unknown>(
-        data,
-        'ScrapePlaywrightTimeoutMs',
-        'scrapePlaywrightTimeoutMs',
-        undefined
-      );
+      const value = pick<unknown>(data, 'ScrapePlaywrightTimeoutMs', undefined);
+      return value !== undefined ? Number(value) : undefined;
+    })(),
+    GrabInfoConcurrency: (() => {
+      const value = pick<unknown>(data, 'GrabInfoConcurrency', undefined);
+      return value !== undefined ? Number(value) : undefined;
+    })(),
+    GrabInfoConcurrencyUnlimited: (() => {
+      const value = pick<unknown>(data, 'GrabInfoConcurrencyUnlimited', undefined);
+      return value !== undefined ? Boolean(value) : undefined;
+    })(),
+    GrabInfoActiveStreamLimit: (() => {
+      const value = pick<unknown>(data, 'GrabInfoActiveStreamLimit', undefined);
       return value !== undefined ? Number(value) : undefined;
     })(),
   };
 }
 
 function needsConfigRewrite(data: Record<string, unknown>): boolean {
-  const hasLegacyModel = data.AiModel !== undefined || data.aiModel !== undefined;
-  const missingFast = data.AiFastModel === undefined && data.aiFastModel === undefined;
-  const missingIntelligent =
-    data.AiIntelligentModel === undefined && data.aiIntelligentModel === undefined;
+  const hasLegacyModel = data.AiModel !== undefined;
+  const missingFast = data.AiFastModel === undefined;
+  const missingIntelligent = data.AiIntelligentModel === undefined;
   const hasSharedTrio =
     data.AiProvider !== undefined ||
-    data.aiProvider !== undefined ||
     data.AiEndpoint !== undefined ||
-    data.aiEndpoint !== undefined ||
-    data.AiApiKey !== undefined ||
-    data.aiApiKey !== undefined;
+    data.AiApiKey !== undefined;
   const missingSlotProviders =
-    !hasKey(data, 'AiFastProvider', 'aiFastProvider') ||
-    !hasKey(data, 'AiIntelligentProvider', 'aiIntelligentProvider');
+    !hasKey(data, 'AiFastProvider') || !hasKey(data, 'AiIntelligentProvider');
   return (
     hasLegacyModel ||
     missingFast ||
     missingIntelligent ||
     hasSharedTrio ||
-    missingSlotProviders ||
-    hasCamelConfigKeys(data)
+    missingSlotProviders
   );
-}
-
-function hasCamelConfigKeys(data: Record<string, unknown>): boolean {
-  return Object.keys(data).some((key) => /^[a-z]/.test(key));
 }
 
 export function loadConfig(): SystemConfig {

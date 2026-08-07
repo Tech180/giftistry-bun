@@ -1,5 +1,7 @@
 import type { BackgroundJobRepository } from '../domain/ports/background-job.repository';
 import type { RunWishlistImportJobUseCase } from './run-wishlist-import-job.use-case';
+import type { RunItemEnrichJobUseCase } from './run-item-enrich-job.use-case';
+import type { RunItemSummarizeJobUseCase } from './run-item-summarize-job.use-case';
 
 const BOOT_RECLAIM_MS = 0;
 /** Above max configurable AI completion timeout (30m) so live grabs are not re-queued mid-flight. */
@@ -13,7 +15,9 @@ export class BackgroundJobRunner {
 
   constructor(
     private jobRepo: BackgroundJobRepository,
-    private runWishlistImport: RunWishlistImportJobUseCase
+    private runWishlistImport: RunWishlistImportJobUseCase,
+    private runItemEnrich: RunItemEnrichJobUseCase,
+    private runItemSummarize: RunItemSummarizeJobUseCase
   ) {}
 
   start(intervalMs = 1500): void {
@@ -55,6 +59,10 @@ export class BackgroundJobRunner {
       if (!job) return;
       if (job.Kind === 'wishlist-import') {
         await this.runWishlistImport.execute(job);
+      } else if (job.Kind === 'item-enrich') {
+        await this.runItemEnrich.execute(job);
+      } else if (job.Kind === 'item-summarize') {
+        await this.runItemSummarize.execute(job);
       }
     } catch (err) {
       console.error('[BackgroundJobRunner] tick failed:', err);

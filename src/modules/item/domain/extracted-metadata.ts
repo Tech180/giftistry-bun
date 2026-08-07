@@ -1,6 +1,7 @@
 export type ScrapeMode = 'full' | 'minimal';
 export type ScrapeSource = 'fetch' | 'playwright';
 export type ScrapeConfidence = 'high' | 'medium' | 'low';
+export type AiPopulateStatus = 'succeeded' | 'failed' | 'skipped';
 
 export interface ExtractedMetadata {
   title: string;
@@ -23,4 +24,6 @@ export interface ScrapeDiagnostics {
   fieldsFound: string[];
   validationReason?: string;
   blocked?: boolean;
+  /** Set when extract-metadata considers AI populate. */
+  aiPopulate?: AiPopulateStatus;
 }

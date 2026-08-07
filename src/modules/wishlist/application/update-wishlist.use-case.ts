@@ -25,7 +25,8 @@ export class UpdateWishlistUseCase {
     category?: string,
     revealSuggestions?: boolean,
     aiEnabled?: boolean,
-    webSearchEnabled?: boolean
+    webSearchEnabled?: boolean,
+    manualJobBackground?: boolean
   ): Promise<Wishlist> {
     if (!title) {
       throw new AppError('Wishlist title is required', 400, 'BAD_REQUEST');
@@ -68,7 +69,8 @@ export class UpdateWishlistUseCase {
       category,
       revealSuggestions,
       aiEnabled,
-      webSearchEnabled
+      webSearchEnabled,
+      manualJobBackground
     );
   }
 }

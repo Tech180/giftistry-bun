@@ -1,8 +1,9 @@
 import type { ImportedItemPreview } from '../imported-item-preview';
 import {
-  isGiftistryExportCsv,
+  findGiftistryTabularHeader,
+  isSheetPreambleLine,
   normalizeImportedItem,
-  parseCsvLine,
+  parseDelimitedLine,
   parsePriceValue,
 } from './giftistry-export-detect';
 
@@ -12,18 +13,23 @@ export interface ParseGiftistryCsvResult {
 }
 
 export function tryParseGiftistryExportCsv(text: string): ParseGiftistryCsvResult | null {
-  if (!isGiftistryExportCsv(text)) {
+  const header = findGiftistryTabularHeader(text);
+  if (!header) {
     return null;
   }
 
-  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter((line) => line.length > 0);
+  const { headerIndex, delimiter, lines } = header;
   const warnings: string[] = [];
   const items: ImportedItemPreview[] = [];
   let currentCategory = '';
 
-  // Skip header row
-  for (let i = 1; i < lines.length; i++) {
-    const cells = parseCsvLine(lines[i]);
+  for (let i = headerIndex + 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim() || isSheetPreambleLine(line)) {
+      continue;
+    }
+
+    const cells = parseDelimitedLine(line, delimiter);
     while (cells.length < 9) {
       cells.push('');
     }

@@ -1,3 +1,7 @@
+export interface ItemPhotoWrite {
+  DataUrl: string;
+}
+
 export interface ItemDescriptionMetadata {
   Text: string | null;
   CustomFields?: {
@@ -7,10 +11,16 @@ export interface ItemDescriptionMetadata {
   DesiredQuantity?: number;
   Variations?: Array<{ Name: string; Quantity: number }>;
   LinkedItemIds?: string[];
+  RelatedItemIds?: string[];
   OtherUsersCanSee?: boolean;
   MultiCount?: boolean;
   IsFavorite?: boolean;
   IsPinned?: boolean;
+  /**
+   * Ordered photo data URLs for write payloads.
+   * On update: omit to leave unchanged; `[]` clears; non-empty replaces.
+   */
+  Photos?: ItemPhotoWrite[] | null;
 }
 
 export interface ParsedItemDescription {
@@ -46,6 +56,7 @@ export function parseItemDescription(description: string | null | undefined): Pa
             Quantity: typeof v.Quantity === 'number' ? v.Quantity : 0
           })),
           LinkedItemIds: parsed.LinkedItemIds,
+          RelatedItemIds: parsed.RelatedItemIds,
           OtherUsersCanSee: parsed.OtherUsersCanSee,
           MultiCount: parsed.MultiCount,
           IsFavorite: parsed.IsFavorite === true,
@@ -83,6 +94,7 @@ export function serializeItemDescription(
     payload.Variations = metadata.Variations;
   }
   if (metadata.LinkedItemIds?.length) payload.LinkedItemIds = metadata.LinkedItemIds;
+  if (metadata.RelatedItemIds?.length) payload.RelatedItemIds = metadata.RelatedItemIds;
   if (metadata.OtherUsersCanSee !== undefined) payload.OtherUsersCanSee = metadata.OtherUsersCanSee;
   if (metadata.IsFavorite) payload.IsFavorite = true;
   if (metadata.IsPinned) payload.IsPinned = true;

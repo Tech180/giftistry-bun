@@ -22,5 +22,11 @@ export class DeleteServerUseCase {
     });
 
     await this.serverConfigRepo.deleteAllServerData();
+
+    const config = this.serverConfigRepo.load();
+    this.serverConfigRepo.save({
+      ...config,
+      AllowSetup: true,
+    });
   }
 }

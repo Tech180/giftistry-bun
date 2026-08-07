@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { toSystemSettingsView } from '../src/modules/system/domain/server-config.entity';
-import { AI_DEFAULT_PROMPTS } from '../src/modules/system/domain/ai-default-prompts';
+import { AI_DEFAULT_PROMPTS } from '../src/modules/system/domain/prompts';
 
 describe('toSystemSettingsView aiDefaultPrompts', () => {
   test('includes canonical defaults for all five prompt kinds', () => {

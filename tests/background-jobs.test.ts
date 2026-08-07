@@ -130,10 +130,11 @@ describe('job public view streams', () => {
     });
   });
 
-  test('toActiveStreams only includes running rows with labels', () => {
+  test('toActiveStreams includes running and pending rows with labels', () => {
     const streams = toActiveStreams(items);
-    expect(streams).toHaveLength(1);
+    expect(streams).toHaveLength(2);
     expect(streams[0]).toMatchObject({ Id: 'i1', Label: 'Alpha', Status: 'running' });
+    expect(streams[1]).toMatchObject({ Id: 'i2', Label: 'Beta', Status: 'pending' });
   });
 
   test('toJobPublicView includes ItemsSummary and ActiveStreams', () => {
@@ -149,6 +150,7 @@ describe('job public view streams', () => {
     });
     expect(view.ActiveStreams).toEqual([
       { Id: 'i1', ItemId: 'a', Label: 'Alpha', Status: 'running' },
+      { Id: 'i2', ItemId: 'b', Label: 'Beta', Status: 'pending' },
     ]);
   });
 });

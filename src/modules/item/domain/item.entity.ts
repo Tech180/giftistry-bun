@@ -41,6 +41,13 @@ export interface ItemVariationColumn {
   Quantity: number;
 }
 
+/** User-attached item photos (base64 data URLs). Primary display = SortOrder 0. */
+export interface ItemPhoto {
+  Id: string;
+  Url: string;
+  SortOrder: number;
+}
+
 export interface Item {
   Id: string;
   ListId: string;
@@ -56,6 +63,7 @@ export interface Item {
   CreatedAt?: Date;
   SharedWith?: ItemAudienceUser[];
   Links?: ItemLink[];
+  Photos?: ItemPhoto[];
   /** First-class metadata columns (preferred over Description JSON). */
   IsFavorite?: boolean;
   IsPinned?: boolean;
@@ -65,6 +73,7 @@ export interface Item {
   CustomFields?: ItemCustomFieldsColumns | null;
   Variations?: ItemVariationColumn[] | null;
   LinkedItemIds?: string[];
+  RelatedItemIds?: string[];
 }
 
 export class ItemEntity implements Item {
@@ -81,6 +90,7 @@ export class ItemEntity implements Item {
   Priority?: number | null;
   CreatedAt?: Date;
   SharedWith?: ItemAudienceUser[];
+  Photos?: ItemPhoto[];
   IsFavorite?: boolean;
   IsPinned?: boolean;
   DesiredQuantity?: number | null;
@@ -89,6 +99,7 @@ export class ItemEntity implements Item {
   CustomFields?: ItemCustomFieldsColumns | null;
   Variations?: ItemVariationColumn[] | null;
   LinkedItemIds?: string[];
+  RelatedItemIds?: string[];
 
   constructor(data: Item) {
     Object.assign(this, data);

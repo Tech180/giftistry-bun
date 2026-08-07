@@ -81,6 +81,7 @@ export interface UserRepository {
   getAccountStatusForDisable(id: string): Promise<AdminAccountStatus | null>;
   getAccountStatusForDelete(id: string): Promise<DeleteAccountStatus | null>;
   disableAccount(id: string): Promise<void>;
+  updatePassword(id: string, authHash: string): Promise<User>;
   deleteAccount(id: string): Promise<void>;
   getTwoFactorSecrets(id: string): Promise<TwoFactorSecrets | null>;
   countMutualFriends(viewerId: string, userId: string): Promise<number>;

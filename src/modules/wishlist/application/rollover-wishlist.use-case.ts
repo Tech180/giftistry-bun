@@ -28,7 +28,12 @@ export class RolloverWishlistUseCase {
       oldList.UserId,
       oldList.Title,
       null, // no expiration date by default for the rolled-over list
-      oldList.AllowGroupFunds
+      oldList.AllowGroupFunds,
+      oldList.Category,
+      oldList.RevealSuggestions,
+      oldList.AiEnabled,
+      oldList.WebSearchEnabled,
+      oldList.ManualJobBackground !== false
     );
 
     // Copy list shares to the new wishlist so collaborators still have access
@@ -61,7 +66,19 @@ export class RolloverWishlistUseCase {
           item.Name,
           item.Description,
           item.IsHiddenIdea,
-          item.Category || 'uncategorized'
+          item.Category || 'uncategorized',
+          item.IsSuggestion === true,
+          item.Priority ?? null,
+          {
+            IsFavorite: item.IsFavorite === true,
+            IsPinned: item.IsPinned === true,
+            DesiredQuantity: item.DesiredQuantity ?? null,
+            MultiCount: item.MultiCount === true,
+            OtherUsersCanSee: item.OtherUsersCanSee ?? null,
+            CustomFields: item.CustomFields ?? null,
+            Variations: item.Variations ?? null,
+            Photos: item.Photos ?? [],
+          }
         );
 
         // Copy links

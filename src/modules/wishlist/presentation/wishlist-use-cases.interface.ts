@@ -6,6 +6,7 @@ import type { DeletePriorityUseCase } from '../application/delete-priority.use-c
 import type { ListExpiredWishlistsUseCase } from '../application/list-expired-wishlists.use-case';
 import type { ShareWishlistUseCase } from '../application/share-wishlist.use-case';
 import type { DeactivateWishlistUseCase } from '../application/deactivate-wishlist.use-case';
+import type { ActivateWishlistUseCase } from '../application/activate-wishlist.use-case';
 import type { GetWishlistUseCase } from '../application/get-wishlist.use-case';
 import type { RolloverWishlistUseCase } from '../application/rollover-wishlist.use-case';
 import type { UpdateWishlistUseCase } from '../application/update-wishlist.use-case';
@@ -26,6 +27,7 @@ export interface WishlistUseCases {
   listExpiredWishlists: ListExpiredWishlistsUseCase;
   shareWishlist: ShareWishlistUseCase;
   deactivateWishlist: DeactivateWishlistUseCase;
+  activateWishlist: ActivateWishlistUseCase;
   getWishlist: GetWishlistUseCase;
   rolloverWishlist: RolloverWishlistUseCase;
   updateWishlist: UpdateWishlistUseCase;

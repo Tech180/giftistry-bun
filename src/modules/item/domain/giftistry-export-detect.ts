@@ -12,6 +12,16 @@ export const GIFTISTRY_CSV_HEADERS = [
   'Suggestion',
 ] as const;
 
+const WEBSITE_HEADER_ALIASES = new Set(['Website Link', 'Website']);
+
+export type GiftistryTabularDelimiter = ',' | '\t';
+
+export interface GiftistryTabularHeader {
+  headerIndex: number;
+  delimiter: GiftistryTabularDelimiter;
+  lines: string[];
+}
+
 export function isGiftistryExportJson(value: unknown): boolean {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return false;
@@ -28,16 +38,67 @@ export function isGiftistryExportJson(value: unknown): boolean {
   });
 }
 
+export function isSheetPreambleLine(line: string): boolean {
+  return /^#\s*Sheet:/i.test(line.trim());
+}
+
+export function splitExportLines(text: string): string[] {
+  return text.replace(/^\uFEFF/, '').split(/\r?\n/);
+}
+
+function matchesGiftistryHeaderCells(cells: string[]): boolean {
+  if (cells.length < GIFTISTRY_CSV_HEADERS.length) {
+    return false;
+  }
+  return GIFTISTRY_CSV_HEADERS.every((header, index) => {
+    if (index === 5) {
+      return WEBSITE_HEADER_ALIASES.has(cells[index]?.trim() ?? '');
+    }
+    return cells[index]?.trim() === header;
+  });
+}
+
+export function parseDelimitedLine(line: string, delimiter: GiftistryTabularDelimiter): string[] {
+  if (delimiter === '\t') {
+    return line.split('\t');
+  }
+  return parseCsvLine(line);
+}
+
+export function findGiftistryTabularHeader(text: string): GiftistryTabularHeader | null {
+  const lines = splitExportLines(text);
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    if (!raw.trim() || isSheetPreambleLine(raw)) {
+      continue;
+    }
+
+    const tabCells = parseDelimitedLine(raw, '\t').map((cell) => cell.trim());
+    if (tabCells.length >= GIFTISTRY_CSV_HEADERS.length && matchesGiftistryHeaderCells(tabCells)) {
+      return { headerIndex: i, delimiter: '\t', lines };
+    }
+
+    const csvCells = parseDelimitedLine(raw, ',').map((cell) => cell.trim());
+    if (csvCells.length >= GIFTISTRY_CSV_HEADERS.length && matchesGiftistryHeaderCells(csvCells)) {
+      return { headerIndex: i, delimiter: ',', lines };
+    }
+  }
+  return null;
+}
+
 export function isGiftistryExportCsv(text: string): boolean {
-  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter((line) => line.trim().length > 0);
-  if (lines.length === 0) {
+  return findGiftistryTabularHeader(text) !== null;
+}
+
+export function isGiftistryExportTxt(text: string): boolean {
+  const lines = splitExportLines(text);
+  const hasRegistry = lines.some((line) => /^WISHLIST REGISTRY:\s+\S+/i.test(line.trim()));
+  if (!hasRegistry) {
     return false;
   }
-  const headerCells = parseCsvLine(lines[0]);
-  if (headerCells.length < GIFTISTRY_CSV_HEADERS.length) {
-    return false;
-  }
-  return GIFTISTRY_CSV_HEADERS.every((header, index) => headerCells[index] === header);
+  const hasBanner = lines.some((line) => /^=+$/.test(line.trim()));
+  const hasCategory = lines.some((line) => /^\[[^\]]+\]\s*$/.test(line.trim()));
+  return hasBanner || hasCategory;
 }
 
 export function parseCsvLine(line: string): string[] {

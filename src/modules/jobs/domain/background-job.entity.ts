@@ -1,4 +1,14 @@
-export type BackgroundJobKind = 'wishlist-import';
+import { loadConfig } from '@/common/infrastructure/config.loader';
+import { clampGrabInfoActiveStreamLimit } from '@/modules/system/domain/server-config.entity';
+import { readResultProgressRate } from './job-progress-rate.util';
+import {
+  formatGrabPhaseDetail,
+  readGrabPhase,
+  streamProgressRateFromPayload,
+  type GrabPhase,
+} from './grab-item-phase.util';
+
+export type BackgroundJobKind = 'wishlist-import' | 'item-enrich' | 'item-summarize';
 
 export type BackgroundJobStatus = 'queued' | 'running' | 'suspended' | 'completed' | 'failed' | 'cancelled';
 
@@ -28,6 +38,35 @@ export interface WishlistImportJobPayload {
   allowAi?: boolean;
 }
 
+export type ItemEnrichJobPayload =
+  | { intent: 'create-from-url'; listId: string; url: string }
+  | { intent: 'update-item'; listId: string; url: string; itemId: string; writeBack: true }
+  | { intent: 'draft-populate'; listId: string; url: string; writeBack: false };
+
+export type ItemSummarizeJobPayload = {
+  listId: string;
+  itemId?: string | null;
+  writeBack: boolean;
+  name: string;
+  text?: string | null;
+  linkUrl?: string | null;
+  websiteName?: string | null;
+  price?: number | null;
+  category?: string | null;
+  priority?: number | null;
+  customFields?: {
+    Predefined?: Record<string, string | null>;
+    UserDefined?: Record<string, string>;
+  };
+  variations?: { Name: string; Quantity: number }[];
+  desiredQuantity?: number | null;
+};
+
+export type BackgroundJobPayload =
+  | WishlistImportJobPayload
+  | ItemEnrichJobPayload
+  | ItemSummarizeJobPayload;
+
 export interface BackgroundJob {
   Id: string;
   Kind: BackgroundJobKind;
@@ -39,7 +78,7 @@ export interface BackgroundJob {
   ProgressTotal: number;
   Message: string;
   Error: string | null;
-  Payload: WishlistImportJobPayload;
+  Payload: BackgroundJobPayload;
   Result: Record<string, unknown>;
   CreatedAt: Date | string;
   UpdatedAt: Date | string;
@@ -73,16 +112,14 @@ export interface JobActiveStream {
   ItemId: string | null;
   Label: string;
   Status: BackgroundJobItemStatus;
+  Phase?: GrabPhase | null;
+  Detail?: string | null;
+  ProgressRate?: { Value: number; Unit: 'tok/s' } | null;
 }
-
-const ACTIVE_STREAM_LIMIT = 16;
 
 function streamLabel(item: BackgroundJobItem): string {
   const payload = item.Payload || {};
-  const name =
-    (typeof payload.name === 'string' && payload.name.trim()) ||
-    (typeof payload.Name === 'string' && payload.Name.trim()) ||
-    '';
+  const name = typeof payload.name === 'string' && payload.name.trim() ? payload.name.trim() : '';
   if (name) return name;
 
   const url = item.LinkUrl?.trim();
@@ -127,16 +164,28 @@ export function summarizeJobItems(items: BackgroundJobItem[]): JobItemsSummary {
   return summary;
 }
 
-export function toActiveStreams(items: BackgroundJobItem[]): JobActiveStream[] {
+export function toActiveStreams(
+  items: BackgroundJobItem[],
+  limit: number
+): JobActiveStream[] {
   return items
-    .filter((item) => item.Status === 'running')
-    .slice(0, ACTIVE_STREAM_LIMIT)
-    .map((item) => ({
-      Id: item.Id,
-      ItemId: item.ItemId,
-      Label: streamLabel(item),
-      Status: item.Status,
-    }));
+    .filter((item) => item.Status === 'running' || item.Status === 'pending')
+    .slice(0, Math.max(1, limit))
+    .map((item) => {
+      const phase = readGrabPhase(item.Payload);
+      const detail = formatGrabPhaseDetail(phase);
+      const progressRate = streamProgressRateFromPayload(item.Payload);
+      const stream: JobActiveStream = {
+        Id: item.Id,
+        ItemId: item.ItemId,
+        Label: streamLabel(item),
+        Status: item.Status,
+      };
+      if (phase) stream.Phase = phase;
+      if (detail) stream.Detail = detail;
+      if (progressRate) stream.ProgressRate = progressRate;
+      return stream;
+    });
 }
 
 export function toJobPublicView(
@@ -159,14 +208,26 @@ export function toJobPublicView(
     UpdatedAt: job.UpdatedAt,
     StartedAt: job.StartedAt,
     FinishedAt: job.FinishedAt,
-    GrabInfo: !!job.Payload?.grabInfo,
-    Mode: job.Payload?.mode,
-    FileName: job.Payload?.fileName,
   };
+
+  const progressRate = readResultProgressRate(job.Result);
+  if (progressRate) {
+    view.ProgressRate = progressRate;
+  }
+
+  if (job.Kind === 'wishlist-import') {
+    const payload = job.Payload as WishlistImportJobPayload;
+    view.GrabInfo = !!payload?.grabInfo;
+    view.Mode = payload?.mode;
+    view.FileName = payload?.fileName;
+  }
 
   if (items && items.length > 0) {
     view.ItemsSummary = summarizeJobItems(items);
-    const streams = toActiveStreams(items);
+    const streamLimit = clampGrabInfoActiveStreamLimit(
+      loadConfig().GrabInfoActiveStreamLimit
+    );
+    const streams = toActiveStreams(items, streamLimit);
     if (streams.length > 0) {
       view.ActiveStreams = streams;
     }

@@ -11,7 +11,8 @@ import { getPublicAppUrl } from '@/common/utils/public-app-url.util';
 const getCookie = (cookieHeader: string | undefined, name: string): string | null => {
   if (!cookieHeader) return null;
   const match = cookieHeader.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
-  return match ? decodeURIComponent(match[1]) : null;
+  const value = match?.[1];
+  return value !== undefined ? decodeURIComponent(value) : null;
 };
 
 function secureCookieFlag(): string {
@@ -180,7 +181,9 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
         surface: Theme.Colors.Surface,
         border: Theme.Colors.Border,
         text: Theme.Colors.Text,
-        'text-muted': Theme.Colors.TextMuted,
+        ...(Theme.Colors.TextMuted !== undefined
+          ? { 'text-muted': Theme.Colors.TextMuted }
+          : {}),
       },
       advanced: Theme.Advanced ? {
         shadows: Theme.Advanced.Shadows ? {
@@ -522,6 +525,29 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
         description: 'Clears the JWT session cookie.',
       },
     })
+    .post('/password', async ({ set, getAuthUser, body: { Giftistry: { Auth: { CurrentPassword, NewPassword } } } }) => {
+      const authUser = await getAuthUser();
+      const user = await useCases.changePassword.execute(authUser.userId, CurrentPassword, NewPassword);
+      const token = await createToken({ userId: user.Id, sessionVersion: user.SessionVersion ?? 0 });
+      setJwtCookie(set, token);
+      const passkeys = await useCases.listPasskeys.execute(user.Id);
+      return { success: true, User: { ...user, HasPasskey: passkeys.length > 0 }, Token: token };
+    }, {
+      detail: {
+        tags: ['Authentication'],
+        summary: 'Change password',
+        description: 'Updates the authenticated user password, clears force-password-change, and re-issues the session token.',
+        security: [{ bearerAuth: [] }],
+      },
+      body: t.Object({
+        Giftistry: t.Object({
+          Auth: t.Object({
+            CurrentPassword: t.String({ minLength: 1 }),
+            NewPassword: t.String({ minLength: 6 }),
+          }),
+        }),
+      }),
+    })
     .put('/profile', async ({ getAuthUser, body: { Giftistry: { Auth: { Username, FirstName, LastName, Bio, Theme, Avatar, AiEnabled, WebSearchEnabled } } } }) => {
       const authUser = await getAuthUser();
 
@@ -533,12 +559,12 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
           }
 
           const mimeType = matches[1];
+          const base64Data = matches[2];
           const allowedMimeTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'];
-          if (!allowedMimeTypes.includes(mimeType)) {
+          if (!mimeType || !base64Data || !allowedMimeTypes.includes(mimeType)) {
             throw new AppError('Invalid image type. Only PNG, JPG, and SVG are supported.', 400, 'BAD_REQUEST');
           }
 
-          const base64Data = matches[2];
           const sizeInBytes = Math.floor((base64Data.length * 3) / 4);
           const maxSize = 2 * 1024 * 1024;
           if (sizeInBytes > maxSize) {

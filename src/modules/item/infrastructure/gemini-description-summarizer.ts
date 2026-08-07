@@ -4,7 +4,7 @@ import type {
   DescriptionSummarizerInput,
 } from '../domain/ports/description-summarizer.port';
 import { completeTextPrompt } from './ai-text-completion';
-import { getDefaultAiPrompt } from '@/modules/system/domain/ai-default-prompts';
+import { getDefaultAiPrompt } from '@/modules/system/domain/prompts';
 
 export function compileDescriptionPrompt(
   customPrompt: string,
