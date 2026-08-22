@@ -36,6 +36,11 @@ export interface WishlistImportJobPayload {
   grabInfo: boolean;
   /** When false, skip AI fallback after deterministic Giftistry parse fails. */
   allowAi?: boolean;
+  /**
+   * When false, preserve file categories (except uncategorized/general).
+   * Default true when omitted (legacy clients).
+   */
+  optimizeCategories?: boolean;
 }
 
 export type ItemEnrichJobPayload =

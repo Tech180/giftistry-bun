@@ -2,11 +2,16 @@ import type { ItemRepository } from '../domain/ports/item.repository';
 import type { ItemAudienceRepository } from '../domain/ports/item-audience.repository';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
 import type { ItemAudienceUser } from '../domain/item-audience.entity';
+import type { Item, ItemLink } from '../domain/item.entity';
+import type { ItemDescriptionMetadata } from '../domain/item-description.util';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { canUserViewItem, isItemSuggestion } from '../domain/item-visibility.service';
 import { resolveItemMetadata } from '../domain/resolve-item-metadata.util';
 import { sortWishlistItemsByExportOrder } from '../domain/sort-wishlist-items.util';
-import { computeItemClaimSummary } from '../domain/compute-item-claim-summary.util';
+import {
+  computeItemClaimSummary,
+  type ItemClaimSummary,
+} from '../domain/compute-item-claim-summary.util';
 import { resolveCategoryPresentation } from '../domain/format-category-label.util';
 
 export interface ListItemGroupDto {
@@ -39,6 +44,39 @@ function groupItemsByCategory(items: Record<string, unknown>[]): ListItemGroupDt
   return groups;
 }
 
+function toGuestItemDto(input: {
+  item: Item;
+  links: ItemLink[];
+  metadata: ItemDescriptionMetadata | null;
+  categoryKey: string;
+  categoryLabel: string;
+  claimSummary: ItemClaimSummary;
+}): Record<string, unknown> {
+  const { item, links, metadata, categoryKey, categoryLabel, claimSummary } = input;
+  return {
+    Id: item.Id,
+    ListId: item.ListId,
+    PriorityId: item.PriorityId,
+    Name: item.Name,
+    Description:
+      metadata?.Text ?? (item.Description?.startsWith('{') ? null : item.Description),
+    Category: item.Category,
+    CategoryKey: categoryKey,
+    CategoryLabel: categoryLabel,
+    Priority: item.Priority,
+    CreatedAt: item.CreatedAt,
+    Links: links,
+    Photos: item.Photos ?? [],
+    Metadata: metadata,
+    IsFavorite: item.IsFavorite === true || metadata?.IsFavorite === true,
+    IsPinned: item.IsPinned === true || metadata?.IsPinned === true,
+    DesiredQuantity: item.DesiredQuantity ?? metadata?.DesiredQuantity ?? null,
+    MultiCount: item.MultiCount === true || metadata?.MultiCount === true,
+    IsClaimed: false,
+    ...claimSummary,
+  };
+}
+
 export class ListItemsUseCase {
   constructor(
     private itemRepo: ItemRepository,
@@ -55,8 +93,10 @@ export class ListItemsUseCase {
     const items = await this.itemRepo.findByListId(listId);
     const audienceMap = await this.audienceRepo.findByListId(listId);
 
+    const isGuest = !currentUserId;
     const isOwner = currentUserId === wishlist.UserId;
     const hasExpired = wishlist.ExpiresAt ? new Date() > wishlist.ExpiresAt : false;
+    const shouldHideClaims = isGuest || (isOwner && !hasExpired);
 
     const itemsWithDetails = await Promise.all(
       items.map(async (item) => {
@@ -64,7 +104,6 @@ export class ListItemsUseCase {
         const audienceUserIds = audienceUsers.map((user) => user.UserId);
 
         if (
-          !currentUserId ||
           !canUserViewItem({
             item,
             wishlist,
@@ -76,13 +115,8 @@ export class ListItemsUseCase {
         }
 
         const isSuggestion = isItemSuggestion(item, wishlist.UserId);
-
-        const [links, claims] = await Promise.all([
-          this.itemRepo.findLinksByItemId(item.Id),
-          this.itemRepo.findClaimsByItemId(item.Id),
-        ]);
-
-        const shouldHideClaims = isOwner && !hasExpired;
+        const links = await this.itemRepo.findLinksByItemId(item.Id);
+        const claims = shouldHideClaims ? [] : await this.itemRepo.findClaimsByItemId(item.Id);
 
         const claimsResult = shouldHideClaims
           ? []
@@ -110,6 +144,17 @@ export class ListItemsUseCase {
           allowGroupFunds: !!wishlist.AllowGroupFunds,
           hideClaims: shouldHideClaims,
         });
+
+        if (isGuest) {
+          return toGuestItemDto({
+            item,
+            links,
+            metadata,
+            categoryKey: CategoryKey,
+            categoryLabel: CategoryLabel,
+            claimSummary,
+          });
+        }
 
         return {
           Id: item.Id,

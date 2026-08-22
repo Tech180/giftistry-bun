@@ -13,7 +13,7 @@ describe("Comments surprise filtering & rollover", () => {
     collaborator = await createTestUser(`comm_collab_${timestamp}`, `comm_collab_${timestamp}@example.com`);
     
     listId = await createTestWishlist(owner.token, "Comment Testing Wishlist");
-    await shareTestWishlist(owner.token, listId, collaborator.email, "collaborator");
+    await shareTestWishlist(owner, listId, collaborator, "collaborator");
   });
 
   afterAll(async () => {
@@ -91,5 +91,30 @@ describe("Comments surprise filtering & rollover", () => {
     const body = await res.json() as any;
     expect(body.Result.length).toBe(1);
     expect(body.Result[0].Content).toBe("Surprise gift discussion!");
+  });
+
+  test("IsRollover is clamped off when list AutoRollover is false", async () => {
+    const res = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/comments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${collaborator.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Comments: {
+              Content: "Should not rollover",
+              CommenterName: "Collab",
+              IsOwnerVisible: true,
+              IsRollover: true,
+            }
+          }
+        }),
+      })
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.Result.IsRollover).toBe(false);
   });
 });

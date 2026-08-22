@@ -20,6 +20,12 @@ import {
 } from '../domain/resolve-item-category.util';
 import { coerceApparelSizeFields } from '../domain/coerce-apparel-size-fields.util';
 import { resolveDesiredQuantity } from '../domain/parse-pack-quantity.util';
+import {
+  catalogForConfig,
+  composePopulateWithPacks,
+  resolveMetadataPacks,
+  sanitizeEnabledPackIdsForConfig,
+} from '@/modules/system/domain/packs';
 
 export type ExtractMetadataPhase =
   | 'scraping'
@@ -313,6 +319,15 @@ export class ExtractMetadataUseCase {
 
     try {
       await report({ phase: 'populating' });
+      const catalog = catalogForConfig(config);
+      const enabledPackIds = sanitizeEnabledPackIdsForConfig(config);
+      const packs = resolveMetadataPacks({
+        enabledPackIds,
+        category: resolvedCategory,
+        itemName: scrapeWithFields.title || '',
+        catalog,
+      });
+      const customPrompt = composePopulateWithPacks(config.AiPopulatePrompt || '', packs);
       const aiData = await this.metadataPopulator.populate(
         {
           url,
@@ -320,13 +335,14 @@ export class ExtractMetadataUseCase {
           pageContext,
           searchContext,
           itemName: scrapeWithFields.title || '',
+          category: resolvedCategory,
           reconcileSources: Boolean(searchContext),
         },
         {
           provider,
           apiKey,
           model,
-          customPrompt: config.AiPopulatePrompt || '',
+          customPrompt,
           endpoint,
           linkedDescriptionPrompt: config.AiDescriptionPrompt || '',
           linkedCategoryPrompt: config.AiCategoryPrompt || '',

@@ -1,5 +1,6 @@
 import type { ItemRepository } from '../domain/ports/item.repository';
 import type { ItemAudienceRepository } from '../domain/ports/item-audience.repository';
+import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
 import type { Item } from '../domain/item.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
 import type { EnrichLinkMetadataUseCase } from './enrich-link-metadata.use-case';
@@ -11,6 +12,7 @@ import {
 import type { ItemMetadataWrite } from '../domain/ports/item.repository';
 import { normalizeItemPhotosWrite } from '../domain/normalize-item-photos.util';
 import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
+import { assertWishlistMutable } from '@/modules/wishlist/domain/assert-wishlist-mutable.util';
 
 function toMetadataWrite(
   metadata: ItemDescriptionMetadata | null | undefined
@@ -36,7 +38,8 @@ export class AddItemUseCase {
     private audienceRepo: ItemAudienceRepository,
     private enrichLinkMetadata: EnrichLinkMetadataUseCase,
     private extractItemReviews: ExtractItemReviewsUseCase,
-    private assertUserCan: AssertUserCanUseCase
+    private assertUserCan: AssertUserCanUseCase,
+    private wishlistRepo: WishlistRepository
   ) {}
 
   async execute(
@@ -61,6 +64,12 @@ export class AddItemUseCase {
     if (!name) {
       throw new AppError('Item name is required', 400, 'BAD_REQUEST');
     }
+
+    const wishlist = await this.wishlistRepo.findById(listId);
+    if (!wishlist) {
+      throw new AppError('Wishlist not found', 404, 'NOT_FOUND');
+    }
+    assertWishlistMutable(wishlist);
 
     let retailerName: string | null = websiteName || null;
     if (linkUrl && !retailerName) {

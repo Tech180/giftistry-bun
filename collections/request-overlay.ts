@@ -214,10 +214,6 @@ export const REQUEST_OVERLAY: Record<string, RequestOverlay> = {
     name: 'Create Priority',
     body: { Giftistry: { Priorities: { Label: 'High', Weight: 3 } } },
   },
-  [overlayKey('POST', '/api/wishlists/<listId>/shares')]: {
-    name: 'Share Wishlist',
-    body: { Giftistry: { Lists: { Email: 'friend@example.com', Role: 'viewer' } } },
-  },
   [overlayKey('PATCH', '/api/wishlists/<listId>/shares/<shareId>')]: {
     name: 'Update Share Role',
     body: { Giftistry: { Lists: { Role: 'collaborator' } } },

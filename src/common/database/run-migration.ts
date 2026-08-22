@@ -1,4 +1,5 @@
 import { sql } from './connection';
+import { ensureFieldDefinitions } from './item-field-definitions.seed';
 
 export async function up() {
   console.log('[INFO] Running migrations for dynamic item fields...');
@@ -161,75 +162,7 @@ export async function up() {
   // 3. Clear existing definitions to avoid duplicates during re-runs
   await sql`TRUNCATE item_field_definitions CASCADE;`;
 
-  // 4. Seed Clothing fields
-  const [pants] = await sql`
-    INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
-    VALUES ('clothing', 'PantsSize', 'Pants Size', 'e.g. 32x30', 1)
-    RETURNING id;
-  `;
-
-  const [waistFit] = await sql`
-    INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
-    VALUES ('clothing', 'WaistFit', 'Waist Fit', 'e.g. Slim, Regular, Relaxed', 2)
-    RETURNING id;
-  `;
-  if (!waistFit) {
-    throw new Error('Failed to seed WaistFit field definition');
-  }
-
-  await sql`
-    INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
-    VALUES ('clothing', 'ShirtSize', 'Shirt Size', 'e.g. Medium, 15.5', 3);
-  `;
-
-  await sql`
-    INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
-    VALUES ('clothing', 'ShoesSize', 'Shoes Size', 'e.g. 10.5', 4);
-  `;
-
-  await sql`
-    INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
-    VALUES ('clothing', 'SocksSize', 'Socks Size', 'e.g. 9-11', 5);
-  `;
-
-  await sql`
-    INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
-    VALUES ('clothing', 'PreferredColor', 'Preferred Color', 'e.g. Navy Blue, Matte Black', 6);
-  `;
-
-  // 5. Seed Tech fields
-  const [model] = await sql`
-    INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
-    VALUES ('tech', 'ModelNumber', 'Model / Version', 'e.g. iPhone 15 Pro', 1)
-    RETURNING id;
-  `;
-
-  const [storage] = await sql`
-    INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
-    VALUES ('tech', 'StorageCapacity', 'Storage Capacity', 'e.g. 256GB, 1TB', 2)
-    RETURNING id;
-  `;
-  if (!storage) {
-    throw new Error('Failed to seed StorageCapacity field definition');
-  }
-
-  await sql`
-    INSERT INTO item_field_definitions (category, field_key, label, placeholder, display_order)
-    VALUES ('tech', 'PreferredColor', 'Preferred Color', 'e.g. Space Gray, Silver', 3);
-  `;
-
-  // 6. Seed Dependencies
-  // waistFit depends on PantsSize having value 'any'
-  await sql`
-    INSERT INTO item_field_dependencies (dependent_field_id, trigger_field_key, trigger_value)
-    VALUES (${waistFit.id}, 'PantsSize', 'any');
-  `;
-
-  // StorageCapacity depends on ModelNumber having value 'any'
-  await sql`
-    INSERT INTO item_field_dependencies (dependent_field_id, trigger_field_key, trigger_value)
-    VALUES (${storage.id}, 'ModelNumber', 'any');
-  `;
+  await ensureFieldDefinitions();
 
   console.log('[INFO] Migration and seeding completed successfully!');
 }

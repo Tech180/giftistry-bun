@@ -3,6 +3,7 @@ import { env } from '../consts/env.consts';
 import * as fs from 'fs';
 import { getConfigFilePath } from '@/common/utils/config-path.util';
 import { normalizeAiProvider, type AiProvider } from '@/modules/system/domain/server-config.entity';
+import type { CustomPackSettingsDto } from '@/modules/system/domain/packs';
 
 export interface SystemConfig {
   DbType: 'local' | 'remote';
@@ -46,6 +47,8 @@ export interface SystemConfig {
   AiPopulatePrompt?: string;
   AiCategoryPrompt?: string;
   AiImportPrompt?: string;
+  AiEnabledPackIds?: string[];
+  AiCustomPacks?: CustomPackSettingsDto[];
   AiCompletionTimeoutMs?: number;
   ScrapeFetchTimeoutMs?: number;
   ScrapePlaywrightTimeoutMs?: number;
@@ -169,6 +172,18 @@ function normalizeConfig(data: Record<string, unknown>): SystemConfig {
     AiPopulatePrompt: pick(data, 'AiPopulatePrompt', ''),
     AiCategoryPrompt: pick(data, 'AiCategoryPrompt', ''),
     AiImportPrompt: pick(data, 'AiImportPrompt', ''),
+    AiEnabledPackIds: (() => {
+      if (!hasKey(data, 'AiEnabledPackIds') || !Array.isArray(data.AiEnabledPackIds)) {
+        return undefined;
+      }
+      return data.AiEnabledPackIds.filter((id): id is string => typeof id === 'string');
+    })(),
+    AiCustomPacks: (() => {
+      if (!hasKey(data, 'AiCustomPacks') || !Array.isArray(data.AiCustomPacks)) {
+        return undefined;
+      }
+      return data.AiCustomPacks as CustomPackSettingsDto[];
+    })(),
     AiCompletionTimeoutMs: (() => {
       const value = pick<unknown>(data, 'AiCompletionTimeoutMs', undefined);
       return value !== undefined ? Number(value) : undefined;

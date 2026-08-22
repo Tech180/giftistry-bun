@@ -20,6 +20,7 @@ export interface Wishlist {
   AiEnabled?: boolean;
   WebSearchEnabled?: boolean;
   ManualJobBackground?: boolean;
+  AutoRollover?: boolean;
   OwnerUsername?: string;
   OwnerFirstName?: string;
   OwnerLastName?: string;
@@ -41,6 +42,7 @@ export class WishlistEntity implements Wishlist {
   AiEnabled?: boolean;
   WebSearchEnabled?: boolean;
   ManualJobBackground?: boolean;
+  AutoRollover?: boolean;
   OwnerUsername?: string;
   OwnerFirstName?: string;
   OwnerLastName?: string;
@@ -66,10 +68,6 @@ export class WishlistEntity implements Wishlist {
 
   isExpired(): boolean {
     return this.ExpiresAt ? new Date() > this.ExpiresAt : false;
-  }
-
-  shouldRevealSuggestions(): boolean {
-    return this.isExpired() && Boolean(this.RevealSuggestions);
   }
 
   isAiEnabled(): boolean {

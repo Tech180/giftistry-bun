@@ -5,11 +5,14 @@ import type { AssertItemVisibleUseCase } from './assert-item-visible.use-case';
 import type { EnrichLinkMetadataUseCase } from './enrich-link-metadata.use-case';
 import type { ExtractItemReviewsUseCase } from './extract-item-reviews.use-case';
 import { AppError } from '@/common/middlewares/error.middleware';
+import { canUserMutateItem, isItemSuggestion } from '../domain/item-visibility.service';
+import { WishlistEntity } from '@/modules/wishlist/domain/wishlist.entity';
 import type { ItemDescriptionMetadata } from '../domain/item-description.util';
 import { resolvePlainDescriptionText } from '../domain/resolve-item-metadata.util';
 import type { ItemMetadataWrite } from '../domain/ports/item.repository';
 import { normalizeItemPhotosWrite } from '../domain/normalize-item-photos.util';
 import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
+import { assertWishlistMutable } from '@/modules/wishlist/domain/assert-wishlist-mutable.util';
 
 function toMetadataWrite(
   metadata: ItemDescriptionMetadata | null | undefined
@@ -51,7 +54,8 @@ export class UpdateItemUseCase {
     linkUrl?: string | null,
     price?: number | null,
     websiteName?: string | null,
-    metadata?: ItemDescriptionMetadata | null
+    metadata?: ItemDescriptionMetadata | null,
+    isHiddenIdea?: boolean
   ): Promise<Item> {
     if (!itemId) {
       throw new AppError('Item ID is required', 400, 'BAD_REQUEST');
@@ -60,11 +64,26 @@ export class UpdateItemUseCase {
       throw new AppError('Item name is required', 400, 'BAD_REQUEST');
     }
 
-    await this.assertItemVisible.execute(itemId, currentUserId);
+    const visible = await this.assertItemVisible.execute(itemId, currentUserId);
+    assertWishlistMutable(visible.wishlist);
+    if (!canUserMutateItem({ ...visible, currentUserId })) {
+      throw new AppError('Forbidden', 403, 'FORBIDDEN');
+    }
 
-    const item = await this.itemRepo.findById(itemId);
-    if (!item) {
-      throw new AppError('Item not found', 404, 'NOT_FOUND');
+    const item = visible.item;
+
+    let resolvedHidden: boolean | undefined = undefined;
+    if (isHiddenIdea !== undefined) {
+      const isOwner = WishlistEntity.from(visible.wishlist).isOwner(currentUserId);
+      if (isOwner && isHiddenIdea) {
+        throw new AppError(
+          'Forbidden: Owner cannot add hidden ideas to their own list',
+          403,
+          'FORBIDDEN'
+        );
+      }
+      const suggestion = isItemSuggestion(item, visible.wishlist.UserId);
+      resolvedHidden = suggestion ? isHiddenIdea : false;
     }
 
     let resolvedDescription = description;
@@ -98,7 +117,8 @@ export class UpdateItemUseCase {
       priorityId,
       category,
       priority,
-      metadataWrite ?? null
+      metadataWrite ?? null,
+      resolvedHidden
     );
 
     if (metadata !== undefined) {

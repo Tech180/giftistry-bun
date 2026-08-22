@@ -8,6 +8,10 @@ import type { StartWishlistImportJobUseCase } from '../application/start-wishlis
 import type { StartItemEnrichJobUseCase } from '../application/start-item-enrich-job.use-case';
 import type { StartItemSummarizeJobUseCase } from '../application/start-item-summarize-job.use-case';
 import type { BackgroundJobRepository } from '../domain/ports/background-job.repository';
+import {
+  resolveItemEnrichMinRole,
+  resolveItemSummarizeMinRole,
+} from '../utils/resolve-item-job-min-role.util';
 
 export interface JobsRouteDeps {
   startWishlistImport: StartWishlistImportJobUseCase;
@@ -61,6 +65,7 @@ export const jobsRoutes = (deps: JobsRouteDeps) =>
             contentEncoding: payload.ContentEncoding,
             grabInfo: !!payload.GrabInfo,
             allowAi: payload.AllowAi !== false,
+            optimizeCategories: payload.OptimizeCategories === true,
           },
           `${user.userId}:${ip}:wishlist-import`
         );
@@ -84,6 +89,7 @@ export const jobsRoutes = (deps: JobsRouteDeps) =>
               ]),
               GrabInfo: t.Optional(t.Boolean()),
               AllowAi: t.Optional(t.Boolean()),
+              OptimizeCategories: t.Optional(t.Boolean()),
             }),
           }),
         }),
@@ -93,7 +99,12 @@ export const jobsRoutes = (deps: JobsRouteDeps) =>
       '/jobs/item-enrich',
       async ({ getAuthUser, body: { Giftistry: { Jobs: payload } }, request }) => {
         const user = await getAuthUser();
-        await getListAccessContext(user.userId, { listId: payload.ListId }, 'collaborator');
+        const enrichMinRole = resolveItemEnrichMinRole(payload.Intent);
+        const access = await getListAccessContext(
+          user.userId,
+          { listId: payload.ListId },
+          enrichMinRole
+        );
 
         const ip =
           request.headers.get('x-forwarded-for') ||
@@ -126,7 +137,8 @@ export const jobsRoutes = (deps: JobsRouteDeps) =>
         const result = await deps.startItemEnrich.execute(
           user.userId,
           jobPayload,
-          `${user.userId}:${ip}:item-enrich`
+          `${user.userId}:${ip}:item-enrich`,
+          access.role
         );
         return { success: true, data: result };
       },
@@ -152,7 +164,8 @@ export const jobsRoutes = (deps: JobsRouteDeps) =>
       '/jobs/item-summarize',
       async ({ getAuthUser, body: { Giftistry: { Jobs: payload } }, request }) => {
         const user = await getAuthUser();
-        await getListAccessContext(user.userId, { listId: payload.ListId }, 'collaborator');
+        const summarizeMinRole = resolveItemSummarizeMinRole(payload.WriteBack);
+        await getListAccessContext(user.userId, { listId: payload.ListId }, summarizeMinRole);
 
         const ip =
           request.headers.get('x-forwarded-for') ||

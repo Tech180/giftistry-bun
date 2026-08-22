@@ -83,7 +83,9 @@ export interface ItemRepository {
     priorityId: string | null,
     category: string,
     priority?: number | null,
-    metadata?: ItemMetadataWrite | null
+    metadata?: ItemMetadataWrite | null,
+    /** When undefined, leave `is_hidden_idea` unchanged. */
+    isHiddenIdea?: boolean
   ): Promise<Item>;
   delete(id: string): Promise<void>;
   deleteClaim(itemId: string, userId: string): Promise<void>;

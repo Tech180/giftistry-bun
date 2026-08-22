@@ -250,7 +250,101 @@ describe('StartWishlistImportJobUseCase', () => {
 
     expect(view.Id).toBe('job-1');
     expect(view.GrabInfo).toBe(true);
-    expect(createdPayload).toMatchObject({ grabInfo: true, fileName: 'gifts.json' });
+    expect(createdPayload).toMatchObject({
+      grabInfo: true,
+      fileName: 'gifts.json',
+      optimizeCategories: false,
+    });
+  });
+
+  test('persists optimizeCategories false when explicitly disabled', async () => {
+    let createdPayload: unknown;
+    const useCase = new StartWishlistImportJobUseCase(
+      makeRepo({
+        create: async (input) => {
+          createdPayload = input.payload;
+          return {
+            Id: 'job-opt',
+            Kind: 'wishlist-import',
+            ListId: input.listId,
+            UserId: input.userId,
+            Status: 'queued',
+            Phase: 'queued',
+            ProgressDone: 0,
+            ProgressTotal: 0,
+            Message: 'Queued',
+            Error: null,
+            Payload: input.payload,
+            Result: {},
+            CreatedAt: new Date(),
+            UpdatedAt: new Date(),
+            StartedAt: null,
+            FinishedAt: null,
+          };
+        },
+      })
+    );
+
+    await useCase.execute(
+      'user-1',
+      {
+        mode: 'existing-list',
+        listId: 'list-1',
+        fileName: 'gifts.json',
+        content: '{}',
+        contentEncoding: 'text',
+        grabInfo: true,
+        optimizeCategories: false,
+      },
+      `user-1:test-opt:${Date.now()}`
+    );
+
+    expect(createdPayload).toMatchObject({ optimizeCategories: false });
+  });
+
+  test('persists optimizeCategories true when explicitly enabled', async () => {
+    let createdPayload: unknown;
+    const useCase = new StartWishlistImportJobUseCase(
+      makeRepo({
+        create: async (input) => {
+          createdPayload = input.payload;
+          return {
+            Id: 'job-opt-on',
+            Kind: 'wishlist-import',
+            ListId: input.listId,
+            UserId: input.userId,
+            Status: 'queued',
+            Phase: 'queued',
+            ProgressDone: 0,
+            ProgressTotal: 0,
+            Message: 'Queued',
+            Error: null,
+            Payload: input.payload,
+            Result: {},
+            CreatedAt: new Date(),
+            UpdatedAt: new Date(),
+            StartedAt: null,
+            FinishedAt: null,
+          };
+        },
+      })
+    );
+
+    await useCase.execute(
+      'user-1',
+      {
+        mode: 'existing-list',
+        listId: 'list-1',
+        fileName: 'gifts.json',
+        content: '{}',
+        contentEncoding: 'text',
+        grabInfo: true,
+        optimizeCategories: true,
+      },
+      `user-1:test-opt-on:${Date.now()}`
+    );
+
+    expect(createdPayload).toMatchObject({ optimizeCategories: true });
   });
 
   test('requires title for create-list mode', async () => {

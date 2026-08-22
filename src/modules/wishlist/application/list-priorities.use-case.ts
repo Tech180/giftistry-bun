@@ -13,14 +13,10 @@ export class ListPrioritiesUseCase {
       return await this.wishlistRepo.findPrioritiesByUserId(userId);
     }
     const isOwner = wishlist.UserId === userId;
-    const hasExpired = wishlist.ExpiresAt ? new Date() > new Date(wishlist.ExpiresAt) : false;
-    const revealSuggestions = wishlist.RevealSuggestions ?? false;
     return await this.wishlistRepo.findPrioritiesByWishlistForUser(
       wishlistId,
       userId,
-      isOwner,
-      hasExpired,
-      revealSuggestions
+      isOwner
     );
   }
 }

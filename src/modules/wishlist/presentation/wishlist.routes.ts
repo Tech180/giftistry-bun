@@ -22,7 +22,7 @@ export const wishlistRoutes = (
       security: [{ bearerAuth: [] }]
     }
   })
-  .post('/wishlists', async ({ getAuthUser, body: { Giftistry: { Lists: { Title, ExpiresAt, AllowGroupFunds, Category, RevealSuggestions, AiEnabled, WebSearchEnabled, ManualJobBackground } } } }) => {
+  .post('/wishlists', async ({ getAuthUser, body: { Giftistry: { Lists: { Title, ExpiresAt, AllowGroupFunds, Category, RevealSuggestions, AiEnabled, WebSearchEnabled, ManualJobBackground, AutoRollover } } } }) => {
     const user = await getAuthUser();
     const wishlist = await useCases.createWishlist.execute(
       user.userId,
@@ -33,7 +33,8 @@ export const wishlistRoutes = (
       RevealSuggestions,
       AiEnabled,
       WebSearchEnabled,
-      ManualJobBackground
+      ManualJobBackground,
+      AutoRollover
     );
     return { success: true, data: wishlist };
   }, {
@@ -54,6 +55,7 @@ export const wishlistRoutes = (
           AiEnabled: t.Optional(t.Boolean()),
           WebSearchEnabled: t.Optional(t.Boolean()),
           ManualJobBackground: t.Optional(t.Boolean()),
+          AutoRollover: t.Optional(t.Boolean()),
         })
       })
     })
@@ -141,27 +143,6 @@ export const wishlistRoutes = (
     }
   })
   .use(middleware.listAccess)
-  .post('/wishlists/:listId/shares', async ({ params: { listId }, getAuthUser, checkListAccess, body: { Giftistry: { Lists: { Email, Role } } } }) => {
-    await getAuthUser();
-    await checkListAccess('owner');
-    const share = await useCases.shareWishlist.execute(listId, Email, Role);
-    return { success: true, data: share };
-  }, {
-    detail: {
-      tags: ['Wishlists'],
-      summary: 'Share a wishlist',
-      description: 'Grant a collaborator or viewer role access to a wishlist.',
-      security: [{ bearerAuth: [] }]
-    },
-    body: t.Object({
-      Giftistry: t.Object({
-        Lists: t.Object({
-          Email: t.String({ format: 'email' }),
-          Role: t.Union([t.Literal('viewer'), t.Literal('collaborator')]),
-        })
-      })
-    })
-  })
   .get('/wishlists/:listId/shares', async ({ params: { listId }, checkListAccess }) => {
     await checkListAccess('viewer');
     const shares = await useCases.listListShares.execute(listId);
@@ -296,19 +277,20 @@ export const wishlistRoutes = (
   })
   .put('/wishlists/:listId/activate', async ({ params: { listId }, checkListAccess }) => {
     await checkListAccess('owner');
-    await useCases.activateWishlist.execute(listId);
-    return { success: true };
+    const wishlist = await useCases.activateWishlist.execute(listId);
+    return { success: true, data: wishlist };
   }, {
     detail: {
       tags: ['Wishlists'],
       summary: 'Activate a wishlist',
-      description: 'Reactivate (un-archive) a wishlist by ID. Only allowed for the owner.',
+      description:
+        'Reactivate (un-archive) a wishlist by ID. If the expiry date is still in the past, clears expiration so the list does not immediately re-archive. Only allowed for the owner.',
       security: [{ bearerAuth: [] }]
     }
   })
-  .put('/wishlists/:listId', async ({ params: { listId }, checkListAccess, body: { Giftistry: { Lists: { Title, ExpiresAt, AllowGroupFunds, Category, RevealSuggestions, AiEnabled, WebSearchEnabled, ManualJobBackground } } } }) => {
+  .put('/wishlists/:listId', async ({ params: { listId }, checkListAccess, body: { Giftistry: { Lists: { Title, ExpiresAt, AllowGroupFunds, Category, RevealSuggestions, AiEnabled, WebSearchEnabled, ManualJobBackground, AutoRollover } } } }) => {
     await checkListAccess('owner');
-    const updated = await useCases.updateWishlist.execute(listId, Title, ExpiresAt, AllowGroupFunds ?? false, Category, RevealSuggestions, AiEnabled, WebSearchEnabled, ManualJobBackground);
+    const updated = await useCases.updateWishlist.execute(listId, Title, ExpiresAt, AllowGroupFunds ?? false, Category, RevealSuggestions, AiEnabled, WebSearchEnabled, ManualJobBackground, AutoRollover);
     return { success: true, data: updated };
   }, {
     detail: {
@@ -328,6 +310,7 @@ export const wishlistRoutes = (
           AiEnabled: t.Optional(t.Boolean()),
           WebSearchEnabled: t.Optional(t.Boolean()),
           ManualJobBackground: t.Optional(t.Boolean()),
+          AutoRollover: t.Optional(t.Boolean()),
         })
       })
     })

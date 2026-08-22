@@ -94,6 +94,20 @@ export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '
   }, {
     detail: { ...systemOwnerDetail, summary: 'Get system settings' },
   })
+  .get('/metadata-packs', async ({ getAuthUser }) => {
+    const user = await getAuthUser();
+    if (!user.IsOwner) {
+      throw new AppError('Forbidden: Owner access required', 403, 'FORBIDDEN');
+    }
+
+    const data = useCases.getMetadataPacks.execute();
+    return {
+      success: true,
+      data,
+    };
+  }, {
+    detail: { ...systemOwnerDetail, summary: 'List metadata enrichment packs' },
+  })
   .post('/settings', async ({ getAuthUser, body: { Giftistry: { System: settings } } }) => {
     const user = await getAuthUser();
     if (!user.IsOwner) {
@@ -136,6 +150,33 @@ export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '
           AiPopulatePrompt: t.Optional(t.String()),
           AiCategoryPrompt: t.Optional(t.String()),
           AiImportPrompt: t.Optional(t.String()),
+          AiEnabledPackIds: t.Optional(t.Array(t.String())),
+          AiCustomPacks: t.Optional(
+            t.Array(
+              t.Object({
+                Id: t.String(),
+                Label: t.String(),
+                Description: t.Optional(t.String()),
+                Match: t.Optional(
+                  t.Object({
+                    Categories: t.Optional(t.Array(t.String())),
+                    TitleKeywords: t.Optional(t.Array(t.String())),
+                  })
+                ),
+                Fields: t.Optional(
+                  t.Array(
+                    t.Object({
+                      Key: t.String(),
+                      Label: t.String(),
+                      Bucket: t.String(),
+                      Hint: t.Optional(t.String()),
+                    })
+                  )
+                ),
+                PromptFragment: t.Optional(t.String()),
+              })
+            )
+          ),
           AiCompletionTimeoutMs: t.Optional(t.Numeric()),
           ScrapeFetchTimeoutMs: t.Optional(t.Numeric()),
           ScrapePlaywrightTimeoutMs: t.Optional(t.Numeric()),

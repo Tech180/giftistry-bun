@@ -18,8 +18,8 @@ describe("Items, Links & Claims", () => {
     unrelated = await createTestUser(`item_unrel_${timestamp}`, `item_unrel_${timestamp}@example.com`);
     
     listId = await createTestWishlist(owner.token, "Item Testing Wishlist");
-    await shareTestWishlist(owner.token, listId, collaborator.email, "collaborator");
-    await shareTestWishlist(owner.token, listId, unrelated.email, "viewer");
+    await shareTestWishlist(owner, listId, collaborator, "collaborator");
+    await shareTestWishlist(owner, listId, unrelated, "viewer");
   });
 
   afterAll(async () => {
@@ -52,6 +52,84 @@ describe("Items, Links & Claims", () => {
     const body = await res.json() as any;
     expect(body.Result.Name).toBe("PlayStation 5 Pro");
     itemId = body.Result.Id;
+  });
+
+  test("Owner custom fields persist on create, list, and update", async () => {
+    const createRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${owner.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              Name: "Custom field tee",
+              Metadata: {
+                CustomFields: {
+                  Predefined: { Color: "Black" },
+                  UserDefined: { Brand: "Nike" },
+                },
+              },
+            },
+          },
+        }),
+      })
+    );
+    expect(createRes.status).toBe(200);
+    const created = ((await createRes.json()) as any).Result;
+    expect(created.CustomFields?.UserDefined?.Brand ?? created.Metadata?.CustomFields?.UserDefined?.Brand).toBe("Nike");
+
+    const listRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${owner.token}` },
+      })
+    );
+    expect(listRes.status).toBe(200);
+    const listed = ((await listRes.json()) as any).Result.Items.find(
+      (item: { Id: string }) => item.Id === created.Id
+    );
+    expect(listed?.Metadata?.CustomFields?.Predefined?.Color).toBe("Black");
+    expect(listed?.Metadata?.CustomFields?.UserDefined?.Brand).toBe("Nike");
+
+    const updateRes = await app.handle(
+      new Request(`http://localhost/api/items/${created.Id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${owner.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              Name: "Custom field tee",
+              Metadata: {
+                CustomFields: {
+                  Predefined: { Color: "Navy" },
+                  UserDefined: { Brand: "Nike", Material: "Cotton" },
+                },
+              },
+            },
+          },
+        }),
+      })
+    );
+    expect(updateRes.status).toBe(200);
+
+    const listAfterUpdate = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${owner.token}` },
+      })
+    );
+    const updated = ((await listAfterUpdate.json()) as any).Result.Items.find(
+      (item: { Id: string }) => item.Id === created.Id
+    );
+    expect(updated?.Metadata?.CustomFields?.Predefined?.Color).toBe("Navy");
+    expect(updated?.Metadata?.CustomFields?.UserDefined?.Brand).toBe("Nike");
+    expect(updated?.Metadata?.CustomFields?.UserDefined?.Material).toBe("Cotton");
   });
 
   test("Owner cannot add hidden ideas to their own list", async () => {
@@ -280,10 +358,33 @@ describe("Items, Links & Claims", () => {
     expect(keys).toContain("PantsSize");
   });
 
+  test("Fetch dynamic optional field definitions for Tech includes CPU keys", async () => {
+    const res = await app.handle(
+      new Request("http://localhost/api/items/field-definitions?category=tech", {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${owner.token}`
+        }
+      })
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.Meta.Status).toBe("Success");
+    const keys = body.Result.map((d: any) => d.FieldKey);
+    expect(keys).toContain("ModelNumber");
+    expect(keys).toContain("Cores");
+    expect(keys).toContain("Threads");
+    expect(keys).toContain("BaseClock");
+    expect(keys).toContain("BoostClock");
+    expect(keys).toContain("Socket");
+    expect(keys).toContain("Tdp");
+    expect(keys).toContain("Cache");
+  });
+
   test("Suggestions and Anonymous Claims Lifecycle", async () => {
     const testListId = await createTestWishlist(owner.token, "Suggestion Test Wishlist", new Date(Date.now() + 1500).toISOString(), "generic", true);
-    await shareTestWishlist(owner.token, testListId, collaborator.email, "collaborator");
-    await shareTestWishlist(owner.token, testListId, unrelated.email, "viewer");
+    await shareTestWishlist(owner, testListId, collaborator, "collaborator");
+    await shareTestWishlist(owner, testListId, unrelated, "viewer");
 
     const suggestRes = await app.handle(
       new Request(`http://localhost/api/wishlists/${testListId}/items`, {
@@ -488,8 +589,8 @@ describe("Item Audience Restriction", () => {
     collaboratorB = await createTestUser(`aud_collab_b_${timestamp}`, `aud_collab_b_${timestamp}@example.com`);
 
     listId = await createTestWishlist(owner.token, "Audience Test Wishlist");
-    await shareTestWishlist(owner.token, listId, collaboratorA.email, "collaborator");
-    await shareTestWishlist(owner.token, listId, collaboratorB.email, "collaborator");
+    await shareTestWishlist(owner, listId, collaboratorA, "collaborator");
+    await shareTestWishlist(owner, listId, collaboratorB, "collaborator");
   });
 
   afterAll(async () => {
@@ -977,5 +1078,248 @@ describe("Item photos", () => {
         WHERE id = ${photoOwner.userId}
       `;
     }
+  });
+});
+
+describe('Viewer suggestions', () => {
+  let owner: Awaited<ReturnType<typeof createTestUser>>;
+  let viewer: Awaited<ReturnType<typeof createTestUser>>;
+  let listId: string;
+  let ownerItemId: string;
+
+  beforeAll(async () => {
+    const timestamp = Date.now();
+    owner = await createTestUser(`suggest_owner_${timestamp}`, `suggest_owner_${timestamp}@example.com`);
+    viewer = await createTestUser(`suggest_viewer_${timestamp}`, `suggest_viewer_${timestamp}@example.com`);
+    listId = await createTestWishlist(owner.token, 'Viewer Suggest List');
+    await shareTestWishlist(owner, listId, viewer, 'viewer');
+
+    const ownerItemRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${owner.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: { Items: { Name: 'Owner Item' } },
+        }),
+      })
+    );
+    const ownerItemBody = await ownerItemRes.json() as { Result: { Id: string } };
+    ownerItemId = ownerItemBody.Result.Id;
+  });
+
+  afterAll(async () => {
+    await cleanUpWishlist(listId);
+    await cleanUpUser(owner.userId);
+    await cleanUpUser(viewer.userId);
+  });
+
+  test('viewer can add a hidden suggestion by default', async () => {
+    const res = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${viewer.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: { Name: 'Viewer Default Hidden' },
+          },
+        }),
+      })
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json() as { Result: { IsSuggestion: boolean; IsHiddenIdea: boolean } };
+    expect(body.Result.IsSuggestion).toBe(true);
+    expect(body.Result.IsHiddenIdea).toBe(true);
+  });
+
+  test('viewer can opt in so the owner sees the suggestion', async () => {
+    const createRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${viewer.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: { Name: 'Visible To Owner Gift', IsHiddenIdea: false },
+          },
+        }),
+      })
+    );
+    expect(createRes.status).toBe(200);
+    const created = await createRes.json() as { Result: { Id: string } };
+    const suggestionId = created.Result.Id;
+
+    const ownerRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${owner.token}` },
+      })
+    );
+    expect(ownerRes.status).toBe(200);
+    const ownerBody = await ownerRes.json() as { Result: { Items: Array<{ Name: string }> } };
+    const names = ownerBody.Result.Items.map((item) => item.Name);
+    expect(names).toContain('Visible To Owner Gift');
+    expect(names).not.toContain('Viewer Default Hidden');
+
+    const updateOwn = await app.handle(
+      new Request(`http://localhost/api/items/${suggestionId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${viewer.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: { Items: { Name: 'Visible To Owner Gift Edited' } },
+        }),
+      })
+    );
+    expect(updateOwn.status).toBe(200);
+
+    const updateOwnerItem = await app.handle(
+      new Request(`http://localhost/api/items/${ownerItemId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${viewer.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: { Items: { Name: 'Hacked Owner Item' } },
+        }),
+      })
+    );
+    expect(updateOwnerItem.status).toBe(403);
+  });
+
+  test('viewer can reveal then hide a suggestion via PUT IsHiddenIdea', async () => {
+    const createRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${viewer.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: { Name: 'Toggle Hidden Via Put', IsHiddenIdea: true },
+          },
+        }),
+      })
+    );
+    expect(createRes.status).toBe(200);
+    const created = await createRes.json() as { Result: { Id: string; IsHiddenIdea: boolean } };
+    expect(created.Result.IsHiddenIdea).toBe(true);
+    const suggestionId = created.Result.Id;
+
+    const revealRes = await app.handle(
+      new Request(`http://localhost/api/items/${suggestionId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${viewer.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: { Items: { Name: 'Toggle Hidden Via Put', IsHiddenIdea: false } },
+        }),
+      })
+    );
+    expect(revealRes.status).toBe(200);
+    const revealed = await revealRes.json() as { Result: { IsHiddenIdea: boolean } };
+    expect(revealed.Result.IsHiddenIdea).toBe(false);
+
+    const ownerSees = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${owner.token}` },
+      })
+    );
+    expect(ownerSees.status).toBe(200);
+    const ownerBody = await ownerSees.json() as { Result: { Items: Array<{ Id: string }> } };
+    expect(ownerBody.Result.Items.some((item) => item.Id === suggestionId)).toBe(true);
+
+    const hideRes = await app.handle(
+      new Request(`http://localhost/api/items/${suggestionId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${viewer.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: { Items: { Name: 'Toggle Hidden Via Put', IsHiddenIdea: true } },
+        }),
+      })
+    );
+    expect(hideRes.status).toBe(200);
+    const hidden = await hideRes.json() as { Result: { IsHiddenIdea: boolean } };
+    expect(hidden.Result.IsHiddenIdea).toBe(true);
+
+    const ownerMisses = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${owner.token}` },
+      })
+    );
+    expect(ownerMisses.status).toBe(200);
+    const ownerMissBody = await ownerMisses.json() as { Result: { Items: Array<{ Id: string }> } };
+    expect(ownerMissBody.Result.Items.some((item) => item.Id === suggestionId)).toBe(false);
+  });
+
+  test('omitting IsHiddenIdea on PUT preserves the previous flag', async () => {
+    const createRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${viewer.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: { Name: 'Preserve Hidden Flag', IsHiddenIdea: true },
+          },
+        }),
+      })
+    );
+    expect(createRes.status).toBe(200);
+    const created = await createRes.json() as { Result: { Id: string } };
+    const suggestionId = created.Result.Id;
+
+    const renameRes = await app.handle(
+      new Request(`http://localhost/api/items/${suggestionId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${viewer.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: { Items: { Name: 'Preserve Hidden Flag Renamed' } },
+        }),
+      })
+    );
+    expect(renameRes.status).toBe(200);
+    const renamed = await renameRes.json() as { Result: { IsHiddenIdea: boolean; Name: string } };
+    expect(renamed.Result.Name).toBe('Preserve Hidden Flag Renamed');
+    expect(renamed.Result.IsHiddenIdea).toBe(true);
+  });
+
+  test('owner cannot set IsHiddenIdea true on their own item via PUT', async () => {
+    const res = await app.handle(
+      new Request(`http://localhost/api/items/${ownerItemId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${owner.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: { Items: { Name: 'Owner Item', IsHiddenIdea: true } },
+        }),
+      })
+    );
+    expect(res.status).toBe(403);
   });
 });

@@ -33,7 +33,8 @@ export class RolloverWishlistUseCase {
       oldList.RevealSuggestions,
       oldList.AiEnabled,
       oldList.WebSearchEnabled,
-      oldList.ManualJobBackground !== false
+      oldList.ManualJobBackground !== false,
+      oldList.AutoRollover === true
     );
 
     // Copy list shares to the new wishlist so collaborators still have access

@@ -3,7 +3,7 @@ import { chromium } from 'playwright';
 import { CHROME_USER_AGENT } from './browser-headers';
 import {
   playwrightLaunchHint,
-  resolvePlaywrightExecutablePath,
+  requirePlaywrightExecutableForLaunch,
 } from './resolve-playwright-executable';
 import { scrapingConfig } from './scraping-config';
 
@@ -28,7 +28,7 @@ class PlaywrightManager {
 
   private buildLaunchOptions(): LaunchOptions {
     const executablePath =
-      scrapingConfig.playwrightExecutablePath ?? resolvePlaywrightExecutablePath();
+      scrapingConfig.playwrightExecutablePath ?? requirePlaywrightExecutableForLaunch();
 
     return {
       headless: scrapingConfig.playwrightHeadless,
@@ -49,8 +49,8 @@ class PlaywrightManager {
       } catch (err) {
         const hint = playwrightLaunchHint(options.executablePath);
         if (hint) {
-          const message = err instanceof Error ? err.message : String(err);
-          throw new Error(`${hint}\nOriginal error: ${message}`);
+          console.error('[Playwright] Failed to launch Chromium:', err);
+          throw new Error(hint);
         }
         throw err;
       }

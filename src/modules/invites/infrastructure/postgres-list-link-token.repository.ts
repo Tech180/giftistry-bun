@@ -7,6 +7,7 @@ export class PostgresListLinkTokenRepository implements ListLinkTokenRepository 
   async create(
     listId: string,
     tokenHash: string,
+    token: string,
     role: ShareRole,
     createdBy: string,
     expiresAt: Date | null = null,
@@ -14,9 +15,9 @@ export class PostgresListLinkTokenRepository implements ListLinkTokenRepository 
     passwordHash: string | null = null
   ): Promise<ListLinkToken> {
     const [row] = await sql<any[]>`
-      INSERT INTO list_link_tokens (list_id, token_hash, role, created_by, expires_at, max_uses, password_hash)
-      VALUES (${listId}, ${tokenHash}, ${role}, ${createdBy}, ${expiresAt}, ${maxUses}, ${passwordHash})
-      RETURNING id as "Id", list_id as "ListId", token_hash as "TokenHash", role as "Role",
+      INSERT INTO list_link_tokens (list_id, token_hash, token, role, created_by, expires_at, max_uses, password_hash)
+      VALUES (${listId}, ${tokenHash}, ${token}, ${role}, ${createdBy}, ${expiresAt}, ${maxUses}, ${passwordHash})
+      RETURNING id as "Id", list_id as "ListId", token_hash as "TokenHash", token as "Token", role as "Role",
                 created_by as "CreatedBy", expires_at as "ExpiresAt", max_uses as "MaxUses",
                 use_count as "UseCount", revoked_at as "RevokedAt", created_at as "CreatedAt",
                 password_hash as "PasswordHash"
@@ -27,7 +28,7 @@ export class PostgresListLinkTokenRepository implements ListLinkTokenRepository 
 
   async findByListId(listId: string): Promise<ListLinkTokenPublic[]> {
     const rows = await sql<any[]>`
-      SELECT id as "Id", list_id as "ListId", role as "Role", created_by as "CreatedBy",
+      SELECT id as "Id", list_id as "ListId", token as "Token", role as "Role", created_by as "CreatedBy",
              expires_at as "ExpiresAt", max_uses as "MaxUses", use_count as "UseCount",
              revoked_at as "RevokedAt", created_at as "CreatedAt",
              (password_hash IS NOT NULL) as "PasswordProtected"
@@ -38,6 +39,7 @@ export class PostgresListLinkTokenRepository implements ListLinkTokenRepository 
     return rows.map(row => ({
       Id: row.Id,
       ListId: row.ListId,
+      Token: row.Token ?? null,
       Role: row.Role as ShareRole,
       CreatedBy: row.CreatedBy,
       ExpiresAt: row.ExpiresAt ? new Date(row.ExpiresAt) : null,
@@ -51,7 +53,7 @@ export class PostgresListLinkTokenRepository implements ListLinkTokenRepository 
 
   async findByTokenHash(tokenHash: string): Promise<ListLinkToken | null> {
     const [row] = await sql<any[]>`
-      SELECT id as "Id", list_id as "ListId", token_hash as "TokenHash", role as "Role",
+      SELECT id as "Id", list_id as "ListId", token_hash as "TokenHash", token as "Token", role as "Role",
              created_by as "CreatedBy", expires_at as "ExpiresAt", max_uses as "MaxUses",
              use_count as "UseCount", revoked_at as "RevokedAt", created_at as "CreatedAt",
              password_hash as "PasswordHash"
@@ -82,6 +84,7 @@ export class PostgresListLinkTokenRepository implements ListLinkTokenRepository 
       Id: row.Id,
       ListId: row.ListId,
       TokenHash: row.TokenHash,
+      Token: row.Token ?? null,
       Role: row.Role as ShareRole,
       CreatedBy: row.CreatedBy,
       ExpiresAt: row.ExpiresAt ? new Date(row.ExpiresAt) : null,

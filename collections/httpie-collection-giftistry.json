@@ -3962,41 +3962,6 @@
         }
       },
       {
-        "name": "Wishlists: Share Wishlist",
-        "url": "{{baseUrl}}/api/wishlists/:listId/shares",
-        "method": "POST",
-        "headers": [],
-        "queryParams": [],
-        "pathParams": [
-          {
-            "name": "listId",
-            "value": "",
-            "enabled": true
-          }
-        ],
-        "auth": {
-          "type": "inherited"
-        },
-        "body": {
-          "type": "text",
-          "text": {
-            "format": "application/json",
-            "value": "{\n  \"Giftistry\": {\n    \"Lists\": {\n      \"Email\": \"friend@example.com\",\n      \"Role\": \"viewer\"\n    }\n  }\n}"
-          },
-          "form": {
-            "isMultipart": false,
-            "fields": []
-          },
-          "graphql": {
-            "query": "",
-            "variables": ""
-          },
-          "file": {
-            "name": ""
-          }
-        }
-      },
-      {
         "name": "Wishlists: Update Share Role",
         "url": "{{baseUrl}}/api/wishlists/:listId/shares/:shareId",
         "method": "PATCH",

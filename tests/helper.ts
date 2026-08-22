@@ -38,7 +38,14 @@ export async function createTestUser(username: string, email: string) {
   };
 }
 
-export async function createTestWishlist(token: string, title: string, expiresAt: string | null = null, category = "generic", revealSuggestions = true) {
+export async function createTestWishlist(
+  token: string,
+  title: string,
+  expiresAt: string | null = null,
+  category = "generic",
+  revealSuggestions = true,
+  autoRollover = false
+) {
   const res = await app.handle(
     new Request("http://localhost/api/wishlists", {
       method: "POST",
@@ -53,7 +60,8 @@ export async function createTestWishlist(token: string, title: string, expiresAt
             ExpiresAt: expiresAt,
             AllowGroupFunds: true,
             Category: category,
-            RevealSuggestions: revealSuggestions
+            RevealSuggestions: revealSuggestions,
+            AutoRollover: autoRollover,
           }
         }
       }),
@@ -67,28 +75,91 @@ export async function createTestWishlist(token: string, title: string, expiresAt
   return body.Result.Id as string;
 }
 
-export async function shareTestWishlist(token: string, listId: string, email: string, role: string) {
-  const res = await app.handle(
-    new Request(`http://localhost/api/wishlists/${listId}/shares`, {
-      method: "POST",
+export async function befriendUsers(
+  requester: { token: string; userId: string },
+  receiver: { token: string; userId: string },
+) {
+  const reqRes = await app.handle(
+    new Request('http://localhost/api/friends/requests', {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${requester.token}`,
+      },
+      body: JSON.stringify({
+        Giftistry: {
+          Friends: {
+            ReceiverId: receiver.userId,
+          },
+        },
+      }),
+    }),
+  );
+
+  if (reqRes.status === 200) {
+    const reqBody = (await reqRes.json()) as { Result: { Id: string } };
+    const requestId = reqBody.Result.Id;
+
+    const acceptRes = await app.handle(
+      new Request(`http://localhost/api/friends/requests/${requestId}/accept`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${receiver.token}`,
+        },
+      }),
+    );
+    if (acceptRes.status !== 200) {
+      const text = await acceptRes.text();
+      throw new Error(`Failed to accept friend request: ${text}`);
+    }
+    return;
+  }
+
+  const reqText = await reqRes.text();
+  if (reqRes.status === 400 && reqText.includes('already friends with this user')) {
+    return;
+  }
+
+  throw new Error(`Failed to send friend request: ${reqText}`);
+}
+
+export async function bulkShareTestWishlist(
+  token: string,
+  listId: string,
+  friendIds: string[],
+  role: string,
+) {
+  const res = await app.handle(
+    new Request(`http://localhost/api/wishlists/${listId}/shares/bulk`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         Giftistry: {
           Lists: {
-            Email: email,
-            Role: role
-          }
-        }
+            FriendIds: friendIds,
+            Role: role,
+          },
+        },
       }),
-    })
+    }),
   );
   if (res.status !== 200) {
     const text = await res.text();
-    throw new Error(`Failed to share test wishlist: ${text}`);
+    throw new Error(`Failed to bulk share test wishlist: ${text}`);
   }
+}
+
+export async function shareTestWishlist(
+  owner: { token: string; userId: string },
+  listId: string,
+  friend: { token: string; userId: string },
+  role: string,
+) {
+  await befriendUsers(owner, friend);
+  await bulkShareTestWishlist(owner.token, listId, [friend.userId], role);
 }
 
 export async function cleanUpUser(userId: string) {

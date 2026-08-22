@@ -18,20 +18,19 @@ export const itemRoutes = (
     detail: {
       tags: ['Items'],
       summary: 'Get items in wishlist',
-      description: 'Fetch all items in a wishlist. Hides hidden items for owners if the list is not expired.',
+      description: 'Fetch all items in a wishlist. Hidden suggestions are omitted for the owner unless the suggester opted in.',
       security: [{ bearerAuth: [] }]
     }
   })
   .post('/wishlists/:listId/items', async ({ getAuthUser, checkListAccess, params: { listId }, body: { Giftistry: { Items: { Name, Description, PriorityId, IsHiddenIdea, LinkUrl, Price, WebsiteName, Category, Priority, SharedWithUserIds, Metadata } } } }) => {
-    const { role } = await checkListAccess('collaborator');
+    const { role } = await checkListAccess('viewer');
     const user = await getAuthUser();
-    const resolvedHidden = IsHiddenIdea ?? false;
-    if (role === 'owner' && resolvedHidden) {
-      throw new AppError('Forbidden: Owner cannot add hidden ideas to their own list', 403, 'FORBIDDEN');
-    }
-
     const isSuggestion = role !== 'owner';
     const isOwner = role === 'owner';
+    const isHiddenIdea = isSuggestion ? IsHiddenIdea !== false : false;
+    if (role === 'owner' && (IsHiddenIdea ?? false)) {
+      throw new AppError('Forbidden: Owner cannot add hidden ideas to their own list', 403, 'FORBIDDEN');
+    }
 
     const validatedAudience = await useCases.validateItemAudience.execute(
       listId,
@@ -45,7 +44,7 @@ export const itemRoutes = (
       Name,
       Description ?? null,
       PriorityId ?? null,
-      resolvedHidden || isSuggestion,
+      isHiddenIdea,
       user.userId,
       LinkUrl ?? null,
       Price !== undefined && Price !== null ? Number(Price) : null,
@@ -259,8 +258,8 @@ export const itemRoutes = (
       security: [{ bearerAuth: [] }]
     }
   })
-  .put('/items/:itemId', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: { Name, Description, PriorityId, Category, Priority, SharedWithUserIds, LinkUrl, Price, WebsiteName, Metadata } } } }) => {
-    const access = await checkListAccess('collaborator');
+  .put('/items/:itemId', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: { Name, Description, PriorityId, Category, Priority, SharedWithUserIds, LinkUrl, Price, WebsiteName, Metadata, IsHiddenIdea } } } }) => {
+    const access = await checkListAccess('viewer');
     const user = await getAuthUser();
     const isOwner = access.role === 'owner';
 
@@ -287,14 +286,15 @@ export const itemRoutes = (
       LinkUrl,
       Price !== undefined ? (Price !== null ? Number(Price) : null) : undefined,
       WebsiteName,
-      Metadata ?? undefined
+      Metadata ?? undefined,
+      IsHiddenIdea
     );
     return { success: true, data: item };
   }, {
     detail: {
       tags: ['Items'],
       summary: 'Update item in wishlist',
-      description: 'Update a gift item by ID. Requires owner or collaborator role.',
+      description: 'Update a gift item by ID. Owners may edit items they can see; others may edit only their own suggestions.',
       security: [{ bearerAuth: [] }]
     },
     body: t.Object({
@@ -309,6 +309,7 @@ export const itemRoutes = (
           LinkUrl: t.Optional(t.Nullable(t.String())),
           Price: t.Optional(t.Nullable(t.Numeric())),
           WebsiteName: t.Optional(t.Nullable(t.String())),
+          IsHiddenIdea: t.Optional(t.Boolean()),
           Metadata: t.Optional(t.Nullable(t.Object({
             Text: t.Optional(t.Nullable(t.String())),
             CustomFields: t.Optional(t.Nullable(t.Object({
@@ -349,7 +350,7 @@ export const itemRoutes = (
     })
   })
   .delete('/items/:itemId', async ({ getAuthUser, checkListAccess, params: { itemId } }) => {
-    await checkListAccess('collaborator');
+    await checkListAccess('viewer');
     const user = await getAuthUser();
     await useCases.deleteItem.execute(itemId, user.userId);
     return { success: true };
@@ -357,7 +358,7 @@ export const itemRoutes = (
     detail: {
       tags: ['Items'],
       summary: 'Delete item from wishlist',
-      description: 'Delete a gift item by ID. Requires owner or collaborator role.',
+      description: 'Delete a gift item by ID. Owners may delete items they can see; others may delete only their own suggestions.',
       security: [{ bearerAuth: [] }]
     }
   });

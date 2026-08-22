@@ -112,6 +112,12 @@ function makeRepo(): BackgroundJobRepository {
         if (error !== undefined) item.Error = error;
       }
     },
+    updateItemPayload: async (id, patch) => {
+      const item = items.find((row) => row.Id === id);
+      if (item) {
+        item.Payload = { ...item.Payload, ...patch };
+      }
+    },
   };
 }
 
@@ -144,19 +150,57 @@ describe('StartItemEnrichJobUseCase', () => {
     const result = await useCase.execute(
       'user-1',
       { intent: 'create-from-url', listId: 'list-1', url: 'https://www.example.com/product' },
-      `user-1:test:${Date.now()}`
+      `user-1:test:${Date.now()}`,
+      'owner'
     );
 
     expect(addItemCalls).toHaveLength(1);
     expect(addItemCalls[0]?.[0]).toBe('list-1');
     expect(addItemCalls[0]?.[1]).toBe('Example');
+    expect(addItemCalls[0]?.[4]).toBe(false);
+    expect(addItemCalls[0]?.[5]).toBeNull();
     expect(addItemCalls[0]?.[6]).toBe('https://www.example.com/product');
+    expect(addItemCalls[0]?.[10]).toBe(false);
     expect(result.Item).toEqual({ Id: 'item-1', Name: 'Example' });
     expect(result.Job.Kind).toBe('item-enrich');
     expect(result.Job.ProgressTotal).toBe(1);
     expect(items).toHaveLength(1);
     expect(items[0]?.ItemId).toBe('item-1');
     expect(items[0]?.Status).toBe('pending');
+  });
+
+  test('create-from-url creates a suggestion for viewers', async () => {
+    const { itemUseCases, addItemCalls } = makeItemUseCases({ Id: 'item-2', Name: 'Example' });
+    const useCase = new StartItemEnrichJobUseCase(makeRepo(), itemUseCases);
+
+    await useCase.execute(
+      'user-viewer',
+      { intent: 'create-from-url', listId: 'list-1', url: 'https://www.example.com/product' },
+      `user-viewer:test:${Date.now()}`,
+      'viewer'
+    );
+
+    expect(addItemCalls).toHaveLength(1);
+    expect(addItemCalls[0]?.[4]).toBe(true);
+    expect(addItemCalls[0]?.[5]).toBe('user-viewer');
+    expect(addItemCalls[0]?.[10]).toBe(true);
+  });
+
+  test('create-from-url creates a suggestion for collaborators', async () => {
+    const { itemUseCases, addItemCalls } = makeItemUseCases({ Id: 'item-3', Name: 'Example' });
+    const useCase = new StartItemEnrichJobUseCase(makeRepo(), itemUseCases);
+
+    await useCase.execute(
+      'user-collab',
+      { intent: 'create-from-url', listId: 'list-1', url: 'https://www.example.com/product' },
+      `user-collab:test:${Date.now()}`,
+      'collaborator'
+    );
+
+    expect(addItemCalls).toHaveLength(1);
+    expect(addItemCalls[0]?.[4]).toBe(true);
+    expect(addItemCalls[0]?.[5]).toBe('user-collab');
+    expect(addItemCalls[0]?.[10]).toBe(true);
   });
 
   test('update-item requires an itemId', async () => {
@@ -167,7 +211,8 @@ describe('StartItemEnrichJobUseCase', () => {
       useCase.execute(
         'user-1',
         { intent: 'update-item', listId: 'list-1', url: 'https://example.com', itemId: '', writeBack: true },
-        `user-1:test:${Date.now()}`
+        `user-1:test:${Date.now()}`,
+        'owner'
       )
     ).rejects.toBeInstanceOf(AppError);
   });
@@ -185,7 +230,8 @@ describe('StartItemEnrichJobUseCase', () => {
         itemId: 'item-9',
         writeBack: true,
       },
-      `user-1:test:${Date.now()}`
+      `user-1:test:${Date.now()}`,
+      'owner'
     );
 
     expect(result.Item).toBeUndefined();
@@ -200,7 +246,8 @@ describe('StartItemEnrichJobUseCase', () => {
     const result = await useCase.execute(
       'user-1',
       { intent: 'draft-populate', listId: 'list-1', url: 'https://example.com/x', writeBack: false },
-      `user-1:test:${Date.now()}`
+      `user-1:test:${Date.now()}`,
+      'viewer'
     );
 
     expect(result.Item).toBeUndefined();
@@ -216,7 +263,8 @@ describe('StartItemEnrichJobUseCase', () => {
       useCase.execute(
         'user-1',
         { intent: 'draft-populate', listId: 'list-1', url: 'not-a-url', writeBack: false },
-        `user-1:test:${Date.now()}`
+        `user-1:test:${Date.now()}`,
+        'viewer'
       )
     ).rejects.toBeInstanceOf(AppError);
   });

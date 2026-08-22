@@ -1,6 +1,7 @@
 import type { ItemRepository } from '../domain/ports/item.repository';
 import type { AssertItemVisibleUseCase } from './assert-item-visible.use-case';
 import { AppError } from '@/common/middlewares/error.middleware';
+import { assertWishlistMutable } from '@/modules/wishlist/domain/assert-wishlist-mutable.util';
 
 export class UnclaimItemUseCase {
   constructor(
@@ -16,7 +17,8 @@ export class UnclaimItemUseCase {
       throw new AppError('User ID is required', 400, 'BAD_REQUEST');
     }
 
-    await this.assertItemVisible.execute(itemId, userId);
+    const visible = await this.assertItemVisible.execute(itemId, userId);
+    assertWishlistMutable(visible.wishlist);
 
     const item = await this.itemRepo.findById(itemId);
     if (!item) {

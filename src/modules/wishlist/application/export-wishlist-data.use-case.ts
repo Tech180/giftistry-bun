@@ -114,7 +114,7 @@ export class ExportWishlistDataUseCase {
       throw new AppError('Wishlist not found', 404, 'NOT_FOUND');
     }
 
-    const items = await this.listItemsUseCase.execute(listId, currentUserId);
+    const { Items } = await this.listItemsUseCase.execute(listId, currentUserId);
     const activeUser = await this.userRepo.findById(currentUserId);
     const exporterName = activeUser ? getAudienceDisplayName(activeUser) : undefined;
     const isOwner = currentUserId === wishlist.UserId;
@@ -125,13 +125,24 @@ export class ExportWishlistDataUseCase {
       currentUserId,
     };
 
-    const sorted = this.getSortedItemsWithPriority(items);
+    const sorted = this.getSortedItemsWithPriority(Items);
+    const includeSuggestionColumn = !isOwner;
 
     switch (format) {
       case 'csv': {
-        const headers = ['Category', 'Priority', 'Item', 'Star', 'Price', 'Website Link', 'Description', 'Audience', 'Suggestion'];
+        const headers = [
+          'Category',
+          'Priority',
+          'Item',
+          'Star',
+          'Price',
+          'Website Link',
+          'Description',
+          'Audience',
+          ...(includeSuggestionColumn ? ['Suggestion'] : []),
+        ];
         const rows: any[][] = [];
-        const emptyRow = ['', '', '', '', '', '', '', '', ''];
+        const emptyRow = headers.map(() => '');
 
         const categoryGroups: { [key: string]: any[] } = {};
         for (const item of sorted) {
@@ -148,7 +159,7 @@ export class ExportWishlistDataUseCase {
         });
 
         for (const cat of categories) {
-          rows.push([`${cat}:`, '', '', '', '', '', '', '', '']);
+          rows.push([`${cat}:`, ...headers.slice(1).map(() => '')]);
 
           const catItems = categoryGroups[cat];
           for (const item of catItems) {
@@ -157,14 +168,19 @@ export class ExportWishlistDataUseCase {
             const parsed = parseItemDescription(item.Description);
             const formattedDesc = parsed.text || '';
             const audience = formatAudienceForExport(item.SharedWith, exportContext.currentUserId, item.SuggestedByUserId);
-            const suggestion = formatSuggestionForExport(item, exportContext.isOwner);
+            const suggestion = includeSuggestionColumn
+              ? formatSuggestionForExport(item, exportContext.isOwner)
+              : null;
+
+            const appendSuggestion = (row: any[]) =>
+              includeSuggestionColumn ? [...row, suggestion] : row;
 
             if (item.Links && item.Links.length > 0) {
               for (const link of item.Links) {
                 const priceVal = link.ExtractedPrice !== null && link.ExtractedPrice !== undefined 
                   ? `$${link.ExtractedPrice.toFixed(2)}` 
                   : '';
-                rows.push([
+                rows.push(appendSuggestion([
                   '',
                   priorityVal,
                   item.Name,
@@ -173,11 +189,10 @@ export class ExportWishlistDataUseCase {
                   link.Url || '',
                   formattedDesc,
                   audience,
-                  suggestion,
-                ]);
+                ]));
               }
             } else {
-              rows.push([
+              rows.push(appendSuggestion([
                 '',
                 priorityVal,
                 item.Name,
@@ -186,8 +201,7 @@ export class ExportWishlistDataUseCase {
                 '',
                 formattedDesc,
                 audience,
-                suggestion,
-              ]);
+              ]));
             }
           }
           rows.push(emptyRow);
@@ -217,9 +231,21 @@ export class ExportWishlistDataUseCase {
         worksheet.getColumn(6).width = 18;
         worksheet.getColumn(7).width = 45;
         worksheet.getColumn(8).width = 18;
-        worksheet.getColumn(9).width = 22;
+        if (includeSuggestionColumn) {
+          worksheet.getColumn(9).width = 22;
+        }
 
-        const headers = ['Category', 'Priority', 'Item', 'Star', 'Price', 'Website', 'Description', 'Audience', 'Suggestion'];
+        const headers = [
+          'Category',
+          'Priority',
+          'Item',
+          'Star',
+          'Price',
+          'Website',
+          'Description',
+          'Audience',
+          ...(includeSuggestionColumn ? ['Suggestion'] : []),
+        ];
         const headerRow = worksheet.addRow(headers);
         headerRow.height = 24;
         headerRow.eachCell((cell) => {
@@ -278,7 +304,9 @@ export class ExportWishlistDataUseCase {
             const parsed = parseItemDescription(item.Description);
             const formattedDesc = parsed.text || '';
             const audience = formatAudienceForExport(item.SharedWith, exportContext.currentUserId, item.SuggestedByUserId);
-            const suggestion = formatSuggestionForExport(item, exportContext.isOwner);
+            const suggestion = includeSuggestionColumn
+              ? formatSuggestionForExport(item, exportContext.isOwner)
+              : null;
 
             let priceVal = '';
             let websiteLabel = '';
@@ -293,7 +321,7 @@ export class ExportWishlistDataUseCase {
               linkUrl = link.Url || '';
             }
 
-            const itemRow = worksheet.addRow([
+            const rowValues = [
               '',
               priorityVal,
               item.Name,
@@ -302,8 +330,9 @@ export class ExportWishlistDataUseCase {
               websiteLabel,
               formattedDesc,
               audience,
-              suggestion,
-            ]);
+              ...(includeSuggestionColumn ? [suggestion] : []),
+            ];
+            const itemRow = worksheet.addRow(rowValues);
 
             itemRow.eachCell((cell, colNumber) => {
               if (colNumber === 6 && linkUrl) {
@@ -413,7 +442,9 @@ export class ExportWishlistDataUseCase {
           const parsed = parseItemDescription(item.Description);
           const parsedDesc = parsed.isJson && parsed.metadata ? parsed.metadata : item.Description;
           const audience = formatAudienceForExport(item.SharedWith, exportContext.currentUserId, item.SuggestedByUserId);
-          const suggestion = formatSuggestionForExport(item, exportContext.isOwner);
+          const suggestion = includeSuggestionColumn
+            ? formatSuggestionForExport(item, exportContext.isOwner)
+            : '';
 
           return {
             name: item.Name,
@@ -422,7 +453,7 @@ export class ExportWishlistDataUseCase {
             isFavorite: item.isFav,
             description: parsedDesc,
             audience,
-            suggestion: suggestion || undefined,
+            ...(includeSuggestionColumn && suggestion ? { suggestion } : {}),
             links: (item.Links || []).map((link: any) => ({
               url: link.Url || '',
               retailer: link.RetailerName || '',

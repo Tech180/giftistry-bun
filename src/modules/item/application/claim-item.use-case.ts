@@ -4,6 +4,7 @@ import type { Claim } from '../domain/item.entity';
 import type { AssertItemVisibleUseCase } from './assert-item-visible.use-case';
 import type { CreateClaimInput } from '../domain/ports/item.repository';
 import { AppError } from '@/common/middlewares/error.middleware';
+import { assertWishlistMutable } from '@/modules/wishlist/domain/assert-wishlist-mutable.util';
 
 export class ClaimItemUseCase {
   constructor(
@@ -41,14 +42,7 @@ export class ClaimItemUseCase {
       throw new AppError('Associated wishlist not found', 404, 'NOT_FOUND');
     }
 
-    if (!wishlist.IsActive) {
-      throw new AppError('Cannot claim items on an expired/inactive wishlist', 400, 'BAD_REQUEST');
-    }
-
-    const hasExpired = wishlist.ExpiresAt ? new Date() > new Date(wishlist.ExpiresAt) : false;
-    if (hasExpired) {
-      throw new AppError('Cannot claim items on an expired/inactive wishlist', 400, 'BAD_REQUEST');
-    }
+    assertWishlistMutable(wishlist);
 
     const claims = await this.itemRepo.findClaimsByItemId(itemId);
 

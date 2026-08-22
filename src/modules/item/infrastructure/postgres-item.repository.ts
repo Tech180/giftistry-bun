@@ -1,5 +1,5 @@
 import type { ItemRepository, ItemMetadataWrite } from '../domain/ports/item.repository';
-import type { Item, ItemLink, Claim, ItemPhoto } from '../domain/item.entity';
+import type { Item, ItemCustomFieldsColumns, ItemLink, Claim, ItemPhoto, ItemVariationColumn } from '../domain/item.entity';
 import { sql } from '@/common/database/connection';
 
 const ITEM_SELECT = `
@@ -26,6 +26,30 @@ function parseJsonValue(raw: unknown): unknown {
     }
   }
   return value;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function mapCustomFields(raw: unknown): ItemCustomFieldsColumns | null {
+  const parsed = parseJsonValue(raw);
+  if (!isPlainObject(parsed)) return null;
+  const predefined = parsed.Predefined;
+  const userDefined = parsed.UserDefined;
+  return {
+    Predefined: isPlainObject(predefined)
+      ? (predefined as Record<string, string | null>)
+      : {},
+    UserDefined: isPlainObject(userDefined)
+      ? (userDefined as Record<string, string>)
+      : {},
+  };
+}
+
+function mapVariations(raw: unknown): ItemVariationColumn[] | null {
+  const parsed = parseJsonValue(raw);
+  return Array.isArray(parsed) ? (parsed as ItemVariationColumn[]) : null;
 }
 
 function mapPhotos(raw: unknown): ItemPhoto[] {
@@ -70,8 +94,8 @@ function mapItemRow(row: any): Item {
       row.OtherUsersCanSee === null || row.OtherUsersCanSee === undefined
         ? null
         : row.OtherUsersCanSee === true,
-    CustomFields: row.CustomFields ?? null,
-    Variations: Array.isArray(row.Variations) ? row.Variations : null,
+    CustomFields: mapCustomFields(row.CustomFields),
+    Variations: mapVariations(row.Variations),
     Photos: mapPhotos(row.Photos),
   };
 }
@@ -85,8 +109,8 @@ function metadataDefaults(metadata?: ItemMetadataWrite | null) {
     multiCount: metadata?.MultiCount === true,
     otherUsersCanSee:
       metadata?.OtherUsersCanSee !== undefined ? metadata.OtherUsersCanSee : null,
-    customFields: JSON.stringify(metadata?.CustomFields ?? {}),
-    variations: JSON.stringify(metadata?.Variations ?? []),
+    customFields: metadata?.CustomFields ?? {},
+    variations: metadata?.Variations ?? [],
     photos: (metadata?.Photos ?? []) as ItemPhoto[],
   };
 }
@@ -148,7 +172,8 @@ export class PostgresItemRepository implements ItemRepository {
         ${listId}, ${priorityId}, ${suggestedByUserId}, ${name}, ${description},
         ${isHiddenIdea}, ${category}, ${isSuggestion}, ${priority},
         ${meta.isFavorite}, ${meta.isPinned}, ${meta.desiredQuantity}, ${meta.multiCount},
-        ${meta.otherUsersCanSee}, ${meta.customFields}::jsonb, ${meta.variations}::jsonb,
+        ${meta.otherUsersCanSee}, ${sql.json(meta.customFields as never)},
+        ${sql.json(meta.variations as never)},
         ${sql.json(meta.photos as never)}
       )
       RETURNING id as "Id", list_id as "ListId", priority_id as "PriorityId",
@@ -384,8 +409,12 @@ export class PostgresItemRepository implements ItemRepository {
     priorityId: string | null,
     category: string,
     priority: number | null = null,
-    metadata: ItemMetadataWrite | null = null
+    metadata: ItemMetadataWrite | null = null,
+    isHiddenIdea?: boolean
   ): Promise<Item> {
+    // null → COALESCE keeps existing is_hidden_idea; boolean overwrites.
+    const hiddenParam = isHiddenIdea !== undefined ? isHiddenIdea : null;
+
     if (metadata) {
       const meta = metadataDefaults(metadata);
       const updatePhotos = metadata.Photos !== undefined;
@@ -399,13 +428,14 @@ export class PostgresItemRepository implements ItemRepository {
               priority_id = ${priorityId},
               category = ${category},
               priority = ${priority},
+              is_hidden_idea = COALESCE(${hiddenParam}, is_hidden_idea),
               is_favorite = ${meta.isFavorite},
               is_pinned = ${meta.isPinned},
               desired_quantity = ${meta.desiredQuantity},
               multi_count = ${meta.multiCount},
               other_users_can_see = ${meta.otherUsersCanSee},
-              custom_fields = ${meta.customFields}::jsonb,
-              variations = ${meta.variations}::jsonb,
+              custom_fields = ${sql.json(meta.customFields as never)},
+              variations = ${sql.json(meta.variations as never)},
               photos = ${sql.json(photosValue as never)}
           WHERE id = ${id}
           RETURNING id as "Id", list_id as "ListId", priority_id as "PriorityId",
@@ -433,13 +463,14 @@ export class PostgresItemRepository implements ItemRepository {
             priority_id = ${priorityId},
             category = ${category},
             priority = ${priority},
+            is_hidden_idea = COALESCE(${hiddenParam}, is_hidden_idea),
             is_favorite = ${meta.isFavorite},
             is_pinned = ${meta.isPinned},
             desired_quantity = ${meta.desiredQuantity},
             multi_count = ${meta.multiCount},
             other_users_can_see = ${meta.otherUsersCanSee},
-            custom_fields = ${meta.customFields}::jsonb,
-            variations = ${meta.variations}::jsonb
+            custom_fields = ${sql.json(meta.customFields as never)},
+            variations = ${sql.json(meta.variations as never)}
         WHERE id = ${id}
         RETURNING id as "Id", list_id as "ListId", priority_id as "PriorityId",
                   suggested_by_user_id as "SuggestedByUserId", name as "Name",
@@ -465,7 +496,8 @@ export class PostgresItemRepository implements ItemRepository {
           description = ${description},
           priority_id = ${priorityId},
           category = ${category},
-          priority = ${priority}
+          priority = ${priority},
+          is_hidden_idea = COALESCE(${hiddenParam}, is_hidden_idea)
       WHERE id = ${id}
       RETURNING id as "Id", list_id as "ListId", priority_id as "PriorityId",
                 suggested_by_user_id as "SuggestedByUserId", name as "Name",

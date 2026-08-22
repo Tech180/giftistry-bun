@@ -6,6 +6,7 @@ import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlis
 import type { UserRepository } from '@/modules/auth/domain/ports/user.repository';
 import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
 import type { EventBus } from '@/common/domain/events/event-bus.port';
+import type { ListItemsUseCase } from '@/modules/item/application/list-items.use-case';
 import {
   CreateLinkInviteUseCase,
   ListLinkInvitesUseCase,
@@ -14,6 +15,7 @@ import {
 } from './application/link-invite.use-cases';
 import { CreateEmailInviteUseCase } from './application/create-email-invite.use-case';
 import { AcceptLinkInviteUseCase, AcceptEmailInviteUseCase } from './application/accept-invite.use-cases';
+import { GetPublicLinkPreviewUseCase } from './application/get-public-link-preview.use-case';
 import { inviteAcceptRoutes } from './presentation/invites.routes';
 
 export interface InvitesModuleDeps {
@@ -24,6 +26,7 @@ export interface InvitesModuleDeps {
   wishlistRepo: WishlistRepository;
   assertUserCanUseCase: AssertUserCanUseCase;
   eventBus: EventBus;
+  listItems: ListItemsUseCase;
 }
 
 export function createInvitesModule(deps: InvitesModuleDeps) {
@@ -32,6 +35,11 @@ export function createInvitesModule(deps: InvitesModuleDeps) {
     listLinkInvites: new ListLinkInvitesUseCase(deps.linkTokenRepo),
     revokeLinkInvite: new RevokeLinkInviteUseCase(deps.linkTokenRepo),
     getLinkInviteDetails: new GetLinkInviteDetailsUseCase(deps.linkTokenRepo),
+    getPublicLinkPreview: new GetPublicLinkPreviewUseCase(
+      deps.linkTokenRepo,
+      deps.wishlistRepo,
+      deps.listItems
+    ),
     createEmailInvite: new CreateEmailInviteUseCase(deps.emailInviteRepo),
     acceptLinkInvite: new AcceptLinkInviteUseCase(
       deps.linkTokenRepo,

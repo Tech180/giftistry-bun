@@ -13,6 +13,13 @@ import {
   resolveMaskedSecret,
   type SystemSettingsPayload,
 } from '../domain/server-config.entity';
+import {
+  mergeMetadataPackCatalog,
+  METADATA_PACKS_CATALOG,
+  sanitizeCustomPacks,
+  sanitizeEnabledPackIds,
+  toCustomPackSettingsDto,
+} from '../domain/packs';
 import { resolveOAuthClientSecret } from '@/common/utils/oauth-config.util';
 import type { TestAiConnectionUseCase } from './test-ai-connection.use-case';
 
@@ -128,6 +135,12 @@ export class SaveSystemSettingsUseCase {
       }
     }
 
+    const customPacks =
+      settings.AiCustomPacks !== undefined
+        ? sanitizeCustomPacks(settings.AiCustomPacks)
+        : sanitizeCustomPacks(config.AiCustomPacks);
+    const catalog = mergeMetadataPackCatalog(METADATA_PACKS_CATALOG, customPacks);
+
     this.serverConfigRepo.save({
       DbType: settings.DbType as 'local' | 'remote',
       DbUrl: settings.DbUrl,
@@ -175,6 +188,14 @@ export class SaveSystemSettingsUseCase {
       AiPopulatePrompt: settings.AiPopulatePrompt,
       AiCategoryPrompt: settings.AiCategoryPrompt,
       AiImportPrompt: settings.AiImportPrompt,
+      AiEnabledPackIds:
+        settings.AiEnabledPackIds !== undefined
+          ? sanitizeEnabledPackIds(settings.AiEnabledPackIds, catalog)
+          : config.AiEnabledPackIds,
+      AiCustomPacks:
+        settings.AiCustomPacks !== undefined
+          ? customPacks.map(toCustomPackSettingsDto)
+          : config.AiCustomPacks,
       AiCompletionTimeoutMs: clampAiCompletionTimeoutMs(
         settings.AiCompletionTimeoutMs ?? config.AiCompletionTimeoutMs
       ),

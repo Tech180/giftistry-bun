@@ -127,6 +127,9 @@ export async function runMigrations(dbSql: typeof sql = sql): Promise<void> {
   await dbSql`
     ALTER TABLE list_link_tokens ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255) DEFAULT NULL
   `;
+  await dbSql`
+    ALTER TABLE list_link_tokens ADD COLUMN IF NOT EXISTS token TEXT DEFAULT NULL
+  `;
 
   await dbSql`
     ALTER TABLE comments ADD COLUMN IF NOT EXISTS parent_id UUID REFERENCES comments(id) ON DELETE CASCADE
@@ -217,6 +220,7 @@ export async function runMigrations(dbSql: typeof sql = sql): Promise<void> {
   await dbSql`ALTER TABLE users ADD COLUMN IF NOT EXISTS web_search_enabled BOOLEAN DEFAULT TRUE`;
   await dbSql`ALTER TABLE lists ADD COLUMN IF NOT EXISTS web_search_enabled BOOLEAN DEFAULT FALSE`;
   await dbSql`ALTER TABLE lists ADD COLUMN IF NOT EXISTS manual_job_background BOOLEAN DEFAULT TRUE`;
+  await dbSql`ALTER TABLE lists ADD COLUMN IF NOT EXISTS auto_rollover BOOLEAN DEFAULT FALSE`;
 
   await dbSql`ALTER TABLE items ADD COLUMN IF NOT EXISTS is_favorite BOOLEAN NOT NULL DEFAULT FALSE`;
   await dbSql`ALTER TABLE items ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN NOT NULL DEFAULT FALSE`;

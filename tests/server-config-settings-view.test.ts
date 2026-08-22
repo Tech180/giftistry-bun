@@ -30,3 +30,52 @@ describe('toSystemSettingsView aiDefaultPrompts', () => {
     expect(view.AiDefaultPrompts.Import).toBe(AI_DEFAULT_PROMPTS.import);
   });
 });
+
+describe('toSystemSettingsView AiEnabledPackIds', () => {
+  test('defaults to Technology + CPU when unset', () => {
+    const view = toSystemSettingsView({
+      DbType: 'local',
+      SmtpType: 'local',
+    });
+    expect(view.AiEnabledPackIds).toEqual(['technology', 'technology.cpu']);
+  });
+
+  test('returns a saved empty list', () => {
+    const view = toSystemSettingsView({
+      DbType: 'local',
+      SmtpType: 'local',
+      AiEnabledPackIds: [],
+    });
+    expect(view.AiEnabledPackIds).toEqual([]);
+  });
+
+  test('strips unknown pack ids', () => {
+    const view = toSystemSettingsView({
+      DbType: 'local',
+      SmtpType: 'local',
+      AiEnabledPackIds: ['technology.cpu', 'unknown-pack'],
+    });
+    expect(view.AiEnabledPackIds).toEqual(['technology.cpu']);
+  });
+
+  test('keeps custom pack ids when AiCustomPacks is present', () => {
+    const view = toSystemSettingsView({
+      DbType: 'local',
+      SmtpType: 'local',
+      AiEnabledPackIds: ['technology.cpu', 'custom.books'],
+      AiCustomPacks: [
+        {
+          Id: 'custom.books',
+          Label: 'Books',
+          Description: '',
+          Match: { Categories: [] },
+          Fields: [],
+          PromptFragment: 'Book rules.',
+        },
+      ],
+    });
+    expect(view.AiEnabledPackIds).toEqual(['technology.cpu', 'custom.books']);
+    expect(view.AiCustomPacks).toHaveLength(1);
+    expect(view.AiCustomPacks[0].Id).toBe('custom.books');
+  });
+});

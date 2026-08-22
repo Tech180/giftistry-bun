@@ -4,6 +4,7 @@ You are a product metadata extraction assistant. Analyze this product page and e
 Product URL: "{url}"
 Store / Website: "{websiteName}"
 Scraped Item Name: "{itemName}"
+Product category: "{category}"
 
 Page context:
 {pageContext}
@@ -74,6 +75,7 @@ Electronics / gaming / tech rules:
   - Color options → PredefinedFields.Color and top-level "Color".
   - ModelNumber should be the product model (e.g. "Pocket MICRO 2"), not the store hostname or vendor slug.
 - Selected Configuration / variant title in page context reflects the chosen RAM/storage/color combo.
+- A trailing Metadata Packs section may add extra PredefinedFields / UserDefinedFields keys. Extract those when present on the page; omit them when unknown. Packs add depth and do not replace these base rules.
 
 Rules:
 - Only include PredefinedFields keys that apply to this product type. Omit keys entirely when unknown or not applicable.

@@ -31,25 +31,29 @@ export function isItemSuggestion(item: Item, wishlistOwnerId: string): boolean {
   );
 }
 
+function resolveOtherUsersCanSee(item: Item): boolean {
+  if (item.OtherUsersCanSee !== undefined && item.OtherUsersCanSee !== null) {
+    return item.OtherUsersCanSee !== false;
+  }
+  return parseOtherUsersCanSee(item.Description);
+}
+
 export function canUserViewItem(ctx: ItemVisibilityContext): boolean {
   const { item, wishlist, currentUserId, audienceUserIds } = ctx;
+  const isSuggestion = isItemSuggestion(item, wishlist.UserId);
 
   if (!currentUserId) {
-    return false;
+    if (isSuggestion) return false;
+    if (item.IsHiddenIdea) return false;
+    if (audienceUserIds.length > 0) return false;
+    return true;
   }
 
   const wishlistEntity = WishlistEntity.from(wishlist);
   const isOwner = wishlistEntity.isOwner(currentUserId);
-  const hasExpired = wishlistEntity.isExpired();
-  const isSuggestion = isItemSuggestion(item, wishlist.UserId);
-  const otherUsersCanSee =
-    item.OtherUsersCanSee !== undefined && item.OtherUsersCanSee !== null
-      ? item.OtherUsersCanSee !== false
-      : parseOtherUsersCanSee(item.Description);
+  const otherUsersCanSee = resolveOtherUsersCanSee(item);
 
-  const shouldHideSuggestion = isOwner && (!hasExpired || !wishlist.RevealSuggestions);
-
-  if (isOwner && (item.IsHiddenIdea || isSuggestion) && shouldHideSuggestion) {
+  if (isOwner && isSuggestion && item.IsHiddenIdea) {
     return false;
   }
 
@@ -75,4 +79,18 @@ export function canUserViewItem(ctx: ItemVisibilityContext): boolean {
   }
 
   return true;
+}
+
+export function canUserMutateItem(ctx: ItemVisibilityContext): boolean {
+  const { currentUserId, item, wishlist } = ctx;
+  if (!currentUserId) {
+    return false;
+  }
+  if (!canUserViewItem(ctx)) {
+    return false;
+  }
+  if (WishlistEntity.from(wishlist).isOwner(currentUserId)) {
+    return true;
+  }
+  return item.SuggestedByUserId === currentUserId;
 }

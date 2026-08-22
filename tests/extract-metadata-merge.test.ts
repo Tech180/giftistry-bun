@@ -19,7 +19,7 @@ let aiWebSearchEnabled = true;
 let userAiEnabled = true;
 let policyAllowsAi = true;
 
-function createConfigRepo(): ServerConfigRepository {
+function createConfigRepo(overrides: { AiEnabledPackIds?: string[] } = {}): ServerConfigRepository {
   return {
     load: () =>
       ({
@@ -35,6 +35,7 @@ function createConfigRepo(): ServerConfigRepository {
         AiIntelligentEndpoint: '',
         AiPopulatePrompt: '',
         AiCategoryPrompt: '',
+        ...overrides,
       }) as never,
   } as ServerConfigRepository;
 }
@@ -713,5 +714,124 @@ describe('ExtractMetadataUseCase AiPopulate diagnostics', () => {
     const result = await useCase.execute('https://shop.example/item', 'user-1');
     expect(result.diagnostics.aiPopulate).toBe('skipped');
     expect(result.data.title).toBe('Sneaker');
+  });
+
+  test('composes CPU pack fields into populate prompt for tech category', async () => {
+    aiEnabled = true;
+    userAiEnabled = true;
+    policyAllowsAi = true;
+
+    let capturedPrompt = '';
+    let capturedCategory: string | undefined;
+
+    const useCase = new ExtractMetadataUseCase(
+      {
+        scrape: async () => ({
+          diagnostics: {
+            source: 'fetch',
+            confidence: 'low',
+            blocked: true,
+            fieldsFound: [],
+          },
+          data: {
+            title: 'AMD Ryzen 5 5600X',
+            price: null,
+            description: null,
+            color: null,
+            size: null,
+            category: null,
+            imageUrl: null,
+          },
+        }),
+      },
+      {
+        populate: async (input, config) => {
+          capturedPrompt = config.customPrompt;
+          capturedCategory = input.category;
+          return {
+            title: 'AMD Ryzen 5 5600X',
+            price: null,
+            description: null,
+            color: null,
+            size: null,
+            category: null,
+            imageUrl: null,
+            predefinedFields: { Cores: '6', Threads: '12', Socket: 'AM4' },
+            userDefinedFields: {},
+          };
+        },
+      },
+      { classify: async () => ({ category: 'tech', alternatives: [] }) },
+      createUserRepo(),
+      createAssertUserCan(),
+      createWishlistRepo(),
+      createItemRepo(),
+      createConfigRepo(),
+      createPageContextFetcher()
+    );
+
+    const result = await useCase.execute('https://shop.example/cpu', 'user-1');
+
+    expect(capturedCategory).toBe('tech');
+    expect(capturedPrompt).toContain('=== Metadata Packs ===');
+    expect(capturedPrompt).toContain('Cores');
+    expect(capturedPrompt).toContain('Threads');
+    expect(capturedPrompt).toContain('Socket');
+    expect(result.data.predefinedFields?.Cores).toBe('6');
+    expect(result.data.predefinedFields?.Socket).toBe('AM4');
+  });
+
+  test('omits pack section when no packs are enabled', async () => {
+    aiEnabled = true;
+    userAiEnabled = true;
+    policyAllowsAi = true;
+
+    let capturedPrompt = '';
+
+    const useCase = new ExtractMetadataUseCase(
+      {
+        scrape: async () => ({
+          diagnostics: {
+            source: 'fetch',
+            confidence: 'low',
+            blocked: true,
+            fieldsFound: [],
+          },
+          data: {
+            title: 'AMD Ryzen 5 5600X',
+            price: null,
+            description: null,
+            color: null,
+            size: null,
+            category: null,
+            imageUrl: null,
+          },
+        }),
+      },
+      {
+        populate: async (_input, config) => {
+          capturedPrompt = config.customPrompt;
+          return {
+            title: 'AMD Ryzen 5 5600X',
+            price: null,
+            description: null,
+            color: null,
+            size: null,
+            category: null,
+            imageUrl: null,
+          };
+        },
+      },
+      { classify: async () => ({ category: 'tech', alternatives: [] }) },
+      createUserRepo(),
+      createAssertUserCan(),
+      createWishlistRepo(),
+      createItemRepo(),
+      createConfigRepo({ AiEnabledPackIds: [] }),
+      createPageContextFetcher()
+    );
+
+    await useCase.execute('https://shop.example/cpu', 'user-1');
+    expect(capturedPrompt).not.toContain('=== Metadata Packs ===');
   });
 });

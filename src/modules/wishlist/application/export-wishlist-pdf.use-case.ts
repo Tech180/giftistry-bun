@@ -23,7 +23,7 @@ export class ExportWishlistPdfUseCase {
     const user = await this.userRepo.findById(wishlist.UserId);
     const themeColors = await this.themeResolver.resolveThemeColors(user?.Theme || 'default');
 
-    const items = await this.listItemsUseCase.execute(listId, currentUserId);
+    const { Items } = await this.listItemsUseCase.execute(listId, currentUserId);
 
     const ownerName = (wishlist.OwnerFirstName && wishlist.OwnerLastName)
       ? `${wishlist.OwnerFirstName} ${wishlist.OwnerLastName}`
@@ -35,6 +35,12 @@ export class ExportWishlistPdfUseCase {
       avatarUrl: wishlist.OwnerAvatar || undefined,
     };
 
-    return await this.pdfGenerator.generateWishlistPdf(wishlist, items, themeColors, ownerInfo);
+    return await this.pdfGenerator.generateWishlistPdf(
+      wishlist,
+      Items,
+      themeColors,
+      ownerInfo,
+      currentUserId
+    );
   }
 }

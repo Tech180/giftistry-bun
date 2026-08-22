@@ -1,6 +1,7 @@
 import type { ItemAudienceUser } from './item-audience.entity';
 import type { Wishlist } from '@/modules/wishlist/domain/wishlist.entity';
 import {
+  canUserMutateItem,
   canUserViewItem,
   isItemSuggestion,
   parseOtherUsersCanSee,
@@ -8,7 +9,7 @@ import {
 } from './item-visibility.service';
 
 export type { ItemVisibilityContext };
-export { canUserViewItem, isItemSuggestion, parseOtherUsersCanSee };
+export { canUserMutateItem, canUserViewItem, isItemSuggestion, parseOtherUsersCanSee };
 
 export interface ItemLink {
   Id: string;
@@ -124,7 +125,7 @@ export class ItemEntity implements Item {
     return parseOtherUsersCanSee(this.Description);
   }
 
-  canUserView(wishlist: Wishlist, currentUserId: string, audienceUserIds: string[]): boolean {
+  canUserView(wishlist: Wishlist, currentUserId: string | null, audienceUserIds: string[]): boolean {
     return canUserViewItem({
       item: this,
       wishlist,

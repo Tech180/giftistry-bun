@@ -13,6 +13,7 @@ import type { JobProgressPublisher } from '../domain/ports/job-progress-publishe
 import { withJobHeartbeat } from './with-job-heartbeat.util';
 import { mergeGrabInfoDescription } from './merge-grab-info-description.util';
 import { resolveDesiredQuantity } from '@/modules/item/domain/parse-pack-quantity.util';
+import { resolveImportCategoryWithOptimize } from '@/modules/item/domain/is-soft-import-category.util';
 import { loadConfig } from '@/common/infrastructure/config.loader';
 import { resolveGrabInfoConcurrency } from '@/modules/system/domain/server-config.entity';
 import { itemsPerSecondRate } from '../domain/job-progress-rate.util';
@@ -289,6 +290,7 @@ export class RunWishlistImportJobUseCase {
           content: payload.content,
           contentEncoding: payload.contentEncoding,
           allowAi: payload.allowAi !== false,
+          optimizeCategories: payload.optimizeCategories === true,
         },
         async (update) => {
           await this.patch(job.Id, {
@@ -481,6 +483,9 @@ export class RunWishlistImportJobUseCase {
   ): Promise<void> {
     if (await this.jobRepo.shouldStop(job.Id)) return;
 
+    const importPayload = job.Payload as WishlistImportJobPayload;
+    const optimizeCategories = importPayload.optimizeCategories === true;
+
     let jobItems = await this.jobRepo.listItems(job.Id);
     for (const item of jobItems) {
       if (item.Status === 'running') {
@@ -629,7 +634,12 @@ export class RunWishlistImportJobUseCase {
           extract.data.userDefinedFields,
           { desiredQuantity: packQty }
         );
-        const category = mergeString(extract.data.category, row.category, row.category);
+        const category =
+          resolveImportCategoryWithOptimize(
+            row.category,
+            extract.data.category,
+            optimizeCategories
+          ) ?? row.category;
         const price = extract.data.price != null ? extract.data.price : row.price;
         const websiteName =
           mergeString(extract.websiteName, row.websiteName, '') || null;

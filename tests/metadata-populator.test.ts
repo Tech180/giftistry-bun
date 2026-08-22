@@ -25,6 +25,15 @@ describe('compilePopulatePrompt', () => {
     expect(prompt).toContain('Context=Title: Tee');
   });
 
+  test('replaces the category token', () => {
+    const prompt = compilePopulatePrompt('Category={category}', {
+      url: 'https://shop.example/item',
+      category: 'tech',
+    });
+
+    expect(prompt).toContain('Category=tech');
+  });
+
   test('appends linked Description and Category prompt sections', () => {
     const prompt = compilePopulatePrompt(
       'Extract fields from {url}',

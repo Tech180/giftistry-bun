@@ -1,18 +1,44 @@
-import { PDFDocument, StandardFonts, PDFString, PDFName, rgb } from 'pdf-lib';
+import { PDFDocument, StandardFonts, PDFString, PDFName, rgb, type PDFPage, type PDFFont } from 'pdf-lib';
 import type { PdfGenerator } from '../application/ports/pdf-generator.port';
 import type { ThemeColors } from '../application/ports/theme-resolver.port';
 import type { Wishlist } from '../domain/wishlist.entity';
+import {
+  PDF_LINKED_BADGE_PREFIX,
+  PDF_RELATED_BADGE_LABEL,
+} from '@/modules/item/domain/constants/pdf-relation-badge.constant';
+import {
+  buildRelatedGroupSymbolByItemId,
+  getLinkedItemIdsFromExportItem,
+  resolveRelationPeerNames,
+} from '@/modules/item/domain/resolve-item-relations.util';
 
 function toPdfLibColor(c: { red: number; green: number; blue: number }) {
   return rgb(c.red, c.green, c.blue);
 }
+
+const PDF_ITEM_INDENT = 12;
+const PDF_ITEM_TOP_GAP = 8;
+const PDF_ITEM_BOTTOM_GAP = 6;
+const PDF_TITLE_SIZE = 11;
+const PDF_TITLE_LINE_HEIGHT = PDF_TITLE_SIZE * 1.25;
+const PDF_PRICE_BADGE_HEIGHT = 14;
+const PDF_LINK_HEIGHT = 11;
+const PDF_DESCRIPTION_SIZE = 9.5;
+const PDF_DESCRIPTION_LINE_HEIGHT = PDF_DESCRIPTION_SIZE * 1.25;
+const PDF_DESCRIPTION_TOP_GAP = 4;
+const PDF_BADGES_TOP_GAP = 6;
+const PDF_META_BADGE_GAP = 6;
+const PDF_LINK_GAP = 10;
+const PDF_CLAIMED_BADGE_HEIGHT = 14;
+const PDF_CLAIMED_LABEL = 'Claimed';
 
 export class PdfLibGenerator implements PdfGenerator {
   async generateWishlistPdf(
     wishlist: Wishlist,
     items: any[],
     themeColors: ThemeColors,
-    ownerInfo: { name: string; username: string; avatarUrl?: string }
+    ownerInfo: { name: string; username: string; avatarUrl?: string },
+    viewerUserId?: string | null
   ): Promise<Uint8Array> {
     const pdfDoc = await PDFDocument.create();
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -114,7 +140,7 @@ export class PdfLibGenerator implements PdfGenerator {
     };
 
     // Draw header title
-    await drawText(wishlist.Title.toUpperCase(), {
+    await drawText(wishlist.Title, {
       font: fontBold,
       size: 18,
       color: colors.text,
@@ -122,10 +148,10 @@ export class PdfLibGenerator implements PdfGenerator {
     });
 
     // Draw metadata details
-    const expiresText = wishlist.ExpiresAt
-      ? `Expires: ${new Date(wishlist.ExpiresAt).toLocaleDateString()}`
+    const expirationDateText = wishlist.ExpiresAt
+      ? new Date(wishlist.ExpiresAt).toLocaleDateString()
       : 'No expiration date';
-    await drawText(expiresText, {
+    await drawText(`Expiration:\n${expirationDateText}`, {
       font,
       size: 9.5,
       color: colors.textMuted,
@@ -262,7 +288,14 @@ export class PdfLibGenerator implements PdfGenerator {
       thickness: 1.5,
       color: colors.border,
     });
-    currentY.y -= 20;
+    currentY.y -= 10;
+
+    const nameById = new Map<string, string>(
+      items
+        .filter((entry) => typeof entry?.Id === 'string')
+        .map((entry) => [entry.Id as string, String(entry.Name ?? '')])
+    );
+    const relatedSymbolByItemId = buildRelatedGroupSymbolByItemId(items);
 
     // Group items by category
     const categoryGroups: { [key: string]: typeof items } = {};
@@ -280,6 +313,7 @@ export class PdfLibGenerator implements PdfGenerator {
       return a.localeCompare(b);
     });
 
+    let isFirstCategory = true;
     for (const cat of categories) {
       const displayCategory = cat === 'uncategorized' ? 'General Items' : cat.charAt(0).toUpperCase() + cat.slice(1);
 
@@ -288,8 +322,9 @@ export class PdfLibGenerator implements PdfGenerator {
         font: fontBold,
         size: 13,
         color: colors.primary, // Primary brand color
-        marginTop: 15,
+        marginTop: isFirstCategory ? 4 : 15,
       });
+      isFirstCategory = false;
 
       // Category underline
       currentY.y -= 4;
@@ -331,219 +366,290 @@ export class PdfLibGenerator implements PdfGenerator {
 
         const hasPriority = item.Priority !== null && item.Priority !== undefined;
         const priorityText = hasPriority ? String(item.Priority) : '';
+        const isClaimed = !!item.IsClaimed;
+        const relatedSymbol = relatedSymbolByItemId.get(item.Id);
+        const hasRelated = !!relatedSymbol;
+        const relatedBadgeText = hasRelated
+          ? `${PDF_RELATED_BADGE_LABEL} ${relatedSymbol}`
+          : '';
+        const priorityOnTitleRow = hasPriority && !hasPrice;
+        const priorityOnDescriptionRow = hasPriority && hasPrice;
+        const claimedMetrics = isClaimed
+          ? this.getClaimedBadgeMetrics(fontBold)
+          : { width: 0, height: 0 };
+        const relatedMetrics = hasRelated
+          ? this.getRelatedBadgeMetrics(relatedBadgeText, fontBold)
+          : { width: 0, height: 0 };
+        const priorityMetrics = hasPriority
+          ? this.getPriorityMetaBadgeMetrics(priorityText, fontBold)
+          : { width: 0, height: 0 };
 
-        if (hasPrice || hasLink || hasPriority) {
-          // Subtract margin top first
-          currentY.y -= 6;
+        let titleTrailingWidth = 0;
+        if (hasPrice) {
+          const priceTextWidth = fontBold.widthOfTextAtSize(priceText, 9);
+          titleTrailingWidth += priceTextWidth + 12;
+        }
+        if (priorityOnTitleRow) {
+          titleTrailingWidth +=
+            priorityMetrics.width + (titleTrailingWidth > 0 ? PDF_META_BADGE_GAP : 0);
+        }
+        if (isClaimed) {
+          titleTrailingWidth +=
+            claimedMetrics.width + (titleTrailingWidth > 0 ? PDF_META_BADGE_GAP : 0);
+        }
+        if (hasRelated) {
+          titleTrailingWidth +=
+            relatedMetrics.width + (titleTrailingWidth > 0 ? PDF_META_BADGE_GAP : 0);
+        }
 
-          // Page break check
-          if (currentY.y - 13.75 < MARGIN_BOTTOM) {
+        currentY.y -= PDF_ITEM_TOP_GAP;
+
+        const contentRowHeight = Math.max(
+          PDF_TITLE_LINE_HEIGHT,
+          hasPrice ? PDF_PRICE_BADGE_HEIGHT : 0,
+          hasLink ? PDF_LINK_HEIGHT : 0,
+          isClaimed ? claimedMetrics.height : 0,
+          hasRelated ? relatedMetrics.height : 0,
+          priorityOnTitleRow ? priorityMetrics.height : 0
+        );
+
+        if (currentY.y - contentRowHeight < MARGIN_BOTTOM) {
+          pageRef.current = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+          currentY.y = PAGE_HEIGHT - MARGIN_TOP;
+        }
+
+        const blockTopY = currentY.y;
+        const rowCenterY = blockTopY - contentRowHeight / 2;
+        const headerBottomY = blockTopY - contentRowHeight;
+
+        let badgeX = PAGE_WIDTH - MARGIN_RIGHT;
+        let linkX = PAGE_WIDTH - MARGIN_RIGHT;
+
+        if (hasPrice) {
+          const paddingX = 6;
+          const paddingY = 2.5;
+          const fontSize = 9;
+          const textWidth = fontBold.widthOfTextAtSize(priceText, fontSize);
+          const badgeWidth = textWidth + paddingX * 2;
+          const badgeHeight = PDF_PRICE_BADGE_HEIGHT;
+          badgeX = PAGE_WIDTH - MARGIN_RIGHT - badgeWidth;
+          const badgeY = rowCenterY - badgeHeight / 2;
+
+          pageRef.current.drawRectangle({
+            x: badgeX,
+            y: badgeY,
+            width: badgeWidth,
+            height: badgeHeight,
+            color: colors.successBg,
+            borderColor: colors.successBorder,
+            borderWidth: 0.5,
+          });
+
+          pageRef.current.drawText(priceText, {
+            x: badgeX + paddingX,
+            y: badgeY + paddingY + 0.5,
+            size: fontSize,
+            font: fontBold,
+            color: colors.success,
+          });
+        }
+
+        if (hasLink && firstLink) {
+          const linkText = firstLink.RetailerName || 'Link';
+          const linkTextWidth = fontBold.widthOfTextAtSize(linkText, 9);
+
+          linkX =
+            titleTrailingWidth > 0
+              ? PAGE_WIDTH - MARGIN_RIGHT - titleTrailingWidth - PDF_LINK_GAP - linkTextWidth
+              : PAGE_WIDTH - MARGIN_RIGHT - linkTextWidth;
+
+          const linkY = rowCenterY - PDF_LINK_HEIGHT / 2;
+
+          pageRef.current.drawText(linkText, {
+            x: linkX,
+            y: linkY + 0.5,
+            size: 9,
+            font: fontBold,
+            color: colors.primary,
+          });
+
+          pageRef.current.drawLine({
+            start: { x: linkX, y: linkY - 1 },
+            end: { x: linkX + linkTextWidth, y: linkY - 1 },
+            thickness: 0.8,
+            color: colors.primary,
+          });
+
+          if (firstLink.Url) {
+            const linkAnnotation = pdfDoc.context.register(
+              pdfDoc.context.obj({
+                Type: 'Annot',
+                Subtype: 'Link',
+                Rect: [
+                  linkX,
+                  linkY - 2,
+                  linkX + linkTextWidth,
+                  linkY + PDF_LINK_HEIGHT,
+                ],
+                Border: [0, 0, 0],
+                A: {
+                  Type: 'Action',
+                  S: 'URI',
+                  URI: PDFString.of(firstLink.Url),
+                },
+              })
+            );
+
+            const annotsRef = pageRef.current.node.get(PDFName.of('Annots'));
+            let annotsArray: any;
+            if (!annotsRef) {
+              annotsArray = pdfDoc.context.obj([]);
+              pageRef.current.node.set(PDFName.of('Annots'), annotsArray);
+            } else {
+              annotsArray = pdfDoc.context.lookup(annotsRef);
+            }
+            if (annotsArray && typeof annotsArray.push === 'function') {
+              annotsArray.push(linkAnnotation);
+            }
+          }
+        }
+
+        let titleBadgeCursorX = PAGE_WIDTH - MARGIN_RIGHT;
+        if (hasPrice) {
+          titleBadgeCursorX = badgeX - PDF_META_BADGE_GAP;
+        }
+
+        if (priorityOnTitleRow) {
+          const priorityBadge = this.drawPriorityMetaBadge(
+            pageRef.current,
+            titleBadgeCursorX,
+            rowCenterY,
+            priorityText,
+            colors,
+            fontBold
+          );
+          titleBadgeCursorX -= priorityBadge.width + PDF_META_BADGE_GAP;
+        }
+
+        if (isClaimed) {
+          const claimedBadge = this.drawClaimedBadge(
+            pageRef.current,
+            titleBadgeCursorX,
+            rowCenterY,
+            colors,
+            fontBold
+          );
+          titleBadgeCursorX -= claimedBadge.width + PDF_META_BADGE_GAP;
+        }
+
+        if (hasRelated) {
+          this.drawRelatedBadge(
+            pageRef.current,
+            titleBadgeCursorX,
+            rowCenterY,
+            relatedBadgeText,
+            colors,
+            fontBold
+          );
+        }
+
+        const rightContentEdge = hasLink
+          ? linkX
+          : titleTrailingWidth > 0
+            ? PAGE_WIDTH - MARGIN_RIGHT - titleTrailingWidth
+            : hasPrice
+              ? badgeX
+              : PAGE_WIDTH - MARGIN_RIGHT;
+
+        currentY.y = blockTopY;
+        await drawText(`•  ${starPrefix}${item.Name}`, {
+          font: fontBold,
+          size: PDF_TITLE_SIZE,
+          color: colors.text,
+          marginTop: (contentRowHeight - PDF_TITLE_LINE_HEIGHT) / 2,
+          indent: PDF_ITEM_INDENT,
+          maxWidth: rightContentEdge - MARGIN_LEFT - PDF_ITEM_INDENT - 8,
+        });
+
+        if (currentY.y > headerBottomY) {
+          currentY.y = headerBottomY;
+        }
+
+        const descriptionText = this.getNotesText(item.Description);
+        const showDescriptionRow = !!descriptionText || priorityOnDescriptionRow;
+
+        if (showDescriptionRow) {
+          const descriptionRowHeight = Math.max(
+            descriptionText ? PDF_DESCRIPTION_LINE_HEIGHT : 0,
+            priorityOnDescriptionRow ? priorityMetrics.height : 0,
+            PDF_DESCRIPTION_LINE_HEIGHT
+          );
+
+          if (currentY.y - descriptionRowHeight < MARGIN_BOTTOM) {
             pageRef.current = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
             currentY.y = PAGE_HEIGHT - MARGIN_TOP;
           }
 
-          let badgeX = PAGE_WIDTH - MARGIN_RIGHT;
+          const descriptionRowTopY = currentY.y - PDF_DESCRIPTION_TOP_GAP;
+          const descriptionRowCenterY = descriptionRowTopY - descriptionRowHeight / 2;
+          const descriptionRowBottomY = descriptionRowTopY - descriptionRowHeight;
 
-          // 1. Draw Price Badge if present
-          if (hasPrice) {
-            const paddingX = 6;
-            const paddingY = 2.5;
-            const fontSize = 9;
-            const textWidth = fontBold.widthOfTextAtSize(priceText, fontSize);
-            const badgeWidth = textWidth + paddingX * 2;
-            const badgeHeight = fontSize + paddingY * 2;
-            badgeX = PAGE_WIDTH - MARGIN_RIGHT - badgeWidth;
-            const badgeY = currentY.y - 5.5 - badgeHeight / 2;
+          if (priorityOnDescriptionRow) {
+            this.drawPriorityMetaBadge(
+              pageRef.current,
+              PAGE_WIDTH - MARGIN_RIGHT,
+              descriptionRowCenterY,
+              priorityText,
+              colors,
+              fontBold
+            );
+          }
 
-            // Draw the price badge background
-            pageRef.current.drawRectangle({
-              x: badgeX,
-              y: badgeY,
-              width: badgeWidth,
-              height: badgeHeight,
-              color: colors.successBg,
-              borderColor: colors.successBorder,
-              borderWidth: 0.5,
-            });
+          if (descriptionText) {
+            const descriptionRightEdge = priorityOnDescriptionRow
+              ? PAGE_WIDTH - MARGIN_RIGHT - priorityMetrics.width - 8
+              : PAGE_WIDTH - MARGIN_RIGHT;
 
-            // Draw the price text inside the badge
-            pageRef.current.drawText(priceText, {
-              x: badgeX + paddingX,
-              y: badgeY + paddingY + 0.5,
-              size: fontSize,
-              font: fontBold,
-              color: colors.success,
+            currentY.y = descriptionRowTopY;
+            await drawText(descriptionText, {
+              font: fontItalic,
+              size: PDF_DESCRIPTION_SIZE,
+              color: colors.textMuted,
+              indent: PDF_ITEM_INDENT,
+              marginTop: (descriptionRowHeight - PDF_DESCRIPTION_LINE_HEIGHT) / 2,
+              maxWidth: descriptionRightEdge - MARGIN_LEFT - PDF_ITEM_INDENT,
             });
           }
 
-          let linkX = PAGE_WIDTH - MARGIN_RIGHT;
-
-          // 2. Draw Link if present
-          if (hasLink && firstLink) {
-            const linkText = firstLink.RetailerName || 'Link';
-            const linkTextWidth = fontBold.widthOfTextAtSize(linkText, 9);
-            
-            if (hasPrice) {
-              linkX = badgeX - 10 - linkTextWidth;
-            } else {
-              linkX = PAGE_WIDTH - MARGIN_RIGHT - linkTextWidth;
-            }
-
-            const linkY = currentY.y - 5.5 - 9 / 2;
-
-            // Draw link text
-            pageRef.current.drawText(linkText, {
-              x: linkX,
-              y: linkY + 0.5,
-              size: 9,
-              font: fontBold,
-              color: colors.primary,
-            });
-
-            // Underline
-            pageRef.current.drawLine({
-              start: { x: linkX, y: linkY - 1 },
-              end: { x: linkX + linkTextWidth, y: linkY - 1 },
-              thickness: 0.8,
-              color: colors.primary,
-            });
-
-            // Create annotation
-            if (firstLink.Url) {
-              const linkAnnotation = pdfDoc.context.register(
-                pdfDoc.context.obj({
-                  Type: 'Annot',
-                  Subtype: 'Link',
-                  Rect: [
-                    linkX,
-                    linkY - 2,
-                    linkX + linkTextWidth,
-                    linkY + 9,
-                  ],
-                  Border: [0, 0, 0],
-                  A: {
-                    Type: 'Action',
-                    S: 'URI',
-                    URI: PDFString.of(firstLink.Url),
-                  },
-                })
-              );
-
-              const annotsRef = pageRef.current.node.get(PDFName.of('Annots'));
-              let annotsArray: any;
-              if (!annotsRef) {
-                annotsArray = pdfDoc.context.obj([]);
-                pageRef.current.node.set(PDFName.of('Annots'), annotsArray);
-              } else {
-                annotsArray = pdfDoc.context.lookup(annotsRef);
-              }
-              if (annotsArray && typeof annotsArray.push === 'function') {
-                annotsArray.push(linkAnnotation);
-              }
-            }
+          if (currentY.y > descriptionRowBottomY) {
+            currentY.y = descriptionRowBottomY;
           }
+        }
 
-          let priX = PAGE_WIDTH - MARGIN_RIGHT;
+        // Gather badges: linked peers first, then custom fields
+        const badges: Array<{
+          text: string;
+          bg?: ReturnType<typeof rgb>;
+          fg?: ReturnType<typeof rgb>;
+          border?: ReturnType<typeof rgb>;
+        }> = [];
 
-          // 3. Draw Priority Badge if present (only the number)
-          if (hasPriority) {
-            const paddingX = 6;
-            const paddingY = 2.5;
-            const fontSize = 9;
-            const priTextWidth = fontBold.widthOfTextAtSize(priorityText, fontSize);
-            const priBadgeWidth = priTextWidth + paddingX * 2;
-            const priBadgeHeight = fontSize + paddingY * 2;
-
-            if (hasLink) {
-              priX = linkX - 10 - priBadgeWidth;
-            } else if (hasPrice) {
-              priX = badgeX - 10 - priBadgeWidth;
-            } else {
-              priX = PAGE_WIDTH - MARGIN_RIGHT - priBadgeWidth;
-            }
-
-            const priY = currentY.y - 5.5 - priBadgeHeight / 2;
-
-            // Draw the priority badge background
-            pageRef.current.drawRectangle({
-              x: priX,
-              y: priY,
-              width: priBadgeWidth,
-              height: priBadgeHeight,
-              color: colors.warningBg,
-              borderColor: colors.warningBorder,
-              borderWidth: 0.5,
-            });
-
-            // Draw the priority number text inside the badge
-            pageRef.current.drawText(priorityText, {
-              x: priX + paddingX,
-              y: priY + paddingY + 0.5,
-              size: fontSize,
-              font: fontBold,
-              color: colors.warning,
-            });
-          }
-
-          // 4. Draw item name (marginTop: 0 because we already subtracted it)
-          const leftBound = hasPriority ? priX : (hasLink ? linkX : badgeX);
-          await drawText(`•  ${starPrefix}${item.Name}`, {
-            font: fontBold,
-            size: 11,
-            color: colors.text,
-            marginTop: 0,
-            maxWidth: leftBound - MARGIN_LEFT - 12,
-          });
-        } else {
-          // Draw item name normally if there's no price, link, or priority
-          await drawText(`•  ${starPrefix}${item.Name}`, {
-            font: fontBold,
-            size: 11,
-            color: colors.text,
-            marginTop: 6,
+        for (const peerName of resolveRelationPeerNames(
+          item.Id,
+          items,
+          nameById,
+          getLinkedItemIdsFromExportItem
+        )) {
+          badges.push({
+            text: `${PDF_LINKED_BADGE_PREFIX}${peerName}`,
+            bg: colors.customFieldBg,
+            fg: colors.primary,
+            border: colors.customFieldBorder,
           });
         }
 
-        // Description/Notes
-        const notesText = this.getNotesText(item.Description);
-        if (notesText) {
-          await drawText(`Notes: ${notesText}`, {
-            font: fontItalic,
-            size: 9.5,
-            color: colors.textMuted,
-            indent: 12,
-            marginTop: 2,
-          });
-        }
-
-        // Gather badges
-        const badges: Array<{ text: string; bg?: any; fg?: any }> = [];
-
-        // Custom Fields Badges
-        if (item.Description) {
-          const trimmed = item.Description.trim();
-          if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-            try {
-              const parsed = JSON.parse(trimmed);
-              if (parsed && typeof parsed === 'object') {
-                // Predefined
-                const predefined = parsed.CustomFields?.Predefined ?? {};
-                for (const [key, val] of Object.entries(predefined)) {
-                  if (val != null && String(val).trim()) {
-                    const label = this.formatPredefinedKeyToLabel(key);
-                    badges.push({ text: `${label}: ${String(val).trim()}` });
-                  }
-                }
-                // UserDefined
-                const userDefined = parsed.CustomFields?.UserDefined ?? {};
-                for (const [name, val] of Object.entries(userDefined)) {
-                  if (val != null && typeof val === 'string' && val.trim()) {
-                    badges.push({ text: `${name}: ${val.trim()}` });
-                  }
-                }
-              }
-            } catch (e) {}
-          }
+        for (const customBadge of this.collectCustomFieldBadges(item)) {
+          badges.push({ text: customBadge });
         }
 
         // Draw Badges Row
@@ -555,10 +661,10 @@ export class PdfLibGenerator implements PdfGenerator {
           const spaceX = 5;
           const spaceY = 4;
 
-          let startX = MARGIN_LEFT + 12;
+          let startX = MARGIN_LEFT + PDF_ITEM_INDENT;
           const endX = PAGE_WIDTH - MARGIN_RIGHT;
 
-          currentY.y -= 4; // Margin top for badges row
+          currentY.y -= PDF_BADGES_TOP_GAP;
 
           for (const badge of badges) {
             const textWidth = font.widthOfTextAtSize(badge.text, fontSize);
@@ -566,7 +672,7 @@ export class PdfLibGenerator implements PdfGenerator {
 
             // Wrap line if badges exceed CONTENT_WIDTH
             if (startX + badgeWidth > endX) {
-              startX = MARGIN_LEFT + 12;
+              startX = MARGIN_LEFT + PDF_ITEM_INDENT;
               currentY.y -= (badgeHeight + spaceY);
             }
 
@@ -574,12 +680,12 @@ export class PdfLibGenerator implements PdfGenerator {
             if (currentY.y - badgeHeight < MARGIN_BOTTOM) {
               pageRef.current = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
               currentY.y = PAGE_HEIGHT - MARGIN_TOP;
-              startX = MARGIN_LEFT + 12;
+              startX = MARGIN_LEFT + PDF_ITEM_INDENT;
             }
 
             const bg = badge.bg || colors.customFieldBg;
             const fg = badge.fg || colors.customFieldText;
-            const borderColor = colors.customFieldBorder;
+            const borderColor = badge.border || colors.customFieldBorder;
 
             pageRef.current.drawRectangle({
               x: startX,
@@ -605,25 +711,196 @@ export class PdfLibGenerator implements PdfGenerator {
           currentY.y -= badgeHeight;
         }
 
-        // Claims / Purchase status
-        if (item.IsClaimed) {
-          const claimNames = item.Claims?.map((c: any) => c.ClaimedByName).filter(Boolean).join(', ') || 'Someone';
-          await drawText(`Status: Claimed by ${claimNames}`, {
-            font: fontBold,
-            size: 9.5,
-            color: colors.success, // Success color for claimed/purchased status
-            indent: 12,
-            marginTop: 2,
-          });
-        }
-
-        currentY.y -= 4; // Space between items
+        currentY.y -= PDF_ITEM_BOTTOM_GAP;
       }
 
       currentY.y -= 8; // Space between categories
     }
 
     return await pdfDoc.save();
+  }
+
+  private getClaimedBadgeMetrics(fontBold: PDFFont): { width: number; height: number } {
+    const paddingX = 6;
+    const fontSize = 8;
+    const textWidth = fontBold.widthOfTextAtSize(PDF_CLAIMED_LABEL, fontSize);
+
+    return {
+      width: textWidth + paddingX * 2,
+      height: PDF_CLAIMED_BADGE_HEIGHT,
+    };
+  }
+
+  private drawClaimedBadge(
+    page: PDFPage,
+    rightX: number,
+    centerY: number,
+    colors: {
+      success: ReturnType<typeof rgb>;
+      successBg: ReturnType<typeof rgb>;
+      successBorder: ReturnType<typeof rgb>;
+    },
+    fontBold: PDFFont
+  ): { width: number; height: number } {
+    const paddingX = 6;
+    const paddingY = 2.5;
+    const fontSize = 8;
+    const { width: badgeWidth, height: badgeHeight } = this.getClaimedBadgeMetrics(fontBold);
+    const textWidth = fontBold.widthOfTextAtSize(PDF_CLAIMED_LABEL, fontSize);
+    const badgeX = rightX - badgeWidth;
+    const badgeY = centerY - badgeHeight / 2;
+
+    page.drawRectangle({
+      x: badgeX,
+      y: badgeY,
+      width: badgeWidth,
+      height: badgeHeight,
+      color: colors.successBg,
+      borderColor: colors.successBorder,
+      borderWidth: 0.5,
+    });
+
+    page.drawText(PDF_CLAIMED_LABEL, {
+      x: badgeX + (badgeWidth - textWidth) / 2,
+      y: badgeY + paddingY + 0.5,
+      size: fontSize,
+      font: fontBold,
+      color: colors.success,
+    });
+
+    return { width: badgeWidth, height: badgeHeight };
+  }
+
+  private getRelatedBadgeMetrics(
+    label: string,
+    fontBold: PDFFont
+  ): { width: number; height: number } {
+    const paddingX = 6;
+    const fontSize = 8;
+    const textWidth = fontBold.widthOfTextAtSize(label, fontSize);
+
+    return {
+      width: textWidth + paddingX * 2,
+      height: PDF_CLAIMED_BADGE_HEIGHT,
+    };
+  }
+
+  private drawRelatedBadge(
+    page: PDFPage,
+    rightX: number,
+    centerY: number,
+    label: string,
+    colors: {
+      border: ReturnType<typeof rgb>;
+      textMuted: ReturnType<typeof rgb>;
+      customFieldBg: ReturnType<typeof rgb>;
+    },
+    fontBold: PDFFont
+  ): { width: number; height: number } {
+    const paddingX = 6;
+    const paddingY = 2.5;
+    const fontSize = 8;
+    const { width: badgeWidth, height: badgeHeight } = this.getRelatedBadgeMetrics(
+      label,
+      fontBold
+    );
+    const textWidth = fontBold.widthOfTextAtSize(label, fontSize);
+    const badgeX = rightX - badgeWidth;
+    const badgeY = centerY - badgeHeight / 2;
+
+    page.drawRectangle({
+      x: badgeX,
+      y: badgeY,
+      width: badgeWidth,
+      height: badgeHeight,
+      color: colors.customFieldBg,
+      borderColor: colors.border,
+      borderWidth: 0.5,
+    });
+
+    page.drawText(label, {
+      x: badgeX + (badgeWidth - textWidth) / 2,
+      y: badgeY + paddingY + 0.5,
+      size: fontSize,
+      font: fontBold,
+      color: colors.textMuted,
+    });
+
+    return { width: badgeWidth, height: badgeHeight };
+  }
+
+  private getPriorityMetaBadgeMetrics(
+    priorityValue: string,
+    fontBold: PDFFont
+  ): { width: number; height: number } {
+    const paddingX = 6;
+    const paddingY = 3;
+    const labelSize = 6;
+    const valueSize = 8;
+    const label = 'PRIORITY:';
+    const labelWidth = fontBold.widthOfTextAtSize(label, labelSize);
+    const valueWidth = fontBold.widthOfTextAtSize(priorityValue, valueSize);
+    const contentWidth = Math.max(labelWidth, valueWidth);
+
+    return {
+      width: contentWidth + paddingX * 2,
+      height: labelSize + valueSize + paddingY * 2 + 2,
+    };
+  }
+
+  private drawPriorityMetaBadge(
+    page: PDFPage,
+    rightX: number,
+    centerY: number,
+    priorityValue: string,
+    colors: {
+      border: ReturnType<typeof rgb>;
+      textMuted: ReturnType<typeof rgb>;
+      customFieldBg: ReturnType<typeof rgb>;
+    },
+    fontBold: PDFFont
+  ): { width: number; height: number } {
+    const paddingX = 6;
+    const paddingY = 3;
+    const labelSize = 6;
+    const valueSize = 8;
+    const label = 'PRIORITY:';
+    const { width: badgeWidth, height: badgeHeight } = this.getPriorityMetaBadgeMetrics(
+      priorityValue,
+      fontBold
+    );
+    const labelWidth = fontBold.widthOfTextAtSize(label, labelSize);
+    const valueWidth = fontBold.widthOfTextAtSize(priorityValue, valueSize);
+    const badgeX = rightX - badgeWidth;
+    const badgeY = centerY - badgeHeight / 2;
+
+    page.drawRectangle({
+      x: badgeX,
+      y: badgeY,
+      width: badgeWidth,
+      height: badgeHeight,
+      color: colors.customFieldBg,
+      borderColor: colors.border,
+      borderWidth: 0.5,
+    });
+
+    page.drawText(label, {
+      x: badgeX + (badgeWidth - labelWidth) / 2,
+      y: badgeY + badgeHeight - paddingY - labelSize,
+      size: labelSize,
+      font: fontBold,
+      color: colors.textMuted,
+    });
+
+    page.drawText(priorityValue, {
+      x: badgeX + (badgeWidth - valueWidth) / 2,
+      y: badgeY + paddingY,
+      size: valueSize,
+      font: fontBold,
+      color: colors.textMuted,
+    });
+
+    return { width: badgeWidth, height: badgeHeight };
   }
 
   private getNotesText(description: string | null | undefined): string {
@@ -647,6 +924,59 @@ export class PdfLibGenerator implements PdfGenerator {
     }
 
     return trimmed;
+  }
+
+  private collectCustomFieldBadges(item: {
+    Description?: string | null;
+    Metadata?: {
+      CustomFields?: {
+        Predefined?: Record<string, string | null>;
+        UserDefined?: Record<string, string>;
+      };
+    } | null;
+  }): string[] {
+    const badges: string[] = [];
+
+    const pushFields = (customFields: {
+      Predefined?: Record<string, string | null>;
+      UserDefined?: Record<string, string>;
+    } | undefined) => {
+      if (!customFields) return;
+      const predefined = customFields.Predefined ?? {};
+      for (const [key, val] of Object.entries(predefined)) {
+        if (val != null && String(val).trim()) {
+          const label = this.formatPredefinedKeyToLabel(key);
+          badges.push(`${label}: ${String(val).trim()}`);
+        }
+      }
+      const userDefined = customFields.UserDefined ?? {};
+      for (const [name, val] of Object.entries(userDefined)) {
+        if (val != null && typeof val === 'string' && val.trim()) {
+          badges.push(`${name}: ${val.trim()}`);
+        }
+      }
+    };
+
+    if (item.Metadata?.CustomFields) {
+      pushFields(item.Metadata.CustomFields);
+      return badges;
+    }
+
+    if (item.Description) {
+      const trimmed = item.Description.trim();
+      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (parsed && typeof parsed === 'object') {
+            pushFields(parsed.CustomFields);
+          }
+        } catch {
+          // Ignore malformed description JSON
+        }
+      }
+    }
+
+    return badges;
   }
 
   private formatPredefinedKeyToLabel(key: string): string {

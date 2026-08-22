@@ -9,6 +9,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
              l.allow_group_funds as "AllowGroupFunds", l.is_active as "IsActive", 
              l.category as "Category", l.reveal_suggestions as "RevealSuggestions", l.ai_enabled as "AiEnabled", l.web_search_enabled as "WebSearchEnabled",
              l.manual_job_background as "ManualJobBackground",
+             l.auto_rollover as "AutoRollover",
              l.created_at as "CreatedAt",
              u.username as "OwnerUsername", u.first_name as "OwnerFirstName", u.last_name as "OwnerLastName", u.avatar as "OwnerAvatar"
       FROM lists l
@@ -29,6 +30,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
       AiEnabled: row.AiEnabled,
       WebSearchEnabled: row.WebSearchEnabled,
       ManualJobBackground: row.ManualJobBackground !== false,
+      AutoRollover: row.AutoRollover === true,
       OwnerUsername: row.OwnerUsername,
       OwnerFirstName: row.OwnerFirstName,
       OwnerLastName: row.OwnerLastName,
@@ -43,6 +45,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
              l.created_at as "CreatedAt", l.category as "Category",
              l.reveal_suggestions as "RevealSuggestions", l.ai_enabled as "AiEnabled", l.web_search_enabled as "WebSearchEnabled",
              l.manual_job_background as "ManualJobBackground",
+             l.auto_rollover as "AutoRollover",
              u.username as "OwnerUsername", u.first_name as "OwnerFirstName", u.avatar as "OwnerAvatar",
              CASE
                WHEN l.user_id = ${userId} THEN 'owner'
@@ -106,6 +109,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
       AiEnabled: row.AiEnabled,
       WebSearchEnabled: row.WebSearchEnabled,
       ManualJobBackground: row.ManualJobBackground !== false,
+      AutoRollover: row.AutoRollover === true,
       OwnerUsername: row.OwnerUsername,
       OwnerFirstName: row.OwnerFirstName,
       OwnerAvatar: row.OwnerAvatar ?? null,
@@ -123,16 +127,18 @@ export class PostgresWishlistRepository implements WishlistRepository {
     revealSuggestions: boolean = true,
     aiEnabled: boolean = false,
     webSearchEnabled: boolean = false,
-    manualJobBackground: boolean = true
+    manualJobBackground: boolean = true,
+    autoRollover: boolean = false
   ): Promise<Wishlist> {
     const [row] = await sql<any[]>`
-      INSERT INTO lists (user_id, title, expires_at, allow_group_funds, category, reveal_suggestions, ai_enabled, web_search_enabled, manual_job_background)
-      VALUES (${userId}, ${title}, ${expiresAt}, ${allowGroupFunds}, ${category}, ${revealSuggestions}, ${aiEnabled}, ${webSearchEnabled}, ${manualJobBackground})
+      INSERT INTO lists (user_id, title, expires_at, allow_group_funds, category, reveal_suggestions, ai_enabled, web_search_enabled, manual_job_background, auto_rollover)
+      VALUES (${userId}, ${title}, ${expiresAt}, ${allowGroupFunds}, ${category}, ${revealSuggestions}, ${aiEnabled}, ${webSearchEnabled}, ${manualJobBackground}, ${autoRollover})
       RETURNING id as "Id", user_id as "UserId", title as "Title", expires_at as "ExpiresAt", 
                 allow_group_funds as "AllowGroupFunds", is_active as "IsActive", 
                 category as "Category", reveal_suggestions as "RevealSuggestions", ai_enabled as "AiEnabled",
                 web_search_enabled as "WebSearchEnabled",
                 manual_job_background as "ManualJobBackground",
+                auto_rollover as "AutoRollover",
                 created_at as "CreatedAt"
     `;
     if (!row) throw new Error('Failed to create wishlist');
@@ -149,6 +155,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
       AiEnabled: row.AiEnabled,
       WebSearchEnabled: row.WebSearchEnabled,
       ManualJobBackground: row.ManualJobBackground !== false,
+      AutoRollover: row.AutoRollover === true,
     };
   }
 
@@ -160,7 +167,26 @@ export class PostgresWishlistRepository implements WishlistRepository {
     `;
   }
 
-  async update(id: string, title: string, expiresAt: Date | null, allowGroupFunds: boolean, category?: string, revealSuggestions?: boolean, aiEnabled?: boolean, webSearchEnabled?: boolean, manualJobBackground?: boolean): Promise<Wishlist> {
+  async updateExpiresAt(id: string, expiresAt: Date | null): Promise<void> {
+    await sql`
+      UPDATE lists
+      SET expires_at = ${expiresAt}
+      WHERE id = ${id}
+    `;
+  }
+
+  async update(
+    id: string,
+    title: string,
+    expiresAt: Date | null,
+    allowGroupFunds: boolean,
+    category?: string,
+    revealSuggestions?: boolean,
+    aiEnabled?: boolean,
+    webSearchEnabled?: boolean,
+    manualJobBackground?: boolean,
+    autoRollover?: boolean
+  ): Promise<Wishlist> {
     const [row] = await sql<any[]>`
       UPDATE lists
       SET title = ${title}, expires_at = ${expiresAt}, allow_group_funds = ${allowGroupFunds},
@@ -168,12 +194,14 @@ export class PostgresWishlistRepository implements WishlistRepository {
           reveal_suggestions = COALESCE(${revealSuggestions ?? null}, reveal_suggestions),
           ai_enabled = COALESCE(${aiEnabled ?? null}, ai_enabled),
           web_search_enabled = COALESCE(${webSearchEnabled ?? null}, web_search_enabled),
-          manual_job_background = COALESCE(${manualJobBackground ?? null}, manual_job_background)
+          manual_job_background = COALESCE(${manualJobBackground ?? null}, manual_job_background),
+          auto_rollover = COALESCE(${autoRollover ?? null}, auto_rollover)
       WHERE id = ${id}
       RETURNING id as "Id", user_id as "UserId", title as "Title", expires_at as "ExpiresAt", 
                 allow_group_funds as "AllowGroupFunds", is_active as "IsActive", 
                 category as "Category", reveal_suggestions as "RevealSuggestions", ai_enabled as "AiEnabled", web_search_enabled as "WebSearchEnabled",
                 manual_job_background as "ManualJobBackground",
+                auto_rollover as "AutoRollover",
                 created_at as "CreatedAt"
     `;
     if (!row) throw new Error('Failed to update wishlist');
@@ -190,6 +218,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
       AiEnabled: row.AiEnabled,
       WebSearchEnabled: row.WebSearchEnabled,
       ManualJobBackground: row.ManualJobBackground !== false,
+      AutoRollover: row.AutoRollover === true,
     };
   }
 
@@ -214,7 +243,8 @@ export class PostgresWishlistRepository implements WishlistRepository {
     const rows = await sql<any[]>`
       SELECT id as "Id", user_id as "UserId", title as "Title", expires_at as "ExpiresAt", 
              allow_group_funds as "AllowGroupFunds", is_active as "IsActive", 
-             category as "Category", reveal_suggestions as "RevealSuggestions", ai_enabled as "AiEnabled", created_at as "CreatedAt"
+             category as "Category", reveal_suggestions as "RevealSuggestions", ai_enabled as "AiEnabled",
+             auto_rollover as "AutoRollover", created_at as "CreatedAt"
       FROM lists
       WHERE is_active = true AND expires_at < CURRENT_TIMESTAMP
     `;
@@ -229,6 +259,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
       Category: row.Category,
       RevealSuggestions: row.RevealSuggestions,
       AiEnabled: row.AiEnabled,
+      AutoRollover: row.AutoRollover === true,
     }));
   }
 
@@ -277,30 +308,18 @@ export class PostgresWishlistRepository implements WishlistRepository {
     };
   }
 
-  async findPrioritiesByWishlistForUser(wishlistId: string, userId: string, isOwner: boolean, hasExpired: boolean, revealSuggestions: boolean): Promise<Priority[]> {
+  async findPrioritiesByWishlistForUser(wishlistId: string, userId: string, isOwner: boolean): Promise<Priority[]> {
     const ownedPriorities = await this.findPrioritiesByUserId(userId);
     
     let rows: any[] = [];
     if (isOwner) {
-      const shouldReveal = hasExpired && revealSuggestions;
-      if (shouldReveal) {
-        rows = await sql<any[]>`
-          SELECT DISTINCT p.id as "Id", p.user_id as "UserId", p.label as "Label", p.weight as "Weight"
-          FROM priorities p
-          JOIN items i ON i.priority_id = p.id
-          WHERE i.list_id = ${wishlistId}
-        `;
-      } else {
-        rows = await sql<any[]>`
-          SELECT DISTINCT p.id as "Id", p.user_id as "UserId", p.label as "Label", p.weight as "Weight"
-          FROM priorities p
-          JOIN items i ON i.priority_id = p.id
-          WHERE i.list_id = ${wishlistId}
-            AND i.is_hidden_idea = false
-            AND i.is_suggestion = false
-            AND (i.suggested_by_user_id IS NULL OR i.suggested_by_user_id = ${userId})
-        `;
-      }
+      rows = await sql<any[]>`
+        SELECT DISTINCT p.id as "Id", p.user_id as "UserId", p.label as "Label", p.weight as "Weight"
+        FROM priorities p
+        JOIN items i ON i.priority_id = p.id
+        WHERE i.list_id = ${wishlistId}
+          AND i.is_hidden_idea = false
+      `;
     } else {
       const ownerQuery = sql<any[]>`
         SELECT id as "Id", user_id as "UserId", label as "Label", weight as "Weight"

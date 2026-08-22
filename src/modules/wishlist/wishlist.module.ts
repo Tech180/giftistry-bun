@@ -26,7 +26,6 @@ import { CreatePriorityUseCase } from './application/create-priority.use-case';
 import { ListPrioritiesUseCase } from './application/list-priorities.use-case';
 import { DeletePriorityUseCase } from './application/delete-priority.use-case';
 import { ListExpiredWishlistsUseCase } from './application/list-expired-wishlists.use-case';
-import { ShareWishlistUseCase } from './application/share-wishlist.use-case';
 import { DeactivateWishlistUseCase } from './application/deactivate-wishlist.use-case';
 import { ActivateWishlistUseCase } from './application/activate-wishlist.use-case';
 import { GetWishlistUseCase } from './application/get-wishlist.use-case';
@@ -89,6 +88,13 @@ export function createWishlistModule(deps: WishlistModuleDeps) {
   const themeResolver = new PostgresThemeResolver();
   const pdfGenerator = new PdfLibGenerator();
 
+  const rolloverWishlist = new RolloverWishlistUseCase(
+    deps.wishlistRepo,
+    deps.listShareRepo,
+    deps.itemRepo,
+    deps.commentRepo
+  );
+
   const useCases = {
         createWishlist: new CreateWishlistUseCase(
           deps.wishlistRepo,
@@ -102,16 +108,10 @@ export function createWishlistModule(deps: WishlistModuleDeps) {
         listPriorities: new ListPrioritiesUseCase(deps.wishlistRepo),
         deletePriority: new DeletePriorityUseCase(deps.wishlistRepo),
         listExpiredWishlists: new ListExpiredWishlistsUseCase(deps.wishlistRepo),
-        shareWishlist: new ShareWishlistUseCase(deps.listShareRepo, deps.userRepo, deps.eventBus),
         deactivateWishlist: new DeactivateWishlistUseCase(deps.wishlistRepo),
         activateWishlist: new ActivateWishlistUseCase(deps.wishlistRepo),
-        getWishlist: new GetWishlistUseCase(deps.wishlistRepo),
-        rolloverWishlist: new RolloverWishlistUseCase(
-          deps.wishlistRepo,
-          deps.listShareRepo,
-          deps.itemRepo,
-          deps.commentRepo
-        ),
+        getWishlist: new GetWishlistUseCase(deps.wishlistRepo, rolloverWishlist),
+        rolloverWishlist,
         updateWishlist: new UpdateWishlistUseCase(
           deps.wishlistRepo,
           deps.userRepo,

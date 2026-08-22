@@ -1,8 +1,16 @@
 import type { ItemRepository } from '../domain/ports/item.repository';
 import type { ItemAudienceRepository } from '../domain/ports/item-audience.repository';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
+import type { Item } from '../domain/item.entity';
+import type { Wishlist } from '@/modules/wishlist/domain/wishlist.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { canUserViewItem } from '../domain/item-visibility.service';
+
+export interface VisibleItemContext {
+  item: Item;
+  wishlist: Wishlist;
+  audienceUserIds: string[];
+}
 
 export class AssertItemVisibleUseCase {
   constructor(
@@ -11,7 +19,7 @@ export class AssertItemVisibleUseCase {
     private audienceRepo: ItemAudienceRepository
   ) {}
 
-  async execute(itemId: string, currentUserId: string): Promise<void> {
+  async execute(itemId: string, currentUserId: string): Promise<VisibleItemContext> {
     const item = await this.itemRepo.findById(itemId);
     if (!item) {
       throw new AppError('Item not found', 404, 'NOT_FOUND');
@@ -35,5 +43,7 @@ export class AssertItemVisibleUseCase {
     if (!visible) {
       throw new AppError('Item not found', 404, 'NOT_FOUND');
     }
+
+    return { item, wishlist, audienceUserIds };
   }
 }

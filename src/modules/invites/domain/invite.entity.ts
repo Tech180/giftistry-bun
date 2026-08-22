@@ -4,6 +4,7 @@ export interface ListLinkToken {
   Id: string;
   ListId: string;
   TokenHash: string;
+  Token: string | null;
   Role: ShareRole;
   CreatedBy: string;
   ExpiresAt: Date | null;
@@ -17,6 +18,7 @@ export interface ListLinkToken {
 export interface ListLinkTokenPublic {
   Id: string;
   ListId: string;
+  Token: string | null;
   Role: ShareRole;
   CreatedBy: string;
   ExpiresAt: Date | null;

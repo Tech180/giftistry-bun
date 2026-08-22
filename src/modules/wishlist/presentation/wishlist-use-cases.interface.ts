@@ -4,7 +4,6 @@ import type { CreatePriorityUseCase } from '../application/create-priority.use-c
 import type { ListPrioritiesUseCase } from '../application/list-priorities.use-case';
 import type { DeletePriorityUseCase } from '../application/delete-priority.use-case';
 import type { ListExpiredWishlistsUseCase } from '../application/list-expired-wishlists.use-case';
-import type { ShareWishlistUseCase } from '../application/share-wishlist.use-case';
 import type { DeactivateWishlistUseCase } from '../application/deactivate-wishlist.use-case';
 import type { ActivateWishlistUseCase } from '../application/activate-wishlist.use-case';
 import type { GetWishlistUseCase } from '../application/get-wishlist.use-case';
@@ -25,7 +24,6 @@ export interface WishlistUseCases {
   listPriorities: ListPrioritiesUseCase;
   deletePriority: DeletePriorityUseCase;
   listExpiredWishlists: ListExpiredWishlistsUseCase;
-  shareWishlist: ShareWishlistUseCase;
   deactivateWishlist: DeactivateWishlistUseCase;
   activateWishlist: ActivateWishlistUseCase;
   getWishlist: GetWishlistUseCase;

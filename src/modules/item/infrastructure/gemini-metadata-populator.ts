@@ -54,7 +54,8 @@ export function compilePopulatePrompt(
     .replace(/{websiteName}/g, input.websiteName || '')
     .replace(/{pageContext}/g, input.pageContext || 'None provided')
     .replace(/{searchContext}/g, searchContext)
-    .replace(/{itemName}/g, input.itemName || '');
+    .replace(/{itemName}/g, input.itemName || '')
+    .replace(/{category}/g, input.category || '');
 
   const withReconcile =
     input.reconcileSources && searchContext !== 'None'

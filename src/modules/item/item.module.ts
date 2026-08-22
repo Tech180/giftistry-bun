@@ -112,7 +112,8 @@ export function createItemModule(deps: ItemModuleDeps) {
     deps.audienceRepo,
     enrichLinkMetadataUseCase,
     extractItemReviewsUseCase,
-    deps.assertUserCanUseCase
+    deps.assertUserCanUseCase,
+    deps.wishlistRepo
   );
 
   const claimItemUseCase = new ClaimItemUseCase(
@@ -145,7 +146,7 @@ export function createItemModule(deps: ItemModuleDeps) {
       extractItemReviewsUseCase,
       deps.assertUserCanUseCase
     ),
-    getFieldDefinitions: new GetFieldDefinitionsUseCase(deps.fieldRepo),
+    getFieldDefinitions: new GetFieldDefinitionsUseCase(deps.fieldRepo, deps.serverConfigRepo),
     unclaimItem: new UnclaimItemUseCase(deps.itemRepo, assertItemVisibleUseCase),
     buildItemClaimProjections: new BuildItemClaimProjectionsUseCase(
       deps.itemRepo,

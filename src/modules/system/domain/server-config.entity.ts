@@ -1,4 +1,10 @@
 import { AI_DEFAULT_PROMPTS } from './prompts';
+import {
+  sanitizeCustomPacks,
+  sanitizeEnabledPackIdsForConfig,
+  toCustomPackSettingsDto,
+  type CustomPackSettingsDto,
+} from './packs';
 
 export type DbConnectionType = 'local' | 'remote';
 export type SmtpConnectionType = 'local' | 'remote';
@@ -45,6 +51,8 @@ export interface ServerConfig {
   AiPopulatePrompt?: string;
   AiCategoryPrompt?: string;
   AiImportPrompt?: string;
+  AiEnabledPackIds?: string[];
+  AiCustomPacks?: CustomPackSettingsDto[];
   AiCompletionTimeoutMs?: number;
   ScrapeFetchTimeoutMs?: number;
   ScrapePlaywrightTimeoutMs?: number;
@@ -113,6 +121,8 @@ export interface SystemSettingsPayload {
   AiPopulatePrompt?: string;
   AiCategoryPrompt?: string;
   AiImportPrompt?: string;
+  AiEnabledPackIds?: string[];
+  AiCustomPacks?: CustomPackSettingsDto[];
   AiCompletionTimeoutMs?: number;
   ScrapeFetchTimeoutMs?: number;
   ScrapePlaywrightTimeoutMs?: number;
@@ -157,6 +167,8 @@ export interface SystemSettingsView {
   AiPopulatePrompt: string;
   AiCategoryPrompt: string;
   AiImportPrompt: string;
+  AiEnabledPackIds: string[];
+  AiCustomPacks: CustomPackSettingsDto[];
   AiCompletionTimeoutMs: number;
   ScrapeFetchTimeoutMs: number;
   ScrapePlaywrightTimeoutMs: number;
@@ -322,6 +334,8 @@ export function toSystemSettingsView(config: ServerConfig): SystemSettingsView {
     AiPopulatePrompt: config.AiPopulatePrompt || '',
     AiCategoryPrompt: config.AiCategoryPrompt || '',
     AiImportPrompt: config.AiImportPrompt || '',
+    AiEnabledPackIds: sanitizeEnabledPackIdsForConfig(config),
+    AiCustomPacks: sanitizeCustomPacks(config.AiCustomPacks).map(toCustomPackSettingsDto),
     AiCompletionTimeoutMs: clampAiCompletionTimeoutMs(
       config.AiCompletionTimeoutMs ?? DEFAULT_AI_COMPLETION_TIMEOUT_MS
     ),

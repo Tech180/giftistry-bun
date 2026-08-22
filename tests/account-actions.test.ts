@@ -36,7 +36,7 @@ describe('Account actions and disabled-user enforcement', () => {
     await sql`UPDATE users SET is_owner = false, is_admin = false WHERE id = ${friendSender.userId}`;
 
     sharedListId = await createTestWishlist(listOwner.token, 'Shared before disable');
-    await shareTestWishlist(listOwner.token, sharedListId, collaborator.email, 'viewer');
+    await shareTestWishlist(listOwner, sharedListId, collaborator, 'viewer');
   });
 
   afterAll(async () => {

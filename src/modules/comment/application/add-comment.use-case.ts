@@ -48,6 +48,7 @@ export class AddCommentUseCase {
 
     const wishlistEntity = WishlistEntity.from(wishlist);
     const isOwner = userId !== null && wishlistEntity.isOwner(userId);
+    const resolvedIsRollover = wishlist.AutoRollover === true && isRollover;
     const finalIsOwnerVisible = CommentEntity.from({
       Id: '',
       ListId: listId,
@@ -55,7 +56,7 @@ export class AddCommentUseCase {
       CommenterName: commenterName,
       Content: content,
       IsOwnerVisible: isOwnerVisible,
-      IsRollover: isRollover,
+      IsRollover: resolvedIsRollover,
     }).resolveOwnerVisibility(isOwner, isOwnerVisible);
 
     const comment = await this.commentRepo.create(
@@ -64,7 +65,7 @@ export class AddCommentUseCase {
       commenterName,
       content,
       finalIsOwnerVisible,
-      isRollover,
+      resolvedIsRollover,
       parentId,
       imageUrl
     );

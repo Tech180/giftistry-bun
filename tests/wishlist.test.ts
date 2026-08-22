@@ -40,26 +40,19 @@ describe("Wishlist Lifecycle & Shares", () => {
   });
 
   test("Owner shares wishlist with Collaborator", async () => {
+    await shareTestWishlist(owner, listId, collaborator, "collaborator");
+
     const res = await app.handle(
       new Request(`http://localhost/api/wishlists/${listId}/shares`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${owner.token}`
-        },
-        body: JSON.stringify({
-          Giftistry: {
-            Lists: {
-              Email: collaborator.email,
-              Role: "collaborator"
-            }
-          }
-        }),
+        method: "GET",
+        headers: { "Authorization": `Bearer ${owner.token}` }
       })
     );
     expect(res.status).toBe(200);
     const body = await res.json() as any;
-    expect(body.Result.Role).toBe("collaborator");
+    expect(body.Result.length).toBeGreaterThanOrEqual(1);
+    expect(body.Result[0].Email).toBe(collaborator.email);
+    expect(body.Result[0].Role).toBe("collaborator");
   });
 
   test("Owner lists wishlist shares", async () => {
@@ -135,7 +128,7 @@ describe("Wishlist Lifecycle & Shares", () => {
   });
 
   test("Re-share for collaborator access tests", async () => {
-    await shareTestWishlist(owner.token, listId, collaborator.email, "collaborator");
+    await shareTestWishlist(owner, listId, collaborator, "collaborator");
   });
 
   test("Collaborator cannot deactivate wishlist", async () => {
@@ -186,8 +179,12 @@ describe("Wishlist Lifecycle & Shares", () => {
   });
 
   test("Wishlist Rollover copies unpurchased items", async () => {
-    const oldListId = await createTestWishlist(owner.token, "Holiday List 2026", new Date(Date.now() - 1000).toISOString());
-    await shareTestWishlist(owner.token, oldListId, collaborator.email, "collaborator");
+    const oldListId = await createTestWishlist(
+      owner.token,
+      "Holiday List 2026",
+      new Date(Date.now() + 86400000).toISOString()
+    );
+    await shareTestWishlist(owner, oldListId, collaborator, "collaborator");
 
     // Add item that will NOT be claimed (unpurchased)
     const itemRes = await app.handle(
@@ -204,7 +201,27 @@ describe("Wishlist Lifecycle & Shares", () => {
         }),
       })
     );
-    const itemId = (await itemRes.json() as any).Result.Id;
+    expect(itemRes.status).toBe(200);
+
+    const expireRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${oldListId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${owner.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Lists: {
+              Title: "Holiday List 2026",
+              ExpiresAt: new Date(Date.now() - 1000).toISOString(),
+              AllowGroupFunds: true,
+            }
+          }
+        }),
+      })
+    );
+    expect(expireRes.status).toBe(200);
 
     // Trigger rollover
     const rolloverRes = await app.handle(
@@ -230,10 +247,456 @@ describe("Wishlist Lifecycle & Shares", () => {
     );
     const newItemsBody = await newItemsRes.json() as any;
     expect(newItemsBody.Result.Items.length).toBe(1);
-    expect(newItemsBody.Result[0].Name).toBe("Unclaimed Rollover Item");
+    expect(newItemsBody.Result.Items[0].Name).toBe("Unclaimed Rollover Item");
 
     await cleanUpWishlist(oldListId);
     await cleanUpWishlist(newListId);
+  });
+
+  test("GET expired wishlist without AutoRollover deactivates it", async () => {
+    const listId = await createTestWishlist(
+      owner.token,
+      "Lazy Archive List",
+      new Date(Date.now() + 86400000).toISOString(),
+      "generic",
+      true,
+      false
+    );
+
+    const expireRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${owner.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Lists: {
+              Title: "Lazy Archive List",
+              ExpiresAt: new Date(Date.now() - 1000).toISOString(),
+              AllowGroupFunds: true,
+              AutoRollover: false,
+            }
+          }
+        }),
+      })
+    );
+    expect(expireRes.status).toBe(200);
+
+    const getRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    expect(getRes.status).toBe(200);
+    const body = await getRes.json() as any;
+    expect(body.Result.Id).toBe(listId);
+    expect(body.Result.IsActive).toBe(false);
+
+    await cleanUpWishlist(listId);
+  });
+
+  test("extending expiry on archived list keeps IsActive false", async () => {
+    const listId = await createTestWishlist(
+      owner.token,
+      "Extend While Archived",
+      new Date(Date.now() + 86400000).toISOString(),
+      "generic",
+      true,
+      false
+    );
+
+    const expireRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${owner.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Lists: {
+              Title: "Extend While Archived",
+              ExpiresAt: new Date(Date.now() - 1000).toISOString(),
+              AllowGroupFunds: true,
+              AutoRollover: false,
+            }
+          }
+        }),
+      })
+    );
+    expect(expireRes.status).toBe(200);
+
+    const getExpired = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    expect((await getExpired.json() as any).Result.IsActive).toBe(false);
+
+    const futureIso = new Date(Date.now() + 7 * 86400000).toISOString();
+    const extendRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${owner.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Lists: {
+              Title: "Extend While Archived",
+              ExpiresAt: futureIso,
+              AllowGroupFunds: true,
+              AutoRollover: false,
+            }
+          }
+        }),
+      })
+    );
+    expect(extendRes.status).toBe(200);
+    const extendBody = await extendRes.json() as any;
+    expect(extendBody.Result.IsActive).toBe(false);
+    expect(new Date(extendBody.Result.ExpiresAt).getTime()).toBeGreaterThan(Date.now());
+
+    const getAgain = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    const againBody = await getAgain.json() as any;
+    expect(againBody.Result.IsActive).toBe(false);
+    expect(new Date(againBody.Result.ExpiresAt).getTime()).toBeGreaterThan(Date.now());
+
+    await cleanUpWishlist(listId);
+  });
+
+  test("activate with past ExpiresAt clears expiration", async () => {
+    const listId = await createTestWishlist(
+      owner.token,
+      "Restore Clears Expiry",
+      new Date(Date.now() + 86400000).toISOString(),
+      "generic",
+      true,
+      false
+    );
+
+    await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${owner.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Lists: {
+              Title: "Restore Clears Expiry",
+              ExpiresAt: new Date(Date.now() - 1000).toISOString(),
+              AllowGroupFunds: true,
+              AutoRollover: false,
+            }
+          }
+        }),
+      })
+    );
+
+    await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+
+    const activateRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/activate`, {
+        method: "PUT",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    expect(activateRes.status).toBe(200);
+    const activateBody = await activateRes.json() as any;
+    expect(activateBody.Result.IsActive).toBe(true);
+    expect(activateBody.Result.ExpiresAt).toBeNull();
+
+    const getRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    const getBody = await getRes.json() as any;
+    expect(getBody.Result.IsActive).toBe(true);
+    expect(getBody.Result.ExpiresAt).toBeNull();
+
+    await cleanUpWishlist(listId);
+  });
+
+  test("activate with future ExpiresAt keeps expiration", async () => {
+    const listId = await createTestWishlist(
+      owner.token,
+      "Restore Keeps Future Expiry",
+      new Date(Date.now() + 86400000).toISOString(),
+      "generic",
+      true,
+      false
+    );
+
+    await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/deactivate`, {
+        method: "PUT",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+
+    const futureIso = new Date(Date.now() + 5 * 86400000).toISOString();
+    await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${owner.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Lists: {
+              Title: "Restore Keeps Future Expiry",
+              ExpiresAt: futureIso,
+              AllowGroupFunds: true,
+              AutoRollover: false,
+            }
+          }
+        }),
+      })
+    );
+
+    const activateRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/activate`, {
+        method: "PUT",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    expect(activateRes.status).toBe(200);
+    const activateBody = await activateRes.json() as any;
+    expect(activateBody.Result.IsActive).toBe(true);
+    expect(activateBody.Result.ExpiresAt).not.toBeNull();
+    expect(new Date(activateBody.Result.ExpiresAt).getTime()).toBeGreaterThan(Date.now());
+
+    await cleanUpWishlist(listId);
+  });
+
+  test("GET expired wishlist with AutoRollover returns new list", async () => {
+    const oldListId = await createTestWishlist(
+      owner.token,
+      "Auto Rollover List",
+      new Date(Date.now() + 86400000).toISOString(),
+      "generic",
+      true,
+      true
+    );
+
+    const itemRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${oldListId}/items`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${owner.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: { Name: "Carry Me", IsHiddenIdea: false }
+          }
+        }),
+      })
+    );
+    expect(itemRes.status).toBe(200);
+
+    const commentRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${oldListId}/comments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${owner.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Comments: {
+              Content: "Keep this thread",
+              CommenterName: "Owner",
+              IsOwnerVisible: true,
+              IsRollover: true,
+            }
+          }
+        }),
+      })
+    );
+    expect(commentRes.status).toBe(200);
+
+    const expireRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${oldListId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${owner.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Lists: {
+              Title: "Auto Rollover List",
+              ExpiresAt: new Date(Date.now() - 1000).toISOString(),
+              AllowGroupFunds: true,
+              AutoRollover: true,
+            }
+          }
+        }),
+      })
+    );
+    expect(expireRes.status).toBe(200);
+
+    const getRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${oldListId}`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    expect(getRes.status).toBe(200);
+    const body = await getRes.json() as any;
+    const newListId = body.Result.Id;
+    expect(newListId).not.toBe(oldListId);
+    expect(body.Result.IsActive).toBe(true);
+    expect(body.Result.AutoRollover).toBe(true);
+
+    const newItemsRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${newListId}/items`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    const newItemsBody = await newItemsRes.json() as any;
+    expect(newItemsBody.Result.Items.length).toBe(1);
+    expect(newItemsBody.Result.Items[0].Name).toBe("Carry Me");
+
+    const commentsRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${newListId}/comments`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    const commentsBody = await commentsRes.json() as any;
+    const comments = commentsBody.Result?.Comments ?? commentsBody.Result ?? [];
+    expect(comments.some((c: any) => c.Content === "Keep this thread" && c.IsRollover === true)).toBe(true);
+
+    await cleanUpWishlist(oldListId);
+    await cleanUpWishlist(newListId);
+  });
+
+  test("inactive wishlist is counted in archive bucket", async () => {
+    const listId = await createTestWishlist(owner.token, "Manual Archive Bucket List");
+    const deactivateRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/deactivate`, {
+        method: "PUT",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    expect(deactivateRes.status).toBe(200);
+
+    const listRes = await app.handle(
+      new Request("http://localhost/api/wishlists?bucket=archive", {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    expect(listRes.status).toBe(200);
+    const listBody = await listRes.json() as any;
+    const wishlists = listBody.Result.Wishlists ?? listBody.Result;
+    expect(wishlists.some((w: any) => w.Id === listId)).toBe(true);
+
+    await cleanUpWishlist(listId);
+  });
+
+  test("expired wishlist rejects item mutations", async () => {
+    const listId = await createTestWishlist(
+      owner.token,
+      "Mutation Lock List",
+      new Date(Date.now() + 86400000).toISOString()
+    );
+
+    const itemRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${owner.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: { Items: { Name: "Soon Locked" } }
+        }),
+      })
+    );
+    expect(itemRes.status).toBe(200);
+    const itemId = (await itemRes.json() as any).Result.Id;
+
+    const expireRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${owner.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Lists: {
+              Title: "Mutation Lock List",
+              ExpiresAt: new Date(Date.now() - 1000).toISOString(),
+              AllowGroupFunds: true,
+            }
+          }
+        }),
+      })
+    );
+    expect(expireRes.status).toBe(200);
+
+    const addRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${owner.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: { Items: { Name: "Should Fail" } }
+        }),
+      })
+    );
+    expect(addRes.status).toBe(400);
+
+    const updateRes = await app.handle(
+      new Request(`http://localhost/api/items/${itemId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${owner.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: { Items: { Name: "Renamed" } }
+        }),
+      })
+    );
+    expect(updateRes.status).toBe(400);
+
+    const deleteRes = await app.handle(
+      new Request(`http://localhost/api/items/${itemId}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    expect(deleteRes.status).toBe(400);
+
+    await cleanUpWishlist(listId);
   });
 
   test("Create, query, and delete priority category", async () => {
@@ -441,6 +904,7 @@ describe("Wishlist Lifecycle & Shares", () => {
       expect(res.status).toBe(200);
       const body = await res.json() as any;
       expect(body.Result.length).toBeGreaterThanOrEqual(1);
+      expect(body.Result.some((invite: { Token?: string }) => invite.Token === unpasswordedToken)).toBe(true);
     });
 
     test("Owner revokes passworded invite", async () => {
@@ -476,8 +940,60 @@ describe("Wishlist Lifecycle & Shares", () => {
     });
 
     test("User exports wishlist as PDF successfully", async () => {
+      const pdfListId = await createTestWishlist(owner.token, "PDF Relation Badges List");
+
+      const createItem = async (name: string) => {
+        const res = await app.handle(
+          new Request(`http://localhost/api/wishlists/${pdfListId}/items`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${owner.token}`
+            },
+            body: JSON.stringify({
+              Giftistry: { Items: { Name: name } }
+            }),
+          })
+        );
+        expect(res.status).toBe(200);
+        return (await res.json() as { Result: { Id: string } }).Result.Id;
+      };
+
+      const linkedA = await createItem("PDF Linked Shirt");
+      const linkedB = await createItem("PDF Linked Socks");
+      const relatedA = await createItem("PDF Related Tie");
+      const relatedB = await createItem("PDF Related Hat");
+
+      const linkSyncRes = await app.handle(
+        new Request(`http://localhost/api/items/${linkedA}/links/sync`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${owner.token}`
+          },
+          body: JSON.stringify({
+            Giftistry: { Items: { TargetItemIds: [linkedB] } }
+          }),
+        })
+      );
+      expect(linkSyncRes.status).toBe(200);
+
+      const relatedSyncRes = await app.handle(
+        new Request(`http://localhost/api/items/${relatedA}/related/sync`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${owner.token}`
+          },
+          body: JSON.stringify({
+            Giftistry: { Items: { TargetItemIds: [relatedB] } }
+          }),
+        })
+      );
+      expect(relatedSyncRes.status).toBe(200);
+
       const res = await app.handle(
-        new Request(`http://localhost/api/wishlists/${listId}/pdf`, {
+        new Request(`http://localhost/api/wishlists/${pdfListId}/pdf`, {
           method: "GET",
           headers: { "Authorization": `Bearer ${owner.token}` }
         })
@@ -487,6 +1003,8 @@ describe("Wishlist Lifecycle & Shares", () => {
       expect(res.headers.get("Content-Disposition")).toContain("attachment; filename=");
       const arrayBuffer = await res.arrayBuffer();
       expect(arrayBuffer.byteLength).toBeGreaterThan(0);
+
+      await cleanUpWishlist(pdfListId);
     });
   });
 });

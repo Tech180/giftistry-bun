@@ -116,6 +116,21 @@ export function createAppContainer(): AppContainer {
   const listAccessMiddleware = createListAccessMiddleware(checkListAccessUseCase, authMiddleware);
   const routeMiddleware: RouteMiddleware = { auth: authMiddleware, listAccess: listAccessMiddleware };
 
+  const jobRepo = new PostgresBackgroundJobRepository();
+
+  const { module: itemModule, useCases: itemUseCases } = createItemModule({
+    itemRepo,
+    audienceRepo: itemAudienceRepo,
+    fieldRepo: itemFieldRepo,
+    wishlistRepo,
+    listShareRepo,
+    userRepo,
+    assertUserCanUseCase,
+    metadataScraper,
+    serverConfigRepo,
+    middleware: routeMiddleware,
+  });
+
   const { module: invitesModule, invitesUseCases } = createInvitesModule({
     linkTokenRepo,
     emailInviteRepo,
@@ -124,9 +139,8 @@ export function createAppContainer(): AppContainer {
     wishlistRepo,
     assertUserCanUseCase,
     eventBus,
+    listItems: itemUseCases.listItems,
   });
-
-  const jobRepo = new PostgresBackgroundJobRepository();
 
   const { module: wishlistModule, useCases: wishlistUseCases } = createWishlistModule({
     wishlistRepo,
@@ -141,19 +155,6 @@ export function createAppContainer(): AppContainer {
     assertUserCanUseCase,
     eventBus,
     invitesUseCases,
-    serverConfigRepo,
-    middleware: routeMiddleware,
-  });
-
-  const { module: itemModule, useCases: itemUseCases } = createItemModule({
-    itemRepo,
-    audienceRepo: itemAudienceRepo,
-    fieldRepo: itemFieldRepo,
-    wishlistRepo,
-    listShareRepo,
-    userRepo,
-    assertUserCanUseCase,
-    metadataScraper,
     serverConfigRepo,
     middleware: routeMiddleware,
   });

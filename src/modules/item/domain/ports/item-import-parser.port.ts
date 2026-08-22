@@ -9,6 +9,8 @@ export interface ItemImportParserInput {
   fileContent: string;
   wishlistTitle?: string;
   existingCategories?: string;
+  /** When false, instruct AI to keep file categories (except soft/general). Default true. */
+  optimizeCategories?: boolean;
 }
 
 export interface ItemImportParserConfig {

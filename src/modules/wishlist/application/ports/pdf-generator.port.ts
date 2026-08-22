@@ -6,6 +6,7 @@ export interface PdfGenerator {
     wishlist: Wishlist,
     items: any[],
     themeColors: ThemeColors,
-    ownerInfo: { name: string; username: string; avatarUrl?: string }
+    ownerInfo: { name: string; username: string; avatarUrl?: string },
+    viewerUserId?: string | null
   ): Promise<Uint8Array>;
 }

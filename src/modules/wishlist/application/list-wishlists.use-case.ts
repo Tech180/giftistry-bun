@@ -25,7 +25,7 @@ function isExpired(expiresAt: Date | string | null | undefined): boolean {
 }
 
 function classifyBucket(list: Wishlist): 'my' | 'shared' | 'archive' {
-  if (isExpired(list.ExpiresAt)) {
+  if (isExpired(list.ExpiresAt) || list.IsActive === false) {
     return 'archive';
   }
   if (list.Role === 'owner' || !list.Role) {

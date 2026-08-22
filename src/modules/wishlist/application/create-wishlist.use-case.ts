@@ -28,7 +28,8 @@ export class CreateWishlistUseCase {
     revealSuggestions: boolean = true,
     aiEnabled?: boolean,
     webSearchEnabled?: boolean,
-    manualJobBackground?: boolean
+    manualJobBackground?: boolean,
+    autoRollover?: boolean
   ): Promise<Wishlist> {
     if (!title) {
       throw new AppError('Wishlist title is required', 400, 'BAD_REQUEST');
@@ -74,6 +75,7 @@ export class CreateWishlistUseCase {
     }
 
     const resolvedManualBackground = manualJobBackground !== false;
+    const resolvedAutoRollover = autoRollover === true;
 
     let expiresAt: Date | null = null;
     if (expiresAtStr) {
@@ -92,7 +94,8 @@ export class CreateWishlistUseCase {
       revealSuggestions,
       resolvedAi,
       resolvedWeb,
-      resolvedManualBackground
+      resolvedManualBackground,
+      resolvedAutoRollover
     );
   }
 }

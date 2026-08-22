@@ -59,6 +59,7 @@ export class BulkAddItemsUseCase {
         if (role === 'owner' && resolvedHidden) {
           throw new AppError('Owner cannot add hidden ideas to their own list', 403, 'FORBIDDEN');
         }
+        const isHiddenIdea = isSuggestion ? (row.isHiddenIdea !== false) : false;
 
         const validatedAudience = await this.validateItemAudience.execute(
           listId,
@@ -72,7 +73,7 @@ export class BulkAddItemsUseCase {
           row.name,
           row.description ?? null,
           row.priorityId ?? null,
-          resolvedHidden || isSuggestion,
+          isHiddenIdea,
           userId,
           row.linkUrl ?? null,
           row.price !== undefined && row.price !== null ? Number(row.price) : null,

@@ -29,7 +29,7 @@ describe('Authz audit (visibility, expiry, collaborator, comments)', () => {
     );
 
     activeListId = await createTestWishlist(owner.token, 'Authz Active List');
-    await shareTestWishlist(owner.token, activeListId, collaborator.email, 'collaborator');
+    await shareTestWishlist(owner, activeListId, collaborator, 'collaborator');
 
     const expiredRes = await app.handle(
       new Request('http://localhost/api/wishlists', {
@@ -42,8 +42,9 @@ describe('Authz audit (visibility, expiry, collaborator, comments)', () => {
           Giftistry: {
             Lists: {
               Title: 'Authz Expired List',
-              ExpiresAt: new Date(Date.now() - 86400000).toISOString(),
+              ExpiresAt: new Date(Date.now() + 86400000).toISOString(),
               AllowGroupFunds: false,
+              AutoRollover: false,
             },
           },
         }),
@@ -51,7 +52,7 @@ describe('Authz audit (visibility, expiry, collaborator, comments)', () => {
     );
     expect(expiredRes.status).toBe(200);
     expiredListId = (await expiredRes.json() as any).Result.Id;
-    await shareTestWishlist(owner.token, expiredListId, collaborator.email, 'collaborator');
+    await shareTestWishlist(owner, expiredListId, collaborator, 'collaborator');
 
     const activeItemRes = await app.handle(
       new Request(`http://localhost/api/wishlists/${activeListId}/items`, {
@@ -91,6 +92,27 @@ describe('Authz audit (visibility, expiry, collaborator, comments)', () => {
     );
     expect(expiredItemRes.status).toBe(200);
     expiredItemId = (await expiredItemRes.json() as any).Result.Id;
+
+    const expireUpdateRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${expiredListId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${owner.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Lists: {
+              Title: 'Authz Expired List',
+              ExpiresAt: new Date(Date.now() - 86400000).toISOString(),
+              AllowGroupFunds: false,
+              AutoRollover: false,
+            },
+          },
+        }),
+      })
+    );
+    expect(expireUpdateRes.status).toBe(200);
   });
 
   afterAll(async () => {
@@ -149,12 +171,12 @@ describe('Authz audit (visibility, expiry, collaborator, comments)', () => {
     expect(res.status).toBe(400);
   });
 
-  test('viewer role cannot add items', async () => {
+  test('viewer role can add suggestions', async () => {
     const viewer = await createTestUser(
       `authz_viewer_${Date.now()}`,
       `authz_viewer_${Date.now()}@example.com`
     );
-    await shareTestWishlist(owner.token, activeListId, viewer.email, 'viewer');
+    await shareTestWishlist(owner, activeListId, viewer, 'viewer');
 
     const res = await app.handle(
       new Request(`http://localhost/api/wishlists/${activeListId}/items`, {
@@ -164,11 +186,14 @@ describe('Authz audit (visibility, expiry, collaborator, comments)', () => {
           Authorization: `Bearer ${viewer.token}`,
         },
         body: JSON.stringify({
-          Giftistry: { Items: { Name: 'Should Fail' } },
+          Giftistry: { Items: { Name: 'Viewer Suggestion' } },
         }),
       })
     );
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.Result.IsSuggestion).toBe(true);
+    expect(body.Result.IsHiddenIdea).toBe(true);
     await cleanUpUser(viewer.userId);
   });
 });

@@ -6,6 +6,7 @@ export interface MetadataPopulatorInput {
   pageContext?: string;
   searchContext?: string;
   itemName?: string;
+  category?: string;
   reconcileSources?: boolean;
 }
 

@@ -22,6 +22,17 @@ describe('gemini-item-import-parser helpers', () => {
     expect(prompt).toContain('Holiday');
   });
 
+  test('compileImportPrompt appends category preservation when optimizeCategories is false', () => {
+    const prompt = compileImportPrompt('Base\n{fileContent}', {
+      fileName: 'list.json',
+      format: 'json',
+      fileContent: 'CONTENT',
+      optimizeCategories: false,
+    });
+    expect(prompt).toContain('CATEGORY PRESERVATION');
+    expect(prompt).toContain('exactly as written');
+  });
+
   test('mapAiImportItems normalizes AI JSON payload', () => {
     const items = mapAiImportItems({
       Items: [

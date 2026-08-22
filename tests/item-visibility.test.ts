@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'bun:test';
-import { canUserViewItem } from '../src/modules/item/domain/item-visibility.service';
+import {
+  canUserMutateItem,
+  canUserViewItem,
+} from '../src/modules/item/domain/item-visibility.service';
 import type { Item } from '../src/modules/item/domain/item.entity';
 import type { Wishlist } from '../src/modules/wishlist/domain/wishlist.entity';
 
@@ -79,13 +82,133 @@ describe('canUserViewItem audience rules', () => {
     expect(visible).toBe(false);
   });
 
-  test('hides hidden ideas from owners before expiry', () => {
+  test('hides hidden ideas from owners regardless of expiration', () => {
+    const future = new Date(Date.now() + 86400000);
+    const past = new Date(Date.now() - 86400000);
+    const hiddenSuggestion = baseItem({
+      IsHiddenIdea: true,
+      IsSuggestion: true,
+      SuggestedByUserId: 'collab-a',
+    });
+
+    expect(
+      canUserViewItem({
+        item: hiddenSuggestion,
+        wishlist: baseWishlist({ ExpiresAt: future, RevealSuggestions: true }),
+        currentUserId: 'owner-1',
+        audienceUserIds: [],
+      })
+    ).toBe(false);
+
+    expect(
+      canUserViewItem({
+        item: hiddenSuggestion,
+        wishlist: baseWishlist({ ExpiresAt: past, RevealSuggestions: true }),
+        currentUserId: 'owner-1',
+        audienceUserIds: [],
+      })
+    ).toBe(false);
+  });
+
+  test('shows opted-in suggestions to the owner', () => {
     const visible = canUserViewItem({
-      item: baseItem({ IsHiddenIdea: true, SuggestedByUserId: 'collab-a' }),
-      wishlist: baseWishlist({ ExpiresAt: new Date(Date.now() + 86400000) }),
+      item: baseItem({
+        IsHiddenIdea: false,
+        IsSuggestion: true,
+        SuggestedByUserId: 'collab-a',
+      }),
+      wishlist: baseWishlist({ RevealSuggestions: false }),
       currentUserId: 'owner-1',
       audienceUserIds: [],
     });
-    expect(visible).toBe(false);
+    expect(visible).toBe(true);
+  });
+
+  test('guest sees owner catalog items only', () => {
+    const wishlist = baseWishlist();
+    expect(
+      canUserViewItem({
+        item: baseItem(),
+        wishlist,
+        currentUserId: null,
+        audienceUserIds: [],
+      })
+    ).toBe(true);
+
+    expect(
+      canUserViewItem({
+        item: baseItem({ IsSuggestion: true, SuggestedByUserId: 'collab-a' }),
+        wishlist,
+        currentUserId: null,
+        audienceUserIds: [],
+      })
+    ).toBe(false);
+
+    expect(
+      canUserViewItem({
+        item: baseItem({ IsHiddenIdea: true }),
+        wishlist,
+        currentUserId: null,
+        audienceUserIds: [],
+      })
+    ).toBe(false);
+
+    expect(
+      canUserViewItem({
+        item: baseItem(),
+        wishlist,
+        currentUserId: null,
+        audienceUserIds: ['collab-a'],
+      })
+    ).toBe(false);
+  });
+});
+
+describe('canUserMutateItem', () => {
+  test('owner can mutate items they can view', () => {
+    expect(
+      canUserMutateItem({
+        item: baseItem(),
+        wishlist: baseWishlist(),
+        currentUserId: 'owner-1',
+        audienceUserIds: [],
+      })
+    ).toBe(true);
+  });
+
+  test('suggester can mutate their own suggestion', () => {
+    expect(
+      canUserMutateItem({
+        item: baseItem({
+          IsSuggestion: true,
+          SuggestedByUserId: 'collab-a',
+        }),
+        wishlist: baseWishlist(),
+        currentUserId: 'collab-a',
+        audienceUserIds: [],
+      })
+    ).toBe(true);
+  });
+
+  test('viewer cannot mutate an owner item', () => {
+    expect(
+      canUserMutateItem({
+        item: baseItem(),
+        wishlist: baseWishlist(),
+        currentUserId: 'viewer-1',
+        audienceUserIds: [],
+      })
+    ).toBe(false);
+  });
+
+  test('guests cannot mutate', () => {
+    expect(
+      canUserMutateItem({
+        item: baseItem(),
+        wishlist: baseWishlist(),
+        currentUserId: null,
+        audienceUserIds: [],
+      })
+    ).toBe(false);
   });
 });

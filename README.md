@@ -70,6 +70,11 @@ Regenerate after adding or changing routes. Coverage tests under `collections/` 
 | `GEMINI_API_KEY` | **yes** | Fallback Gemini/OpenRouter key |
 | `OAUTH_CLIENT_SECRET` | **yes** | OAuth client secret (issuer/id in config) |
 | `CREDENTIALS_DIRECTORY` / `GIFTISTRY_CREDENTIALS_DIRECTORY` | — | Directory of files named after secret keys |
+| `SCRAPE_PLAYWRIGHT_EXECUTABLE_PATH` | no | Chromium/Chrome binary for Playwright. Required on NixOS unless a system browser is on `PATH`. Also accepts `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`. |
+| `SCRAPE_FETCH_TIMEOUT_MS` | no | Fetch-tier scrape timeout (default `8000`) |
+| `SCRAPE_PLAYWRIGHT_TIMEOUT_MS` | no | Playwright navigation timeout (default `25000`) |
+| `SCRAPE_PLAYWRIGHT_MAX_CONCURRENT` | no | Max concurrent browser contexts (default `3`) |
+| `SCRAPE_PLAYWRIGHT_HEADLESS` | no | Headless Playwright (`true` by default) |
 
 Non-secret values are read from `Bun.env`. Secrets use the **SecretSource** contract below.
 

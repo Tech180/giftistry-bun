@@ -6,6 +6,7 @@ import type { TransferOwnershipUseCase } from '../application/transfer-ownership
 import type { DeleteServerUseCase } from '../application/delete-server.use-case';
 import type { TestAiConnectionUseCase } from '../application/test-ai-connection.use-case';
 import type { ListSystemModelsUseCase } from '../application/list-system-models.use-case';
+import type { GetMetadataPacksUseCase } from '../application/get-metadata-packs.use-case';
 
 export interface SystemUseCases {
   getSystemStatus: GetSystemStatusUseCase;
@@ -14,6 +15,7 @@ export interface SystemUseCases {
   saveSystemSettings: SaveSystemSettingsUseCase;
   testAiConnection: TestAiConnectionUseCase;
   listSystemModels: ListSystemModelsUseCase;
+  getMetadataPacks: GetMetadataPacksUseCase;
   transferOwnership: TransferOwnershipUseCase;
   deleteServer: DeleteServerUseCase;
 }

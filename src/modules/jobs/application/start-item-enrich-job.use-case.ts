@@ -3,6 +3,7 @@ import type { ItemEnrichJobPayload } from '../domain/background-job.entity';
 import { toJobPublicView } from '../domain/background-job.entity';
 import type { ItemUseCases } from '@/modules/item/application/item-use-cases.interface';
 import type { Item } from '@/modules/item/domain/item.entity';
+import type { ListRoleLevel } from '@/common/domain/list-role.vo';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { checkRateLimit } from '@/common/middlewares/rate-limit.middleware';
 
@@ -40,7 +41,8 @@ export class StartItemEnrichJobUseCase {
   async execute(
     userId: string,
     payload: ItemEnrichJobPayload,
-    rateLimitKey: string
+    rateLimitKey: string,
+    listRole: ListRoleLevel
   ): Promise<StartItemEnrichJobResult> {
     checkRateLimit(rateLimitKey, { windowMs: 60000, max: 12 });
 
@@ -53,18 +55,20 @@ export class StartItemEnrichJobUseCase {
 
     if (payload.intent === 'create-from-url') {
       const name = placeholderNameFromUrl(payload.url);
+      const isSuggestion = listRole !== 'owner';
+      const isHiddenIdea = isSuggestion;
       const item = await this.itemUseCases.addItem.execute(
         payload.listId,
         name,
         null,
         null,
-        false,
-        null,
+        isHiddenIdea,
+        isSuggestion ? userId : null,
         payload.url,
         null,
         null,
         'uncategorized',
-        false,
+        isSuggestion,
         null,
         [],
         null

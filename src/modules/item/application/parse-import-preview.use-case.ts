@@ -32,6 +32,11 @@ export interface ParseImportPreviewInput {
   contentEncoding: ImportContentEncoding;
   /** When false, do not fall back to AI after deterministic parse fails. Default true. */
   allowAi?: boolean;
+  /**
+   * When false, instruct AI to preserve file categories (except soft/general).
+   * Default true.
+   */
+  optimizeCategories?: boolean;
 }
 
 export interface ParseImportPreviewProgress {
@@ -149,6 +154,7 @@ export class ParseImportPreviewUseCase {
           fileContent: extracted.text,
           wishlistTitle,
           existingCategories,
+          optimizeCategories: input.optimizeCategories === true,
         },
         {
           provider,
