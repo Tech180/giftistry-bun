@@ -235,14 +235,19 @@ export const itemRoutes = (
       })
     })
   })
-  .delete('/items/:itemId/claims', async ({ getAuthUser, checkListAccess, params: { itemId } }) => {
+  .delete('/items/:itemId/claims', async ({ getAuthUser, checkListAccess, params: { itemId }, body }) => {
     const { role } = await checkListAccess('viewer');
     if (role === 'owner') {
       throw new AppError('Forbidden: List owner cannot unclaim items', 403, 'FORBIDDEN');
     }
     const user = await getAuthUser();
-    await useCases.unclaimItem.execute(itemId, user.userId);
-    const items = await useCases.buildItemClaimProjections.execute([itemId], user.userId);
+    const includeLinked = body?.Giftistry?.Items?.IncludeLinked === true;
+    const affectedIds = await useCases.unclaimItemWithLinked.execute(
+      itemId,
+      user.userId,
+      includeLinked
+    );
+    const items = await useCases.buildItemClaimProjections.execute(affectedIds, user.userId);
     return {
       success: true,
       data: {
@@ -254,9 +259,19 @@ export const itemRoutes = (
     detail: {
       tags: ['Items'],
       summary: 'Unclaim item in wishlist',
-      description: 'Remove a claim made by the current user.',
+      description:
+        'Remove a claim made by the current user. Set IncludeLinked to also unclaim the current user’s claims on every other item in the same link group.',
       security: [{ bearerAuth: [] }]
-    }
+    },
+    body: t.Optional(
+      t.Object({
+        Giftistry: t.Object({
+          Items: t.Object({
+            IncludeLinked: t.Optional(t.Boolean()),
+          }),
+        }),
+      })
+    ),
   })
   .put('/items/:itemId', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: { Name, Description, PriorityId, Category, Priority, SharedWithUserIds, LinkUrl, Price, WebsiteName, Metadata, IsHiddenIdea } } } }) => {
     const access = await checkListAccess('viewer');

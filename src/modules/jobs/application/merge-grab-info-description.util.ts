@@ -1,13 +1,21 @@
+import type { ItemDescriptionMetadata } from '@/modules/item/domain/item-description.util';
+
 type FieldMap = Record<string, string>;
 
 interface DescriptionMetadata {
-  Text?: string;
+  Text?: string | null;
   CustomFields?: {
     Predefined?: FieldMap;
     UserDefined?: FieldMap;
   };
   DesiredQuantity?: number;
   MultiCount?: boolean;
+  IsFavorite?: boolean;
+  IsPinned?: boolean;
+  OtherUsersCanSee?: boolean;
+  Variations?: ItemDescriptionMetadata['Variations'];
+  LinkedItemIds?: string[];
+  RelatedItemIds?: string[];
   [key: string]: unknown;
 }
 
@@ -55,7 +63,7 @@ function parseExistingDescription(description: string | null | undefined): {
   }
 }
 
-function cleanFieldMap(map: FieldMap | null | undefined): FieldMap {
+function cleanFieldMap(map: FieldMap | Record<string, string | null> | null | undefined): FieldMap {
   const out: FieldMap = {};
   if (!map) return out;
   for (const [key, value] of Object.entries(map)) {
@@ -75,23 +83,82 @@ function readExistingQty(metadata: DescriptionMetadata | null): number | null {
   return n >= 1 ? n : null;
 }
 
+function fromItemMetadata(metadata: ItemDescriptionMetadata | null | undefined): DescriptionMetadata | null {
+  if (!metadata) return null;
+  return {
+    Text: metadata.Text,
+    CustomFields: {
+      Predefined: cleanFieldMap(metadata.CustomFields?.Predefined),
+      UserDefined: cleanFieldMap(metadata.CustomFields?.UserDefined),
+    },
+    DesiredQuantity: metadata.DesiredQuantity,
+    MultiCount: metadata.MultiCount,
+    IsFavorite: metadata.IsFavorite,
+    IsPinned: metadata.IsPinned,
+    OtherUsersCanSee: metadata.OtherUsersCanSee,
+    Variations: metadata.Variations,
+    LinkedItemIds: metadata.LinkedItemIds,
+    RelatedItemIds: metadata.RelatedItemIds,
+  };
+}
+
+function toItemMetadata(metadata: DescriptionMetadata, text: string | null): ItemDescriptionMetadata {
+  const result: ItemDescriptionMetadata = {
+    Text: text,
+    CustomFields: {
+      Predefined: cleanFieldMap(metadata.CustomFields?.Predefined),
+      UserDefined: cleanFieldMap(metadata.CustomFields?.UserDefined),
+    },
+  };
+  if (metadata.DesiredQuantity != null) result.DesiredQuantity = metadata.DesiredQuantity;
+  if (metadata.MultiCount === true) result.MultiCount = true;
+  if (metadata.IsFavorite === true) result.IsFavorite = true;
+  if (metadata.IsPinned === true) result.IsPinned = true;
+  if (metadata.OtherUsersCanSee !== undefined) result.OtherUsersCanSee = metadata.OtherUsersCanSee;
+  if (metadata.Variations?.length) result.Variations = metadata.Variations;
+  if (metadata.LinkedItemIds?.length) result.LinkedItemIds = metadata.LinkedItemIds;
+  if (metadata.RelatedItemIds?.length) result.RelatedItemIds = metadata.RelatedItemIds;
+  return result;
+}
+
 export interface MergeGrabInfoOptions {
   /** Pack qty from extract/title. Applied when > 1; never lowers an existing higher qty. */
   desiredQuantity?: number | null;
+  /** Column-backed metadata from list/get (used when description is already plain text). */
+  existingMetadata?: ItemDescriptionMetadata | null;
+}
+
+export interface MergeGrabInfoResult {
+  text: string | null;
+  metadata: ItemDescriptionMetadata | null;
 }
 
 /**
- * Merge extract custom fields into item description JSON (FE buildGrabInfoUpdate parity).
+ * Merge extract custom fields with existing description JSON and/or column metadata.
  */
-export function mergeGrabInfoDescription(
+export function mergeGrabInfoMetadata(
   existingDescription: string | null | undefined,
   extractDescription: string | null | undefined,
   predefinedFields?: FieldMap | null,
   userDefinedFields?: FieldMap | null,
   options: MergeGrabInfoOptions = {}
-): string {
+): MergeGrabInfoResult {
   const parsed = parseExistingDescription(existingDescription);
-  const text = mergeString(extractDescription, parsed.text, '');
+  const columnMeta = fromItemMetadata(options.existingMetadata);
+  const baseMeta: DescriptionMetadata = {
+    ...(columnMeta ?? {}),
+    ...(parsed.metadata ?? {}),
+  };
+  const hasBaseMeta =
+    parsed.metadata != null ||
+    columnMeta != null;
+
+  const existingText =
+    parsed.text ??
+    (typeof columnMeta?.Text === 'string' ? columnMeta.Text : null) ??
+    null;
+  const text = mergeString(extractDescription, existingText, '') || null;
+
   const extractPredefined = cleanFieldMap(predefinedFields);
   const extractUserDefined = cleanFieldMap(userDefinedFields);
   const nextQty =
@@ -100,7 +167,7 @@ export function mergeGrabInfoDescription(
     options.desiredQuantity > 1
       ? Math.floor(options.desiredQuantity)
       : null;
-  const existingQty = readExistingQty(parsed.metadata);
+  const existingQty = readExistingQty(hasBaseMeta ? baseMeta : null);
   const mergedQty =
     nextQty != null && existingQty != null
       ? Math.max(nextQty, existingQty)
@@ -110,31 +177,33 @@ export function mergeGrabInfoDescription(
     Object.keys(extractPredefined).length > 0 ||
     Object.keys(extractUserDefined).length > 0;
 
-  if (!hasExtractFields && !parsed.metadata && mergedQty == null) {
-    if (text) return text;
-    return existingDescription?.trim() || '';
+  if (!hasExtractFields && !hasBaseMeta && mergedQty == null) {
+    return { text, metadata: null };
   }
 
-  if (!hasExtractFields && !parsed.metadata && mergedQty != null && mergedQty > 1) {
-    const metadata: DescriptionMetadata = {
-      ...(text ? { Text: text } : {}),
-      DesiredQuantity: mergedQty,
-      MultiCount: true,
+  if (!hasExtractFields && !hasBaseMeta && mergedQty != null && mergedQty > 1) {
+    return {
+      text,
+      metadata: {
+        Text: text,
+        DesiredQuantity: mergedQty,
+        MultiCount: true,
+        CustomFields: { Predefined: {}, UserDefined: {} },
+      },
     };
-    return JSON.stringify(metadata);
   }
 
   const predefined = {
-    ...cleanFieldMap(parsed.metadata?.CustomFields?.Predefined),
+    ...cleanFieldMap(baseMeta.CustomFields?.Predefined),
     ...extractPredefined,
   };
   const userDefined = {
-    ...cleanFieldMap(parsed.metadata?.CustomFields?.UserDefined),
+    ...cleanFieldMap(baseMeta.CustomFields?.UserDefined),
     ...extractUserDefined,
   };
 
   const metadata: DescriptionMetadata = {
-    ...(parsed.metadata ?? {}),
+    ...baseMeta,
     Text: text,
     CustomFields: {
       Predefined: predefined,
@@ -147,5 +216,50 @@ export function mergeGrabInfoDescription(
     metadata.MultiCount = true;
   }
 
-  return JSON.stringify(metadata);
+  const hasAnyFields =
+    Object.keys(predefined).length > 0 ||
+    Object.keys(userDefined).length > 0 ||
+    metadata.DesiredQuantity != null ||
+    metadata.MultiCount === true ||
+    metadata.IsFavorite === true ||
+    metadata.IsPinned === true ||
+    metadata.OtherUsersCanSee !== undefined ||
+    (metadata.Variations?.length ?? 0) > 0 ||
+    (metadata.LinkedItemIds?.length ?? 0) > 0 ||
+    (metadata.RelatedItemIds?.length ?? 0) > 0;
+
+  if (!hasAnyFields) {
+    return { text, metadata: null };
+  }
+
+  return { text, metadata: toItemMetadata(metadata, text) };
+}
+
+/**
+ * Merge extract custom fields into item description JSON (FE buildGrabInfoUpdate parity).
+ */
+export function mergeGrabInfoDescription(
+  existingDescription: string | null | undefined,
+  extractDescription: string | null | undefined,
+  predefinedFields?: FieldMap | null,
+  userDefinedFields?: FieldMap | null,
+  options: MergeGrabInfoOptions = {}
+): string {
+  const { text, metadata } = mergeGrabInfoMetadata(
+    existingDescription,
+    extractDescription,
+    predefinedFields,
+    userDefinedFields,
+    options
+  );
+
+  if (!metadata) {
+    if (text) return text;
+    return existingDescription?.trim() || '';
+  }
+
+  return JSON.stringify({
+    ...metadata,
+    Text: text,
+  });
 }

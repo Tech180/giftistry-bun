@@ -2,6 +2,7 @@ import type { ItemRepository } from '../domain/ports/item.repository';
 import type { AssertItemVisibleUseCase } from './assert-item-visible.use-case';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { assertWishlistMutable } from '@/modules/wishlist/domain/assert-wishlist-mutable.util';
+import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
 
 export class UnclaimItemUseCase {
   constructor(
@@ -32,5 +33,10 @@ export class UnclaimItemUseCase {
     }
 
     await this.itemRepo.deleteClaim(itemId, userId);
+    publishListChanged(item.ListId, {
+      reason: 'claim.changed',
+      itemId,
+      actorUserId: userId,
+    });
   }
 }

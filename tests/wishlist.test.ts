@@ -235,6 +235,7 @@ describe("Wishlist Lifecycle & Shares", () => {
     expect(rolloverRes.status).toBe(200);
     const rolloverBody = await rolloverRes.json() as any;
     const newListId = rolloverBody.Result.Id;
+    expect(rolloverBody.Result.Title).toBe('Holiday List 2027');
 
     // Verify new list has the rollover item
     const newItemsRes = await app.handle(
@@ -251,6 +252,77 @@ describe("Wishlist Lifecycle & Shares", () => {
 
     await cleanUpWishlist(oldListId);
     await cleanUpWishlist(newListId);
+  });
+
+  test("rollover appends 1 when title has no trailing number", async () => {
+    const oldListId = await createTestWishlist(
+      owner.token,
+      "Party",
+      new Date(Date.now() + 86400000).toISOString()
+    );
+
+    await app.handle(
+      new Request(`http://localhost/api/wishlists/${oldListId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${owner.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Lists: {
+              Title: "Party",
+              ExpiresAt: new Date(Date.now() - 1000).toISOString(),
+              AllowGroupFunds: true,
+            }
+          }
+        }),
+      })
+    );
+
+    const rolloverRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${oldListId}/rollover`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    expect(rolloverRes.status).toBe(200);
+    const rolloverBody = await rolloverRes.json() as any;
+    expect(rolloverBody.Result.Title).toBe("Party 1");
+    const newListId = rolloverBody.Result.Id;
+
+    await app.handle(
+      new Request(`http://localhost/api/wishlists/${newListId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${owner.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Lists: {
+              Title: "Party 1",
+              ExpiresAt: new Date(Date.now() - 1000).toISOString(),
+              AllowGroupFunds: true,
+            }
+          }
+        }),
+      })
+    );
+
+    const secondRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${newListId}/rollover`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    expect(secondRes.status).toBe(200);
+    const secondBody = await secondRes.json() as any;
+    expect(secondBody.Result.Title).toBe("Party 2");
+
+    await cleanUpWishlist(oldListId);
+    await cleanUpWishlist(newListId);
+    await cleanUpWishlist(secondBody.Result.Id);
   });
 
   test("GET expired wishlist without AutoRollover deactivates it", async () => {
@@ -614,6 +686,191 @@ describe("Wishlist Lifecycle & Shares", () => {
     const listBody = await listRes.json() as any;
     const wishlists = listBody.Result.Wishlists ?? listBody.Result;
     expect(wishlists.some((w: any) => w.Id === listId)).toBe(true);
+
+    await cleanUpWishlist(listId);
+  });
+
+  test("deactivate then activate moves list from archive to my bucket", async () => {
+    const listId = await createTestWishlist(owner.token, "Archive Round Trip List");
+
+    await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/deactivate`, {
+        method: "PUT",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+
+    const activateRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/activate`, {
+        method: "PUT",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    expect(activateRes.status).toBe(200);
+
+    const myRes = await app.handle(
+      new Request("http://localhost/api/wishlists?bucket=my", {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    const myBody = await myRes.json() as any;
+    const myLists = myBody.Result.Wishlists ?? myBody.Result;
+    expect(myLists.some((w: any) => w.Id === listId)).toBe(true);
+
+    const archiveRes = await app.handle(
+      new Request("http://localhost/api/wishlists?bucket=archive", {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    const archiveBody = await archiveRes.json() as any;
+    const archiveLists = archiveBody.Result.Wishlists ?? archiveBody.Result;
+    expect(archiveLists.some((w: any) => w.Id === listId)).toBe(false);
+
+    await cleanUpWishlist(listId);
+  });
+
+  test("activate after expiry clears ExpiresAt and leaves archive bucket", async () => {
+    const listId = await createTestWishlist(
+      owner.token,
+      "Expired Then Restore Bucket",
+      new Date(Date.now() + 86400000).toISOString(),
+      "generic",
+      true,
+      false
+    );
+
+    await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${owner.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Lists: {
+              Title: "Expired Then Restore Bucket",
+              ExpiresAt: new Date(Date.now() - 1000).toISOString(),
+              AllowGroupFunds: true,
+              AutoRollover: false,
+            }
+          }
+        }),
+      })
+    );
+
+    await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+
+    const activateRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/activate`, {
+        method: "PUT",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    expect(activateRes.status).toBe(200);
+    const activateBody = await activateRes.json() as any;
+    expect(activateBody.Result.IsActive).toBe(true);
+    expect(activateBody.Result.ExpiresAt).toBeNull();
+
+    const archiveRes = await app.handle(
+      new Request("http://localhost/api/wishlists?bucket=archive", {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    const archiveBody = await archiveRes.json() as any;
+    const archiveLists = archiveBody.Result.Wishlists ?? archiveBody.Result;
+    expect(archiveLists.some((w: any) => w.Id === listId)).toBe(false);
+
+    const myRes = await app.handle(
+      new Request("http://localhost/api/wishlists?bucket=my", {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    const myBody = await myRes.json() as any;
+    const myLists = myBody.Result.Wishlists ?? myBody.Result;
+    expect(myLists.some((w: any) => w.Id === listId)).toBe(true);
+
+    await cleanUpWishlist(listId);
+  });
+
+  test("activate with future ExpiresAt keeps list in my bucket", async () => {
+    const listId = await createTestWishlist(
+      owner.token,
+      "Future Expiry After Restore",
+      new Date(Date.now() + 86400000).toISOString(),
+      "generic",
+      true,
+      false
+    );
+
+    await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/deactivate`, {
+        method: "PUT",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+
+    const futureIso = new Date(Date.now() + 5 * 86400000).toISOString();
+    await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${owner.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Lists: {
+              Title: "Future Expiry After Restore",
+              ExpiresAt: futureIso,
+              AllowGroupFunds: true,
+              AutoRollover: false,
+            }
+          }
+        }),
+      })
+    );
+
+    const activateRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/activate`, {
+        method: "PUT",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    expect(activateRes.status).toBe(200);
+    const activateBody = await activateRes.json() as any;
+    expect(activateBody.Result.IsActive).toBe(true);
+    expect(activateBody.Result.ExpiresAt).not.toBeNull();
+    expect(new Date(activateBody.Result.ExpiresAt).getTime()).toBeGreaterThan(Date.now());
+
+    const myRes = await app.handle(
+      new Request("http://localhost/api/wishlists?bucket=my", {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    const myBody = await myRes.json() as any;
+    const myLists = myBody.Result.Wishlists ?? myBody.Result;
+    expect(myLists.some((w: any) => w.Id === listId)).toBe(true);
+
+    const archiveRes = await app.handle(
+      new Request("http://localhost/api/wishlists?bucket=archive", {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${owner.token}` }
+      })
+    );
+    const archiveBody = await archiveRes.json() as any;
+    const archiveLists = archiveBody.Result.Wishlists ?? archiveBody.Result;
+    expect(archiveLists.some((w: any) => w.Id === listId)).toBe(false);
 
     await cleanUpWishlist(listId);
   });

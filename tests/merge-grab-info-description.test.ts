@@ -1,5 +1,50 @@
 import { describe, expect, test } from 'bun:test';
-import { mergeGrabInfoDescription } from '@/modules/jobs/application/merge-grab-info-description.util';
+import {
+  mergeGrabInfoDescription,
+  mergeGrabInfoMetadata,
+} from '@/modules/jobs/application/merge-grab-info-description.util';
+
+describe('mergeGrabInfoMetadata', () => {
+  test('returns structured metadata without serializing', () => {
+    const result = mergeGrabInfoMetadata('Imported notes', 'Scraped notes', {
+      Color: 'Blue',
+    }, { Material: 'Cotton' });
+
+    expect(result.text).toBe('Scraped notes');
+    expect(result.metadata).toMatchObject({
+      Text: 'Scraped notes',
+      CustomFields: {
+        Predefined: { Color: 'Blue' },
+        UserDefined: { Material: 'Cotton' },
+      },
+    });
+  });
+
+  test('preserves column-backed IsFavorite when description is plain text', () => {
+    const result = mergeGrabInfoMetadata(
+      'Plain notes',
+      'Scraped notes',
+      { Color: 'Green' },
+      {},
+      {
+        existingMetadata: {
+          Text: 'Plain notes',
+          IsFavorite: true,
+          CustomFields: { Predefined: { Color: 'Red' }, UserDefined: {} },
+        },
+      }
+    );
+
+    expect(result.text).toBe('Scraped notes');
+    expect(result.metadata?.IsFavorite).toBe(true);
+    expect(result.metadata?.CustomFields?.Predefined?.Color).toBe('Green');
+  });
+
+  test('returns null metadata when nothing to persist', () => {
+    const result = mergeGrabInfoMetadata('Notes', 'Scraped', {}, {});
+    expect(result).toEqual({ text: 'Scraped', metadata: null });
+  });
+});
 
 describe('mergeGrabInfoDescription', () => {
   test('returns plain text when no custom fields', () => {

@@ -59,6 +59,20 @@ export interface ServerConfig {
   GrabInfoConcurrency?: number;
   GrabInfoConcurrencyUnlimited?: boolean;
   GrabInfoActiveStreamLimit?: number;
+  /** Push: ntfy (primary) */
+  NtfyEnabled?: boolean;
+  NtfyBaseUrl?: string;
+  NtfyAuthToken?: string;
+  NtfyTopicPrefix?: string;
+  /** Push: WebPush / Android FCM fallback */
+  WebPushEnabled?: boolean;
+  WebPushVapidPublicKey?: string;
+  WebPushVapidPrivateKey?: string;
+  WebPushSubject?: string;
+  /** Push: FCM HTTP v1 / iOS fallback */
+  FcmEnabled?: boolean;
+  FcmProjectId?: string;
+  FcmServiceAccountJson?: string;
 }
 
 export interface AdminSetupCredentials {
@@ -129,6 +143,17 @@ export interface SystemSettingsPayload {
   GrabInfoConcurrency?: number;
   GrabInfoConcurrencyUnlimited?: boolean;
   GrabInfoActiveStreamLimit?: number;
+  NtfyEnabled?: boolean;
+  NtfyBaseUrl?: string;
+  NtfyAuthToken?: string;
+  NtfyTopicPrefix?: string;
+  WebPushEnabled?: boolean;
+  WebPushVapidPublicKey?: string;
+  WebPushVapidPrivateKey?: string;
+  WebPushSubject?: string;
+  FcmEnabled?: boolean;
+  FcmProjectId?: string;
+  FcmServiceAccountJson?: string;
 }
 
 export interface SystemSettingsView {
@@ -175,6 +200,17 @@ export interface SystemSettingsView {
   GrabInfoConcurrency: number;
   GrabInfoConcurrencyUnlimited: boolean;
   GrabInfoActiveStreamLimit: number;
+  NtfyEnabled: boolean;
+  NtfyBaseUrl: string;
+  NtfyAuthToken: string;
+  NtfyTopicPrefix: string;
+  WebPushEnabled: boolean;
+  WebPushVapidPublicKey: string;
+  WebPushVapidPrivateKey: string;
+  WebPushSubject: string;
+  FcmEnabled: boolean;
+  FcmProjectId: string;
+  FcmServiceAccountJson: string;
   AiDefaultPrompts: {
     Review: string;
     Description: string;
@@ -354,6 +390,17 @@ export function toSystemSettingsView(config: ServerConfig): SystemSettingsView {
     GrabInfoActiveStreamLimit: clampGrabInfoActiveStreamLimit(
       config.GrabInfoActiveStreamLimit ?? DEFAULT_GRAB_INFO_ACTIVE_STREAM_LIMIT
     ),
+    NtfyEnabled: !!config.NtfyEnabled,
+    NtfyBaseUrl: config.NtfyBaseUrl || 'https://ntfy.sh',
+    NtfyAuthToken: maskSecret(config.NtfyAuthToken),
+    NtfyTopicPrefix: config.NtfyTopicPrefix || 'giftistry',
+    WebPushEnabled: !!config.WebPushEnabled,
+    WebPushVapidPublicKey: config.WebPushVapidPublicKey || '',
+    WebPushVapidPrivateKey: maskSecret(config.WebPushVapidPrivateKey),
+    WebPushSubject: config.WebPushSubject || 'mailto:admin@localhost',
+    FcmEnabled: !!config.FcmEnabled,
+    FcmProjectId: config.FcmProjectId || '',
+    FcmServiceAccountJson: maskSecret(config.FcmServiceAccountJson),
     AiDefaultPrompts: {
       Review: AI_DEFAULT_PROMPTS.review,
       Description: AI_DEFAULT_PROMPTS.description,

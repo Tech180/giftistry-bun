@@ -162,6 +162,8 @@ export class ListItemsUseCase {
           PriorityId: item.PriorityId,
           SuggestedByUserId: item.SuggestedByUserId,
           SuggestedByUsername: item.SuggestedByUsername || null,
+          SuggestedByFirstName: item.SuggestedByFirstName || null,
+          SuggestedByLastName: item.SuggestedByLastName || null,
           Name: item.Name,
           Description:
             metadata?.Text ?? (item.Description?.startsWith('{') ? null : item.Description),

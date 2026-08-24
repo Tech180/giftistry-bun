@@ -13,6 +13,11 @@ import { PostgresCommentRepository } from '@/modules/comment/infrastructure/post
 import { PostgresFriendRepository } from '@/modules/friends/infrastructure/postgres-friend.repository';
 import { PostgresFriendRequestRepository } from '@/modules/friends/infrastructure/postgres-friend-request.repository';
 import { PostgresNotificationRepository } from '@/modules/notifications/infrastructure/postgres-notification.repository';
+import { PostgresPushSubscriptionRepository } from '@/modules/notifications/infrastructure/postgres-push-subscription.repository';
+import { NtfyPushAdapter } from '@/modules/notifications/infrastructure/ntfy-push.adapter';
+import { WebPushAdapter } from '@/modules/notifications/infrastructure/webpush-push.adapter';
+import { FcmPushAdapter } from '@/modules/notifications/infrastructure/fcm-push.adapter';
+import { NotificationDeliveryService } from '@/modules/notifications/application/notification-delivery.service';
 import { PostgresListLinkTokenRepository } from '@/modules/invites/infrastructure/postgres-list-link-token.repository';
 import { PostgresListEmailInviteRepository } from '@/modules/invites/infrastructure/postgres-list-email-invite.repository';
 import { PostgresAdminUserRepository } from '@/modules/admin/infrastructure/postgres-admin-user.repository';
@@ -40,6 +45,7 @@ import { createSystemModule } from '@/modules/system/system.module';
 import { SaveSystemSettingsUseCase } from '@/modules/system/application/save-system-settings.use-case';
 import { TestAiConnectionUseCase } from '@/modules/system/application/test-ai-connection.use-case';
 import { createJobsModule } from '@/modules/jobs/jobs.module';
+import { NotifyItemJobCompletionUseCase } from '@/modules/jobs/application/notify-item-job-completion.use-case';
 import { PostgresBackgroundJobRepository } from '@/modules/jobs/infrastructure/postgres-background-job.repository';
 import type { BackgroundJobRunner } from '@/modules/jobs/application/background-job-runner';
 import { createListAccessMiddleware } from '@/common/middlewares/list-access.middleware';
@@ -78,6 +84,7 @@ export function createAppContainer(): AppContainer {
   const friendRepo = new PostgresFriendRepository();
   const friendRequestRepo = new PostgresFriendRequestRepository();
   const notificationRepo = new PostgresNotificationRepository();
+  const pushSubscriptionRepo = new PostgresPushSubscriptionRepository();
   const linkTokenRepo = new PostgresListLinkTokenRepository();
   const emailInviteRepo = new PostgresListEmailInviteRepository();
   const adminUserRepo = new PostgresAdminUserRepository();
@@ -92,9 +99,28 @@ export function createAppContainer(): AppContainer {
   const assertUserCanUseCase = new AssertUserCanUseCase(userPolicyRepo);
   const assertCanCreateWishlistUseCase = new AssertCanCreateWishlistUseCase(userPolicyRepo);
 
+  const ntfyPushAdapter = new NtfyPushAdapter(serverConfigRepo);
+  const webPushAdapter = new WebPushAdapter(serverConfigRepo);
+  const fcmPushAdapter = new FcmPushAdapter(serverConfigRepo);
+  const notificationDelivery = new NotificationDeliveryService(
+    pushSubscriptionRepo,
+    {
+      ntfy: ntfyPushAdapter,
+      webpush: webPushAdapter,
+      fcm: fcmPushAdapter,
+    },
+    serverConfigRepo
+  );
+
   const eventBus = new InProcessEventBus();
-  const createNotificationUseCase = new CreateNotificationUseCase(notificationRepo);
+  const createNotificationUseCase = new CreateNotificationUseCase(
+    notificationRepo,
+    notificationDelivery
+  );
   registerCreateNotificationHandlers(eventBus, createNotificationUseCase);
+  const notifyItemJobCompletion = new NotifyItemJobCompletionUseCase(
+    createNotificationUseCase
+  );
 
   const testAiConnectionUseCase = new TestAiConnectionUseCase();
   const saveSystemSettingsUseCase = new SaveSystemSettingsUseCase(serverConfigRepo, testAiConnectionUseCase);
@@ -164,6 +190,7 @@ export function createAppContainer(): AppContainer {
     createWishlist: wishlistUseCases.createWishlist,
     middleware: routeMiddleware,
     jobRepo,
+    notifyItemJobCompletion,
   });
 
   const commentModule = createCommentModule({
@@ -183,6 +210,8 @@ export function createAppContainer(): AppContainer {
 
   const notificationsModule = createNotificationsModule({
     notificationRepo,
+    pushSubscriptionRepo,
+    serverConfigRepo,
   });
 
   const { module: systemModule } = createSystemModule({

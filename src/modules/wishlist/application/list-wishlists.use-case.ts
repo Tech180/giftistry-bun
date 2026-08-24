@@ -1,5 +1,6 @@
 import type { WishlistRepository } from '../domain/ports/wishlist.repository';
 import type { Wishlist } from '../domain/wishlist.entity';
+import { isWishlistArchiveEligible } from '../domain/is-wishlist-archive-eligible.util';
 
 export type WishlistBucket = 'my' | 'shared' | 'archive' | 'all';
 
@@ -19,13 +20,8 @@ export interface ListWishlistsResult {
   Counts: ListWishlistsCounts;
 }
 
-function isExpired(expiresAt: Date | string | null | undefined): boolean {
-  if (!expiresAt) return false;
-  return new Date(expiresAt) < new Date();
-}
-
 function classifyBucket(list: Wishlist): 'my' | 'shared' | 'archive' {
-  if (isExpired(list.ExpiresAt) || list.IsActive === false) {
+  if (isWishlistArchiveEligible(list)) {
     return 'archive';
   }
   if (list.Role === 'owner' || !list.Role) {

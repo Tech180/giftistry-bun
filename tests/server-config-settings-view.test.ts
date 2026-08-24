@@ -32,12 +32,19 @@ describe('toSystemSettingsView aiDefaultPrompts', () => {
 });
 
 describe('toSystemSettingsView AiEnabledPackIds', () => {
-  test('defaults to Technology + CPU when unset', () => {
+  test('defaults to technology, CPU, and category packs when unset', () => {
     const view = toSystemSettingsView({
       DbType: 'local',
       SmtpType: 'local',
     });
-    expect(view.AiEnabledPackIds).toEqual(['technology', 'technology.cpu']);
+    expect(view.AiEnabledPackIds).toEqual([
+      'technology',
+      'technology.cpu',
+      'books',
+      'movies',
+      'clothing',
+      'kitchen',
+    ]);
   });
 
   test('returns a saved empty list', () => {

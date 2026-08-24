@@ -89,6 +89,8 @@ export interface ItemRepository {
   ): Promise<Item>;
   delete(id: string): Promise<void>;
   deleteClaim(itemId: string, userId: string): Promise<void>;
+  /** Deletes the user's claims on the given items in one transaction; returns item IDs that had a claim removed. */
+  deleteClaimsAtomic(itemIds: string[], userId: string): Promise<string[]>;
 
   findLinkedItemIds(itemId: string): Promise<string[]>;
   findLinkedItemIdsByListId(listId: string): Promise<Map<string, string[]>>;

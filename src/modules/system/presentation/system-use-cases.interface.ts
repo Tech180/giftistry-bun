@@ -7,6 +7,8 @@ import type { DeleteServerUseCase } from '../application/delete-server.use-case'
 import type { TestAiConnectionUseCase } from '../application/test-ai-connection.use-case';
 import type { ListSystemModelsUseCase } from '../application/list-system-models.use-case';
 import type { GetMetadataPacksUseCase } from '../application/get-metadata-packs.use-case';
+import type { GetPushConfigPublicUseCase } from '../application/get-push-config-public.use-case';
+import type { TestNtfyUseCase } from '../application/test-ntfy.use-case';
 
 export interface SystemUseCases {
   getSystemStatus: GetSystemStatusUseCase;
@@ -16,6 +18,8 @@ export interface SystemUseCases {
   testAiConnection: TestAiConnectionUseCase;
   listSystemModels: ListSystemModelsUseCase;
   getMetadataPacks: GetMetadataPacksUseCase;
+  getPushConfigPublic: GetPushConfigPublicUseCase;
+  testNtfy: TestNtfyUseCase;
   transferOwnership: TransferOwnershipUseCase;
   deleteServer: DeleteServerUseCase;
 }

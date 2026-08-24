@@ -5,6 +5,12 @@ import { AppError } from '@/common/middlewares/error.middleware';
 import { parseItemDescription } from '@/modules/item/domain/item-description.util';
 import { formatCategoryLabel } from '@/modules/item/domain/format-category-label.util';
 import { sortWishlistItemsByExportOrder } from '@/modules/item/domain/sort-wishlist-items.util';
+import {
+  getLinkedItemIdsFromExportItem,
+  getRelatedItemIdsFromExportItem,
+  resolveRelationPeerNames,
+  type RelationExportItem,
+} from '@/modules/item/domain/resolve-item-relations.util';
 import ExcelJS from 'exceljs';
 
 export interface WishlistExportResult {
@@ -78,7 +84,7 @@ function formatSuggestionForExport(item: any, isOwner: boolean): string {
     return '';
   }
   if (item.IsSuggestion) {
-    return `Suggestion by ${item.SuggestedByUsername || 'Collaborator'}`;
+    return item.SuggestedByUsername || 'Collaborator';
   }
   if (item.IsHiddenIdea) {
     return 'Hidden suggestion';
@@ -95,6 +101,31 @@ function getSiteName(urlStr: string): string {
   } catch {
     return 'Store';
   }
+}
+
+function buildRelationNameById(items: RelationExportItem[]): Map<string, string> {
+  const nameById = new Map<string, string>();
+  for (const item of items) {
+    const name = typeof item.Name === 'string' ? item.Name.trim() : '';
+    if (name) nameById.set(item.Id, name);
+  }
+  return nameById;
+}
+
+function formatLinkedItemsForExport(
+  itemId: string,
+  items: RelationExportItem[],
+  nameById: Map<string, string>
+): string {
+  return resolveRelationPeerNames(itemId, items, nameById, getLinkedItemIdsFromExportItem).join(', ');
+}
+
+function formatRelatedItemsForExport(
+  itemId: string,
+  items: RelationExportItem[],
+  nameById: Map<string, string>
+): string {
+  return resolveRelationPeerNames(itemId, items, nameById, getRelatedItemIdsFromExportItem).join(', ');
 }
 
 export class ExportWishlistDataUseCase {
@@ -127,6 +158,8 @@ export class ExportWishlistDataUseCase {
 
     const sorted = this.getSortedItemsWithPriority(Items);
     const includeSuggestionColumn = !isOwner;
+    const relationItems = sorted as RelationExportItem[];
+    const relationNameById = buildRelationNameById(relationItems);
 
     switch (format) {
       case 'csv': {
@@ -140,6 +173,8 @@ export class ExportWishlistDataUseCase {
           'Description',
           'Audience',
           ...(includeSuggestionColumn ? ['Suggestion'] : []),
+          'Linked Items',
+          'Related Items',
         ];
         const rows: any[][] = [];
         const emptyRow = headers.map(() => '');
@@ -171,16 +206,20 @@ export class ExportWishlistDataUseCase {
             const suggestion = includeSuggestionColumn
               ? formatSuggestionForExport(item, exportContext.isOwner)
               : null;
+            const linkedItems = formatLinkedItemsForExport(item.Id, relationItems, relationNameById);
+            const relatedItems = formatRelatedItemsForExport(item.Id, relationItems, relationNameById);
 
-            const appendSuggestion = (row: any[]) =>
-              includeSuggestionColumn ? [...row, suggestion] : row;
+            const appendMeta = (row: any[]) => {
+              const withSuggestion = includeSuggestionColumn ? [...row, suggestion] : row;
+              return [...withSuggestion, linkedItems, relatedItems];
+            };
 
             if (item.Links && item.Links.length > 0) {
               for (const link of item.Links) {
-                const priceVal = link.ExtractedPrice !== null && link.ExtractedPrice !== undefined 
-                  ? `$${link.ExtractedPrice.toFixed(2)}` 
+                const priceVal = link.ExtractedPrice !== null && link.ExtractedPrice !== undefined
+                  ? `$${link.ExtractedPrice.toFixed(2)}`
                   : '';
-                rows.push(appendSuggestion([
+                rows.push(appendMeta([
                   '',
                   priorityVal,
                   item.Name,
@@ -192,7 +231,7 @@ export class ExportWishlistDataUseCase {
                 ]));
               }
             } else {
-              rows.push(appendSuggestion([
+              rows.push(appendMeta([
                 '',
                 priorityVal,
                 item.Name,
@@ -231,9 +270,13 @@ export class ExportWishlistDataUseCase {
         worksheet.getColumn(6).width = 18;
         worksheet.getColumn(7).width = 45;
         worksheet.getColumn(8).width = 18;
+        let nextCol = 9;
         if (includeSuggestionColumn) {
-          worksheet.getColumn(9).width = 22;
+          worksheet.getColumn(nextCol).width = 22;
+          nextCol += 1;
         }
+        worksheet.getColumn(nextCol).width = 28;
+        worksheet.getColumn(nextCol + 1).width = 28;
 
         const headers = [
           'Category',
@@ -245,6 +288,8 @@ export class ExportWishlistDataUseCase {
           'Description',
           'Audience',
           ...(includeSuggestionColumn ? ['Suggestion'] : []),
+          'Linked Items',
+          'Related Items',
         ];
         const headerRow = worksheet.addRow(headers);
         headerRow.height = 24;
@@ -307,6 +352,8 @@ export class ExportWishlistDataUseCase {
             const suggestion = includeSuggestionColumn
               ? formatSuggestionForExport(item, exportContext.isOwner)
               : null;
+            const linkedItems = formatLinkedItemsForExport(item.Id, relationItems, relationNameById);
+            const relatedItems = formatRelatedItemsForExport(item.Id, relationItems, relationNameById);
 
             let priceVal = '';
             let websiteLabel = '';
@@ -314,8 +361,8 @@ export class ExportWishlistDataUseCase {
 
             if (item.Links && item.Links.length > 0) {
               const link = item.Links[0];
-              priceVal = link.ExtractedPrice !== null && link.ExtractedPrice !== undefined 
-                ? `$${link.ExtractedPrice.toFixed(2)}` 
+              priceVal = link.ExtractedPrice !== null && link.ExtractedPrice !== undefined
+                ? `$${link.ExtractedPrice.toFixed(2)}`
                 : '';
               websiteLabel = link.RetailerName || (link.Url ? getSiteName(link.Url) : 'Store');
               linkUrl = link.Url || '';
@@ -331,6 +378,8 @@ export class ExportWishlistDataUseCase {
               formattedDesc,
               audience,
               ...(includeSuggestionColumn ? [suggestion] : []),
+              linkedItems,
+              relatedItems,
             ];
             const itemRow = worksheet.addRow(rowValues);
 
@@ -350,10 +399,10 @@ export class ExportWishlistDataUseCase {
                   color: { argb: 'FF333333' }
                 };
               }
-              cell.alignment = { 
-                vertical: 'middle', 
-                horizontal: 'left', 
-                wrapText: true 
+              cell.alignment = {
+                vertical: 'middle',
+                horizontal: 'left',
+                wrapText: true
               };
             });
           }
@@ -401,12 +450,16 @@ export class ExportWishlistDataUseCase {
             const descStr = descText ? `\n    Description: ${descText}` : '';
             const audience = formatAudienceForExport(item.SharedWith, exportContext.currentUserId, item.SuggestedByUserId);
             const suggestion = formatSuggestionForExport(item, exportContext.isOwner);
-            const metaStr = `\n    Audience: ${audience}${suggestion ? `\n    Suggestion: ${suggestion}` : ''}`;
+            const linkedItems = formatLinkedItemsForExport(item.Id, relationItems, relationNameById);
+            const relatedItems = formatRelatedItemsForExport(item.Id, relationItems, relationNameById);
+            const metaStr = `\n    Audience: ${audience}${suggestion ? `\n    Suggestion: ${suggestion}` : ''}${
+              linkedItems ? `\n    Linked Items: ${linkedItems}` : ''
+            }${relatedItems ? `\n    Related Items: ${relatedItems}` : ''}`;
 
             if (item.Links && item.Links.length > 0) {
               for (const link of item.Links) {
-                const priceStr = link.ExtractedPrice !== null && link.ExtractedPrice !== undefined 
-                  ? ` - $${link.ExtractedPrice.toFixed(2)}` 
+                const priceStr = link.ExtractedPrice !== null && link.ExtractedPrice !== undefined
+                  ? ` - $${link.ExtractedPrice.toFixed(2)}`
                   : '';
                 const retailer = link.RetailerName || 'Store';
                 sections.push(`${starPrefix}${item.Name}${priceStr} ${priorityLabel}`);
@@ -445,6 +498,18 @@ export class ExportWishlistDataUseCase {
           const suggestion = includeSuggestionColumn
             ? formatSuggestionForExport(item, exportContext.isOwner)
             : '';
+          const linkedItems = resolveRelationPeerNames(
+            item.Id,
+            relationItems,
+            relationNameById,
+            getLinkedItemIdsFromExportItem
+          );
+          const relatedItems = resolveRelationPeerNames(
+            item.Id,
+            relationItems,
+            relationNameById,
+            getRelatedItemIdsFromExportItem
+          );
 
           return {
             name: item.Name,
@@ -454,6 +519,8 @@ export class ExportWishlistDataUseCase {
             description: parsedDesc,
             audience,
             ...(includeSuggestionColumn && suggestion ? { suggestion } : {}),
+            ...(linkedItems.length ? { linkedItems } : {}),
+            ...(relatedItems.length ? { relatedItems } : {}),
             links: (item.Links || []).map((link: any) => ({
               url: link.Url || '',
               retailer: link.RetailerName || '',
@@ -481,12 +548,19 @@ export class ExportWishlistDataUseCase {
     return sortWishlistItemsByExportOrder(
       items.map((item) => ({
         ...item,
-        Metadata: parseItemDescription(item.Description).metadata,
+        // Prefer list DTO Metadata (includes Linked/Related from first-class columns).
+        // Description is often plain text after list-items resolution.
+        Metadata: item.Metadata ?? parseItemDescription(item.Description).metadata,
       }))
     ).map((item) => ({
       ...item,
       categoryFormatted: formatCategoryLabel(item.Category || 'uncategorized'),
-      isFav: !!(item.Metadata?.IsFavorite || item.Metadata?.IsPinned),
+      isFav: !!(
+        item.IsFavorite ||
+        item.IsPinned ||
+        item.Metadata?.IsFavorite ||
+        item.Metadata?.IsPinned
+      ),
     }));
   }
 }

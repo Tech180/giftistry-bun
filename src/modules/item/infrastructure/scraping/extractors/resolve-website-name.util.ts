@@ -1,9 +1,15 @@
+import { decodeHtmlEntities } from '../html-utils';
+
 const GENERIC_SUBDOMAINS = new Set(['shop', 'store', 'www', 'm', 'mobile', 'checkout', 'buy']);
 
 export interface WebsiteNameHints {
   ogSiteName?: string | null;
   brand?: string | null;
   vendor?: string | null;
+}
+
+function cleanHint(value: string | null | undefined): string {
+  return decodeHtmlEntities(value ?? '').trim();
 }
 
 export function resolveWebsiteNameFromUrl(url: string): string {
@@ -24,13 +30,13 @@ export function resolveWebsiteNameFromUrl(url: string): string {
 }
 
 export function resolveWebsiteName(url: string, hints: WebsiteNameHints = {}): string {
-  const brand = hints.brand?.trim();
+  const brand = cleanHint(hints.brand);
   if (brand) return brand;
 
-  const vendor = hints.vendor?.trim();
+  const vendor = cleanHint(hints.vendor);
   if (vendor) return vendor;
 
-  const ogSiteName = hints.ogSiteName?.trim();
+  const ogSiteName = cleanHint(hints.ogSiteName);
   if (ogSiteName && !GENERIC_SUBDOMAINS.has(ogSiteName.toLowerCase())) {
     return ogSiteName;
   }
@@ -42,5 +48,8 @@ export function extractOgSiteName(html: string): string | null {
   const match =
     html.match(/<meta[^>]*property=["']og:site_name["'][^>]*content=["']([^"']+)["']/i) ||
     html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:site_name["']/i);
-  return match?.[1]?.trim() || null;
+  const raw = match?.[1]?.trim();
+  if (!raw) return null;
+  const decoded = decodeHtmlEntities(raw).trim();
+  return decoded || null;
 }

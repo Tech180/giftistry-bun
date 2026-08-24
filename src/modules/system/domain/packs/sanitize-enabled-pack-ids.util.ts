@@ -22,7 +22,7 @@ function uniqueValidPackIds(value: unknown, catalog: readonly MetadataPack[]): s
 
 /**
  * Resolve the enabled pack id list for enrich / settings view.
- * Missing or malformed values use the new-install default (Technology + CPU).
+ * Missing or malformed values use the new-install default (technology, CPU, and category packs).
  * An explicit empty array means no packs.
  */
 export function sanitizeEnabledPackIds(

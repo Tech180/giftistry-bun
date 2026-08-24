@@ -55,6 +55,17 @@ export interface SystemConfig {
   GrabInfoConcurrency?: number;
   GrabInfoConcurrencyUnlimited?: boolean;
   GrabInfoActiveStreamLimit?: number;
+  NtfyEnabled?: boolean;
+  NtfyBaseUrl?: string;
+  NtfyAuthToken?: string;
+  NtfyTopicPrefix?: string;
+  WebPushEnabled?: boolean;
+  WebPushVapidPublicKey?: string;
+  WebPushVapidPrivateKey?: string;
+  WebPushSubject?: string;
+  FcmEnabled?: boolean;
+  FcmProjectId?: string;
+  FcmServiceAccountJson?: string;
 }
 
 function pick<T>(data: Record<string, unknown>, key: string, fallback: T): T {
@@ -208,6 +219,26 @@ function normalizeConfig(data: Record<string, unknown>): SystemConfig {
       const value = pick<unknown>(data, 'GrabInfoActiveStreamLimit', undefined);
       return value !== undefined ? Number(value) : undefined;
     })(),
+    NtfyEnabled: (() => {
+      const value = pick<unknown>(data, 'NtfyEnabled', undefined);
+      return value !== undefined ? Boolean(value) : undefined;
+    })(),
+    NtfyBaseUrl: String(pick(data, 'NtfyBaseUrl', '')).trim() || undefined,
+    NtfyAuthToken: String(pick(data, 'NtfyAuthToken', '')).trim() || undefined,
+    NtfyTopicPrefix: String(pick(data, 'NtfyTopicPrefix', '')).trim() || undefined,
+    WebPushEnabled: (() => {
+      const value = pick<unknown>(data, 'WebPushEnabled', undefined);
+      return value !== undefined ? Boolean(value) : undefined;
+    })(),
+    WebPushVapidPublicKey: String(pick(data, 'WebPushVapidPublicKey', '')).trim() || undefined,
+    WebPushVapidPrivateKey: String(pick(data, 'WebPushVapidPrivateKey', '')).trim() || undefined,
+    WebPushSubject: String(pick(data, 'WebPushSubject', '')).trim() || undefined,
+    FcmEnabled: (() => {
+      const value = pick<unknown>(data, 'FcmEnabled', undefined);
+      return value !== undefined ? Boolean(value) : undefined;
+    })(),
+    FcmProjectId: String(pick(data, 'FcmProjectId', '')).trim() || undefined,
+    FcmServiceAccountJson: String(pick(data, 'FcmServiceAccountJson', '')).trim() || undefined,
   };
 }
 

@@ -214,6 +214,23 @@ export class SaveSystemSettingsUseCase {
       GrabInfoActiveStreamLimit: clampGrabInfoActiveStreamLimit(
         settings.GrabInfoActiveStreamLimit ?? config.GrabInfoActiveStreamLimit
       ),
+      NtfyEnabled: settings.NtfyEnabled ?? config.NtfyEnabled,
+      NtfyBaseUrl: settings.NtfyBaseUrl ?? config.NtfyBaseUrl,
+      NtfyAuthToken: resolveMaskedSecret(settings.NtfyAuthToken, config.NtfyAuthToken),
+      NtfyTopicPrefix: settings.NtfyTopicPrefix ?? config.NtfyTopicPrefix,
+      WebPushEnabled: settings.WebPushEnabled ?? config.WebPushEnabled,
+      WebPushVapidPublicKey: settings.WebPushVapidPublicKey ?? config.WebPushVapidPublicKey,
+      WebPushVapidPrivateKey: resolveMaskedSecret(
+        settings.WebPushVapidPrivateKey,
+        config.WebPushVapidPrivateKey
+      ),
+      WebPushSubject: settings.WebPushSubject ?? config.WebPushSubject,
+      FcmEnabled: settings.FcmEnabled ?? config.FcmEnabled,
+      FcmProjectId: settings.FcmProjectId ?? config.FcmProjectId,
+      FcmServiceAccountJson: resolveMaskedSecret(
+        settings.FcmServiceAccountJson,
+        config.FcmServiceAccountJson
+      ),
     });
   }
 }

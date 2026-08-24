@@ -42,4 +42,70 @@ describe('ListWishlistsUseCase buckets and search', () => {
     expect(result.Wishlists.map((w) => w.Id)).toEqual(['2']);
     expect(result.Counts.My).toBe(1);
   });
+
+  test('active list with past expiry is archived', async () => {
+    const expiredActive = [
+      list({
+        Id: 'exp-1',
+        Title: 'Expired Active',
+        Role: 'owner',
+        IsActive: true,
+        ExpiresAt: new Date(Date.now() - 86400000),
+      }),
+    ];
+    const uc = new ListWishlistsUseCase({
+      findByUserId: mock(async () => expiredActive),
+    } as never);
+    const archive = await uc.execute('user-1', { bucket: 'archive' });
+    const my = await uc.execute('user-1', { bucket: 'my' });
+    expect(archive.Wishlists.map((w) => w.Id)).toEqual(['exp-1']);
+    expect(my.Wishlists).toEqual([]);
+  });
+
+  test('active list with null expiry is in my bucket', async () => {
+    const active = [list({ Id: 'my-1', Title: 'Live', Role: 'owner', IsActive: true, ExpiresAt: null })];
+    const uc = new ListWishlistsUseCase({
+      findByUserId: mock(async () => active),
+    } as never);
+    const my = await uc.execute('user-1', { bucket: 'my' });
+    const archive = await uc.execute('user-1', { bucket: 'archive' });
+    expect(my.Wishlists.map((w) => w.Id)).toEqual(['my-1']);
+    expect(archive.Wishlists).toEqual([]);
+  });
+
+  test('inactive list with future expiry is archived', async () => {
+    const inactive = [
+      list({
+        Id: 'ina-1',
+        Title: 'Manual Archive',
+        Role: 'owner',
+        IsActive: false,
+        ExpiresAt: new Date(Date.now() + 86400000),
+      }),
+    ];
+    const uc = new ListWishlistsUseCase({
+      findByUserId: mock(async () => inactive),
+    } as never);
+    const archive = await uc.execute('user-1', { bucket: 'archive' });
+    expect(archive.Wishlists.map((w) => w.Id)).toEqual(['ina-1']);
+  });
+
+  test('reactivated fields (active + cleared expiry) land in my bucket', async () => {
+    const restored = [
+      list({
+        Id: 'rest-1',
+        Title: 'Restored',
+        Role: 'owner',
+        IsActive: true,
+        ExpiresAt: null,
+      }),
+    ];
+    const uc = new ListWishlistsUseCase({
+      findByUserId: mock(async () => restored),
+    } as never);
+    const my = await uc.execute('user-1', { bucket: 'my' });
+    const archive = await uc.execute('user-1', { bucket: 'archive' });
+    expect(my.Wishlists.map((w) => w.Id)).toEqual(['rest-1']);
+    expect(archive.Wishlists).toEqual([]);
+  });
 });

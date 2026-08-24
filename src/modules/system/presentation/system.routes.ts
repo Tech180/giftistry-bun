@@ -183,9 +183,38 @@ export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '
           GrabInfoConcurrency: t.Optional(t.Numeric()),
           GrabInfoConcurrencyUnlimited: t.Optional(t.Boolean()),
           GrabInfoActiveStreamLimit: t.Optional(t.Numeric()),
+          NtfyEnabled: t.Optional(t.Boolean()),
+          NtfyBaseUrl: t.Optional(t.String()),
+          NtfyAuthToken: t.Optional(t.String()),
+          NtfyTopicPrefix: t.Optional(t.String()),
+          WebPushEnabled: t.Optional(t.Boolean()),
+          WebPushVapidPublicKey: t.Optional(t.String()),
+          WebPushVapidPrivateKey: t.Optional(t.String()),
+          WebPushSubject: t.Optional(t.String()),
+          FcmEnabled: t.Optional(t.Boolean()),
+          FcmProjectId: t.Optional(t.String()),
+          FcmServiceAccountJson: t.Optional(t.String()),
         }),
       }),
     }),
+  })
+  .get('/push-config/public', async ({ getAuthUser }) => {
+    await getAuthUser();
+    const data = useCases.getPushConfigPublic.execute();
+    return { success: true, data };
+  }, {
+    detail: { tags: ['System'] as string[], summary: 'Public push config', security: [{ bearerAuth: [] as string[] }] },
+  })
+  .post('/test-ntfy', async ({ getAuthUser }) => {
+    const user = await getAuthUser();
+    if (!user.IsOwner) {
+      throw new AppError('Forbidden: Owner access required', 403, 'FORBIDDEN');
+    }
+
+    const data = await useCases.testNtfy.execute();
+    return { success: true, data };
+  }, {
+    detail: { ...systemOwnerDetail, summary: 'Publish ntfy test message' },
   })
   .post('/ai-check', async ({ getAuthUser, body: { Giftistry: { System: payload } } }) => {
     const user = await getAuthUser();

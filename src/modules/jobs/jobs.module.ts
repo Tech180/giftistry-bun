@@ -11,6 +11,7 @@ import { StartItemEnrichJobUseCase } from './application/start-item-enrich-job.u
 import { RunItemEnrichJobUseCase } from './application/run-item-enrich-job.use-case';
 import { StartItemSummarizeJobUseCase } from './application/start-item-summarize-job.use-case';
 import { RunItemSummarizeJobUseCase } from './application/run-item-summarize-job.use-case';
+import type { NotifyItemJobCompletionUseCase } from './application/notify-item-job-completion.use-case';
 import { BackgroundJobRunner } from './application/background-job-runner';
 import { jobsRoutes } from './presentation/jobs.routes';
 
@@ -20,6 +21,7 @@ export interface JobsModuleDeps {
   middleware: RouteMiddleware;
   jobRepo?: PostgresBackgroundJobRepository;
   jobProgressPublisher?: JobProgressPublisher;
+  notifyItemJobCompletion?: NotifyItemJobCompletionUseCase;
 }
 
 export function createJobsModule(deps: JobsModuleDeps) {
@@ -37,13 +39,15 @@ export function createJobsModule(deps: JobsModuleDeps) {
   const runItemEnrich = new RunItemEnrichJobUseCase(
     jobRepo,
     deps.itemUseCases,
-    jobProgressPublisher
+    jobProgressPublisher,
+    deps.notifyItemJobCompletion
   );
   const startItemSummarize = new StartItemSummarizeJobUseCase(jobRepo);
   const runItemSummarize = new RunItemSummarizeJobUseCase(
     jobRepo,
     deps.itemUseCases,
-    jobProgressPublisher
+    jobProgressPublisher,
+    deps.notifyItemJobCompletion
   );
   const runner = new BackgroundJobRunner(
     jobRepo,

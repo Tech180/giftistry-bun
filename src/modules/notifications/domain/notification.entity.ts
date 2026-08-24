@@ -17,11 +17,23 @@ export interface NotificationPrefs {
   ListShares: boolean;
   ItemClaims: boolean;
   Comments: boolean;
+  JobCompletions: boolean;
+  PushAlerts: boolean;
   UpdatedAt: Date;
 }
 
 export type NotificationPrefsUpdate = Partial<
-  Pick<NotificationPrefs, 'EmailAlerts' | 'Marketing' | 'FriendRequests' | 'ListShares' | 'ItemClaims' | 'Comments'>
+  Pick<
+    NotificationPrefs,
+    | 'EmailAlerts'
+    | 'Marketing'
+    | 'FriendRequests'
+    | 'ListShares'
+    | 'ItemClaims'
+    | 'Comments'
+    | 'JobCompletions'
+    | 'PushAlerts'
+  >
 >;
 
 export class NotificationEntity implements Notification {

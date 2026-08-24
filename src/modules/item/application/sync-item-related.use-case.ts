@@ -1,6 +1,7 @@
 import type { ItemRepository } from '../domain/ports/item.repository';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { resolveItemMetadata } from '../domain/resolve-item-metadata.util';
+import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
 
 export class SyncItemRelatedUseCase {
   constructor(private itemRepo: ItemRepository) {}
@@ -27,6 +28,7 @@ export class SyncItemRelatedUseCase {
     const oldGroup = new Set([currentItemId, ...oldGroupIds]);
 
     const itemsToUpdate = new Set<string>([...oldGroup, ...newGroup]);
+    let didChange = false;
 
     for (const itemId of itemsToUpdate) {
       const item = wishlistItems.find((i) => i.Id === itemId);
@@ -49,6 +51,15 @@ export class SyncItemRelatedUseCase {
 
       await this.itemRepo.replaceRelatedItemIds(itemId, targetRelated);
       item.RelatedItemIds = targetRelated;
+      didChange = true;
+    }
+
+    if (didChange) {
+      publishListChanged(currentItem.ListId, {
+        reason: 'item.related',
+        itemId: currentItemId,
+        actorUserId: currentUserId,
+      });
     }
   }
 }

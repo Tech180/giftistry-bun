@@ -73,7 +73,7 @@ describe('sanitizeProductDescription', () => {
 describe('populate prompt spec-free rules', () => {
   test('default populate prompt forbids specs in description', () => {
     const prompt = getDefaultAiPrompt('populate');
-    expect(prompt).toContain('NEVER mention RAM, storage');
+    expect(prompt).toContain('NEVER mention color, size, model number');
     expect(prompt).toContain('{searchContext}');
   });
 

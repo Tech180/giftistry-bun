@@ -5,6 +5,7 @@ import type { AssertItemVisibleUseCase } from './assert-item-visible.use-case';
 import type { CreateClaimInput } from '../domain/ports/item.repository';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { assertWishlistMutable } from '@/modules/wishlist/domain/assert-wishlist-mutable.util';
+import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
 
 export class ClaimItemUseCase {
   constructor(
@@ -48,6 +49,9 @@ export class ClaimItemUseCase {
 
     let isMultiCount = item.MultiCount === true;
     let desiredQuantity = item.DesiredQuantity != null ? Number(item.DesiredQuantity) : 1;
+    if (!Number.isFinite(desiredQuantity)) {
+      desiredQuantity = 1;
+    }
     let variations: Array<{ Name?: string; Quantity?: number }> = Array.isArray(item.Variations)
       ? item.Variations
       : [];
@@ -58,7 +62,11 @@ export class ClaimItemUseCase {
           if (parsed && typeof parsed === 'object') {
             if (parsed.MultiCount) {
               isMultiCount = true;
-              desiredQuantity = Number(parsed.DesiredQuantity) || 1;
+              desiredQuantity =
+                parsed.DesiredQuantity != null ? Number(parsed.DesiredQuantity) : 1;
+              if (!Number.isFinite(desiredQuantity)) {
+                desiredQuantity = 1;
+              }
               variations = parsed.Variations || [];
             }
           }
@@ -67,10 +75,12 @@ export class ClaimItemUseCase {
     }
 
     if (isMultiCount) {
-      const totalClaimedQty = claims.reduce((sum, c) => sum + (c.Quantity || 1), 0);
-      if (totalClaimedQty + quantity > desiredQuantity) {
-        const remaining = Math.max(0, desiredQuantity - totalClaimedQty);
-        throw new AppError(`Claim quantity exceeds remaining available items. Remaining: ${remaining}`, 400, 'BAD_REQUEST');
+      if (desiredQuantity > 0) {
+        const totalClaimedQty = claims.reduce((sum, c) => sum + (c.Quantity || 1), 0);
+        if (totalClaimedQty + quantity > desiredQuantity) {
+          const remaining = Math.max(0, desiredQuantity - totalClaimedQty);
+          throw new AppError(`Claim quantity exceeds remaining available items. Remaining: ${remaining}`, 400, 'BAD_REQUEST');
+        }
       }
 
       if (selection) {
@@ -170,7 +180,7 @@ export class ClaimItemUseCase {
       quantity,
       selection
     );
-    return await this.itemRepo.createClaim(
+    const claim = await this.itemRepo.createClaim(
       prepared.itemId,
       prepared.userId,
       prepared.amount,
@@ -179,5 +189,16 @@ export class ClaimItemUseCase {
       prepared.quantity,
       prepared.selection
     );
+
+    const item = await this.itemRepo.findById(itemId);
+    if (item) {
+      publishListChanged(item.ListId, {
+        reason: 'claim.changed',
+        itemId,
+        actorUserId: userId ?? undefined,
+      });
+    }
+
+    return claim;
   }
 }

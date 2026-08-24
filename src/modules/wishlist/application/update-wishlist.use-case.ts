@@ -7,6 +7,7 @@ import type { BackfillListReviewsUseCase } from '@/modules/item/application/back
 import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
 import { assertOwnerCanEnableListAi } from '@/common/application/user-ai-access.util';
 import { assertOwnerCanEnableListWebSearch } from '@/common/application/user-web-search-access.util';
+import { publishListChanged } from '../infrastructure/wishlist-list-publisher';
 
 export class UpdateWishlistUseCase {
   constructor(
@@ -62,7 +63,7 @@ export class UpdateWishlistUseCase {
       );
     }
 
-    return await this.wishlistRepo.update(
+    const updated = await this.wishlistRepo.update(
       listId,
       title,
       expiresAt,
@@ -74,5 +75,12 @@ export class UpdateWishlistUseCase {
       manualJobBackground,
       autoRollover
     );
+
+    publishListChanged(listId, {
+      reason: 'list.updated',
+      actorUserId: existing.UserId,
+    });
+
+    return updated;
   }
 }

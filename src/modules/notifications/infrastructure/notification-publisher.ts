@@ -12,6 +12,6 @@ export function publishNotification(userId: string, notification: Notification):
   if (!publisher) return;
   publisher(userId, {
     Type: 'notification.received',
-    Notification,
+    Notification: notification,
   });
 }

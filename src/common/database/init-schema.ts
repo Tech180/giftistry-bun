@@ -201,7 +201,24 @@ export async function initializeSchema(dbSql: typeof sql = sql) {
         list_shares BOOLEAN DEFAULT TRUE,
         item_claims BOOLEAN DEFAULT TRUE,
         comments BOOLEAN DEFAULT TRUE,
+        job_completions BOOLEAN DEFAULT TRUE,
+        push_alerts BOOLEAN DEFAULT TRUE,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+
+  await dbSql`
+    CREATE TABLE user_push_subscriptions (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        platform VARCHAR(20) NOT NULL CHECK (platform IN ('ios', 'android')),
+        transport VARCHAR(20) NOT NULL CHECK (transport IN ('ntfy', 'webpush', 'fcm')),
+        endpoint TEXT NOT NULL,
+        endpoint_auth TEXT DEFAULT NULL,
+        p256dh TEXT DEFAULT NULL,
+        is_primary BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        last_seen_at TIMESTAMP WITH TIME ZONE DEFAULT NULL
     )
   `;
 

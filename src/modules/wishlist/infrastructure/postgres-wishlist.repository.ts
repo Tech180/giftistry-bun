@@ -175,6 +175,24 @@ export class PostgresWishlistRepository implements WishlistRepository {
     `;
   }
 
+  async reactivateWishlist(id: string, clearExpiresAt: boolean): Promise<void> {
+    await sql.begin(async (tx) => {
+      if (clearExpiresAt) {
+        await tx`
+          UPDATE lists
+          SET is_active = true, expires_at = null
+          WHERE id = ${id}
+        `;
+      } else {
+        await tx`
+          UPDATE lists
+          SET is_active = true
+          WHERE id = ${id}
+        `;
+      }
+    });
+  }
+
   async update(
     id: string,
     title: string,

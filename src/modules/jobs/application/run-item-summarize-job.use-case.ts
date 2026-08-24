@@ -2,13 +2,15 @@ import type { BackgroundJobRepository } from '../domain/ports/background-job.rep
 import type { ItemUseCases } from '@/modules/item/application/item-use-cases.interface';
 import type { BackgroundJob, ItemSummarizeJobPayload } from '../domain/background-job.entity';
 import type { JobProgressPublisher } from '../domain/ports/job-progress-publisher.port';
+import type { NotifyItemJobCompletionUseCase } from './notify-item-job-completion.use-case';
 import { withJobHeartbeat } from './with-job-heartbeat.util';
 
 export class RunItemSummarizeJobUseCase {
   constructor(
     private jobRepo: BackgroundJobRepository,
     private itemUseCases: ItemUseCases,
-    private jobProgressPublisher: JobProgressPublisher
+    private jobProgressPublisher: JobProgressPublisher,
+    private notifyItemJobCompletion?: NotifyItemJobCompletionUseCase
   ) {}
 
   async execute(job: BackgroundJob): Promise<void> {
@@ -55,7 +57,10 @@ export class RunItemSummarizeJobUseCase {
         finishedAt: new Date(),
         result: { Description: description },
       });
-      if (updated) this.jobProgressPublisher.publish(updated, 'job.completed');
+      if (updated) {
+        this.jobProgressPublisher.publish(updated, 'job.completed');
+        void this.notifyTerminal(updated);
+      }
     } catch (err) {
       await this.fail(job.Id, err instanceof Error ? err.message : 'Summarization failed');
     }
@@ -112,6 +117,18 @@ export class RunItemSummarizeJobUseCase {
       error: message,
       finishedAt: new Date(),
     });
-    if (updated) this.jobProgressPublisher.publish(updated, 'job.failed');
+    if (updated) {
+      this.jobProgressPublisher.publish(updated, 'job.failed');
+      void this.notifyTerminal(updated);
+    }
+  }
+
+  private async notifyTerminal(job: BackgroundJob): Promise<void> {
+    if (!this.notifyItemJobCompletion) return;
+    try {
+      await this.notifyItemJobCompletion.execute(job);
+    } catch (err) {
+      console.error('[Jobs] Failed to notify item job completion:', err);
+    }
   }
 }

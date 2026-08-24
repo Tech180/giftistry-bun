@@ -11,6 +11,11 @@ import {
   getLinkedItemIdsFromExportItem,
   resolveRelationPeerNames,
 } from '@/modules/item/domain/resolve-item-relations.util';
+import { resolveCategoryPresentation } from '@/modules/item/domain/format-category-label.util';
+import {
+  countWrappedTextLines,
+  normalizePdfNotesText,
+} from './utils/normalize-pdf-notes-text.util';
 
 function toPdfLibColor(c: { red: number; green: number; blue: number }) {
   return rgb(c.red, c.green, c.blue);
@@ -24,13 +29,14 @@ const PDF_TITLE_LINE_HEIGHT = PDF_TITLE_SIZE * 1.25;
 const PDF_PRICE_BADGE_HEIGHT = 14;
 const PDF_LINK_HEIGHT = 11;
 const PDF_DESCRIPTION_SIZE = 9.5;
-const PDF_DESCRIPTION_LINE_HEIGHT = PDF_DESCRIPTION_SIZE * 1.25;
-const PDF_DESCRIPTION_TOP_GAP = 4;
+const PDF_DESCRIPTION_LINE_HEIGHT = PDF_DESCRIPTION_SIZE * 1.15;
+const PDF_DESCRIPTION_TOP_GAP = 3;
 const PDF_BADGES_TOP_GAP = 6;
 const PDF_META_BADGE_GAP = 6;
 const PDF_LINK_GAP = 10;
 const PDF_CLAIMED_BADGE_HEIGHT = 14;
 const PDF_CLAIMED_LABEL = 'Claimed';
+const PDF_ITEM_KEEP_WITH_DESC_LINES = 2;
 
 export class PdfLibGenerator implements PdfGenerator {
   async generateWishlistPdf(
@@ -99,17 +105,17 @@ export class PdfLibGenerator implements PdfGenerator {
 
       currentY.y -= marginTop;
 
-      const paragraphs = text.split('\n');
+      const paragraphs = text.split('\n').map((para) => para.trim()).filter(Boolean);
 
       for (const para of paragraphs) {
-        const words = para.split(' ');
+        const words = para.split(/\s+/).filter(Boolean);
         let currentLine = '';
         const lines: string[] = [];
 
         for (const word of words) {
           const testLine = currentLine ? `${currentLine} ${word}` : word;
           const width = txtFont.widthOfTextAtSize(testLine, size);
-          if (width > maxWidth) {
+          if (width > maxWidth && currentLine) {
             lines.push(currentLine);
             currentLine = word;
           } else {
@@ -315,7 +321,8 @@ export class PdfLibGenerator implements PdfGenerator {
 
     let isFirstCategory = true;
     for (const cat of categories) {
-      const displayCategory = cat === 'uncategorized' ? 'General Items' : cat.charAt(0).toUpperCase() + cat.slice(1);
+      const { CategoryLabel } = resolveCategoryPresentation(cat);
+      const displayCategory = CategoryLabel;
 
       // Draw category section heading
       await drawText(displayCategory.toUpperCase(), {
@@ -413,7 +420,40 @@ export class PdfLibGenerator implements PdfGenerator {
           priorityOnTitleRow ? priorityMetrics.height : 0
         );
 
-        if (currentY.y - contentRowHeight < MARGIN_BOTTOM) {
+        const descriptionText = this.getNotesText(item.Description);
+        const showDescriptionRow = !!descriptionText || priorityOnDescriptionRow;
+        const descriptionMaxWidth = (() => {
+          const descriptionRightEdge = priorityOnDescriptionRow
+            ? PAGE_WIDTH - MARGIN_RIGHT - priorityMetrics.width - 8
+            : PAGE_WIDTH - MARGIN_RIGHT;
+          return descriptionRightEdge - MARGIN_LEFT - PDF_ITEM_INDENT;
+        })();
+        const descriptionLineCount = descriptionText
+          ? countWrappedTextLines(
+              descriptionText,
+              fontItalic,
+              PDF_DESCRIPTION_SIZE,
+              descriptionMaxWidth
+            )
+          : 0;
+        const descriptionBlockHeight = showDescriptionRow
+          ? PDF_DESCRIPTION_TOP_GAP +
+            Math.max(
+              descriptionLineCount * PDF_DESCRIPTION_LINE_HEIGHT,
+              priorityOnDescriptionRow ? priorityMetrics.height : 0,
+              descriptionText ? 0 : PDF_DESCRIPTION_LINE_HEIGHT
+            )
+          : 0;
+
+        // Keep title with the start of the description to avoid orphaned headings.
+        const keepTogetherHeight =
+          contentRowHeight +
+          Math.min(
+            descriptionBlockHeight,
+            PDF_DESCRIPTION_TOP_GAP + PDF_ITEM_KEEP_WITH_DESC_LINES * PDF_DESCRIPTION_LINE_HEIGHT
+          );
+
+        if (currentY.y - keepTogetherHeight < MARGIN_BOTTOM) {
           pageRef.current = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
           currentY.y = PAGE_HEIGHT - MARGIN_TOP;
         }
@@ -575,30 +615,15 @@ export class PdfLibGenerator implements PdfGenerator {
           currentY.y = headerBottomY;
         }
 
-        const descriptionText = this.getNotesText(item.Description);
-        const showDescriptionRow = !!descriptionText || priorityOnDescriptionRow;
-
         if (showDescriptionRow) {
-          const descriptionRowHeight = Math.max(
-            descriptionText ? PDF_DESCRIPTION_LINE_HEIGHT : 0,
-            priorityOnDescriptionRow ? priorityMetrics.height : 0,
-            PDF_DESCRIPTION_LINE_HEIGHT
-          );
-
-          if (currentY.y - descriptionRowHeight < MARGIN_BOTTOM) {
-            pageRef.current = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-            currentY.y = PAGE_HEIGHT - MARGIN_TOP;
-          }
-
-          const descriptionRowTopY = currentY.y - PDF_DESCRIPTION_TOP_GAP;
-          const descriptionRowCenterY = descriptionRowTopY - descriptionRowHeight / 2;
-          const descriptionRowBottomY = descriptionRowTopY - descriptionRowHeight;
+          currentY.y -= PDF_DESCRIPTION_TOP_GAP;
 
           if (priorityOnDescriptionRow) {
+            const priorityCenterY = currentY.y - priorityMetrics.height / 2;
             this.drawPriorityMetaBadge(
               pageRef.current,
               PAGE_WIDTH - MARGIN_RIGHT,
-              descriptionRowCenterY,
+              priorityCenterY,
               priorityText,
               colors,
               fontBold
@@ -606,23 +631,16 @@ export class PdfLibGenerator implements PdfGenerator {
           }
 
           if (descriptionText) {
-            const descriptionRightEdge = priorityOnDescriptionRow
-              ? PAGE_WIDTH - MARGIN_RIGHT - priorityMetrics.width - 8
-              : PAGE_WIDTH - MARGIN_RIGHT;
-
-            currentY.y = descriptionRowTopY;
             await drawText(descriptionText, {
               font: fontItalic,
               size: PDF_DESCRIPTION_SIZE,
               color: colors.textMuted,
+              lineHeight: PDF_DESCRIPTION_LINE_HEIGHT,
               indent: PDF_ITEM_INDENT,
-              marginTop: (descriptionRowHeight - PDF_DESCRIPTION_LINE_HEIGHT) / 2,
-              maxWidth: descriptionRightEdge - MARGIN_LEFT - PDF_ITEM_INDENT,
+              maxWidth: descriptionMaxWidth,
             });
-          }
-
-          if (currentY.y > descriptionRowBottomY) {
-            currentY.y = descriptionRowBottomY;
+          } else if (priorityOnDescriptionRow) {
+            currentY.y -= priorityMetrics.height;
           }
         }
 
@@ -907,7 +925,7 @@ export class PdfLibGenerator implements PdfGenerator {
     if (!description) return '';
     const trimmed = description.trim();
     if (!(trimmed.startsWith('{') && trimmed.endsWith('}'))) {
-      return trimmed;
+      return normalizePdfNotesText(trimmed);
     }
 
     try {
@@ -915,7 +933,7 @@ export class PdfLibGenerator implements PdfGenerator {
       if (parsed && typeof parsed === 'object') {
         const text = parsed.Text ?? '';
         if (text && typeof text === 'string' && text.trim()) {
-          return text.trim();
+          return normalizePdfNotesText(text);
         }
         return '';
       }
@@ -923,7 +941,7 @@ export class PdfLibGenerator implements PdfGenerator {
       // Fallback
     }
 
-    return trimmed;
+    return normalizePdfNotesText(trimmed);
   }
 
   private collectCustomFieldBadges(item: {

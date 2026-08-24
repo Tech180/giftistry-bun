@@ -31,6 +31,22 @@ describe('composePopulateWithPacks', () => {
     expect(composed).toContain('Active packs: Technology');
   });
 
+  test('appends technology parent and CPU with RAM and StorageCapacity', () => {
+    const technology = findPackById('technology');
+    const cpu = findPackById('technology.cpu');
+    expect(technology).toBeDefined();
+    expect(cpu).toBeDefined();
+    const composed = composePopulateWithPacks('Extract fields', [technology!, cpu!]);
+
+    expect(composed).toContain('Active packs: Technology / CPU');
+    expect(composed).toContain('UserDefinedFields.RAM');
+    expect(composed).toContain('PredefinedFields.StorageCapacity');
+    expect(composed).toContain('6G+128G');
+    expect(composed).toContain('PredefinedFields.Cores');
+    expect(composed).toContain(technology!.promptFragment);
+    expect(composed).toContain(cpu!.promptFragment);
+  });
+
   test('appends a custom pack fragment and field lines', () => {
     const custom = {
       id: 'custom.books',

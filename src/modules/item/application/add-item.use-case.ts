@@ -13,6 +13,8 @@ import type { ItemMetadataWrite } from '../domain/ports/item.repository';
 import { normalizeItemPhotosWrite } from '../domain/normalize-item-photos.util';
 import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
 import { assertWishlistMutable } from '@/modules/wishlist/domain/assert-wishlist-mutable.util';
+import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
+import { assertLinkGroupSupportsLinkedItems } from '../domain/item-supports-linked-items.util';
 
 function toMetadataWrite(
   metadata: ItemDescriptionMetadata | null | undefined
@@ -56,7 +58,8 @@ export class AddItemUseCase {
     isSuggestion: boolean = false,
     priority: number | null = null,
     sharedWithUserIds: string[] = [],
-    metadata: ItemDescriptionMetadata | null = null
+    metadata: ItemDescriptionMetadata | null = null,
+    options?: { skipListChanged?: boolean }
   ): Promise<Item> {
     if (!listId) {
       throw new AppError('List ID is required', 400, 'BAD_REQUEST');
@@ -70,6 +73,28 @@ export class AddItemUseCase {
       throw new AppError('Wishlist not found', 404, 'NOT_FOUND');
     }
     assertWishlistMutable(wishlist);
+
+    const linkedIds = metadata?.LinkedItemIds ?? [];
+    if (linkedIds.length > 0) {
+      const draftItem: Item = {
+        Id: 'draft',
+        ListId: listId,
+        PriorityId: priorityId,
+        SuggestedByUserId: suggestedByUserId,
+        Name: name,
+        Description: description,
+        IsHiddenIdea: isHiddenIdea,
+        IsSuggestion: isSuggestion,
+        Category: category,
+        DesiredQuantity: metadata?.DesiredQuantity ?? null,
+        MultiCount: metadata?.MultiCount === true,
+      };
+      const wishlistItems = await this.itemRepo.findByListId(listId);
+      const peers = linkedIds
+        .map((id) => wishlistItems.find((i) => i.Id === id))
+        .filter((peer): peer is Item => !!peer);
+      assertLinkGroupSupportsLinkedItems([draftItem, ...peers], wishlist.UserId);
+    }
 
     let retailerName: string | null = websiteName || null;
     if (linkUrl && !retailerName) {
@@ -138,11 +163,27 @@ export class AddItemUseCase {
         console.error('Background AI review extraction trigger failed:', err);
       });
 
+      if (!options?.skipListChanged) {
+        publishListChanged(listId, {
+          reason: 'item.created',
+          itemId: item.Id,
+          actorUserId: suggestedByUserId ?? undefined,
+        });
+      }
+
       return {
         ...item,
         Links: [link],
         SharedWith: sharedWith.length > 0 ? sharedWith : undefined,
       };
+    }
+
+    if (!options?.skipListChanged) {
+      publishListChanged(listId, {
+        reason: 'item.created',
+        itemId: item.Id,
+        actorUserId: suggestedByUserId ?? undefined,
+      });
     }
 
     return {

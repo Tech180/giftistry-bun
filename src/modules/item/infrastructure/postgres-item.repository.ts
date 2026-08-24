@@ -5,6 +5,7 @@ import { sql } from '@/common/database/connection';
 const ITEM_SELECT = `
   i.id as "Id", i.list_id as "ListId", i.priority_id as "PriorityId",
   i.suggested_by_user_id as "SuggestedByUserId", u.username as "SuggestedByUsername",
+  u.first_name as "SuggestedByFirstName", u.last_name as "SuggestedByLastName",
   i.name as "Name", i.description as "Description",
   i.is_hidden_idea as "IsHiddenIdea", i.is_suggestion as "IsSuggestion",
   i.category as "Category", i.priority as "Priority", i.created_at as "CreatedAt",
@@ -79,6 +80,8 @@ function mapItemRow(row: any): Item {
     PriorityId: row.PriorityId,
     SuggestedByUserId: row.SuggestedByUserId,
     SuggestedByUsername: row.SuggestedByUsername,
+    SuggestedByFirstName: row.SuggestedByFirstName ?? null,
+    SuggestedByLastName: row.SuggestedByLastName ?? null,
     Name: row.Name,
     Description: row.Description,
     IsHiddenIdea: row.IsHiddenIdea,
@@ -529,6 +532,28 @@ export class PostgresItemRepository implements ItemRepository {
 
   async deleteClaim(itemId: string, userId: string): Promise<void> {
     await sql`DELETE FROM claims WHERE item_id = ${itemId} AND user_id = ${userId}`;
+  }
+
+  async deleteClaimsAtomic(itemIds: string[], userId: string): Promise<string[]> {
+    const unique = [...new Set(itemIds.filter(Boolean))];
+    if (unique.length === 0) {
+      return [];
+    }
+
+    return await sql.begin(async (tx) => {
+      const affected: string[] = [];
+      for (const itemId of unique) {
+        const rows = await tx<{ ItemId: string }[]>`
+          DELETE FROM claims
+          WHERE item_id = ${itemId} AND user_id = ${userId}
+          RETURNING item_id as "ItemId"
+        `;
+        if (rows.length > 0) {
+          affected.push(itemId);
+        }
+      }
+      return affected;
+    });
   }
 
   async findLinkedItemIds(itemId: string): Promise<string[]> {

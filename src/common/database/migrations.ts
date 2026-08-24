@@ -107,6 +107,7 @@ export async function runMigrations(dbSql: typeof sql = sql): Promise<void> {
       list_shares BOOLEAN DEFAULT TRUE,
       item_claims BOOLEAN DEFAULT TRUE,
       comments BOOLEAN DEFAULT TRUE,
+      job_completions BOOLEAN DEFAULT TRUE,
       updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     )
   `;
@@ -123,6 +124,28 @@ export async function runMigrations(dbSql: typeof sql = sql): Promise<void> {
   await dbSql`
     ALTER TABLE user_notification_prefs ADD COLUMN IF NOT EXISTS comments BOOLEAN DEFAULT TRUE
   `;
+  await dbSql`
+    ALTER TABLE user_notification_prefs ADD COLUMN IF NOT EXISTS job_completions BOOLEAN DEFAULT TRUE
+  `;
+  await dbSql`
+    ALTER TABLE user_notification_prefs ADD COLUMN IF NOT EXISTS push_alerts BOOLEAN DEFAULT TRUE
+  `;
+
+  await dbSql`
+    CREATE TABLE IF NOT EXISTS user_push_subscriptions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      platform VARCHAR(20) NOT NULL CHECK (platform IN ('ios', 'android')),
+      transport VARCHAR(20) NOT NULL CHECK (transport IN ('ntfy', 'webpush', 'fcm')),
+      endpoint TEXT NOT NULL,
+      endpoint_auth TEXT DEFAULT NULL,
+      p256dh TEXT DEFAULT NULL,
+      is_primary BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      last_seen_at TIMESTAMP WITH TIME ZONE DEFAULT NULL
+    )
+  `;
+  await dbSql`CREATE INDEX IF NOT EXISTS idx_user_push_subscriptions_user_id ON user_push_subscriptions (user_id)`;
 
   await dbSql`
     ALTER TABLE list_link_tokens ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255) DEFAULT NULL

@@ -5,6 +5,7 @@ import type { CreateClaimInput } from '../domain/ports/item.repository';
 import type { AssertItemVisibleUseCase } from './assert-item-visible.use-case';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { resolveItemMetadata } from '../domain/resolve-item-metadata.util';
+import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
 
 export interface ClaimWithLinkedInput {
   amount: number | null;
@@ -75,6 +76,12 @@ export class ClaimItemWithLinkedUseCase {
       }
     }
 
-    return await this.itemRepo.createClaimsAtomic(prepared);
+    const claims = await this.itemRepo.createClaimsAtomic(prepared);
+    publishListChanged(primary.ListId, {
+      reason: 'claim.changed',
+      itemId,
+      actorUserId: userId,
+    });
+    return claims;
   }
 }

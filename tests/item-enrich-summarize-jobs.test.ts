@@ -362,13 +362,49 @@ describe('RunItemEnrichJobUseCase', () => {
     await useCase.execute(jobs.get(job.Id)!);
 
     expect(updateItemCalls).toHaveLength(1);
-    const [itemId, userId, name] = updateItemCalls[0]!;
+    const [
+      itemId,
+      userId,
+      name,
+      description,
+      ,
+      category,
+      ,
+      ,
+      url,
+      price,
+      websiteName,
+      metadata,
+    ] = updateItemCalls[0]!;
     expect(itemId).toBe('item-1');
     expect(userId).toBe('user-1');
     expect(name).toBe('Cool Gadget');
+    expect(description).toBe('A cool gadget');
+    expect(category).toBe('electronics');
+    expect(url).toBe('https://example.com/x');
+    expect(price).toBe(19.99);
+    expect(websiteName).toBe('Example Shop');
+    expect(metadata).toMatchObject({
+      Text: 'A cool gadget',
+      CustomFields: {
+        Predefined: { Color: 'Blue' },
+        UserDefined: {},
+      },
+    });
 
     const finalJob = jobs.get(job.Id)!;
     expect(finalJob.Status).toBe('completed');
+    expect(finalJob.Result).toMatchObject({
+      ItemId: 'item-1',
+      Title: 'Cool Gadget',
+      Price: 19.99,
+      Description: 'A cool gadget',
+      Category: 'electronics',
+      CategoryAlternatives: ['gadgets'],
+      ImageUrl: 'https://example.com/img.png',
+      WebsiteName: 'Example Shop',
+      CustomFields: { Predefined: { Color: 'Blue' }, UserDefined: {} },
+    });
     expect(items[0]?.Status).toBe('done');
   });
 

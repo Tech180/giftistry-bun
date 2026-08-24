@@ -58,6 +58,30 @@ function packMatches(pack: MetadataPack, category: string | null, itemName: stri
   return (pack.match.titleKeywords ?? []).some((keyword) => title.includes(keyword.toLowerCase()));
 }
 
+function withEnabledAncestors(
+  leaves: FlatPackEntry[],
+  flat: FlatPackEntry[],
+  enabled: ReadonlySet<string>
+): FlatPackEntry[] {
+  const byId = new Map(flat.map((entry) => [entry.pack.id, entry]));
+  const selected = new Map<string, FlatPackEntry>();
+
+  for (const leaf of leaves) {
+    selected.set(leaf.pack.id, leaf);
+    let parentId = leaf.parentId;
+    while (parentId) {
+      const parent = byId.get(parentId);
+      if (!parent) break;
+      if (enabled.has(parent.pack.id)) {
+        selected.set(parent.pack.id, parent);
+      }
+      parentId = parent.parentId;
+    }
+  }
+
+  return [...selected.values()].sort((a, b) => a.depth - b.depth || a.index - b.index);
+}
+
 export function resolveMetadataPacks(input: ResolveMetadataPacksInput): MetadataPack[] {
   const catalog = input.catalog ?? METADATA_PACKS_CATALOG;
   const enabled = new Set(input.enabledPackIds);
@@ -68,11 +92,10 @@ export function resolveMetadataPacks(input: ResolveMetadataPacksInput): Metadata
   );
   const matchingIds = new Set(matching.map((entry) => entry.pack.id));
 
-  const inject = matching.filter(({ pack }) => {
+  const leaves = matching.filter(({ pack }) => {
     const childMatched = (pack.children ?? []).some((child) => matchingIds.has(child.id));
     return !childMatched;
   });
 
-  inject.sort((a, b) => b.depth - a.depth || a.index - b.index);
-  return inject.map((entry) => entry.pack);
+  return withEnabledAncestors(leaves, flat, enabled).map((entry) => entry.pack);
 }

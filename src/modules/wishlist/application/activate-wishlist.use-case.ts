@@ -13,11 +13,7 @@ export class ActivateWishlistUseCase {
     }
 
     const entity = WishlistEntity.from(wishlist);
-    if (entity.isExpired()) {
-      await this.wishlistRepo.updateExpiresAt(listId, null);
-    }
-
-    await this.wishlistRepo.updateActive(listId, true);
+    await this.wishlistRepo.reactivateWishlist(listId, entity.isExpired());
 
     const updated = await this.wishlistRepo.findById(listId);
     if (!updated) {

@@ -2,6 +2,15 @@ import type { Item } from './item.entity';
 import type { ItemDescriptionMetadata } from './item-description.util';
 import { parseItemDescription } from './item-description.util';
 
+function coalesceFieldMap(
+  column: Record<string, string | null> | undefined,
+  legacy: Record<string, string | null> | undefined
+): Record<string, string | null> {
+  const col = column ?? {};
+  if (Object.keys(col).length > 0) return col;
+  return legacy ?? {};
+}
+
 /** Build API Metadata from first-class columns, falling back to Description JSON for legacy rows. */
 export function resolveItemMetadata(item: Item): ItemDescriptionMetadata | null {
   const fromDescription = parseItemDescription(item.Description);
@@ -31,8 +40,14 @@ export function resolveItemMetadata(item: Item): ItemDescriptionMetadata | null 
   const metadata: ItemDescriptionMetadata = {
     Text: text,
     CustomFields: {
-      Predefined: item.CustomFields?.Predefined ?? legacy?.CustomFields?.Predefined ?? {},
-      UserDefined: item.CustomFields?.UserDefined ?? legacy?.CustomFields?.UserDefined ?? {},
+      Predefined: coalesceFieldMap(
+        item.CustomFields?.Predefined,
+        legacy?.CustomFields?.Predefined
+      ),
+      UserDefined: coalesceFieldMap(
+        item.CustomFields?.UserDefined as Record<string, string | null> | undefined,
+        legacy?.CustomFields?.UserDefined as Record<string, string | null> | undefined
+      ) as Record<string, string>,
     },
   };
 

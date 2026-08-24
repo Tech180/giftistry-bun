@@ -10,6 +10,8 @@ import { DeleteServerUseCase } from './application/delete-server.use-case';
 import { TestAiConnectionUseCase } from './application/test-ai-connection.use-case';
 import { ListSystemModelsUseCase } from './application/list-system-models.use-case';
 import { GetMetadataPacksUseCase } from './application/get-metadata-packs.use-case';
+import { GetPushConfigPublicUseCase } from './application/get-push-config-public.use-case';
+import { TestNtfyUseCase } from './application/test-ntfy.use-case';
 import { systemRoutes } from './presentation/system.routes';
 import type { SystemUseCases } from './presentation/system-use-cases.interface';
 import { Elysia } from 'elysia';
@@ -37,6 +39,8 @@ export function createSystemModule(deps: SystemModuleDeps): {
     testAiConnection: testAiConnectionUseCase,
     listSystemModels: listSystemModelsUseCase,
     getMetadataPacks: new GetMetadataPacksUseCase(deps.serverConfigRepo),
+    getPushConfigPublic: new GetPushConfigPublicUseCase(deps.serverConfigRepo),
+    testNtfy: new TestNtfyUseCase(deps.serverConfigRepo),
     transferOwnership: new TransferOwnershipUseCase(deps.serverConfigRepo, deps.writeAuditLogUseCase),
     deleteServer: new DeleteServerUseCase(deps.serverConfigRepo, deps.writeAuditLogUseCase),
   };

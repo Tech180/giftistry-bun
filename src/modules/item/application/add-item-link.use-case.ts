@@ -4,6 +4,7 @@ import type { AssertItemVisibleUseCase } from './assert-item-visible.use-case';
 import { AppError } from '@/common/middlewares/error.middleware';
 import type { EnrichLinkMetadataUseCase } from './enrich-link-metadata.use-case';
 import type { ExtractItemReviewsUseCase } from './extract-item-reviews.use-case';
+import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
 
 export class AddItemLinkUseCase {
   constructor(
@@ -52,6 +53,12 @@ export class AddItemLinkUseCase {
 
     this.extractItemReviews.execute(itemId, item.ListId, url).catch((err) => {
       console.error('Background AI review extraction trigger failed:', err);
+    });
+
+    publishListChanged(item.ListId, {
+      reason: 'item.updated',
+      itemId,
+      actorUserId: currentUserId,
     });
 
     return link;

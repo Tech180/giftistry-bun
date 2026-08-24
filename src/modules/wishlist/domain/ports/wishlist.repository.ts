@@ -6,6 +6,8 @@ export interface WishlistRepository {
   create(userId: string, title: string, expiresAt: Date | null, allowGroupFunds: boolean, category?: string, revealSuggestions?: boolean, aiEnabled?: boolean, webSearchEnabled?: boolean, manualJobBackground?: boolean, autoRollover?: boolean): Promise<Wishlist>;
   updateActive(id: string, isActive: boolean): Promise<void>;
   updateExpiresAt(id: string, expiresAt: Date | null): Promise<void>;
+  /** Sets is_active = true; optionally clears expires_at in the same transaction. */
+  reactivateWishlist(id: string, clearExpiresAt: boolean): Promise<void>;
   update(id: string, title: string, expiresAt: Date | null, allowGroupFunds: boolean, category?: string, revealSuggestions?: boolean, aiEnabled?: boolean, webSearchEnabled?: boolean, manualJobBackground?: boolean, autoRollover?: boolean): Promise<Wishlist>;
   delete(id: string): Promise<void>;
   findExpiredActive(): Promise<Wishlist[]>;

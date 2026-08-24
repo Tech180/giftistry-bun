@@ -75,6 +75,7 @@ export class PostgresNotificationRepository implements NotificationRepository {
       SELECT user_id as "UserId", email_alerts as "EmailAlerts", marketing as "Marketing",
              friend_requests as "FriendRequests", list_shares as "ListShares",
              item_claims as "ItemClaims", comments as "Comments",
+             job_completions as "JobCompletions", push_alerts as "PushAlerts",
              updated_at as "UpdatedAt"
       FROM user_notification_prefs
       WHERE user_id = ${userId}
@@ -90,6 +91,7 @@ export class PostgresNotificationRepository implements NotificationRepository {
       RETURNING user_id as "UserId", email_alerts as "EmailAlerts", marketing as "Marketing",
                 friend_requests as "FriendRequests", list_shares as "ListShares",
                 item_claims as "ItemClaims", comments as "Comments",
+                job_completions as "JobCompletions", push_alerts as "PushAlerts",
                 updated_at as "UpdatedAt"
     `;
     return this.mapPrefs(created);
@@ -103,13 +105,17 @@ export class PostgresNotificationRepository implements NotificationRepository {
     const listShares = updates.ListShares ?? current.ListShares;
     const itemClaims = updates.ItemClaims ?? current.ItemClaims;
     const comments = updates.Comments ?? current.Comments;
+    const jobCompletions = updates.JobCompletions ?? current.JobCompletions;
+    const pushAlerts = updates.PushAlerts ?? current.PushAlerts;
 
     const [row] = await sql<any[]>`
       INSERT INTO user_notification_prefs (
-        user_id, email_alerts, marketing, friend_requests, list_shares, item_claims, comments, updated_at
+        user_id, email_alerts, marketing, friend_requests, list_shares, item_claims, comments,
+        job_completions, push_alerts, updated_at
       )
       VALUES (
-        ${userId}, ${emailAlerts}, ${marketing}, ${friendRequests}, ${listShares}, ${itemClaims}, ${comments}, CURRENT_TIMESTAMP
+        ${userId}, ${emailAlerts}, ${marketing}, ${friendRequests}, ${listShares}, ${itemClaims},
+        ${comments}, ${jobCompletions}, ${pushAlerts}, CURRENT_TIMESTAMP
       )
       ON CONFLICT (user_id) DO UPDATE SET
         email_alerts = ${emailAlerts},
@@ -118,10 +124,13 @@ export class PostgresNotificationRepository implements NotificationRepository {
         list_shares = ${listShares},
         item_claims = ${itemClaims},
         comments = ${comments},
+        job_completions = ${jobCompletions},
+        push_alerts = ${pushAlerts},
         updated_at = CURRENT_TIMESTAMP
       RETURNING user_id as "UserId", email_alerts as "EmailAlerts", marketing as "Marketing",
                 friend_requests as "FriendRequests", list_shares as "ListShares",
                 item_claims as "ItemClaims", comments as "Comments",
+                job_completions as "JobCompletions", push_alerts as "PushAlerts",
                 updated_at as "UpdatedAt"
     `;
     return this.mapPrefs(row);
@@ -136,6 +145,8 @@ export class PostgresNotificationRepository implements NotificationRepository {
       ListShares: row.ListShares,
       ItemClaims: row.ItemClaims,
       Comments: row.Comments,
+      JobCompletions: row.JobCompletions ?? true,
+      PushAlerts: row.PushAlerts ?? true,
       UpdatedAt: new Date(row.UpdatedAt),
     };
   }

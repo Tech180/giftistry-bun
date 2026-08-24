@@ -12,9 +12,20 @@ import { verifyToken } from '@/common/utils/token';
 import { getListAccessContext } from '@/common/middlewares/list-access.middleware';
 import { pascalizeKeys } from '@/common/utils/api-case.util';
 import { setWishlistJobPublisher } from '@/modules/jobs/infrastructure/wishlist-job-publisher';
+import { setListChangedPublisher } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
 import { setCommentPublisher } from '@/modules/comment/infrastructure/comment-publisher';
 import { setNotificationPublisher } from '@/modules/notifications/infrastructure/notification-publisher';
 import { PostgresWishlistRepository } from '@/modules/wishlist/infrastructure/postgres-wishlist.repository';
+import {
+  addWishlistWsConnection,
+  getOnlineUsers,
+  getWishlistWsRoom,
+  removeWishlistWsConnection,
+} from '@/modules/wishlist/infrastructure/wishlist-ws-registry';
+import {
+  addUserWsConnection,
+  removeUserWsConnection,
+} from '@/modules/notifications/infrastructure/user-ws-registry';
 import { shouldDeliverCommentEventToUser } from '@/modules/comment/domain/should-deliver-comment-event.util';
 
 function getNumericStatus(status: any, defaultStatus = 200): number {
@@ -71,28 +82,7 @@ const {
   authMiddleware,
   userRepo: userRepoForWs,
 } = container;
-const rooms = new Map<
-  string,
-  Map<string, { username: string; userId: string; send: (data: string) => void }>
->();
 const wishlistRepoForWs = new PostgresWishlistRepository();
-
-function getOnlineUsers(listId: string): { UserId: string; Username: string }[] {
-  const room = rooms.get(listId);
-  if (!room) return [];
-
-  const uniqueUsers = new Map<string, string>();
-  for (const entry of room.values()) {
-    if (!uniqueUsers.has(entry.userId)) {
-      uniqueUsers.set(entry.userId, entry.username);
-    }
-  }
-
-  return Array.from(uniqueUsers.entries()).map(([userId, username]) => ({
-    UserId: userId,
-    Username: username,
-  }));
-}
 
 function publishPresence(listId: string, ws?: { publish: (topic: string, data: string) => void; send?: (data: string) => void }) {
   const users = getOnlineUsers(listId);
@@ -261,14 +251,9 @@ export const app = new Elysia()
       (ws.data as any).user = user;
       
       ws.subscribe(listId);
-      
-      if (!rooms.has(listId)) {
-        rooms.set(listId, new Map());
-      }
-      
-      const name = user.Username;
-      rooms.get(listId)!.set(wsId, {
-        username: name,
+
+      addWishlistWsConnection(listId, wsId, {
+        username: user.Username,
         userId: user.Id,
         send: (data: string) => ws.send(data),
       });
@@ -297,14 +282,8 @@ export const app = new Elysia()
     close(ws) {
       const { listId } = ws.data.params;
       const wsId = (ws.data as any).wsId;
-      if (rooms.has(listId)) {
-        const currentRoom = rooms.get(listId)!;
-        currentRoom.delete(wsId);
-        if (currentRoom.size === 0) {
-          rooms.delete(listId);
-        } else {
-          publishPresence(listId, ws);
-        }
+      if (wsId && removeWishlistWsConnection(listId, wsId)) {
+        publishPresence(listId, ws);
       }
     }
   })
@@ -331,6 +310,14 @@ export const app = new Elysia()
       (ws.data as any).user = user;
       
       ws.subscribe(user.Id);
+      addUserWsConnection(user.Id, wsId);
+    },
+    close(ws) {
+      const user = (ws.data as any).user;
+      const wsId = (ws.data as any).wsId;
+      if (user?.Id && wsId) {
+        removeUserWsConnection(user.Id, wsId);
+      }
     }
   })
   .get('/api/themes/core/css', async ({ set, request }) => {
@@ -487,8 +474,11 @@ if (process.env.NODE_ENV !== 'test') {
       app.server?.publish(userId, JSON.stringify(payload));
     }
   });
+  setListChangedPublisher((listId, payload) => {
+    app.server?.publish(listId, JSON.stringify(payload));
+  });
   setCommentPublisher((listId, payload) => {
-    const room = rooms.get(listId);
+    const room = getWishlistWsRoom(listId);
     if (!room || room.size === 0) {
       return;
     }

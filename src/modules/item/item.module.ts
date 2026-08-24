@@ -20,6 +20,7 @@ import { DeleteItemUseCase } from './application/delete-item.use-case';
 import { UpdateItemUseCase } from './application/update-item.use-case';
 import { GetFieldDefinitionsUseCase } from './application/get-field-definitions.use-case';
 import { UnclaimItemUseCase } from './application/unclaim-item.use-case';
+import { UnclaimItemWithLinkedUseCase } from './application/unclaim-item-with-linked.use-case';
 import { BuildItemClaimProjectionsUseCase } from './application/build-item-claim-projections.use-case';
 import { ValidateItemAudienceUseCase } from './application/validate-item-audience.use-case';
 import { AssertItemVisibleUseCase } from './application/assert-item-visible.use-case';
@@ -122,6 +123,11 @@ export function createItemModule(deps: ItemModuleDeps) {
     assertItemVisibleUseCase
   );
 
+  const unclaimItemUseCase = new UnclaimItemUseCase(
+    deps.itemRepo,
+    assertItemVisibleUseCase
+  );
+
   const useCases = {
     addItem: addItemUseCase,
     listItems: new ListItemsUseCase(deps.itemRepo, deps.wishlistRepo, deps.audienceRepo),
@@ -147,7 +153,12 @@ export function createItemModule(deps: ItemModuleDeps) {
       deps.assertUserCanUseCase
     ),
     getFieldDefinitions: new GetFieldDefinitionsUseCase(deps.fieldRepo, deps.serverConfigRepo),
-    unclaimItem: new UnclaimItemUseCase(deps.itemRepo, assertItemVisibleUseCase),
+    unclaimItem: unclaimItemUseCase,
+    unclaimItemWithLinked: new UnclaimItemWithLinkedUseCase(
+      deps.itemRepo,
+      assertItemVisibleUseCase,
+      unclaimItemUseCase
+    ),
     buildItemClaimProjections: new BuildItemClaimProjectionsUseCase(
       deps.itemRepo,
       deps.wishlistRepo
@@ -158,7 +169,7 @@ export function createItemModule(deps: ItemModuleDeps) {
     summarizeItemDescription: summarizeItemDescriptionUseCase,
     parseImportPreview: parseImportPreviewUseCase,
     bulkAddItems: new BulkAddItemsUseCase(addItemUseCase, validateItemAudienceUseCase),
-    syncItemLinks: new SyncItemLinksUseCase(deps.itemRepo),
+    syncItemLinks: new SyncItemLinksUseCase(deps.itemRepo, deps.wishlistRepo),
     syncItemRelated: new SyncItemRelatedUseCase(deps.itemRepo),
   };
 

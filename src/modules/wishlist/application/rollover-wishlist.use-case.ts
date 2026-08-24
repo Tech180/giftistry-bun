@@ -4,6 +4,7 @@ import type { ItemRepository } from '@/modules/item/domain/ports/item.repository
 import type { CommentRepository } from '@/modules/comment/domain/ports/comment.repository';
 import type { Wishlist } from '../domain/wishlist.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
+import { nextRolloverTitle } from '../domain/next-rollover-title.util';
 
 export class RolloverWishlistUseCase {
   constructor(
@@ -26,7 +27,7 @@ export class RolloverWishlistUseCase {
     // 1. Create a new active wishlist with the same settings, no expires_at initially
     const newWishlist = await this.wishlistRepo.create(
       oldList.UserId,
-      oldList.Title,
+      nextRolloverTitle(oldList.Title),
       null, // no expiration date by default for the rolled-over list
       oldList.AllowGroupFunds,
       oldList.Category,

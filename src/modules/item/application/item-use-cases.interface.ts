@@ -7,6 +7,7 @@ import type { DeleteItemUseCase } from './delete-item.use-case';
 import type { UpdateItemUseCase } from './update-item.use-case';
 import type { GetFieldDefinitionsUseCase } from './get-field-definitions.use-case';
 import type { UnclaimItemUseCase } from './unclaim-item.use-case';
+import type { UnclaimItemWithLinkedUseCase } from './unclaim-item-with-linked.use-case';
 import type { ValidateItemAudienceUseCase } from './validate-item-audience.use-case';
 import type { ExtractMetadataUseCase } from './extract-metadata.use-case';
 import type { GetItemReviewsUseCase } from './get-item-reviews.use-case';
@@ -27,6 +28,7 @@ export interface ItemUseCases {
   updateItem: UpdateItemUseCase;
   getFieldDefinitions: GetFieldDefinitionsUseCase;
   unclaimItem: UnclaimItemUseCase;
+  unclaimItemWithLinked: UnclaimItemWithLinkedUseCase;
   validateItemAudience: ValidateItemAudienceUseCase;
   extractMetadata: ExtractMetadataUseCase;
   getItemReviews: GetItemReviewsUseCase;

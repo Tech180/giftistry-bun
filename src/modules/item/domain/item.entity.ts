@@ -55,6 +55,8 @@ export interface Item {
   PriorityId: string | null;
   SuggestedByUserId: string | null;
   SuggestedByUsername?: string | null;
+  SuggestedByFirstName?: string | null;
+  SuggestedByLastName?: string | null;
   Name: string;
   Description: string | null;
   IsHiddenIdea: boolean;
@@ -83,6 +85,8 @@ export class ItemEntity implements Item {
   PriorityId!: string | null;
   SuggestedByUserId!: string | null;
   SuggestedByUsername?: string | null;
+  SuggestedByFirstName?: string | null;
+  SuggestedByLastName?: string | null;
   Name!: string;
   Description!: string | null;
   IsHiddenIdea!: boolean;

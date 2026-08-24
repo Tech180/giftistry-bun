@@ -3,6 +3,7 @@ import type { AssertItemVisibleUseCase } from './assert-item-visible.use-case';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { canUserMutateItem } from '../domain/item-visibility.service';
 import { assertWishlistMutable } from '@/modules/wishlist/domain/assert-wishlist-mutable.util';
+import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
 
 export class DeleteItemUseCase {
   constructor(
@@ -22,5 +23,10 @@ export class DeleteItemUseCase {
     }
 
     await this.itemRepo.delete(itemId);
+    publishListChanged(visible.wishlist.Id, {
+      reason: 'item.deleted',
+      itemId,
+      actorUserId: currentUserId,
+    });
   }
 }

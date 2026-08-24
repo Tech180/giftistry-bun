@@ -13,6 +13,8 @@ import type { ItemMetadataWrite } from '../domain/ports/item.repository';
 import { normalizeItemPhotosWrite } from '../domain/normalize-item-photos.util';
 import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
 import { assertWishlistMutable } from '@/modules/wishlist/domain/assert-wishlist-mutable.util';
+import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
+import { assertLinkGroupSupportsLinkedItems } from '../domain/item-supports-linked-items.util';
 
 function toMetadataWrite(
   metadata: ItemDescriptionMetadata | null | undefined
@@ -123,6 +125,28 @@ export class UpdateItemUseCase {
 
     if (metadata !== undefined) {
       const linkedIds = metadata?.LinkedItemIds ?? [];
+      if (linkedIds.length > 0) {
+        const sourceForCheck: Item = {
+          ...item,
+          DesiredQuantity:
+            metadata?.DesiredQuantity !== undefined
+              ? metadata.DesiredQuantity
+              : item.DesiredQuantity,
+          MultiCount:
+            metadata?.MultiCount !== undefined
+              ? metadata.MultiCount === true
+              : item.MultiCount,
+        };
+        const wishlistItems = await this.itemRepo.findByListId(item.ListId);
+        const peers = linkedIds
+          .map((id) => wishlistItems.find((i) => i.Id === id))
+          .filter((peer): peer is Item => !!peer);
+        assertLinkGroupSupportsLinkedItems(
+          [sourceForCheck, ...peers],
+          visible.wishlist.UserId
+        );
+      }
+
       await this.itemRepo.replaceLinkedItemIds(itemId, linkedIds);
       updated.LinkedItemIds = linkedIds;
 
@@ -139,6 +163,12 @@ export class UpdateItemUseCase {
     if (linkUrl !== undefined) {
       await this.syncItemLink(item, linkUrl, price, websiteName ?? null);
     }
+
+    publishListChanged(item.ListId, {
+      reason: 'item.updated',
+      itemId: updated.Id,
+      actorUserId: currentUserId,
+    });
 
     return {
       ...updated,

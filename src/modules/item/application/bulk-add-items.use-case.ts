@@ -81,7 +81,9 @@ export class BulkAddItemsUseCase {
           row.category ?? 'uncategorized',
           isSuggestion,
           row.priority !== undefined && row.priority !== null ? Number(row.priority) : null,
-          validatedAudience
+          validatedAudience,
+          null,
+          { skipListChanged: true }
         );
         createdItems.push(item);
       } catch (err) {
