@@ -57,6 +57,28 @@ describe('gemini-item-import-parser helpers', () => {
       isFavorite: true,
     });
   });
+
+  test('mapAiImportItems maps Color Size and CustomFields into preview', () => {
+    const items = mapAiImportItems({
+      Items: [
+        {
+          Name: 'Tee',
+          Category: 'Apparel',
+          Color: 'Navy',
+          Size: 'M',
+          CustomFields: {
+            Predefined: { ShirtSize: 'M' },
+            UserDefined: { Brand: 'Acme' },
+          },
+        },
+      ],
+    });
+    expect(items).toHaveLength(1);
+    expect(items[0].color).toBe('Navy');
+    expect(items[0].customFields?.Predefined.Color).toBe('Navy');
+    expect(items[0].customFields?.Predefined.ShirtSize).toBe('M');
+    expect(items[0].customFields?.UserDefined.Brand).toBe('Acme');
+  });
 });
 
 describe('cellValueToText', () => {

@@ -30,6 +30,7 @@ import { DeactivateWishlistUseCase } from './application/deactivate-wishlist.use
 import { ActivateWishlistUseCase } from './application/activate-wishlist.use-case';
 import { GetWishlistUseCase } from './application/get-wishlist.use-case';
 import { RolloverWishlistUseCase } from './application/rollover-wishlist.use-case';
+import { DuplicateWishlistUseCase } from './application/duplicate-wishlist.use-case';
 import { UpdateWishlistUseCase } from './application/update-wishlist.use-case';
 import { DeleteWishlistUseCase } from './application/delete-wishlist.use-case';
 import { ListListSharesUseCase } from './application/list-list-shares.use-case';
@@ -95,6 +96,16 @@ export function createWishlistModule(deps: WishlistModuleDeps) {
     deps.commentRepo
   );
 
+  const duplicateWishlist = new DuplicateWishlistUseCase(
+    deps.wishlistRepo,
+    deps.itemRepo,
+    deps.itemAudienceRepo,
+    deps.userRepo,
+    deps.assertCanCreateWishlistUseCase,
+    deps.assertUserCanUseCase,
+    deps.serverConfigRepo
+  );
+
   const useCases = {
         createWishlist: new CreateWishlistUseCase(
           deps.wishlistRepo,
@@ -112,6 +123,7 @@ export function createWishlistModule(deps: WishlistModuleDeps) {
         activateWishlist: new ActivateWishlistUseCase(deps.wishlistRepo),
         getWishlist: new GetWishlistUseCase(deps.wishlistRepo, rolloverWishlist),
         rolloverWishlist,
+        duplicateWishlist,
         updateWishlist: new UpdateWishlistUseCase(
           deps.wishlistRepo,
           deps.userRepo,

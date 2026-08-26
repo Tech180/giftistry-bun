@@ -21,6 +21,8 @@ const EXT_TO_FORMAT: Record<string, ImportFileFormat> = {
   xlsx: 'xlsx',
   txt: 'txt',
   json: 'json',
+  md: 'md',
+  markdown: 'md',
   pdf: 'pdf',
 };
 

@@ -1,4 +1,9 @@
-import type { ImportedItemPreview } from '../imported-item-preview';
+import type { ImportedItemPreview } from './imported-item-preview';
+import {
+  classifyImportedCustomFields,
+  cleanImportedCustomFieldsMaps,
+  hasClassifiedCustomFields,
+} from './classify-imported-custom-fields.util';
 
 export const GIFTISTRY_CSV_HEADERS = [
   'Category',
@@ -101,6 +106,35 @@ export function isGiftistryExportTxt(text: string): boolean {
   return hasBanner || hasCategory;
 }
 
+/**
+ * Giftistry Markdown dialect: at least one `# Item` heading and one `- Key: Value` meta line,
+ * or `# Wishlist: …` plus an item heading.
+ */
+export function isGiftistryExportMarkdown(text: string): boolean {
+  const lines = splitExportLines(text);
+  let hasItemHeading = false;
+  let hasMetaLine = false;
+  let hasWishlistTitle = false;
+
+  for (const raw of lines) {
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    if (/^#\s+Wishlist:\s*\S+/i.test(trimmed)) {
+      hasWishlistTitle = true;
+      continue;
+    }
+    if (/^#\s+\S+/.test(trimmed) && !trimmed.startsWith('##')) {
+      hasItemHeading = true;
+      continue;
+    }
+    if (/^-\s+[^:]+:\s*.+/.test(trimmed)) {
+      hasMetaLine = true;
+    }
+  }
+
+  return (hasItemHeading && hasMetaLine) || (hasWishlistTitle && hasItemHeading);
+}
+
 export function parseCsvLine(line: string): string[] {
   const cells: string[] = [];
   let current = '';
@@ -157,6 +191,33 @@ export function normalizeImportedItem(item: Partial<ImportedItemPreview> & { nam
   if (!name) {
     return null;
   }
+
+  const color = item.color?.trim() || undefined;
+  const size = item.size?.trim() || undefined;
+  const existing = cleanImportedCustomFieldsMaps(item.customFields);
+
+  const classified = classifyImportedCustomFields(
+    existing
+      ? [
+          ...Object.entries(existing.Predefined).map(([key, value]) => ({ key, value })),
+          ...Object.entries(existing.UserDefined).map(([key, value]) => ({ key, value })),
+        ]
+      : [],
+    {
+      title: name,
+      category: item.category,
+      url: item.websiteLink,
+    },
+    { color, size }
+  );
+
+  const customFields = hasClassifiedCustomFields(classified)
+    ? {
+        Predefined: classified.Predefined,
+        UserDefined: classified.UserDefined,
+      }
+    : undefined;
+
   return {
     name,
     category: item.category?.trim() || undefined,
@@ -168,9 +229,10 @@ export function normalizeImportedItem(item: Partial<ImportedItemPreview> & { nam
     price: item.price === undefined ? undefined : parsePriceValue(item.price),
     websiteLink: item.websiteLink?.trim() || undefined,
     isFavorite: item.isFavorite === true,
-    color: item.color?.trim() || undefined,
-    size: item.size?.trim() || undefined,
+    color: classified.color || color,
+    size: classified.size || size,
     desiredQuantity: normalizeDesiredQuantity(item.desiredQuantity),
+    customFields,
   };
 }
 

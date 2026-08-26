@@ -8,6 +8,7 @@ import type { DeactivateWishlistUseCase } from '../application/deactivate-wishli
 import type { ActivateWishlistUseCase } from '../application/activate-wishlist.use-case';
 import type { GetWishlistUseCase } from '../application/get-wishlist.use-case';
 import type { RolloverWishlistUseCase } from '../application/rollover-wishlist.use-case';
+import type { DuplicateWishlistUseCase } from '../application/duplicate-wishlist.use-case';
 import type { UpdateWishlistUseCase } from '../application/update-wishlist.use-case';
 import type { DeleteWishlistUseCase } from '../application/delete-wishlist.use-case';
 import type { ListListSharesUseCase } from '../application/list-list-shares.use-case';
@@ -28,6 +29,7 @@ export interface WishlistUseCases {
   activateWishlist: ActivateWishlistUseCase;
   getWishlist: GetWishlistUseCase;
   rolloverWishlist: RolloverWishlistUseCase;
+  duplicateWishlist: DuplicateWishlistUseCase;
   updateWishlist: UpdateWishlistUseCase;
   deleteWishlist: DeleteWishlistUseCase;
   listListShares: ListListSharesUseCase;
@@ -37,4 +39,3 @@ export interface WishlistUseCases {
   exportWishlistPdf: ExportWishlistPdfUseCase;
   exportWishlistData: ExportWishlistDataUseCase;
 }
-

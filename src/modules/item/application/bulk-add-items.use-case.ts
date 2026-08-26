@@ -2,6 +2,7 @@ import { AppError } from '@/common/middlewares/error.middleware';
 import type { AddItemUseCase } from './add-item.use-case';
 import type { ValidateItemAudienceUseCase } from './validate-item-audience.use-case';
 import type { Item } from '../domain/item.entity';
+import type { ItemDescriptionMetadata } from '../domain/item-description.util';
 
 export interface BulkAddItemInput {
   name: string;
@@ -14,6 +15,7 @@ export interface BulkAddItemInput {
   category?: string | null;
   priority?: number | null;
   sharedWithUserIds?: string[];
+  metadata?: ItemDescriptionMetadata | null;
 }
 
 export interface BulkAddItemsResult {
@@ -82,7 +84,7 @@ export class BulkAddItemsUseCase {
           isSuggestion,
           row.priority !== undefined && row.priority !== null ? Number(row.priority) : null,
           validatedAudience,
-          null,
+          row.metadata ?? null,
           { skipListChanged: true }
         );
         createdItems.push(item);

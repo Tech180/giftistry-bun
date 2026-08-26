@@ -339,6 +339,20 @@ export const wishlistRoutes = (
       security: [{ bearerAuth: [] }]
     }
   })
+  .post('/wishlists/:listId/duplicate', async ({ params: { listId }, getAuthUser, checkListAccess }) => {
+    await checkListAccess('viewer');
+    const user = await getAuthUser();
+    const newList = await useCases.duplicateWishlist.execute(listId, user.userId);
+    return { success: true, data: newList };
+  }, {
+    detail: {
+      tags: ['Wishlists'],
+      summary: 'Duplicate wishlist onto the current user account',
+      description:
+        'Creates a new wishlist owned by the caller with a “(copy)” title, cloning visible items. Does not copy shares or claims.',
+      security: [{ bearerAuth: [] }]
+    }
+  })
   .use(inviteUseCases ? new Elysia()
     .post('/wishlists/:listId/link-invites', async ({ params: { listId }, getAuthUser, checkListAccess, body: { Giftistry: { Invites: { Role, ExpiresAt, MaxUses, Password } } } }) => {
       await checkListAccess('owner');

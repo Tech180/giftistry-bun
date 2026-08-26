@@ -3,6 +3,7 @@ import { tryParseGiftistryExportDeterministic } from '../src/modules/item/domain
 import {
   isGiftistryExportCsv,
   isGiftistryExportJson,
+  isGiftistryExportMarkdown,
   isGiftistryExportTxt,
 } from '../src/modules/item/domain/giftistry-export-detect';
 
@@ -77,6 +78,36 @@ const sampleTxt = [
   '    Description: Warm socks',
   '    Audience: Everyone',
   '',
+].join('\n');
+
+/** Golden fixture shared with giftistry-react format-item-as-giftistry-markdown tests. */
+export const GOLDEN_GIFTISTRY_MARKDOWN = [
+  '# Wishlist: Holiday List',
+  '',
+  '# Coffee Maker',
+  '',
+  '- Category: Home',
+  '- Priority: 1',
+  '- Favorite: yes',
+  '- Price: 49.99',
+  '- Link: https://example.com/a',
+  '- Retailer: Example',
+  '',
+  'Drip coffee',
+  '',
+  '---',
+  '',
+  '# Socks',
+  '',
+  '- Category: Apparel',
+  '- Priority: 2',
+  '- Favorite: no',
+  '- Quantity: 3',
+  '',
+  'Warm socks',
+  '',
+  '## Custom fields',
+  '- Color: Blue',
 ].join('\n');
 
 describe('giftistry export deterministic parse', () => {
@@ -157,6 +188,61 @@ describe('giftistry export deterministic parse', () => {
       description: 'Warm socks',
     });
     expect(result!.warnings.some((w) => w.includes('multiple links'))).toBe(true);
+  });
+
+  test('parses Giftistry Markdown dialect', () => {
+    expect(isGiftistryExportMarkdown(GOLDEN_GIFTISTRY_MARKDOWN)).toBe(true);
+    const result = tryParseGiftistryExportDeterministic(GOLDEN_GIFTISTRY_MARKDOWN, 'md');
+    expect(result).not.toBeNull();
+    expect(result!.sourceFormat).toBe('md');
+    expect(result!.parseMode).toBe('deterministic');
+    expect(result!.suggestedWishlistTitle).toBe('Holiday List');
+    expect(result!.items).toHaveLength(2);
+    expect(result!.items[0]).toMatchObject({
+      name: 'Coffee Maker',
+      category: 'Home',
+      priority: 1,
+      isFavorite: true,
+      websiteLink: 'https://example.com/a',
+      price: 49.99,
+      description: 'Drip coffee',
+    });
+    expect(result!.items[1]).toMatchObject({
+      name: 'Socks',
+      category: 'Apparel',
+      priority: 2,
+      desiredQuantity: 3,
+      description: 'Warm socks',
+      color: 'Blue',
+      customFields: {
+        Predefined: { Color: 'Blue' },
+        UserDefined: {},
+      },
+    });
+  });
+
+  test('parses Markdown UserDefined fields and apparel Size', () => {
+    const md = [
+      '# Cotton Tee',
+      '',
+      '- Category: Apparel',
+      '',
+      '## Custom fields',
+      '- Size: M',
+      '- Brand: Acme',
+    ].join('\n');
+    const result = tryParseGiftistryExportDeterministic(md, 'md');
+    expect(result).not.toBeNull();
+    expect(result!.items).toHaveLength(1);
+    expect(result!.items[0].customFields?.Predefined.ShirtSize).toBe('M');
+    expect(result!.items[0].customFields?.UserDefined.Brand).toBe('Acme');
+  });
+
+  test('rejects ambiguous prose as Markdown', () => {
+    expect(isGiftistryExportMarkdown('Just a shopping note without structure.')).toBe(false);
+    expect(
+      tryParseGiftistryExportDeterministic('Just a shopping note without structure.', 'md')
+    ).toBeNull();
   });
 
   test('rejects foreign CSV', () => {

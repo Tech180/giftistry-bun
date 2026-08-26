@@ -1,7 +1,11 @@
 import { tryParseGiftistryExportCsv } from './parse-giftistry-export-csv';
 import { tryParseGiftistryExportJson } from './parse-giftistry-export-json';
+import { tryParseGiftistryExportMd } from './parse-giftistry-export-md';
 import { tryParseGiftistryExportTxt } from './parse-giftistry-export-txt';
-import { isGiftistryExportTxt } from './giftistry-export-detect';
+import {
+  isGiftistryExportMarkdown,
+  isGiftistryExportTxt,
+} from './giftistry-export-detect';
 import type { ImportFileFormat, ImportPreviewResult } from '../imported-item-preview';
 
 export function tryParseGiftistryExportDeterministic(
@@ -35,6 +39,24 @@ export function tryParseGiftistryExportDeterministic(
         sourceFormat: 'txt',
         parseMode: 'deterministic',
         suggestedWishlistTitle: txtResult.suggestedWishlistTitle,
+      };
+    }
+  }
+
+  if (
+    sourceFormat === 'md' ||
+    sourceFormat === 'unknown' ||
+    sourceFormat === 'txt' ||
+    isGiftistryExportMarkdown(trimmed)
+  ) {
+    const mdResult = tryParseGiftistryExportMd(trimmed);
+    if (mdResult) {
+      return {
+        items: mdResult.items,
+        warnings: mdResult.warnings,
+        sourceFormat: 'md',
+        parseMode: 'deterministic',
+        suggestedWishlistTitle: mdResult.suggestedWishlistTitle,
       };
     }
   }

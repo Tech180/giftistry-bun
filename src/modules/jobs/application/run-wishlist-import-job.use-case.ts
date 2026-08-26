@@ -3,6 +3,7 @@ import { MAX_BULK_ADD_BATCH } from '@/modules/item/application/bulk-add-items.us
 import type { ItemUseCases } from '@/modules/item/application/item-use-cases.interface';
 import type { CreateWishlistUseCase } from '@/modules/wishlist/application/create-wishlist.use-case';
 import type { ImportedItemPreview } from '@/modules/item/domain/imported-item-preview';
+import { mapImportedPreviewToBulkFields } from '@/modules/item/domain/build-imported-item-metadata.util';
 import type { BackgroundJobRepository } from '../domain/ports/background-job.repository';
 import type {
   BackgroundJob,
@@ -34,33 +35,9 @@ function chunkArray<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
-function encodeImportDescription(item: ImportedItemPreview): string | null {
-  const text = item.description?.trim() || '';
-  const qty =
-    resolveDesiredQuantity(item.desiredQuantity, item.name, item.description) ?? null;
-  const needsMeta = item.isFavorite === true || (qty != null && qty > 1);
-  if (!needsMeta) {
-    return text || null;
-  }
-  const metadata: Record<string, unknown> = {};
-  if (text) metadata.Text = text;
-  if (item.isFavorite) metadata.IsFavorite = true;
-  if (qty != null && qty > 1) {
-    metadata.DesiredQuantity = qty;
-    metadata.MultiCount = true;
-  }
-  return JSON.stringify(metadata);
-}
-
-function mapPreviewToBulkInput(item: ImportedItemPreview) {
-  return {
-    name: item.name.trim(),
-    description: encodeImportDescription(item),
-    linkUrl: item.websiteLink?.trim() || null,
-    price: item.price ?? null,
-    category: item.category?.trim() || null,
-    priority: item.priority ?? null,
-  };
+/** @internal exported for unit tests */
+export function mapPreviewToBulkInput(item: ImportedItemPreview) {
+  return mapImportedPreviewToBulkFields(item);
 }
 
 function mergeString(

@@ -1,6 +1,11 @@
-export type ImportFileFormat = 'csv' | 'xlsx' | 'txt' | 'json' | 'pdf' | 'unknown';
+export type ImportFileFormat = 'csv' | 'xlsx' | 'txt' | 'json' | 'md' | 'pdf' | 'unknown';
 
 export type ImportParseMode = 'deterministic' | 'ai';
+
+export interface ImportedItemCustomFields {
+  Predefined: Record<string, string>;
+  UserDefined: Record<string, string>;
+}
 
 export interface ImportedItemPreview {
   name: string;
@@ -13,6 +18,7 @@ export interface ImportedItemPreview {
   color?: string;
   size?: string;
   desiredQuantity?: number;
+  customFields?: ImportedItemCustomFields;
 }
 
 export interface ImportPreviewResult {
