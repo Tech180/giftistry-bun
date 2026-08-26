@@ -3,6 +3,7 @@ import nodemailer from 'nodemailer';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { env } from '@/common/consts/env.consts';
 import { validatePasswordPolicy } from '@/common/domain/password-policy';
+import { validateUsernamePolicy } from '@/common/domain/username-policy';
 import { DEFAULT_SITE_POLICY } from '@/common/types/user-policy';
 import type { SaveSitePolicyUseCase } from '@/common/application/save-site-policy.use-case';
 import type { ServerConfigRepository } from '../domain/ports/server-config.repository';
@@ -74,6 +75,7 @@ export class RunInitialSetupUseCase {
     if (!Username || !Password) {
       throw new AppError('Admin credentials (username and password) are required', 400, 'BAD_REQUEST');
     }
+    const validatedUsername = validateUsernamePolicy(Username);
     validatePasswordPolicy(Password);
 
     this.serverConfigRepo.save({
@@ -97,7 +99,7 @@ export class RunInitialSetupUseCase {
 
     try {
       await this.serverConfigRepo.createAdminUserWithLock({
-        username: Username,
+        username: validatedUsername,
         email,
         firstName: FirstName || 'System',
         lastName: LastName || 'Admin',

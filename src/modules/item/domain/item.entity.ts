@@ -77,6 +77,9 @@ export interface Item {
   Variations?: ItemVariationColumn[] | null;
   LinkedItemIds?: string[];
   RelatedItemIds?: string[];
+  AllowSubstitutions?: boolean;
+  IsSubstitution?: boolean;
+  SubstitutionForItemId?: string | null;
 }
 
 export class ItemEntity implements Item {
@@ -105,6 +108,9 @@ export class ItemEntity implements Item {
   Variations?: ItemVariationColumn[] | null;
   LinkedItemIds?: string[];
   RelatedItemIds?: string[];
+  AllowSubstitutions?: boolean;
+  IsSubstitution?: boolean;
+  SubstitutionForItemId?: string | null;
 
   constructor(data: Item) {
     Object.assign(this, data);

@@ -4,6 +4,7 @@ import type { Item } from '../domain/item.entity';
 import type { AssertItemVisibleUseCase } from './assert-item-visible.use-case';
 import type { EnrichLinkMetadataUseCase } from './enrich-link-metadata.use-case';
 import type { ExtractItemReviewsUseCase } from './extract-item-reviews.use-case';
+import type { NotifyClaimersItemRemovedUseCase } from './notify-claimers-item-removed.use-case';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { canUserMutateItem, isItemSuggestion } from '../domain/item-visibility.service';
 import { WishlistEntity } from '@/modules/wishlist/domain/wishlist.entity';
@@ -28,6 +29,7 @@ function toMetadataWrite(
     MultiCount: metadata.MultiCount === true,
     OtherUsersCanSee:
       metadata.OtherUsersCanSee === undefined ? null : metadata.OtherUsersCanSee,
+    AllowSubstitutions: metadata.AllowSubstitutions !== false,
     CustomFields: metadata.CustomFields ?? null,
     Variations: metadata.Variations ?? null,
     ...(photos !== undefined ? { Photos: photos ?? [] } : {}),
@@ -41,7 +43,8 @@ export class UpdateItemUseCase {
     private assertItemVisible: AssertItemVisibleUseCase,
     private enrichLinkMetadata: EnrichLinkMetadataUseCase,
     private extractItemReviews: ExtractItemReviewsUseCase,
-    private assertUserCan: AssertUserCanUseCase
+    private assertUserCan: AssertUserCanUseCase,
+    private notifyClaimersItemRemoved?: NotifyClaimersItemRemovedUseCase
   ) {}
 
   async execute(
@@ -109,6 +112,31 @@ export class UpdateItemUseCase {
         if (metadataWrite?.Photos && metadataWrite.Photos.length > 0) {
           await this.assertUserCan.execute(currentUserId, 'CanUploadImages');
         }
+      }
+    }
+
+    const previousAllow = item.AllowSubstitutions !== false;
+    const nextAllow =
+      metadataWrite && metadataWrite.AllowSubstitutions !== undefined
+        ? metadataWrite.AllowSubstitutions !== false
+        : previousAllow;
+    const allowTurnedOff = previousAllow && !nextAllow;
+
+    if (allowTurnedOff && this.notifyClaimersItemRemoved && !item.IsSubstitution) {
+      const listTitle = visible.wishlist.Title?.trim() || 'a wishlist';
+      const subRows = await this.itemRepo.findSubstitutionsByParentId(itemId);
+      for (const row of subRows) {
+        if (row.Kind !== 'owner_approved') continue;
+        const child = await this.itemRepo.findById(row.SubstitutionItemId);
+        if (!child) continue;
+        const claims = await this.itemRepo.findClaimsByItemId(child.Id);
+        await this.notifyClaimersItemRemoved.execute({
+          claims,
+          itemName: child.Name,
+          listId: visible.wishlist.Id,
+          listTitle,
+          excludeUserId: visible.wishlist.UserId,
+        });
       }
     }
 

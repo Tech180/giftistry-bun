@@ -25,10 +25,38 @@ function job(overrides: Partial<BackgroundJob> = {}): BackgroundJob {
 }
 
 describe('buildItemJobNotificationCopy', () => {
-  it('uses host from URL for enrich success', () => {
+  it('uses list title and Result.Title for enrich success', () => {
+    expect(
+      buildItemJobNotificationCopy(
+        job({ Result: { ItemId: 'item-1', Title: 'Wireless Headphones' } }),
+        { listTitle: 'Birthday Wishlist' }
+      )
+    ).toEqual({
+      title: 'Birthday Wishlist',
+      message: 'Finished processing “Wireless Headphones”.',
+    });
+  });
+
+  it('falls back to Item ready and generic body when only URL is present', () => {
     expect(buildItemJobNotificationCopy(job())).toEqual({
       title: 'Item ready',
-      message: 'Finished processing “shop.example”.',
+      message: 'Finished processing your item.',
+    });
+  });
+
+  it('prefers Payload.name when Result.Title is missing', () => {
+    expect(
+      buildItemJobNotificationCopy(
+        job({
+          Kind: 'item-summarize',
+          Payload: { listId: 'list-1', writeBack: true, name: 'Socks' },
+          Result: {},
+        }),
+        { listTitle: 'Holiday' }
+      )
+    ).toEqual({
+      title: 'Holiday',
+      message: 'Notes for “Socks” are ready.',
     });
   });
 

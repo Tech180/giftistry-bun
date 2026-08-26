@@ -69,7 +69,7 @@ export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '
           SmtpSecure: t.Optional(t.Boolean()),
           SmtpFrom: t.Optional(t.String()),
           Admin: t.Object({
-            Username: t.String(),
+            Username: t.String({ minLength: 3, maxLength: 32, pattern: '^[a-zA-Z0-9_-]+$' }),
             Email: t.Optional(t.String()),
             Password: t.String({ minLength: 8 }),
             FirstName: t.Optional(t.String()),

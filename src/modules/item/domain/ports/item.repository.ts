@@ -1,5 +1,9 @@
 import type { Item, ItemLink, Claim, ItemPhoto } from '../item.entity';
 import type { ItemDescriptionMetadata } from '../item-description.util';
+import type {
+  ItemSubstitutionKind,
+  ItemSubstitutionRow,
+} from '../item-substitution.entity';
 
 export interface CreateClaimInput {
   itemId: string;
@@ -17,6 +21,7 @@ export interface ItemMetadataWrite {
   DesiredQuantity?: number | null;
   MultiCount?: boolean;
   OtherUsersCanSee?: boolean | null;
+  AllowSubstitutions?: boolean;
   CustomFields?: ItemDescriptionMetadata['CustomFields'] | null;
   Variations?: ItemDescriptionMetadata['Variations'] | null;
   /**
@@ -24,6 +29,21 @@ export interface ItemMetadataWrite {
    * photos unchanged; `[]` or values replaces the full set.
    */
   Photos?: ItemPhoto[] | null;
+}
+
+export interface CreateSubstitutionItemInput {
+  listId: string;
+  parentItemId: string;
+  name: string;
+  description: string | null;
+  createdByUserId: string;
+  kind: ItemSubstitutionKind;
+  sortOrder: number;
+  category?: string;
+  priorityId?: string | null;
+  priority?: number | null;
+  isHiddenIdea?: boolean;
+  metadata?: ItemMetadataWrite | null;
 }
 
 export interface ItemRepository {
@@ -99,4 +119,15 @@ export interface ItemRepository {
   findRelatedItemIds(itemId: string): Promise<string[]>;
   findRelatedItemIdsByListId(listId: string): Promise<Map<string, string[]>>;
   replaceRelatedItemIds(itemId: string, relatedItemIds: string[]): Promise<void>;
+
+  createSubstitution(input: CreateSubstitutionItemInput): Promise<ItemSubstitutionRow>;
+  findSubstitutionsByParentId(parentItemId: string): Promise<ItemSubstitutionRow[]>;
+  findSubstitutionsByParentIds(parentItemIds: string[]): Promise<Map<string, ItemSubstitutionRow[]>>;
+  findSubstitutionById(id: string): Promise<ItemSubstitutionRow | null>;
+  findSubstitutionByChildItemId(itemId: string): Promise<ItemSubstitutionRow | null>;
+  countOwnerApprovedSubstitutions(parentItemId: string): Promise<number>;
+  hasClaimerCustomSubstitution(parentItemId: string): Promise<boolean>;
+  updateSubstitutionSortOrders(parentItemId: string, orderedIds: string[]): Promise<void>;
+  deleteSubstitution(id: string): Promise<void>;
+  updateAllowSubstitutions(itemId: string, allowSubstitutions: boolean): Promise<void>;
 }

@@ -38,6 +38,16 @@ describe('shouldCreateNotification', () => {
     ).toBe(false);
   });
 
+  test('blocks item_deleted when ItemClaims off', () => {
+    expect(
+      shouldCreateNotification('item_deleted', { ...basePrefs, ItemClaims: false })
+    ).toBe(false);
+  });
+
+  test('allows item_deleted when ItemClaims on', () => {
+    expect(shouldCreateNotification('item_deleted', basePrefs)).toBe(true);
+  });
+
   test('always allows system', () => {
     expect(
       shouldCreateNotification('system', {

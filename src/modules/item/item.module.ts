@@ -33,7 +33,15 @@ import { ParseImportPreviewUseCase } from './application/parse-import-preview.us
 import { BulkAddItemsUseCase } from './application/bulk-add-items.use-case';
 import { SyncItemLinksUseCase } from './application/sync-item-links.use-case';
 import { SyncItemRelatedUseCase } from './application/sync-item-related.use-case';
+import { ListItemSubstitutionsUseCase } from './application/list-item-substitutions.use-case';
+import { CreateOwnerSubstitutionUseCase } from './application/create-owner-substitution.use-case';
+import { CreateClaimerSubstitutionUseCase } from './application/create-claimer-substitution.use-case';
+import { UpdateItemSubstitutionUseCase } from './application/update-item-substitution.use-case';
+import { DeleteItemSubstitutionUseCase } from './application/delete-item-substitution.use-case';
+import { ReorderOwnerSubstitutionsUseCase } from './application/reorder-owner-substitutions.use-case';
+import { NotifyClaimersItemRemovedUseCase } from './application/notify-claimers-item-removed.use-case';
 import { GeminiDescriptionSummarizer } from './infrastructure/gemini-description-summarizer';
+import type { CreateNotificationUseCase } from '@/modules/notifications/application/create-notification.use-case';
 import { GeminiMetadataPopulator } from './infrastructure/gemini-metadata-populator';
 import { GeminiCategoryClassifier } from './infrastructure/gemini-category-classifier';
 import { GeminiItemImportParser } from './infrastructure/gemini-item-import-parser';
@@ -53,6 +61,7 @@ export interface ItemModuleDeps {
   metadataScraper: MetadataScraper;
   serverConfigRepo: ServerConfigRepository;
   middleware: RouteMiddleware;
+  createNotification?: CreateNotificationUseCase;
 }
 
 export function createItemModule(deps: ItemModuleDeps) {
@@ -128,6 +137,10 @@ export function createItemModule(deps: ItemModuleDeps) {
     assertItemVisibleUseCase
   );
 
+  const notifyClaimersItemRemoved = deps.createNotification
+    ? new NotifyClaimersItemRemovedUseCase(deps.createNotification)
+    : undefined;
+
   const useCases = {
     addItem: addItemUseCase,
     listItems: new ListItemsUseCase(deps.itemRepo, deps.wishlistRepo, deps.audienceRepo),
@@ -143,14 +156,19 @@ export function createItemModule(deps: ItemModuleDeps) {
       enrichLinkMetadataUseCase,
       extractItemReviewsUseCase
     ),
-    deleteItem: new DeleteItemUseCase(deps.itemRepo, assertItemVisibleUseCase),
+    deleteItem: new DeleteItemUseCase(
+      deps.itemRepo,
+      assertItemVisibleUseCase,
+      notifyClaimersItemRemoved
+    ),
     updateItem: new UpdateItemUseCase(
       deps.itemRepo,
       deps.audienceRepo,
       assertItemVisibleUseCase,
       enrichLinkMetadataUseCase,
       extractItemReviewsUseCase,
-      deps.assertUserCanUseCase
+      deps.assertUserCanUseCase,
+      notifyClaimersItemRemoved
     ),
     getFieldDefinitions: new GetFieldDefinitionsUseCase(deps.fieldRepo, deps.serverConfigRepo),
     unclaimItem: unclaimItemUseCase,
@@ -171,6 +189,31 @@ export function createItemModule(deps: ItemModuleDeps) {
     bulkAddItems: new BulkAddItemsUseCase(addItemUseCase, validateItemAudienceUseCase),
     syncItemLinks: new SyncItemLinksUseCase(deps.itemRepo, deps.wishlistRepo),
     syncItemRelated: new SyncItemRelatedUseCase(deps.itemRepo),
+    listItemSubstitutions: new ListItemSubstitutionsUseCase(deps.itemRepo, deps.wishlistRepo),
+    createOwnerSubstitution: new CreateOwnerSubstitutionUseCase(
+      deps.itemRepo,
+      deps.wishlistRepo,
+      deps.assertUserCanUseCase
+    ),
+    createClaimerSubstitution: new CreateClaimerSubstitutionUseCase(
+      deps.itemRepo,
+      deps.wishlistRepo,
+      deps.assertUserCanUseCase
+    ),
+    updateItemSubstitution: new UpdateItemSubstitutionUseCase(
+      deps.itemRepo,
+      deps.wishlistRepo,
+      deps.assertUserCanUseCase
+    ),
+    deleteItemSubstitution: new DeleteItemSubstitutionUseCase(
+      deps.itemRepo,
+      deps.wishlistRepo,
+      notifyClaimersItemRemoved
+    ),
+    reorderOwnerSubstitutions: new ReorderOwnerSubstitutionsUseCase(
+      deps.itemRepo,
+      deps.wishlistRepo
+    ),
   };
 
   const module = new Elysia().use(

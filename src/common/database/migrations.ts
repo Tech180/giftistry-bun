@@ -422,5 +422,35 @@ export async function runMigrations(dbSql: typeof sql = sql): Promise<void> {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS oauth_sub VARCHAR(255) UNIQUE
   `;
 
+  console.log('[INFO] Applying item substitution columns and table...');
+  await dbSql`ALTER TABLE items ADD COLUMN IF NOT EXISTS allow_substitutions BOOLEAN NOT NULL DEFAULT TRUE`;
+  await dbSql`ALTER TABLE items ADD COLUMN IF NOT EXISTS is_substitution BOOLEAN NOT NULL DEFAULT FALSE`;
+  await dbSql`
+    ALTER TABLE items ADD COLUMN IF NOT EXISTS substitution_for_item_id UUID NULL REFERENCES items(id) ON DELETE CASCADE
+  `;
+  await dbSql`
+    CREATE TABLE IF NOT EXISTS item_substitutions (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      parent_item_id UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+      substitution_item_id UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL CHECK (kind IN ('owner_approved', 'claimer_custom')),
+      created_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (substitution_item_id)
+    )
+  `;
+  await dbSql`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_item_substitutions_one_claimer_custom
+      ON item_substitutions (parent_item_id)
+      WHERE kind = 'claimer_custom'
+  `;
+  await dbSql`
+    CREATE INDEX IF NOT EXISTS idx_item_substitutions_parent_item_id ON item_substitutions (parent_item_id)
+  `;
+  await dbSql`
+    CREATE INDEX IF NOT EXISTS idx_items_substitution_for_item_id ON items (substitution_for_item_id)
+  `;
+
   console.log('[INFO] Database migrations completed successfully.');
 }

@@ -16,6 +16,7 @@ export interface ItemDescriptionMetadata {
   MultiCount?: boolean;
   IsFavorite?: boolean;
   IsPinned?: boolean;
+  AllowSubstitutions?: boolean;
   /**
    * Ordered photo data URLs for write payloads.
    * On update: omit to leave unchanged; `[]` clears; non-empty replaces.

@@ -254,6 +254,218 @@ describe("Wishlist Lifecycle & Shares", () => {
     await cleanUpWishlist(newListId);
   });
 
+  test("rollover skips parent when a substitution child is claimed", async () => {
+    const oldListId = await createTestWishlist(
+      owner.token,
+      "Sub Claimed List 2026",
+      new Date(Date.now() + 86400000).toISOString()
+    );
+    await shareTestWishlist(owner, oldListId, collaborator, "collaborator");
+
+    const itemRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${oldListId}/items`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${owner.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              Name: "Main With Claimed Sub",
+              Description: "Should not roll",
+              IsHiddenIdea: false,
+              AllowSubstitutions: true,
+            },
+          },
+        }),
+      })
+    );
+    expect(itemRes.status).toBe(200);
+    const parentId = (await itemRes.json() as any).Result.Id;
+
+    const subRes = await app.handle(
+      new Request(`http://localhost/api/items/${parentId}/substitutions/owner`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${owner.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              Name: "Claimed Alternative",
+              Description: "Bought this instead",
+            },
+          },
+        }),
+      })
+    );
+    expect(subRes.status).toBe(200);
+    const subBody = await subRes.json() as any;
+    const childItemId = subBody.Result.Item.Id;
+
+    const claimRes = await app.handle(
+      new Request(`http://localhost/api/items/${childItemId}/claims`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${collaborator.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              Amount: null,
+              ClaimedByName: "Buyer",
+            },
+          },
+        }),
+      })
+    );
+    expect(claimRes.status).toBe(200);
+
+    const expireRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${oldListId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${owner.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Lists: {
+              Title: "Sub Claimed List 2026",
+              ExpiresAt: new Date(Date.now() - 1000).toISOString(),
+              AllowGroupFunds: false,
+            },
+          },
+        }),
+      })
+    );
+    expect(expireRes.status).toBe(200);
+
+    const rolloverRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${oldListId}/rollover`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${owner.token}`,
+        },
+      })
+    );
+    expect(rolloverRes.status).toBe(200);
+    const newListId = (await rolloverRes.json() as any).Result.Id;
+
+    const newItemsRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${newListId}/items`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${owner.token}`,
+        },
+      })
+    );
+    const newItemsBody = await newItemsRes.json() as any;
+    expect(
+      newItemsBody.Result.Items.some((i: any) => i.Name === "Main With Claimed Sub")
+    ).toBe(false);
+
+    await cleanUpWishlist(oldListId);
+    await cleanUpWishlist(newListId);
+  });
+
+  test("rollover still copies parent when substitutions exist but none are claimed", async () => {
+    const oldListId = await createTestWishlist(
+      owner.token,
+      "Sub Unclaimed List 2026",
+      new Date(Date.now() + 86400000).toISOString()
+    );
+
+    const itemRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${oldListId}/items`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${owner.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              Name: "Main With Unclaimed Sub",
+              Description: "Should roll",
+              IsHiddenIdea: false,
+              AllowSubstitutions: true,
+            },
+          },
+        }),
+      })
+    );
+    expect(itemRes.status).toBe(200);
+    const parentId = (await itemRes.json() as any).Result.Id;
+
+    const subRes = await app.handle(
+      new Request(`http://localhost/api/items/${parentId}/substitutions/owner`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${owner.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              Name: "Unused Alternative",
+            },
+          },
+        }),
+      })
+    );
+    expect(subRes.status).toBe(200);
+
+    const expireRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${oldListId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${owner.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Lists: {
+              Title: "Sub Unclaimed List 2026",
+              ExpiresAt: new Date(Date.now() - 1000).toISOString(),
+              AllowGroupFunds: false,
+            },
+          },
+        }),
+      })
+    );
+    expect(expireRes.status).toBe(200);
+
+    const rolloverRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${oldListId}/rollover`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${owner.token}`,
+        },
+      })
+    );
+    expect(rolloverRes.status).toBe(200);
+    const newListId = (await rolloverRes.json() as any).Result.Id;
+
+    const newItemsRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${newListId}/items`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${owner.token}`,
+        },
+      })
+    );
+    const newItemsBody = await newItemsRes.json() as any;
+    expect(newItemsBody.Result.Items.length).toBe(1);
+    expect(newItemsBody.Result.Items[0].Name).toBe("Main With Unclaimed Sub");
+
+    await cleanUpWishlist(oldListId);
+    await cleanUpWishlist(newListId);
+  });
+
   test("rollover appends 1 when title has no trailing number", async () => {
     const oldListId = await createTestWishlist(
       owner.token,

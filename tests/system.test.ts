@@ -87,6 +87,35 @@ describe("System Administration Settings Endpoints", () => {
     expect(body.Result.User.IsAdmin).toBe(false);
   });
 
+  test("Signup rejects email as username", async () => {
+    const res = await app.handle(
+      new Request("http://localhost/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          Giftistry: {
+            Auth: {
+              Username: "bad@email.com",
+              Email: `email_user_${timestamp}@example.com`,
+              Password: testPassword,
+              FirstName: "Bad",
+              LastName: "Email",
+            }
+          }
+        }),
+      })
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json() as any;
+    const message = JSON.stringify(body);
+    expect(
+      message.includes("cannot be an email") ||
+        message.includes("pattern") ||
+        message.includes("Expected string") ||
+        message.includes("validation")
+    ).toBe(true);
+  });
+
   test("Owner (first user) can fetch system settings", async () => {
     const res = await app.handle(
       new Request("http://localhost/api/system/settings", {

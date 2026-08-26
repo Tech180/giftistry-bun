@@ -21,7 +21,7 @@
   "AiFastProvider": "local",
   "AiFastEndpoint": "http://192.168.100.80:11434/",
   "AiFastApiKey": "",
-  "AiFastModel": "gemma4_coder:latest",
+  "AiFastModel": "qwen3.5:9b",
   "AiIntelligentProvider": "openrouter",
   "AiIntelligentEndpoint": "",
   "AiIntelligentApiKey": "",
@@ -33,7 +33,12 @@
   "AiImportPrompt": "You are a wishlist import assistant. Convert the uploaded wishlist export (or similar file content) into structured gift items.\n\nFile name: \"{fileName}\"\nDetected format: \"{format}\"\nTarget wishlist title (context only): \"{wishlistTitle}\"\nExisting categories on the list (optional): \"{existingCategories}\"\n\nFile content:\n{fileContent}\n\nGiftistry CSV exports use columns:\nCategory, Priority, Item, Star, Price, Website Link, Description, Audience, Suggestion\n- Category section rows look like \"Toys:\" in the Category column.\n- Item rows often leave Category blank and inherit the last section.\n- Star \"*\" means favorite.\n- Audience and Suggestion are informational only — do NOT invent share recipients from them.\n\nGiftistry JSON exports look like:\n{ \"wishlistTitle\", \"exportedAt\", \"items\": [{ \"name\", \"category\", \"priority\", \"isFavorite\", \"description\", \"links\": [{ \"url\", \"retailer\", \"price\" }] }] }\n\nRules:\n1. Extract every distinct gift item you can identify. Skip empty/header-only rows.\n2. Never invent URLs or prices that are not present in the file.\n3. Prefer the first website link when an item has multiple links. WebsiteLink must be the full URL (including path/query), never just a hostname like \"amazon.com\".\n4. Keep names concise; put sizing/color notes into description when helpful.\n5. Priority should be a number when present; omit if unknown.\n6. Price should be a number without currency symbols when present.\n7. When Existing categories is non-empty, reuse those category labels verbatim whenever they fit. Do not invent near-duplicates (e.g. \"Toys\" vs \"toys\"). Only invent a new category when none of the existing ones fit.\n8. DesiredQuantity: integer when the name clearly indicates a pack (e.g. \"Socks x5\" → 5); omit otherwise. Never treat \"32x30\" pants sizes as quantity.\n\nReturn raw JSON only (no markdown fences) matching:\n{\n  \"Items\": [\n    {\n      \"Name\": \"Item name\",\n      \"Category\": \"optional category label\",\n      \"Priority\": 1,\n      \"Description\": \"optional notes\",\n      \"Price\": 19.99,\n      \"WebsiteLink\": \"https://...\",\n      \"IsFavorite\": false,\n      \"DesiredQuantity\": 5\n    }\n  ]\n}",
   "AiEnabledPackIds": [
     "technology",
-    "technology.cpu"
+    "technology.cpu",
+    "technology.computer-parts",
+    "books",
+    "movies",
+    "clothing",
+    "kitchen"
   ],
   "AiCustomPacks": [],
   "AiCompletionTimeoutMs": 600000,
@@ -41,5 +46,16 @@
   "ScrapePlaywrightTimeoutMs": 25000,
   "GrabInfoConcurrency": 3,
   "GrabInfoConcurrencyUnlimited": false,
-  "GrabInfoActiveStreamLimit": 8
+  "GrabInfoActiveStreamLimit": 8,
+  "NtfyEnabled": false,
+  "NtfyBaseUrl": "https://ntfy.sh",
+  "NtfyAuthToken": "",
+  "NtfyTopicPrefix": "giftistry",
+  "WebPushEnabled": false,
+  "WebPushVapidPublicKey": "",
+  "WebPushVapidPrivateKey": "",
+  "WebPushSubject": "mailto:admin@localhost",
+  "FcmEnabled": false,
+  "FcmProjectId": "",
+  "FcmServiceAccountJson": ""
 }

@@ -4,6 +4,7 @@ import { GetSitePolicyUseCase } from '@/common/application/get-site-policy.use-c
 import { mergeUserPolicy } from '@/common/types/user-policy';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { validatePasswordPolicy } from '@/common/domain/password-policy';
+import { validateUsernamePolicy } from '@/common/domain/username-policy';
 import { generateAvatarColor } from '@/common/utils/avatar.util';
 
 export interface CreateAdminUserPayload {
@@ -30,6 +31,7 @@ export class CreateAdminUserUseCase {
       throw new AppError('Username and password are required', 400, 'BAD_REQUEST');
     }
 
+    const validatedUsername = validateUsernamePolicy(payload.username);
     const email = payload.email?.trim() ? payload.email.trim() : null;
 
     const sitePolicy = await this.getSitePolicy.execute();
@@ -38,7 +40,7 @@ export class CreateAdminUserUseCase {
       requireStrong: sitePolicy.RequireStrongPasswords && !forcePasswordChange,
     });
 
-    const exists = await this.adminUserRepo.existsByUsernameOrEmail(payload.username, email);
+    const exists = await this.adminUserRepo.existsByUsernameOrEmail(validatedUsername, email);
     if (exists) {
       throw new AppError('User with this username or email already exists', 409, 'USER_EXISTS');
     }
@@ -49,7 +51,7 @@ export class CreateAdminUserUseCase {
 
     const userId = await this.adminUserRepo.create(
       {
-        username: payload.username,
+        username: validatedUsername,
         email,
         password: payload.password,
         firstName: payload.firstName,
@@ -67,7 +69,7 @@ export class CreateAdminUserUseCase {
       actorId,
       targetId: userId,
       action: 'admin.user.create',
-      metadata: { username: payload.username, isAdmin: !!payload.isAdmin },
+      metadata: { username: validatedUsername, isAdmin: !!payload.isAdmin },
       ip,
     });
 

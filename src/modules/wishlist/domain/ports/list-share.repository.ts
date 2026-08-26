@@ -3,6 +3,7 @@ import type { GrantedVia, ListShare, ListShareWithUser, ListRole, ShareRole } fr
 export interface ListShareRepository {
   addShare(listId: string, userId: string, role: ShareRole, grantedVia?: GrantedVia): Promise<ListShare>;
   getRole(listId: string, userId: string): Promise<ListRole | null>;
+  /** Same resolution as ListAccessRepository.findListIdByItemId (item or substitution join id). */
   findListIdByItemId(itemId: string): Promise<string | null>;
   findSharesByListId(listId: string): Promise<ListShare[]>;
   findShareById(shareId: string): Promise<ListShare | null>;

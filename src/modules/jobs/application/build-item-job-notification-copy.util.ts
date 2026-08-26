@@ -5,11 +5,18 @@ export interface ItemJobNotificationCopy {
   message: string;
 }
 
+export interface BuildItemJobNotificationCopyOptions {
+  listTitle?: string | null;
+}
+
 /**
  * Bell/toast copy for item-enrich and item-summarize terminal outcomes.
  * Mirrors frontend format-item-job-notification-summary wording.
  */
-export function buildItemJobNotificationCopy(job: BackgroundJob): ItemJobNotificationCopy {
+export function buildItemJobNotificationCopy(
+  job: BackgroundJob,
+  options: BuildItemJobNotificationCopyOptions = {}
+): ItemJobNotificationCopy {
   const isEnrich = job.Kind === 'item-enrich';
   const failed = job.Status === 'failed';
 
@@ -25,10 +32,12 @@ export function buildItemJobNotificationCopy(job: BackgroundJob): ItemJobNotific
     };
   }
 
+  const listTitle = options.listTitle?.trim() || null;
   const label = resolveItemLabel(job);
+
   if (isEnrich) {
     return {
-      title: 'Item ready',
+      title: listTitle || 'Item ready',
       message: label
         ? `Finished processing “${label}”.`
         : 'Finished processing your item.',
@@ -36,7 +45,7 @@ export function buildItemJobNotificationCopy(job: BackgroundJob): ItemJobNotific
   }
 
   return {
-    title: 'Summary ready',
+    title: listTitle || 'Summary ready',
     message: label
       ? `Notes for “${label}” are ready.`
       : 'Your item summary is ready.',
@@ -44,19 +53,16 @@ export function buildItemJobNotificationCopy(job: BackgroundJob): ItemJobNotific
 }
 
 function resolveItemLabel(job: BackgroundJob): string | null {
+  const result = job.Result as Record<string, unknown> | null | undefined;
+  if (result && typeof result === 'object') {
+    const title = result.Title;
+    if (typeof title === 'string' && title.trim()) return title.trim();
+  }
+
   const payload = job.Payload as Record<string, unknown> | null | undefined;
-  if (!payload || typeof payload !== 'object') return null;
-
-  const name = payload.name;
-  if (typeof name === 'string' && name.trim()) return name.trim();
-
-  const url = payload.url ?? payload.linkUrl;
-  if (typeof url === 'string' && url.trim()) {
-    try {
-      return new URL(url).hostname.replace(/^www\./, '');
-    } catch {
-      return url.trim().slice(0, 48);
-    }
+  if (payload && typeof payload === 'object') {
+    const name = payload.name;
+    if (typeof name === 'string' && name.trim()) return name.trim();
   }
 
   return null;

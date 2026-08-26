@@ -22,9 +22,18 @@ export class PostgresListAccessRepository implements ListAccessRepository {
   }
 
   async findListIdByItemId(itemId: string): Promise<string | null> {
-    const [row] = await sql<any[]>`
+    const [item] = await sql<{ listId: string }[]>`
       SELECT list_id as "listId" FROM items WHERE id = ${itemId}
     `;
-    return row?.listId ?? null;
+    if (item?.listId) return item.listId;
+
+    // PUT/DELETE `/items/:id/substitution` pass item_substitutions.id, not items.id.
+    const [viaSubstitution] = await sql<{ listId: string }[]>`
+      SELECT i.list_id as "listId"
+      FROM item_substitutions s
+      JOIN items i ON i.id = s.parent_item_id
+      WHERE s.id = ${itemId}
+    `;
+    return viaSubstitution?.listId ?? null;
   }
 }

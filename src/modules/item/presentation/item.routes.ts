@@ -3,6 +3,63 @@ import type { RouteMiddleware } from '@/common/types/route-middleware';
 import { AppError } from '@/common/middlewares/error.middleware';
 import type { ItemUseCases } from '../application/item-use-cases.interface';
 
+const substitutionMetadataSchema = t.Optional(
+  t.Nullable(
+    t.Object({
+      Text: t.Optional(t.Nullable(t.String())),
+      CustomFields: t.Optional(
+        t.Nullable(
+          t.Object({
+            Predefined: t.Optional(t.Nullable(t.Record(t.String(), t.Nullable(t.String())))),
+            UserDefined: t.Optional(t.Nullable(t.Record(t.String(), t.String()))),
+          })
+        )
+      ),
+      DesiredQuantity: t.Optional(t.Nullable(t.Numeric())),
+      Variations: t.Optional(
+        t.Nullable(
+          t.Array(
+            t.Object({
+              Name: t.String(),
+              Quantity: t.Numeric(),
+            })
+          )
+        )
+      ),
+      MultiCount: t.Optional(t.Nullable(t.Boolean())),
+      IsFavorite: t.Optional(t.Nullable(t.Boolean())),
+      IsPinned: t.Optional(t.Nullable(t.Boolean())),
+      Photos: t.Optional(
+        t.Nullable(
+          t.Array(
+            t.Object({
+              DataUrl: t.String(),
+            }),
+            { maxItems: 10 }
+          )
+        )
+      ),
+    })
+  )
+);
+
+const substitutionProductBodySchema = t.Object({
+  Giftistry: t.Object({
+    Items: t.Object({
+      Name: t.String({ minLength: 1 }),
+      Description: t.Optional(t.Nullable(t.String())),
+      LinkUrl: t.Optional(t.Nullable(t.String())),
+      Price: t.Optional(t.Nullable(t.Numeric())),
+      WebsiteName: t.Optional(t.Nullable(t.String())),
+      Category: t.Optional(t.Nullable(t.String())),
+      PriorityId: t.Optional(t.Nullable(t.String())),
+      Priority: t.Optional(t.Nullable(t.Numeric())),
+      IsHiddenIdea: t.Optional(t.Nullable(t.Boolean())),
+      Metadata: substitutionMetadataSchema,
+    }),
+  }),
+});
+
 export const itemRoutes = (
   useCases: ItemUseCases,
   middleware: RouteMiddleware
@@ -94,6 +151,7 @@ export const itemRoutes = (
             MultiCount: t.Optional(t.Nullable(t.Boolean())),
             IsFavorite: t.Optional(t.Nullable(t.Boolean())),
             IsPinned: t.Optional(t.Nullable(t.Boolean())),
+            AllowSubstitutions: t.Optional(t.Nullable(t.Boolean())),
             Photos: t.Optional(t.Nullable(t.Array(t.Object({
               DataUrl: t.String(),
             }), { maxItems: 10 }))),
@@ -342,6 +400,7 @@ export const itemRoutes = (
             MultiCount: t.Optional(t.Nullable(t.Boolean())),
             IsFavorite: t.Optional(t.Nullable(t.Boolean())),
             IsPinned: t.Optional(t.Nullable(t.Boolean())),
+            AllowSubstitutions: t.Optional(t.Nullable(t.Boolean())),
             Photos: t.Optional(t.Nullable(t.Array(t.Object({
               DataUrl: t.String(),
             }), { maxItems: 10 }))),
@@ -363,6 +422,94 @@ export const itemRoutes = (
     query: t.Object({
       category: t.String()
     })
+  })
+  .get('/items/:itemId/substitutions', async ({ getAuthUser, checkListAccess, params: { itemId } }) => {
+    await checkListAccess('viewer');
+    const user = await getAuthUser();
+    const data = await useCases.listItemSubstitutions.execute(itemId, user.userId);
+    return { success: true, data };
+  }, {
+    detail: {
+      tags: ['Items'],
+      summary: 'List substitutions for an item',
+      security: [{ bearerAuth: [] }],
+    },
+  })
+  .post('/items/:itemId/substitutions/owner', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: payload } } }) => {
+    await checkListAccess('owner');
+    const user = await getAuthUser();
+    const option = await useCases.createOwnerSubstitution.execute(itemId, user.userId, payload);
+    return { success: true, data: option };
+  }, {
+    detail: {
+      tags: ['Items'],
+      summary: 'Create an owner-approved substitution',
+      security: [{ bearerAuth: [] }],
+    },
+    body: substitutionProductBodySchema,
+  })
+  .post('/items/:itemId/substitutions/custom', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: payload } } }) => {
+    await checkListAccess('viewer');
+    const user = await getAuthUser();
+    const option = await useCases.createClaimerSubstitution.execute(itemId, user.userId, payload);
+    return { success: true, data: option };
+  }, {
+    detail: {
+      tags: ['Items'],
+      summary: 'Create a claimer custom substitution',
+      security: [{ bearerAuth: [] }],
+    },
+    body: substitutionProductBodySchema,
+  })
+  .patch('/items/:itemId/substitutions/reorder', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: { OrderedIds } } } }) => {
+    await checkListAccess('owner');
+    const user = await getAuthUser();
+    await useCases.reorderOwnerSubstitutions.execute(itemId, user.userId, OrderedIds);
+    return { success: true };
+  }, {
+    detail: {
+      tags: ['Items'],
+      summary: 'Reorder owner-approved substitutions',
+      security: [{ bearerAuth: [] }],
+    },
+    body: t.Object({
+      Giftistry: t.Object({
+        Items: t.Object({
+          OrderedIds: t.Array(t.String()),
+        }),
+      }),
+    }),
+  })
+  .put('/items/:itemId/substitution', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: payload } } }) => {
+    await checkListAccess('viewer');
+    const user = await getAuthUser();
+    const option = await useCases.updateItemSubstitution.execute(
+      itemId,
+      user.userId,
+      payload
+    );
+    return { success: true, data: option };
+  }, {
+    detail: {
+      tags: ['Items'],
+      summary: 'Update a substitution',
+      description: 'itemId is the substitution join-row id (item_substitutions.id).',
+      security: [{ bearerAuth: [] }],
+    },
+    body: substitutionProductBodySchema,
+  })
+  .delete('/items/:itemId/substitution', async ({ getAuthUser, checkListAccess, params: { itemId } }) => {
+    await checkListAccess('viewer');
+    const user = await getAuthUser();
+    await useCases.deleteItemSubstitution.execute(itemId, user.userId);
+    return { success: true };
+  }, {
+    detail: {
+      tags: ['Items'],
+      summary: 'Delete a substitution',
+      description: 'itemId is the substitution join-row id (item_substitutions.id).',
+      security: [{ bearerAuth: [] }],
+    },
   })
   .delete('/items/:itemId', async ({ getAuthUser, checkListAccess, params: { itemId } }) => {
     await checkListAccess('viewer');

@@ -1,5 +1,6 @@
-import type { ItemRepository, ItemMetadataWrite } from '../domain/ports/item.repository';
+import type { ItemRepository, ItemMetadataWrite, CreateSubstitutionItemInput } from '../domain/ports/item.repository';
 import type { Item, ItemCustomFieldsColumns, ItemLink, Claim, ItemPhoto, ItemVariationColumn } from '../domain/item.entity';
+import type { ItemSubstitutionRow } from '../domain/item-substitution.entity';
 import { sql } from '@/common/database/connection';
 
 const ITEM_SELECT = `
@@ -13,7 +14,10 @@ const ITEM_SELECT = `
   i.desired_quantity as "DesiredQuantity", i.multi_count as "MultiCount",
   i.other_users_can_see as "OtherUsersCanSee",
   i.custom_fields as "CustomFields", i.variations as "Variations",
-  i.photos as "Photos"
+  i.photos as "Photos",
+  i.allow_substitutions as "AllowSubstitutions",
+  i.is_substitution as "IsSubstitution",
+  i.substitution_for_item_id as "SubstitutionForItemId"
 `;
 
 function parseJsonValue(raw: unknown): unknown {
@@ -100,6 +104,9 @@ function mapItemRow(row: any): Item {
     CustomFields: mapCustomFields(row.CustomFields),
     Variations: mapVariations(row.Variations),
     Photos: mapPhotos(row.Photos),
+    AllowSubstitutions: row.AllowSubstitutions !== false,
+    IsSubstitution: row.IsSubstitution === true,
+    SubstitutionForItemId: row.SubstitutionForItemId ?? null,
   };
 }
 
@@ -112,9 +119,22 @@ function metadataDefaults(metadata?: ItemMetadataWrite | null) {
     multiCount: metadata?.MultiCount === true,
     otherUsersCanSee:
       metadata?.OtherUsersCanSee !== undefined ? metadata.OtherUsersCanSee : null,
+    allowSubstitutions: metadata?.AllowSubstitutions !== false,
     customFields: metadata?.CustomFields ?? {},
     variations: metadata?.Variations ?? [],
     photos: (metadata?.Photos ?? []) as ItemPhoto[],
+  };
+}
+
+function mapSubstitutionRow(row: any): ItemSubstitutionRow {
+  return {
+    Id: row.Id,
+    ParentItemId: row.ParentItemId,
+    SubstitutionItemId: row.SubstitutionItemId,
+    Kind: row.Kind,
+    CreatedByUserId: row.CreatedByUserId,
+    SortOrder: Number(row.SortOrder) || 0,
+    CreatedAt: row.CreatedAt ? new Date(row.CreatedAt) : undefined,
   };
 }
 
@@ -139,6 +159,7 @@ export class PostgresItemRepository implements ItemRepository {
       FROM items i
       LEFT JOIN users u ON i.suggested_by_user_id = u.id
       WHERE i.list_id = ${listId}
+        AND COALESCE(i.is_substitution, FALSE) = FALSE
       ORDER BY i.created_at DESC
     `;
     const linkedMap = await this.findLinkedItemIdsByListId(listId);
@@ -169,13 +190,14 @@ export class PostgresItemRepository implements ItemRepository {
         list_id, priority_id, suggested_by_user_id, name, description,
         is_hidden_idea, category, is_suggestion, priority,
         is_favorite, is_pinned, desired_quantity, multi_count,
-        other_users_can_see, custom_fields, variations, photos
+        other_users_can_see, allow_substitutions, custom_fields, variations, photos
       )
       VALUES (
         ${listId}, ${priorityId}, ${suggestedByUserId}, ${name}, ${description},
         ${isHiddenIdea}, ${category}, ${isSuggestion}, ${priority},
         ${meta.isFavorite}, ${meta.isPinned}, ${meta.desiredQuantity}, ${meta.multiCount},
-        ${meta.otherUsersCanSee}, ${sql.json(meta.customFields as never)},
+        ${meta.otherUsersCanSee}, ${meta.allowSubstitutions},
+        ${sql.json(meta.customFields as never)},
         ${sql.json(meta.variations as never)},
         ${sql.json(meta.photos as never)}
       )
@@ -437,6 +459,7 @@ export class PostgresItemRepository implements ItemRepository {
               desired_quantity = ${meta.desiredQuantity},
               multi_count = ${meta.multiCount},
               other_users_can_see = ${meta.otherUsersCanSee},
+              allow_substitutions = ${meta.allowSubstitutions},
               custom_fields = ${sql.json(meta.customFields as never)},
               variations = ${sql.json(meta.variations as never)},
               photos = ${sql.json(photosValue as never)}
@@ -449,6 +472,9 @@ export class PostgresItemRepository implements ItemRepository {
                     is_favorite as "IsFavorite", is_pinned as "IsPinned",
                     desired_quantity as "DesiredQuantity", multi_count as "MultiCount",
                     other_users_can_see as "OtherUsersCanSee",
+                    allow_substitutions as "AllowSubstitutions",
+                    is_substitution as "IsSubstitution",
+                    substitution_for_item_id as "SubstitutionForItemId",
                     custom_fields as "CustomFields", variations as "Variations",
                     photos as "Photos"
         `;
@@ -472,6 +498,7 @@ export class PostgresItemRepository implements ItemRepository {
             desired_quantity = ${meta.desiredQuantity},
             multi_count = ${meta.multiCount},
             other_users_can_see = ${meta.otherUsersCanSee},
+            allow_substitutions = ${meta.allowSubstitutions},
             custom_fields = ${sql.json(meta.customFields as never)},
             variations = ${sql.json(meta.variations as never)}
         WHERE id = ${id}
@@ -632,5 +659,169 @@ export class PostgresItemRepository implements ItemRepository {
         `;
       }
     });
+  }
+
+  async createSubstitution(input: CreateSubstitutionItemInput): Promise<ItemSubstitutionRow> {
+    return sql.begin(async (tx) => {
+      const meta = metadataDefaults(input.metadata ?? null);
+      const [child] = await tx`
+        INSERT INTO items (
+          list_id, name, description, category, priority_id, priority,
+          is_hidden_idea, is_suggestion, is_substitution, substitution_for_item_id,
+          allow_substitutions, is_favorite, is_pinned, multi_count,
+          desired_quantity, other_users_can_see,
+          custom_fields, variations, photos
+        )
+        VALUES (
+          ${input.listId}, ${input.name}, ${input.description},
+          ${input.category ?? 'uncategorized'},
+          ${input.priorityId ?? null},
+          ${input.priority ?? null},
+          ${input.isHiddenIdea === true}, FALSE, TRUE, ${input.parentItemId},
+          TRUE, ${meta.isFavorite}, ${meta.isPinned}, ${meta.multiCount},
+          ${meta.desiredQuantity}, NULL,
+          ${sql.json(meta.customFields as never)},
+          ${sql.json(meta.variations as never)},
+          ${sql.json(meta.photos as never)}
+        )
+        RETURNING id as "Id"
+      `;
+      if (!child) throw new Error('Failed to create substitution item');
+
+      const [row] = await tx`
+        INSERT INTO item_substitutions (
+          parent_item_id, substitution_item_id, kind, created_by_user_id, sort_order
+        )
+        VALUES (
+          ${input.parentItemId}, ${child.Id}, ${input.kind},
+          ${input.createdByUserId}, ${input.sortOrder}
+        )
+        RETURNING id as "Id", parent_item_id as "ParentItemId",
+                  substitution_item_id as "SubstitutionItemId", kind as "Kind",
+                  created_by_user_id as "CreatedByUserId", sort_order as "SortOrder",
+                  created_at as "CreatedAt"
+      `;
+      if (!row) throw new Error('Failed to create substitution link');
+      return mapSubstitutionRow(row);
+    });
+  }
+
+  async findSubstitutionsByParentId(parentItemId: string): Promise<ItemSubstitutionRow[]> {
+    const rows = await sql`
+      SELECT id as "Id", parent_item_id as "ParentItemId",
+             substitution_item_id as "SubstitutionItemId", kind as "Kind",
+             created_by_user_id as "CreatedByUserId", sort_order as "SortOrder",
+             created_at as "CreatedAt"
+      FROM item_substitutions
+      WHERE parent_item_id = ${parentItemId}
+      ORDER BY
+        CASE WHEN kind = 'owner_approved' THEN 0 ELSE 1 END,
+        sort_order ASC,
+        created_at ASC
+    `;
+    return rows.map(mapSubstitutionRow);
+  }
+
+  async findSubstitutionsByParentIds(
+    parentItemIds: string[]
+  ): Promise<Map<string, ItemSubstitutionRow[]>> {
+    const map = new Map<string, ItemSubstitutionRow[]>();
+    if (parentItemIds.length === 0) return map;
+
+    const rows = await sql`
+      SELECT id as "Id", parent_item_id as "ParentItemId",
+             substitution_item_id as "SubstitutionItemId", kind as "Kind",
+             created_by_user_id as "CreatedByUserId", sort_order as "SortOrder",
+             created_at as "CreatedAt"
+      FROM item_substitutions
+      WHERE parent_item_id = ANY(${parentItemIds})
+      ORDER BY
+        CASE WHEN kind = 'owner_approved' THEN 0 ELSE 1 END,
+        sort_order ASC,
+        created_at ASC
+    `;
+    for (const row of rows) {
+      const mapped = mapSubstitutionRow(row);
+      const existing = map.get(mapped.ParentItemId) ?? [];
+      existing.push(mapped);
+      map.set(mapped.ParentItemId, existing);
+    }
+    return map;
+  }
+
+  async findSubstitutionById(id: string): Promise<ItemSubstitutionRow | null> {
+    const [row] = await sql`
+      SELECT id as "Id", parent_item_id as "ParentItemId",
+             substitution_item_id as "SubstitutionItemId", kind as "Kind",
+             created_by_user_id as "CreatedByUserId", sort_order as "SortOrder",
+             created_at as "CreatedAt"
+      FROM item_substitutions
+      WHERE id = ${id}
+    `;
+    return row ? mapSubstitutionRow(row) : null;
+  }
+
+  async findSubstitutionByChildItemId(itemId: string): Promise<ItemSubstitutionRow | null> {
+    const [row] = await sql`
+      SELECT id as "Id", parent_item_id as "ParentItemId",
+             substitution_item_id as "SubstitutionItemId", kind as "Kind",
+             created_by_user_id as "CreatedByUserId", sort_order as "SortOrder",
+             created_at as "CreatedAt"
+      FROM item_substitutions
+      WHERE substitution_item_id = ${itemId}
+    `;
+    return row ? mapSubstitutionRow(row) : null;
+  }
+
+  async countOwnerApprovedSubstitutions(parentItemId: string): Promise<number> {
+    const [row] = await sql`
+      SELECT COUNT(*)::int as "Count"
+      FROM item_substitutions
+      WHERE parent_item_id = ${parentItemId} AND kind = 'owner_approved'
+    `;
+    return Number(row?.Count ?? 0);
+  }
+
+  async hasClaimerCustomSubstitution(parentItemId: string): Promise<boolean> {
+    const [row] = await sql`
+      SELECT 1 as "Exists"
+      FROM item_substitutions
+      WHERE parent_item_id = ${parentItemId} AND kind = 'claimer_custom'
+      LIMIT 1
+    `;
+    return !!row;
+  }
+
+  async updateSubstitutionSortOrders(parentItemId: string, orderedIds: string[]): Promise<void> {
+    await sql.begin(async (tx) => {
+      for (let i = 0; i < orderedIds.length; i++) {
+        const substitutionId = orderedIds[i];
+        if (!substitutionId) continue;
+        await tx`
+          UPDATE item_substitutions
+          SET sort_order = ${i}
+          WHERE id = ${substitutionId}
+            AND parent_item_id = ${parentItemId}
+            AND kind = 'owner_approved'
+        `;
+      }
+    });
+  }
+
+  async deleteSubstitution(id: string): Promise<void> {
+    const existing = await this.findSubstitutionById(id);
+    if (!existing) return;
+    await sql.begin(async (tx) => {
+      await tx`DELETE FROM item_substitutions WHERE id = ${id}`;
+      await tx`DELETE FROM items WHERE id = ${existing.SubstitutionItemId}`;
+    });
+  }
+
+  async updateAllowSubstitutions(itemId: string, allowSubstitutions: boolean): Promise<void> {
+    await sql`
+      UPDATE items
+      SET allow_substitutions = ${allowSubstitutions}
+      WHERE id = ${itemId}
+    `;
   }
 }

@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach, mock } from 'bun:test';
 import { NotifyItemJobCompletionUseCase } from './notify-item-job-completion.use-case';
 import type { BackgroundJob } from '../domain/background-job.entity';
 import type { CreateNotificationUseCase } from '@/modules/notifications/application/create-notification.use-case';
+import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
 import { clearWishlistWsRegistry, addWishlistWsConnection } from '@/modules/wishlist/infrastructure/wishlist-ws-registry';
 
 function baseJob(overrides: Partial<BackgroundJob> = {}): BackgroundJob {
@@ -17,7 +18,7 @@ function baseJob(overrides: Partial<BackgroundJob> = {}): BackgroundJob {
     Message: 'Info grabbed',
     Error: null,
     Payload: { intent: 'create-from-url', listId: 'list-1', url: 'https://www.example.com/item' },
-    Result: { ItemId: 'item-1' },
+    Result: { ItemId: 'item-1', Title: 'Cool Gadget' },
     CreatedAt: new Date(),
     UpdatedAt: new Date(),
     StartedAt: new Date(),
@@ -28,15 +29,20 @@ function baseJob(overrides: Partial<BackgroundJob> = {}): BackgroundJob {
 
 describe('NotifyItemJobCompletionUseCase', () => {
   let createExecute: ReturnType<typeof mock>;
+  let findById: ReturnType<typeof mock>;
   let useCase: NotifyItemJobCompletionUseCase;
 
   beforeEach(() => {
     clearWishlistWsRegistry();
     createExecute = mock(() => Promise.resolve({ Id: 'n1' }));
+    findById = mock(() => Promise.resolve({ Id: 'list-1', Title: 'Birthday Wishlist' }));
     const createNotification = {
       execute: createExecute,
     } as unknown as CreateNotificationUseCase;
-    useCase = new NotifyItemJobCompletionUseCase(createNotification);
+    const wishlistRepo = {
+      findById,
+    } as unknown as WishlistRepository;
+    useCase = new NotifyItemJobCompletionUseCase(createNotification, wishlistRepo);
   });
 
   it('notifies off-page creator on successful item-enrich', async () => {
@@ -45,9 +51,12 @@ describe('NotifyItemJobCompletionUseCase', () => {
     expect(createExecute).toHaveBeenCalledTimes(1);
     expect(createExecute.mock.calls[0][0]).toBe('user-1');
     expect(createExecute.mock.calls[0][1]).toBe('job_completed');
+    expect(createExecute.mock.calls[0][2]).toBe('Birthday Wishlist');
+    expect(createExecute.mock.calls[0][3]).toBe('Finished processing “Cool Gadget”.');
     expect(createExecute.mock.calls[0][4]).toEqual(
       expect.objectContaining({
         ListId: 'list-1',
+        ListTitle: 'Birthday Wishlist',
         JobId: 'job-1',
         JobKind: 'item-enrich',
         ItemId: 'item-1',
@@ -102,6 +111,7 @@ describe('NotifyItemJobCompletionUseCase', () => {
     );
     expect(notified).toBe(true);
     expect(createExecute.mock.calls[0][1]).toBe('job_completed');
-    expect(createExecute.mock.calls[0][2]).toBe('Summary ready');
+    expect(createExecute.mock.calls[0][2]).toBe('Birthday Wishlist');
+    expect(createExecute.mock.calls[0][3]).toBe('Notes for “Socks” are ready.');
   });
 });

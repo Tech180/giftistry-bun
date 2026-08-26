@@ -28,6 +28,7 @@ function toMetadataWrite(
     MultiCount: metadata.MultiCount === true,
     OtherUsersCanSee:
       metadata.OtherUsersCanSee === undefined ? null : metadata.OtherUsersCanSee,
+    AllowSubstitutions: metadata.AllowSubstitutions !== false,
     CustomFields: metadata.CustomFields ?? null,
     Variations: metadata.Variations ?? null,
     ...(photos !== undefined ? { Photos: photos ?? [] } : {}),

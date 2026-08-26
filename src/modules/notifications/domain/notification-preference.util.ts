@@ -15,6 +15,7 @@ export function shouldCreateNotification(type: string, prefs: NotificationPrefs)
     case 'invite_accepted':
       return prefs.ListShares !== false;
     case 'item_claimed':
+    case 'item_deleted':
       return prefs.ItemClaims !== false;
     case 'comment':
       return prefs.Comments !== false;

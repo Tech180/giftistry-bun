@@ -2,8 +2,10 @@ import type { ItemRepository } from '../domain/ports/item.repository';
 import type { ItemAudienceRepository } from '../domain/ports/item-audience.repository';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
 import type { ItemAudienceUser } from '../domain/item-audience.entity';
-import type { Item, ItemLink } from '../domain/item.entity';
+import type { Item, ItemLink, Claim } from '../domain/item.entity';
 import type { ItemDescriptionMetadata } from '../domain/item-description.util';
+import type { ItemSubstitutionOption } from '../domain/item-substitution.entity';
+import { toSubstitutionSummary } from '../domain/item-substitution.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { canUserViewItem, isItemSuggestion } from '../domain/item-visibility.service';
 import { resolveItemMetadata } from '../domain/resolve-item-metadata.util';
@@ -13,6 +15,7 @@ import {
   type ItemClaimSummary,
 } from '../domain/compute-item-claim-summary.util';
 import { resolveCategoryPresentation } from '../domain/format-category-label.util';
+import { canViewerSeeSubstitutionOption } from './can-viewer-see-substitution-option.util';
 
 export interface ListItemGroupDto {
   CategoryKey: string;
@@ -77,6 +80,15 @@ function toGuestItemDto(input: {
   };
 }
 
+function redactClaims(claims: Claim[], currentUserId: string | null): Claim[] {
+  return claims.map((c) => {
+    if (c.Anonymous && c.UserId !== currentUserId) {
+      return { ...c, UserId: null, ClaimedByName: 'Anonymous' };
+    }
+    return c;
+  });
+}
+
 export class ListItemsUseCase {
   constructor(
     private itemRepo: ItemRepository,
@@ -98,6 +110,18 @@ export class ListItemsUseCase {
     const hasExpired = wishlist.ExpiresAt ? new Date() > wishlist.ExpiresAt : false;
     const shouldHideClaims = isGuest || (isOwner && !hasExpired);
 
+    const parentIds = items.map((i) => i.Id);
+    const substitutionsByParent = await this.itemRepo.findSubstitutionsByParentIds(parentIds);
+    const allClaimsByList = shouldHideClaims
+      ? []
+      : await this.itemRepo.findClaimsByListId(listId);
+    const claimsByItemId = new Map<string, Claim[]>();
+    for (const claim of allClaimsByList) {
+      const existing = claimsByItemId.get(claim.ItemId) ?? [];
+      existing.push(claim);
+      claimsByItemId.set(claim.ItemId, existing);
+    }
+
     const itemsWithDetails = await Promise.all(
       items.map(async (item) => {
         const audienceUsers = audienceMap.get(item.Id) ?? [];
@@ -116,20 +140,8 @@ export class ListItemsUseCase {
 
         const isSuggestion = isItemSuggestion(item, wishlist.UserId);
         const links = await this.itemRepo.findLinksByItemId(item.Id);
-        const claims = shouldHideClaims ? [] : await this.itemRepo.findClaimsByItemId(item.Id);
-
-        const claimsResult = shouldHideClaims
-          ? []
-          : claims.map((c) => {
-              if (c.Anonymous && c.UserId !== currentUserId) {
-                return {
-                  ...c,
-                  UserId: null,
-                  ClaimedByName: 'Anonymous',
-                };
-              }
-              return c;
-            });
+        const claims = shouldHideClaims ? [] : (claimsByItemId.get(item.Id) ?? []);
+        const claimsResult = shouldHideClaims ? [] : redactClaims(claims, currentUserId);
 
         const sharedWith: ItemAudienceUser[] | undefined =
           audienceUsers.length > 0 ? audienceUsers : undefined;
@@ -145,15 +157,58 @@ export class ListItemsUseCase {
           hideClaims: shouldHideClaims,
         });
 
-        if (isGuest) {
-          return toGuestItemDto({
-            item,
-            links,
-            metadata,
-            categoryKey: CategoryKey,
-            categoryLabel: CategoryLabel,
-            claimSummary,
+        const subRows = substitutionsByParent.get(item.Id) ?? [];
+        const substitutionOptions: ItemSubstitutionOption[] = [];
+        for (const row of subRows) {
+          const child = await this.itemRepo.findById(row.SubstitutionItemId);
+          if (!child) continue;
+          if (
+            !canViewerSeeSubstitutionOption({
+              row,
+              child,
+              wishlistOwnerId: wishlist.UserId,
+              currentUserId,
+            })
+          ) {
+            continue;
+          }
+          const childLinks = await this.itemRepo.findLinksByItemId(child.Id);
+          const childClaims = shouldHideClaims
+            ? []
+            : redactClaims(claimsByItemId.get(child.Id) ?? [], currentUserId);
+          substitutionOptions.push({
+            Id: row.Id,
+            Kind: row.Kind,
+            SortOrder: row.SortOrder,
+            CreatedByUserId: row.CreatedByUserId,
+            Item: toSubstitutionSummary(child, childLinks, childClaims),
           });
+        }
+
+        let activeSubstitutionId: string | null = null;
+        if (currentUserId && !shouldHideClaims) {
+          const claimedSub = substitutionOptions.find((opt) =>
+            opt.Item.Claims.some((c) => c.UserId === currentUserId)
+          );
+          if (claimedSub) {
+            activeSubstitutionId = claimedSub.Item.Id;
+          }
+        }
+
+        if (isGuest) {
+          return {
+            ...toGuestItemDto({
+              item,
+              links,
+              metadata,
+              categoryKey: CategoryKey,
+              categoryLabel: CategoryLabel,
+              claimSummary,
+            }),
+            AllowSubstitutions: item.AllowSubstitutions !== false,
+            SubstitutionOptions: substitutionOptions,
+            ActiveSubstitutionId: null,
+          };
         }
 
         return {
@@ -184,6 +239,9 @@ export class ListItemsUseCase {
           IsPinned: item.IsPinned === true || metadata?.IsPinned === true,
           DesiredQuantity: item.DesiredQuantity ?? metadata?.DesiredQuantity ?? null,
           MultiCount: item.MultiCount === true || metadata?.MultiCount === true,
+          AllowSubstitutions: item.AllowSubstitutions !== false,
+          SubstitutionOptions: substitutionOptions,
+          ActiveSubstitutionId: activeSubstitutionId,
           ...claimSummary,
         };
       })
@@ -191,11 +249,11 @@ export class ListItemsUseCase {
 
     const visible = itemsWithDetails.filter(
       (item): item is NonNullable<typeof item> => item !== null
-    );
-    const sorted = sortWishlistItemsByExportOrder(visible);
+    ) as Record<string, unknown>[];
+    const sorted = sortWishlistItemsByExportOrder(visible as never);
     return {
-      Items: sorted,
-      Groups: groupItemsByCategory(sorted),
+      Items: sorted as Record<string, unknown>[],
+      Groups: groupItemsByCategory(sorted as Record<string, unknown>[]),
     };
   }
 }

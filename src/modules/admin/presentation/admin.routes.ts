@@ -138,7 +138,7 @@ export const adminRoutes = (useCases: AdminUseCases) => new Elysia({ prefix: '/a
     body: t.Object({
       Giftistry: t.Object({
         AdminUser: t.Object({
-          Username: t.String(),
+          Username: t.String({ minLength: 3, maxLength: 32, pattern: '^[a-zA-Z0-9_-]+$' }),
           Email: t.Optional(t.String()),
           Password: t.String({ minLength: 6 }),
           FirstName: t.Optional(t.String()),
@@ -166,7 +166,7 @@ export const adminRoutes = (useCases: AdminUseCases) => new Elysia({ prefix: '/a
     body: t.Object({
       Giftistry: t.Object({
         User: t.Object({
-          Username: t.Optional(t.String()),
+          Username: t.Optional(t.String({ minLength: 3, maxLength: 32 })),
           Email: t.Optional(t.String()),
           FirstName: t.Optional(t.String()),
           LastName: t.Optional(t.String()),

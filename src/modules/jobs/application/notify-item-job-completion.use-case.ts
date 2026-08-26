@@ -1,5 +1,6 @@
 import type { BackgroundJob } from '../domain/background-job.entity';
 import type { CreateNotificationUseCase } from '@/modules/notifications/application/create-notification.use-case';
+import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
 import { isUserPresentOnList } from '@/modules/wishlist/infrastructure/wishlist-ws-registry';
 import { buildItemJobNotificationCopy } from './build-item-job-notification-copy.util';
 
@@ -16,6 +17,7 @@ export type WishlistPresencePort = {
 export class NotifyItemJobCompletionUseCase {
   constructor(
     private createNotification: CreateNotificationUseCase,
+    private wishlistRepo: WishlistRepository,
     private presence: WishlistPresencePort = { isUserPresentOnList }
   ) {}
 
@@ -34,13 +36,24 @@ export class NotifyItemJobCompletionUseCase {
       return false;
     }
 
-    const copy = buildItemJobNotificationCopy(job);
+    let listTitle: string | null = null;
+    try {
+      const wishlist = await this.wishlistRepo.findById(job.ListId);
+      listTitle = wishlist?.Title?.trim() || null;
+    } catch {
+      listTitle = null;
+    }
+
+    const copy = buildItemJobNotificationCopy(job, { listTitle });
     const type = job.Status === 'failed' ? 'job_failed' : 'job_completed';
     const metadata: Record<string, unknown> = {
       ListId: job.ListId,
       JobId: job.Id,
       JobKind: job.Kind,
     };
+    if (listTitle) {
+      metadata.ListTitle = listTitle;
+    }
     const itemId = readResultItemId(job);
     if (itemId) {
       metadata.ItemId = itemId;

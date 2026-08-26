@@ -44,7 +44,15 @@ export class PostgresListShareRepository implements ListShareRepository {
     const [item] = await sql<any[]>`
       SELECT list_id as "listId" FROM items WHERE id = ${itemId}
     `;
-    return item ? item.listId : null;
+    if (item?.listId) return item.listId;
+
+    const [viaSubstitution] = await sql<any[]>`
+      SELECT i.list_id as "listId"
+      FROM item_substitutions s
+      JOIN items i ON i.id = s.parent_item_id
+      WHERE s.id = ${itemId}
+    `;
+    return viaSubstitution?.listId ?? null;
   }
 
   async findSharesByListId(listId: string): Promise<ListShare[]> {

@@ -6,6 +6,7 @@ import type { CreateClaimInput } from '../domain/ports/item.repository';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { assertWishlistMutable } from '@/modules/wishlist/domain/assert-wishlist-mutable.util';
 import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
+import { isItemSuggestion } from '../domain/item-visibility.service';
 
 export class ClaimItemUseCase {
   constructor(
@@ -44,6 +45,55 @@ export class ClaimItemUseCase {
     }
 
     assertWishlistMutable(wishlist);
+
+    // Resolve parent group for substitution mutual exclusivity.
+    let parentItemId = itemId;
+    let substitutionRow = null as Awaited<
+      ReturnType<ItemRepository['findSubstitutionByChildItemId']>
+    >;
+    if (item.IsSubstitution) {
+      substitutionRow = await this.itemRepo.findSubstitutionByChildItemId(itemId);
+      if (!substitutionRow) {
+        throw new AppError('Substitution link not found', 404, 'NOT_FOUND');
+      }
+      parentItemId = substitutionRow.ParentItemId;
+      if (
+        substitutionRow.Kind === 'claimer_custom' &&
+        substitutionRow.CreatedByUserId !== userId
+      ) {
+        throw new AppError(
+          'Only the creator can claim a custom substitution',
+          403,
+          'FORBIDDEN'
+        );
+      }
+    }
+
+    const parentItem =
+      parentItemId === itemId ? item : await this.itemRepo.findById(parentItemId);
+    if (!parentItem) {
+      throw new AppError('Parent item not found', 404, 'NOT_FOUND');
+    }
+    if (isItemSuggestion(parentItem, wishlist.UserId)) {
+      throw new AppError('Cannot claim substitutions on suggestions', 400, 'BAD_REQUEST');
+    }
+
+    // One claim slot per user per parent group (main OR one sub).
+    const groupIds = [parentItemId];
+    const subs = await this.itemRepo.findSubstitutionsByParentId(parentItemId);
+    for (const sub of subs) {
+      groupIds.push(sub.SubstitutionItemId);
+    }
+    const listClaims = await this.itemRepo.findClaimsByListId(item.ListId);
+    const priorInGroup = listClaims.filter(
+      (c) => c.UserId === userId && groupIds.includes(c.ItemId) && c.ItemId !== itemId
+    );
+    if (priorInGroup.length > 0) {
+      await this.itemRepo.deleteClaimsAtomic(
+        priorInGroup.map((c) => c.ItemId),
+        userId
+      );
+    }
 
     const claims = await this.itemRepo.findClaimsByItemId(itemId);
 

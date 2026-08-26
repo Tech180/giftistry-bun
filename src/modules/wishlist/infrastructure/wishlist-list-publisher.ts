@@ -5,6 +5,7 @@ export type ListChangedReason =
   | 'claim.changed'
   | 'item.links'
   | 'item.related'
+  | 'item.substitution'
   | 'list.updated';
 
 export interface ListChangedEvent {

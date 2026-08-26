@@ -1,6 +1,7 @@
 import type { AdminUserRepository } from '../domain/ports/admin-user.repository';
 import type { WriteAuditLogUseCase } from '@/common/application/write-audit-log.use-case';
 import { AppError } from '@/common/middlewares/error.middleware';
+import { validateUsernamePolicy } from '@/common/domain/username-policy';
 import { assertCanMutateAdminUser } from './assert-can-mutate-admin-user';
 
 export interface UpdateAdminUserPayload {
@@ -27,22 +28,31 @@ export class UpdateAdminUserUseCase {
 
     assertCanMutateAdminUser(actorId, id, current.is_owner);
 
+    const nextUpdates = { ...updates };
+
     if (updates.email) {
       const dup = await this.adminUserRepo.existsByEmail(updates.email, id);
       if (dup) throw new AppError('Email already in use', 409, 'CONFLICT');
     }
-    if (updates.username) {
-      const dup = await this.adminUserRepo.existsByUsername(updates.username, id);
-      if (dup) throw new AppError('Username already in use', 409, 'CONFLICT');
+    if (nextUpdates.username !== undefined) {
+      const trimmed = nextUpdates.username.trim();
+      if (trimmed !== current.username) {
+        const validatedUsername = validateUsernamePolicy(nextUpdates.username);
+        const dup = await this.adminUserRepo.existsByUsername(validatedUsername, id);
+        if (dup) throw new AppError('Username already in use', 409, 'CONFLICT');
+        nextUpdates.username = validatedUsername;
+      } else {
+        nextUpdates.username = current.username;
+      }
     }
 
-    await this.adminUserRepo.updateProfile(id, updates, current);
+    await this.adminUserRepo.updateProfile(id, nextUpdates, current);
 
     await this.writeAuditLog.execute({
       actorId,
       targetId: id,
       action: 'admin.user.update',
-      metadata: updates,
+      metadata: nextUpdates,
       ip,
     });
   }

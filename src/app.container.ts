@@ -119,7 +119,8 @@ export function createAppContainer(): AppContainer {
   );
   registerCreateNotificationHandlers(eventBus, createNotificationUseCase);
   const notifyItemJobCompletion = new NotifyItemJobCompletionUseCase(
-    createNotificationUseCase
+    createNotificationUseCase,
+    wishlistRepo
   );
 
   const testAiConnectionUseCase = new TestAiConnectionUseCase();
@@ -155,6 +156,7 @@ export function createAppContainer(): AppContainer {
     metadataScraper,
     serverConfigRepo,
     middleware: routeMiddleware,
+    createNotification: createNotificationUseCase,
   });
 
   const { module: invitesModule, invitesUseCases } = createInvitesModule({

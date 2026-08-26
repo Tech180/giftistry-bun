@@ -242,8 +242,38 @@ export async function initializeSchema(dbSql: typeof sql = sql) {
         other_users_can_see BOOLEAN DEFAULT NULL,
         custom_fields JSONB NOT NULL DEFAULT '{}'::jsonb,
         variations JSONB NOT NULL DEFAULT '[]'::jsonb,
-        photos JSONB NOT NULL DEFAULT '[]'::jsonb
+        photos JSONB NOT NULL DEFAULT '[]'::jsonb,
+        allow_substitutions BOOLEAN NOT NULL DEFAULT TRUE,
+        is_substitution BOOLEAN NOT NULL DEFAULT FALSE,
+        substitution_for_item_id UUID NULL REFERENCES items(id) ON DELETE CASCADE
     )
+  `;
+
+  await dbSql`
+    CREATE TABLE item_substitutions (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        parent_item_id UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+        substitution_item_id UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+        kind TEXT NOT NULL CHECK (kind IN ('owner_approved', 'claimer_custom')),
+        created_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (substitution_item_id)
+    )
+  `;
+
+  await dbSql`
+    CREATE UNIQUE INDEX idx_item_substitutions_one_claimer_custom
+      ON item_substitutions (parent_item_id)
+      WHERE kind = 'claimer_custom'
+  `;
+
+  await dbSql`
+    CREATE INDEX idx_item_substitutions_parent_item_id ON item_substitutions (parent_item_id)
+  `;
+
+  await dbSql`
+    CREATE INDEX idx_items_substitution_for_item_id ON items (substitution_for_item_id)
   `;
 
   await dbSql`

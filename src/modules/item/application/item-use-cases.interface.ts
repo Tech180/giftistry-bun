@@ -17,6 +17,12 @@ import type { BulkAddItemsUseCase } from './bulk-add-items.use-case';
 import type { SyncItemLinksUseCase } from './sync-item-links.use-case';
 import type { SyncItemRelatedUseCase } from './sync-item-related.use-case';
 import type { BuildItemClaimProjectionsUseCase } from './build-item-claim-projections.use-case';
+import type { ListItemSubstitutionsUseCase } from './list-item-substitutions.use-case';
+import type { CreateOwnerSubstitutionUseCase } from './create-owner-substitution.use-case';
+import type { CreateClaimerSubstitutionUseCase } from './create-claimer-substitution.use-case';
+import type { UpdateItemSubstitutionUseCase } from './update-item-substitution.use-case';
+import type { DeleteItemSubstitutionUseCase } from './delete-item-substitution.use-case';
+import type { ReorderOwnerSubstitutionsUseCase } from './reorder-owner-substitutions.use-case';
 
 export interface ItemUseCases {
   addItem: AddItemUseCase;
@@ -38,4 +44,10 @@ export interface ItemUseCases {
   syncItemLinks: SyncItemLinksUseCase;
   syncItemRelated: SyncItemRelatedUseCase;
   buildItemClaimProjections: BuildItemClaimProjectionsUseCase;
+  listItemSubstitutions: ListItemSubstitutionsUseCase;
+  createOwnerSubstitution: CreateOwnerSubstitutionUseCase;
+  createClaimerSubstitution: CreateClaimerSubstitutionUseCase;
+  updateItemSubstitution: UpdateItemSubstitutionUseCase;
+  deleteItemSubstitution: DeleteItemSubstitutionUseCase;
+  reorderOwnerSubstitutions: ReorderOwnerSubstitutionsUseCase;
 }

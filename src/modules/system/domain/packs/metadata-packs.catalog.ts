@@ -5,7 +5,7 @@ import {
   KITCHEN_PACK,
   MOVIES_PACK,
   TECHNOLOGY_PACK,
-} from './packs';
+} from './packs/index';
 
 export const METADATA_PACKS_CATALOG: MetadataPack[] = [
   TECHNOLOGY_PACK,

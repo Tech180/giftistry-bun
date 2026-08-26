@@ -4,6 +4,7 @@ import { toSafeUser } from '../domain/user.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
 import type { GetSitePolicyUseCase } from '@/common/application/get-site-policy.use-case';
 import { validatePasswordPolicy } from '@/common/domain/password-policy';
+import { validateUsernamePolicy } from '@/common/domain/username-policy';
 import { mergeUserPolicy } from '@/common/types/user-policy';
 
 export class SignupUseCase {
@@ -22,6 +23,8 @@ export class SignupUseCase {
     if (!username || !password) {
       throw new AppError('Username and password are required', 400, 'BAD_REQUEST');
     }
+
+    const validatedUsername = validateUsernamePolicy(username);
 
     const sitePolicy = await this.getSitePolicy.execute();
     validatePasswordPolicy(password, { requireStrong: sitePolicy.RequireStrongPasswords });
@@ -57,7 +60,7 @@ export class SignupUseCase {
       }
     }
 
-    const existingUsername = await this.userRepo.findByUsername(username);
+    const existingUsername = await this.userRepo.findByUsername(validatedUsername);
     if (existingUsername) {
       throw new AppError('User with this username already exists', 409, 'USER_EXISTS');
     }
@@ -69,7 +72,7 @@ export class SignupUseCase {
 
     const authHash = await Bun.password.hash(password);
     const user = await this.userRepo.create(
-      username,
+      validatedUsername,
       normalizedEmail,
       firstName || '',
       lastName || '',

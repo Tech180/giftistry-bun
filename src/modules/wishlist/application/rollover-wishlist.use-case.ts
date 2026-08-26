@@ -5,6 +5,7 @@ import type { CommentRepository } from '@/modules/comment/domain/ports/comment.r
 import type { Wishlist } from '../domain/wishlist.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { nextRolloverTitle } from '../domain/next-rollover-title.util';
+import { isItemPurchasedForRollover } from '../domain/is-item-purchased-for-rollover.util';
 
 export class RolloverWishlistUseCase {
   constructor(
@@ -46,21 +47,32 @@ export class RolloverWishlistUseCase {
 
     // 2. Fetch all items from old list
     const oldItems = await this.itemRepo.findByListId(oldList.Id);
+    const substitutionsByParent = await this.itemRepo.findSubstitutionsByParentIds(
+      oldItems.map((item) => item.Id)
+    );
+    const allowGroupFunds = oldList.AllowGroupFunds === true;
 
-    // For each item, check if it was purchased (fully claimed)
+    // For each item, check if it (or a substitution child) was purchased
     for (const item of oldItems) {
       const claims = await this.itemRepo.findClaimsByItemId(item.Id);
       const links = await this.itemRepo.findLinksByItemId(item.Id);
 
-      const totalExtractedPrice = links.reduce((acc, link) => Math.max(acc, link.ExtractedPrice || 0), 0);
-      const totalClaimedAmount = claims.reduce((acc, claim) => acc + (claim.Amount || 0), 0);
+      let isPurchased = isItemPurchasedForRollover(claims, links, allowGroupFunds);
 
-      const isFullyClaimed = oldList.AllowGroupFunds && totalExtractedPrice > 0
-        ? totalClaimedAmount >= totalExtractedPrice
-        : claims.length > 0;
+      if (!isPurchased) {
+        const substitutionRows = substitutionsByParent.get(item.Id) ?? [];
+        for (const row of substitutionRows) {
+          const childClaims = await this.itemRepo.findClaimsByItemId(row.SubstitutionItemId);
+          const childLinks = await this.itemRepo.findLinksByItemId(row.SubstitutionItemId);
+          if (isItemPurchasedForRollover(childClaims, childLinks, allowGroupFunds)) {
+            isPurchased = true;
+            break;
+          }
+        }
+      }
 
-      // If NOT fully claimed (i.e. unpurchased), roll it over
-      if (!isFullyClaimed) {
+      // If NOT purchased (i.e. unpurchased), roll it over
+      if (!isPurchased) {
         const newItem = await this.itemRepo.create(
           newWishlist.Id,
           item.PriorityId,
