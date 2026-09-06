@@ -5,6 +5,7 @@ import {
   isTimeoutError,
   completeTextPrompt,
 } from '../src/modules/item/infrastructure/ai-text-completion';
+import { formatAiConnectErrorMessage } from '../src/common/utils/ai-fetch.util';
 
 describe('formatAiTimeoutMessage', () => {
   test('formats minutes for long timeouts', () => {
@@ -56,7 +57,57 @@ describe('completeTextPrompt timeout handling', () => {
     ).rejects.toThrow(formatAiTimeoutMessage(45_000));
   });
 
-  test('passes timeout: false so Bun allows AbortSignals beyond five minutes', async () => {
+  test('rewrites connect errors into a clear AI connect message', async () => {
+    globalThis.fetch = (async () => {
+      const err = Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' });
+      throw err;
+    }) as typeof fetch;
+
+    await expect(
+      completeTextPrompt('hello', {
+        provider: 'local',
+        apiKey: '',
+        model: 'tiny',
+        endpoint: 'http://127.0.0.1:11434/v1',
+        connectTimeoutMs: 5_000,
+      })
+    ).rejects.toThrow(formatAiConnectErrorMessage(5_000));
+  });
+
+  test('aborts with connect error when headers are not received in time', async () => {
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      await new Promise<void>((_resolve, reject) => {
+        const signal = init?.signal;
+        if (!signal) {
+          reject(new Error('missing signal'));
+          return;
+        }
+        if (signal.aborted) {
+          reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+          return;
+        }
+        signal.addEventListener(
+          'abort',
+          () => reject(Object.assign(new Error('The operation was aborted.'), { name: 'AbortError' })),
+          { once: true }
+        );
+      });
+      return new Response('unreachable');
+    }) as typeof fetch;
+
+    await expect(
+      completeTextPrompt('hello', {
+        provider: 'local',
+        apiKey: '',
+        model: 'tiny',
+        endpoint: 'http://127.0.0.1:11434/v1',
+        connectTimeoutMs: 50,
+        timeoutMs: 30_000,
+      })
+    ).rejects.toThrow(formatAiConnectErrorMessage(50));
+  });
+
+  test('passes timeout: false so Bun allows long streaming completions', async () => {
     let seenInit: RequestInit | undefined;
     globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
       seenInit = init;
@@ -81,6 +132,7 @@ describe('completeTextPrompt timeout handling', () => {
       model: 'tiny',
       endpoint: 'http://127.0.0.1:11434/v1',
       jsonResponse: true,
+      connectTimeoutMs: 3_000,
     });
 
     expect(text).toBe('ok');

@@ -1,7 +1,7 @@
 import type { ItemRepository } from '../domain/ports/item.repository';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
 import type { ItemSubstitutionOption } from '../domain/item-substitution.entity';
-import { toSubstitutionSummary } from '../domain/item-substitution.entity';
+import { buildSubstitutionSummaryWithClaimSummary } from '../domain/build-substitution-summary-with-claim-summary.util';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { canViewerSeeSubstitutionOption } from './can-viewer-see-substitution-option.util';
 
@@ -54,7 +54,9 @@ export class ListItemSubstitutionsUseCase {
         Kind: row.Kind,
         SortOrder: row.SortOrder,
         CreatedByUserId: row.CreatedByUserId,
-        Item: toSubstitutionSummary(child, links, claims),
+        Item: buildSubstitutionSummaryWithClaimSummary(child, links, claims, {
+          allowGroupFunds: !!wishlist.AllowGroupFunds,
+        }),
       });
     }
 

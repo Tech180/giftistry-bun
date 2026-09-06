@@ -23,6 +23,7 @@ import type { CreateClaimerSubstitutionUseCase } from './create-claimer-substitu
 import type { UpdateItemSubstitutionUseCase } from './update-item-substitution.use-case';
 import type { DeleteItemSubstitutionUseCase } from './delete-item-substitution.use-case';
 import type { ReorderOwnerSubstitutionsUseCase } from './reorder-owner-substitutions.use-case';
+import type { PromoteScrapedImageToPhotosUseCase } from './promote-scraped-image-to-photos.use-case';
 
 export interface ItemUseCases {
   addItem: AddItemUseCase;
@@ -50,4 +51,5 @@ export interface ItemUseCases {
   updateItemSubstitution: UpdateItemSubstitutionUseCase;
   deleteItemSubstitution: DeleteItemSubstitutionUseCase;
   reorderOwnerSubstitutions: ReorderOwnerSubstitutionsUseCase;
+  promoteScrapedImageToPhotos: PromoteScrapedImageToPhotosUseCase;
 }

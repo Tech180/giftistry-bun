@@ -5,7 +5,7 @@ import type { ItemAudienceUser } from '../domain/item-audience.entity';
 import type { Item, ItemLink, Claim } from '../domain/item.entity';
 import type { ItemDescriptionMetadata } from '../domain/item-description.util';
 import type { ItemSubstitutionOption } from '../domain/item-substitution.entity';
-import { toSubstitutionSummary } from '../domain/item-substitution.entity';
+import { buildSubstitutionSummaryWithClaimSummary } from '../domain/build-substitution-summary-with-claim-summary.util';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { canUserViewItem, isItemSuggestion } from '../domain/item-visibility.service';
 import { resolveItemMetadata } from '../domain/resolve-item-metadata.util';
@@ -16,6 +16,7 @@ import {
 } from '../domain/compute-item-claim-summary.util';
 import { resolveCategoryPresentation } from '../domain/format-category-label.util';
 import { canViewerSeeSubstitutionOption } from './can-viewer-see-substitution-option.util';
+import { redactClaimsForViewer } from '../domain/redact-claims-for-viewer.util';
 
 export interface ListItemGroupDto {
   CategoryKey: string;
@@ -80,15 +81,6 @@ function toGuestItemDto(input: {
   };
 }
 
-function redactClaims(claims: Claim[], currentUserId: string | null): Claim[] {
-  return claims.map((c) => {
-    if (c.Anonymous && c.UserId !== currentUserId) {
-      return { ...c, UserId: null, ClaimedByName: 'Anonymous' };
-    }
-    return c;
-  });
-}
-
 export class ListItemsUseCase {
   constructor(
     private itemRepo: ItemRepository,
@@ -141,7 +133,7 @@ export class ListItemsUseCase {
         const isSuggestion = isItemSuggestion(item, wishlist.UserId);
         const links = await this.itemRepo.findLinksByItemId(item.Id);
         const claims = shouldHideClaims ? [] : (claimsByItemId.get(item.Id) ?? []);
-        const claimsResult = shouldHideClaims ? [] : redactClaims(claims, currentUserId);
+        const claimsResult = shouldHideClaims ? [] : redactClaimsForViewer(claims, currentUserId);
 
         const sharedWith: ItemAudienceUser[] | undefined =
           audienceUsers.length > 0 ? audienceUsers : undefined;
@@ -175,13 +167,16 @@ export class ListItemsUseCase {
           const childLinks = await this.itemRepo.findLinksByItemId(child.Id);
           const childClaims = shouldHideClaims
             ? []
-            : redactClaims(claimsByItemId.get(child.Id) ?? [], currentUserId);
+            : redactClaimsForViewer(claimsByItemId.get(child.Id) ?? [], currentUserId);
           substitutionOptions.push({
             Id: row.Id,
             Kind: row.Kind,
             SortOrder: row.SortOrder,
             CreatedByUserId: row.CreatedByUserId,
-            Item: toSubstitutionSummary(child, childLinks, childClaims),
+            Item: buildSubstitutionSummaryWithClaimSummary(child, childLinks, childClaims, {
+              allowGroupFunds: !!wishlist.AllowGroupFunds,
+              hideClaims: shouldHideClaims,
+            }),
           });
         }
 

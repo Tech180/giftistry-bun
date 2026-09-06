@@ -19,6 +19,11 @@ const AKAMAI_MARKERS = [
 
 const BOT_CHECK_MARKERS = ['robot check', 'captcha', 'access denied', '403 forbidden', 'request blocked'];
 
+const CONTINUE_SHOPPING_MARKERS = [
+  'continue shopping',
+  'click the button below to continue',
+];
+
 function stripNonVisibleHtml(html: string): string {
   return html
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
@@ -47,6 +52,12 @@ function htmlIndicatesBlock(html: string): { reason: string; blocked: boolean } 
 
   for (const marker of BOT_CHECK_MARKERS) {
     if (lowerHtml.includes(marker)) return { reason: `bot-check:${marker}`, blocked: true };
+  }
+
+  for (const marker of CONTINUE_SHOPPING_MARKERS) {
+    if (lowerHtml.includes(marker)) {
+      return { reason: `short-link-shell:${marker}`, blocked: true };
+    }
   }
 
   return null;

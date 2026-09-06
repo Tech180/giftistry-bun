@@ -12,7 +12,18 @@ import type { ServerConfigRepository } from '../src/modules/system/domain/ports/
 import type { UserRepository } from '../src/modules/auth/domain/ports/user.repository';
 import type { AssertUserCanUseCase } from '../src/common/application/user-policy.use-cases';
 import type { WishlistRepository } from '../src/modules/wishlist/domain/ports/wishlist.repository';
-import { ExtractMetadataUseCase } from '../src/modules/item/application/extract-metadata.use-case';
+
+let probeReachable = true;
+
+mock.module('../src/common/utils/probe-ai-reachability.util', () => ({
+  probeAiReachability: async () => probeReachable,
+  LOCAL_MODELS_TIMEOUT_MS: 10_000,
+  OPENROUTER_PROBE_TIMEOUT_MS: 15_000,
+}));
+
+const { ExtractMetadataUseCase } = await import(
+  '../src/modules/item/application/extract-metadata.use-case'
+);
 
 let aiEnabled = true;
 let aiWebSearchEnabled = true;
@@ -833,5 +844,63 @@ describe('ExtractMetadataUseCase AiPopulate diagnostics', () => {
 
     await useCase.execute('https://shop.example/cpu', 'user-1');
     expect(capturedPrompt).not.toContain('=== Metadata Packs ===');
+  });
+});
+
+describe('ExtractMetadataUseCase unreachable AI', () => {
+  test('skips categorize and populate when probe fails', async () => {
+    probeReachable = false;
+    aiEnabled = true;
+    userAiEnabled = true;
+    policyAllowsAi = true;
+
+    const classify = mock(async () => ({ category: 'tech', alternatives: [] }));
+    const populate = mock(async () => ({
+      title: 'Should not run',
+      price: null,
+      description: null,
+      color: null,
+      size: null,
+      category: null,
+      imageUrl: null,
+    }));
+
+    const useCase = new ExtractMetadataUseCase(
+      {
+        scrape: async () => ({
+          diagnostics: {
+            source: 'fetch',
+            confidence: 'low',
+            blocked: true,
+            fieldsFound: ['title'],
+          },
+          data: {
+            title: 'Scraped Title',
+            price: 12,
+            description: null,
+            color: null,
+            size: null,
+            category: null,
+            imageUrl: null,
+          },
+        }),
+      },
+      { populate },
+      { classify },
+      createUserRepo(),
+      createAssertUserCan(),
+      createWishlistRepo(),
+      createItemRepo(),
+      createConfigRepo(),
+      createPageContextFetcher()
+    );
+
+    const result = await useCase.execute('https://shop.example/item', 'user-1');
+    expect(result.diagnostics.aiPopulate).toBe('skipped');
+    expect(result.data.title).toBe('Scraped Title');
+    expect(classify).not.toHaveBeenCalled();
+    expect(populate).not.toHaveBeenCalled();
+
+    probeReachable = true;
   });
 });

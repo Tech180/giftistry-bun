@@ -4,6 +4,7 @@ import { AppError } from '@/common/middlewares/error.middleware';
 import type { ServerConfigRepository } from '../domain/ports/server-config.repository';
 import {
   clampAiCompletionTimeoutMs,
+  clampAiConnectTimeoutMs,
   clampGrabInfoActiveStreamLimit,
   clampGrabInfoConcurrency,
   clampScrapeFetchTimeoutMs,
@@ -116,6 +117,7 @@ export class SaveSystemSettingsUseCase {
           AiEndpoint: fastEndpoint,
           AiApiKey: fastApiKey,
           AiModel: settings.AiFastModel,
+          Mode: 'reachability',
         });
       }
       if (intelligentProvider === 'local') {
@@ -131,6 +133,7 @@ export class SaveSystemSettingsUseCase {
           AiEndpoint: intelligentEndpoint,
           AiApiKey: intelligentApiKey,
           AiModel: settings.AiIntelligentModel,
+          Mode: 'reachability',
         });
       }
     }
@@ -198,6 +201,9 @@ export class SaveSystemSettingsUseCase {
           : config.AiCustomPacks,
       AiCompletionTimeoutMs: clampAiCompletionTimeoutMs(
         settings.AiCompletionTimeoutMs ?? config.AiCompletionTimeoutMs
+      ),
+      AiConnectTimeoutMs: clampAiConnectTimeoutMs(
+        settings.AiConnectTimeoutMs ?? config.AiConnectTimeoutMs
       ),
       ScrapeFetchTimeoutMs: clampScrapeFetchTimeoutMs(
         settings.ScrapeFetchTimeoutMs ?? config.ScrapeFetchTimeoutMs

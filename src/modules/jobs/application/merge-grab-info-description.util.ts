@@ -1,4 +1,8 @@
 import type { ItemDescriptionMetadata } from '@/modules/item/domain/item-description.util';
+import {
+  collapseFieldMap,
+  dedupePredefinedVsUserDefined,
+} from '@/modules/item/domain/collapse-custom-field-maps.util';
 
 type FieldMap = Record<string, string>;
 
@@ -193,21 +197,23 @@ export function mergeGrabInfoMetadata(
     };
   }
 
-  const predefined = {
+  const predefined = collapseFieldMap({
     ...cleanFieldMap(baseMeta.CustomFields?.Predefined),
     ...extractPredefined,
-  };
-  const userDefined = {
+  });
+  const userDefined = collapseFieldMap({
     ...cleanFieldMap(baseMeta.CustomFields?.UserDefined),
     ...extractUserDefined,
-  };
+  });
+  const { predefined: nextPredefined, userDefined: nextUserDefined } =
+    dedupePredefinedVsUserDefined(predefined, userDefined);
 
   const metadata: DescriptionMetadata = {
     ...baseMeta,
     Text: text,
     CustomFields: {
-      Predefined: predefined,
-      UserDefined: userDefined,
+      Predefined: nextPredefined,
+      UserDefined: nextUserDefined,
     },
   };
 
@@ -217,8 +223,8 @@ export function mergeGrabInfoMetadata(
   }
 
   const hasAnyFields =
-    Object.keys(predefined).length > 0 ||
-    Object.keys(userDefined).length > 0 ||
+    Object.keys(nextPredefined).length > 0 ||
+    Object.keys(nextUserDefined).length > 0 ||
     metadata.DesiredQuantity != null ||
     metadata.MultiCount === true ||
     metadata.IsFavorite === true ||

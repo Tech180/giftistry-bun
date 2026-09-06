@@ -273,6 +273,7 @@ describe('StartItemEnrichJobUseCase', () => {
 describe('RunItemEnrichJobUseCase', () => {
   function makeItemUseCases(overrides: Record<string, unknown> = {}) {
     const updateItemCalls: unknown[][] = [];
+    const promoteCalls: unknown[][] = [];
     return {
       itemUseCases: {
         extractMetadata: {
@@ -311,8 +312,15 @@ describe('RunItemEnrichJobUseCase', () => {
             return {};
           },
         },
+        promoteScrapedImageToPhotos: {
+          execute: async (...args: unknown[]) => {
+            promoteCalls.push(args);
+            return false;
+          },
+        },
       } as never,
       updateItemCalls,
+      promoteCalls,
     };
   }
 
@@ -345,7 +353,7 @@ describe('RunItemEnrichJobUseCase', () => {
   });
 
   test('create-from-url writes extracted metadata back to the created item', async () => {
-    const { itemUseCases, updateItemCalls } = makeItemUseCases();
+    const { itemUseCases, updateItemCalls, promoteCalls } = makeItemUseCases();
     const repo = makeRepo();
     const job = await repo.create({
       kind: 'item-enrich',
@@ -375,6 +383,8 @@ describe('RunItemEnrichJobUseCase', () => {
       price,
       websiteName,
       metadata,
+      ,
+      extractedImageUrl,
     ] = updateItemCalls[0]!;
     expect(itemId).toBe('item-1');
     expect(userId).toBe('user-1');
@@ -384,6 +394,7 @@ describe('RunItemEnrichJobUseCase', () => {
     expect(url).toBe('https://example.com/x');
     expect(price).toBe(19.99);
     expect(websiteName).toBe('Example Shop');
+    expect(extractedImageUrl).toBe('https://example.com/img.png');
     expect(metadata).toMatchObject({
       Text: 'A cool gadget',
       CustomFields: {
@@ -391,6 +402,7 @@ describe('RunItemEnrichJobUseCase', () => {
         UserDefined: {},
       },
     });
+    expect(promoteCalls).toEqual([['item-1', 'https://example.com/img.png']]);
 
     const finalJob = jobs.get(job.Id)!;
     expect(finalJob.Status).toBe('completed');

@@ -1,5 +1,6 @@
 import type { ExtractedMetadata } from './extracted-metadata';
 import { coerceApparelSizeFields } from './coerce-apparel-size-fields.util';
+import { mergeFieldMapsByNormalizedKey } from './collapse-custom-field-maps.util';
 import { resolveDesiredQuantity } from './parse-pack-quantity.util';
 import { isUnusableProductDescription } from './product-description.util';
 import { sanitizeProductDescription } from './sanitize-product-description.util';
@@ -13,13 +14,7 @@ export function mergeFieldMaps(
   aiFields: Record<string, string> | undefined,
   preferScrape: boolean
 ): Record<string, string> {
-  const result = { ...(scrapeFields ?? {}) };
-  for (const [key, val] of Object.entries(aiFields ?? {})) {
-    if (!val.trim()) continue;
-    if (preferScrape && result[key]?.trim()) continue;
-    result[key] = val.trim();
-  }
-  return result;
+  return mergeFieldMapsByNormalizedKey(scrapeFields, aiFields, preferScrape);
 }
 
 export function mergeExtractedMetadata(

@@ -3,7 +3,14 @@ import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlis
 import type { Claim } from '../domain/item.entity';
 import type { AssertItemVisibleUseCase } from './assert-item-visible.use-case';
 import type { CreateClaimInput } from '../domain/ports/item.repository';
+import type { PostGroupFundCommentUseCase } from './post-group-fund-comment.use-case';
+import type { NotifyGroupFundContributorsUseCase } from './notify-group-fund-contributors.use-case';
 import { AppError } from '@/common/middlewares/error.middleware';
+import {
+  isMoneyAmountAtLeast,
+  moneyAmountLeftover,
+  wouldExceedMoneyTarget,
+} from '@/common/domain/compare-money-amount.util';
 import { assertWishlistMutable } from '@/modules/wishlist/domain/assert-wishlist-mutable.util';
 import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
 import { isItemSuggestion } from '../domain/item-visibility.service';
@@ -12,7 +19,9 @@ export class ClaimItemUseCase {
   constructor(
     private itemRepo: ItemRepository,
     private wishlistRepo: WishlistRepository,
-    private assertItemVisible: AssertItemVisibleUseCase
+    private assertItemVisible: AssertItemVisibleUseCase,
+    private postGroupFundComment?: PostGroupFundCommentUseCase,
+    private notifyGroupFundContributors?: NotifyGroupFundContributorsUseCase
   ) {}
 
   /**
@@ -136,17 +145,21 @@ export class ClaimItemUseCase {
       if (selection) {
         const matchVar = variations.find((v) => v.Name === selection);
         if (matchVar) {
-          const varLimit = Number(matchVar.Quantity) || 0;
-          const varClaimed = claims
-            .filter((c) => c.Selection === selection)
-            .reduce((sum, c) => sum + (c.Quantity || 1), 0);
-          if (varClaimed + quantity > varLimit) {
-            const remainingVar = Math.max(0, varLimit - varClaimed);
-            throw new AppError(
-              `Claim quantity exceeds remaining available for variation "${selection}". Remaining: ${remainingVar}`,
-              400,
-              'BAD_REQUEST'
-            );
+          const rawVarLimit = Number(matchVar.Quantity);
+          const varUnlimited = rawVarLimit === 0;
+          if (!varUnlimited) {
+            const varLimit = Number.isFinite(rawVarLimit) ? rawVarLimit : 0;
+            const varClaimed = claims
+              .filter((c) => c.Selection === selection)
+              .reduce((sum, c) => sum + (c.Quantity || 1), 0);
+            if (varClaimed + quantity > varLimit) {
+              const remainingVar = Math.max(0, varLimit - varClaimed);
+              throw new AppError(
+                `Claim quantity exceeds remaining available for variation "${selection}". Remaining: ${remainingVar}`,
+                400,
+                'BAD_REQUEST'
+              );
+            }
           }
         }
       }
@@ -177,8 +190,21 @@ export class ClaimItemUseCase {
 
       const totalClaimed = claims.reduce((sum, c) => sum + Number(c.Amount || 0), 0);
 
-      if (itemPrice > 0 && totalClaimed + amount > itemPrice) {
-        const remaining = Math.max(0, itemPrice - totalClaimed);
+      // Full target with no prior GF claims → exclusive claim (regular purchase).
+      if (totalClaimed === 0 && itemPrice > 0 && isMoneyAmountAtLeast(amount, itemPrice)) {
+        return {
+          itemId,
+          userId,
+          amount: null,
+          claimedByName,
+          anonymous,
+          quantity: 1,
+          selection: null,
+        };
+      }
+
+      if (itemPrice > 0 && wouldExceedMoneyTarget(totalClaimed, amount, itemPrice)) {
+        const remaining = moneyAmountLeftover(itemPrice, totalClaimed);
         throw new AppError(
           `Claim amount exceeds the item price. Remaining: $${remaining.toFixed(2)}`,
           400,
@@ -212,6 +238,61 @@ export class ClaimItemUseCase {
     };
   }
 
+  /**
+   * Side effects for a successful partial group-funding claim (comment + notify).
+   * Safe to call after linked atomic inserts for the primary claim only.
+   */
+  async afterGroupFundContribution(input: {
+    claim: Claim;
+    priorClaims: Claim[];
+    itemId: string;
+    listId: string;
+    itemName: string;
+    listTitle: string;
+    ownerUserId: string | null;
+  }): Promise<void> {
+    const amount = input.claim.Amount != null ? Number(input.claim.Amount) : 0;
+    if (!(amount > 0)) {
+      return;
+    }
+
+    const isStart = !input.priorClaims.some(
+      (c) => c.Amount != null && Number(c.Amount) > 0
+    );
+
+    if (this.postGroupFundComment) {
+      try {
+        await this.postGroupFundComment.execute({
+          listId: input.listId,
+          itemId: input.itemId,
+          itemName: input.itemName,
+          amount,
+          isStart,
+        });
+      } catch (err) {
+        console.error('[GroupFunding] Failed to post auto-comment:', err);
+      }
+    }
+
+    if (this.notifyGroupFundContributors) {
+      try {
+        await this.notifyGroupFundContributors.execute({
+          priorClaims: input.priorClaims,
+          itemId: input.itemId,
+          itemName: input.itemName,
+          listId: input.listId,
+          listTitle: input.listTitle,
+          amount,
+          isStart,
+          actorUserId: input.claim.UserId,
+          ownerUserId: input.ownerUserId,
+        });
+      } catch (err) {
+        console.error('[GroupFunding] Failed to notify contributors:', err);
+      }
+    }
+  }
+
   async execute(
     itemId: string,
     userId: string | null,
@@ -221,6 +302,7 @@ export class ClaimItemUseCase {
     quantity: number = 1,
     selection: string | null = null
   ): Promise<Claim> {
+    const priorClaims = await this.itemRepo.findClaimsByItemId(itemId);
     const prepared = await this.prepare(
       itemId,
       userId,
@@ -247,6 +329,19 @@ export class ClaimItemUseCase {
         itemId,
         actorUserId: userId ?? undefined,
       });
+
+      if (claim.Amount != null && Number(claim.Amount) > 0) {
+        const wishlist = await this.wishlistRepo.findById(item.ListId);
+        await this.afterGroupFundContribution({
+          claim,
+          priorClaims,
+          itemId,
+          listId: item.ListId,
+          itemName: item.Name,
+          listTitle: wishlist?.Title ?? 'a wishlist',
+          ownerUserId: wishlist?.UserId ?? null,
+        });
+      }
     }
 
     return claim;

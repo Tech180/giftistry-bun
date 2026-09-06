@@ -178,6 +178,7 @@ export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '
             )
           ),
           AiCompletionTimeoutMs: t.Optional(t.Numeric()),
+          AiConnectTimeoutMs: t.Optional(t.Numeric()),
           ScrapeFetchTimeoutMs: t.Optional(t.Numeric()),
           ScrapePlaywrightTimeoutMs: t.Optional(t.Numeric()),
           GrabInfoConcurrency: t.Optional(t.Numeric()),

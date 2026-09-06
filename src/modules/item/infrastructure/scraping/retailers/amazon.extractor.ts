@@ -7,7 +7,7 @@ function parsePrice(text: string): number | null {
 }
 
 export const amazonExtractor: RetailerExtractor = {
-  hostnames: ['amazon.com', 'amazon.ca', 'amazon.co.uk'],
+  hostnames: ['amazon.com', 'amazon.ca', 'amazon.co.uk', 'a.co', 'amzn.to', 'amzn.com'],
   priority: 60,
   extract({ html, mode }) {
     const $ = cheerio.load(html);

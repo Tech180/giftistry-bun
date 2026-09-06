@@ -54,6 +54,7 @@ export interface ServerConfig {
   AiEnabledPackIds?: string[];
   AiCustomPacks?: CustomPackSettingsDto[];
   AiCompletionTimeoutMs?: number;
+  AiConnectTimeoutMs?: number;
   ScrapeFetchTimeoutMs?: number;
   ScrapePlaywrightTimeoutMs?: number;
   GrabInfoConcurrency?: number;
@@ -138,6 +139,7 @@ export interface SystemSettingsPayload {
   AiEnabledPackIds?: string[];
   AiCustomPacks?: CustomPackSettingsDto[];
   AiCompletionTimeoutMs?: number;
+  AiConnectTimeoutMs?: number;
   ScrapeFetchTimeoutMs?: number;
   ScrapePlaywrightTimeoutMs?: number;
   GrabInfoConcurrency?: number;
@@ -195,6 +197,7 @@ export interface SystemSettingsView {
   AiEnabledPackIds: string[];
   AiCustomPacks: CustomPackSettingsDto[];
   AiCompletionTimeoutMs: number;
+  AiConnectTimeoutMs: number;
   ScrapeFetchTimeoutMs: number;
   ScrapePlaywrightTimeoutMs: number;
   GrabInfoConcurrency: number;
@@ -247,6 +250,10 @@ export const DEFAULT_AI_COMPLETION_TIMEOUT_MS = 10 * 60 * 1000;
 export const AI_COMPLETION_TIMEOUT_MIN_MS = 30_000;
 export const AI_COMPLETION_TIMEOUT_MAX_MS = 30 * 60 * 1000;
 
+export const DEFAULT_AI_CONNECT_TIMEOUT_MS = 5_000;
+export const AI_CONNECT_TIMEOUT_MIN_MS = 1_000;
+export const AI_CONNECT_TIMEOUT_MAX_MS = 30_000;
+
 export function normalizeAiProvider(value: unknown): AiProvider {
   const raw = String(value ?? '')
     .trim()
@@ -278,6 +285,15 @@ export function clampAiCompletionTimeoutMs(value: unknown): number {
   return Math.min(
     AI_COMPLETION_TIMEOUT_MAX_MS,
     Math.max(AI_COMPLETION_TIMEOUT_MIN_MS, Math.round(n))
+  );
+}
+
+export function clampAiConnectTimeoutMs(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return DEFAULT_AI_CONNECT_TIMEOUT_MS;
+  return Math.min(
+    AI_CONNECT_TIMEOUT_MAX_MS,
+    Math.max(AI_CONNECT_TIMEOUT_MIN_MS, Math.round(n))
   );
 }
 
@@ -374,6 +390,9 @@ export function toSystemSettingsView(config: ServerConfig): SystemSettingsView {
     AiCustomPacks: sanitizeCustomPacks(config.AiCustomPacks).map(toCustomPackSettingsDto),
     AiCompletionTimeoutMs: clampAiCompletionTimeoutMs(
       config.AiCompletionTimeoutMs ?? DEFAULT_AI_COMPLETION_TIMEOUT_MS
+    ),
+    AiConnectTimeoutMs: clampAiConnectTimeoutMs(
+      config.AiConnectTimeoutMs ?? DEFAULT_AI_CONNECT_TIMEOUT_MS
     ),
     ScrapeFetchTimeoutMs: clampScrapeFetchTimeoutMs(
       config.ScrapeFetchTimeoutMs ?? DEFAULT_SCRAPE_FETCH_TIMEOUT_MS

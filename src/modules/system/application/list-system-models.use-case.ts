@@ -8,6 +8,11 @@ import {
   mapOpenRouterCatalogToModels,
   type SystemModelView,
 } from './map-system-models.util';
+import {
+  fetchWithAiTimeouts,
+  resolveAiConnectTimeoutMs,
+} from '@/common/utils/ai-fetch.util';
+import { LOCAL_MODELS_TIMEOUT_MS } from '@/common/utils/probe-ai-reachability.util';
 
 export type ListSystemModelsProvider = 'openrouter' | 'local';
 
@@ -24,7 +29,6 @@ export interface ListSystemModelsResult {
 const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models';
 const OPENROUTER_FETCH_TIMEOUT_MS = 15_000;
 const OPENROUTER_CACHE_TTL_MS = 60 * 60 * 1000;
-const LOCAL_MODELS_TIMEOUT_MS = 10_000;
 
 let openRouterCache: { expiresAt: number; models: SystemModelView[] } | null = null;
 
@@ -41,9 +45,14 @@ async function listOpenRouterModels(): Promise<SystemModelView[]> {
 
   let response: Response;
   try {
-    response = await fetch(OPENROUTER_MODELS_URL, {
-      signal: AbortSignal.timeout(OPENROUTER_FETCH_TIMEOUT_MS),
-    });
+    response = await fetchWithAiTimeouts(
+      OPENROUTER_MODELS_URL,
+      {},
+      {
+        connectTimeoutMs: resolveAiConnectTimeoutMs(),
+        completionTimeoutMs: OPENROUTER_FETCH_TIMEOUT_MS,
+      }
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     throw new AppError(`Failed to reach OpenRouter models catalog: ${message}`, 502, 'BAD_GATEWAY');
@@ -81,10 +90,14 @@ export async function fetchLocalModelIds(
   }
 
   try {
-    const modelsResponse = await fetch(buildLocalAiUrl(baseEndpoint, 'models'), {
-      headers,
-      signal: AbortSignal.timeout(LOCAL_MODELS_TIMEOUT_MS),
-    });
+    const modelsResponse = await fetchWithAiTimeouts(
+      buildLocalAiUrl(baseEndpoint, 'models'),
+      { headers },
+      {
+        connectTimeoutMs: resolveAiConnectTimeoutMs(),
+        completionTimeoutMs: LOCAL_MODELS_TIMEOUT_MS,
+      }
+    );
 
     if (!modelsResponse.ok) {
       throw new AppError(

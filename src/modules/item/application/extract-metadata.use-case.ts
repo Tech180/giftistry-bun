@@ -1,5 +1,6 @@
 import type { ServerConfigRepository } from '@/modules/system/domain/ports/server-config.repository';
 import { resolveAiConnection, isAiSlotConfigured } from '@/common/utils/resolve-ai-connection.util';
+import { probeAiReachability } from '@/common/utils/probe-ai-reachability.util';
 import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
 import type { UserRepository } from '@/modules/auth/domain/ports/user.repository';
 import type { MetadataScraper, ScrapeResult } from '../domain/ports/metadata-scraper.port';
@@ -88,7 +89,8 @@ function finalizeExtractedData(
   url: string,
   diagnostics: ScrapeResult['diagnostics'],
   websiteName?: string,
-  existingCategories: string[] = []
+  existingCategories: string[] = [],
+  finalUrl?: string
 ): ScrapeResult {
   let finalized = attachScrapeCustomFields(data, url);
   const mapped = mapScrapeToCustomFields(finalized, url);
@@ -120,6 +122,7 @@ function finalizeExtractedData(
       fieldsFound: buildFieldsFound(finalized),
     },
     websiteName,
+    finalUrl: finalUrl ?? url,
   };
 }
 
@@ -193,10 +196,11 @@ export class ExtractMetadataUseCase {
 
     await report({ phase: 'scraping' });
     const scrapeResult = await this.metadataScraper.scrape(url, 'full');
+    const resolvedUrl = scrapeResult.finalUrl?.trim() || url;
     const config = this.configRepo.load();
     const existingCategories = await loadExistingCategories(options.listId, this.itemRepo);
-    const scrapeWithFields = attachScrapeCustomFields(scrapeResult.data, url);
-    const scrapeApparelKey = mapScrapeToCustomFields(scrapeResult.data, url).apparelSizeKey;
+    const scrapeWithFields = attachScrapeCustomFields(scrapeResult.data, resolvedUrl);
+    const scrapeApparelKey = mapScrapeToCustomFields(scrapeResult.data, resolvedUrl).apparelSizeKey;
     const fastConnection = resolveAiConnection(config, 'fast');
 
     const serverAiReady = config.AiEnabled && isAiSlotConfigured(fastConnection);
@@ -205,20 +209,36 @@ export class ExtractMetadataUseCase {
     if (!aiAllowed) {
       return finalizeExtractedData(
         scrapeResult.data,
-        url,
+        resolvedUrl,
         withAiPopulate(scrapeResult.diagnostics, 'skipped'),
-        this.pageContextFetcher.resolveWebsiteName(url),
-        existingCategories
+        scrapeResult.websiteName ?? this.pageContextFetcher.resolveWebsiteName(resolvedUrl),
+        existingCategories,
+        resolvedUrl
+      );
+    }
+
+    const reachable = await probeAiReachability(fastConnection);
+    if (!reachable) {
+      console.warn('[AI] Fast provider unreachable; returning scrape-only result');
+      return finalizeExtractedData(
+        scrapeWithFields,
+        resolvedUrl,
+        withAiPopulate(scrapeResult.diagnostics, 'skipped'),
+        scrapeResult.websiteName ?? this.pageContextFetcher.resolveWebsiteName(resolvedUrl),
+        existingCategories,
+        resolvedUrl
       );
     }
 
     const { provider, apiKey, model, endpoint } = fastConnection;
 
-    const pageHtml = await this.pageContextFetcher.fetchHtml(url);
-    const websiteName = this.pageContextFetcher.resolveWebsiteName(url, pageHtml);
+    const pageHtml = await this.pageContextFetcher.fetchHtml(resolvedUrl);
+    const websiteName =
+      scrapeResult.websiteName ??
+      this.pageContextFetcher.resolveWebsiteName(resolvedUrl, pageHtml);
     const pageContext = pageHtml
-      ? this.pageContextFetcher.buildContextFromHtml(pageHtml, url)
-      : await this.pageContextFetcher.fetchContext(url);
+      ? this.pageContextFetcher.buildContextFromHtml(pageHtml, resolvedUrl)
+      : await this.pageContextFetcher.fetchContext(resolvedUrl);
     let aiCategoryResult: CategoryClassificationResult = {
       category: normalizeCategoryLabel(scrapeWithFields.category || 'uncategorized'),
       alternatives: [],
@@ -228,7 +248,7 @@ export class ExtractMetadataUseCase {
       await report({ phase: 'categorizing' });
       aiCategoryResult = await this.categoryClassifier.classify(
         {
-          url,
+          url: resolvedUrl,
           websiteName,
           pageContext,
           itemName: scrapeWithFields.title || '',
@@ -283,10 +303,11 @@ export class ExtractMetadataUseCase {
     if (!shouldPopulate && !enableWebSearch) {
       return finalizeExtractedData(
         baseData,
-        url,
+        resolvedUrl,
         withAiPopulate(scrapeResult.diagnostics, 'skipped'),
         websiteName,
-        existingCategories
+        existingCategories,
+        resolvedUrl
       );
     }
 
@@ -297,7 +318,7 @@ export class ExtractMetadataUseCase {
         const researched = await this.productResearcher.research({
           itemName: scrapeWithFields.title || '',
           websiteName,
-          url,
+          url: resolvedUrl,
         });
         if (researched.trim() && researched.trim() !== 'None') {
           searchContext = researched;
@@ -310,10 +331,11 @@ export class ExtractMetadataUseCase {
     if (!shouldPopulate && !searchContext) {
       return finalizeExtractedData(
         baseData,
-        url,
+        resolvedUrl,
         withAiPopulate(scrapeResult.diagnostics, 'skipped'),
         websiteName,
-        existingCategories
+        existingCategories,
+        resolvedUrl
       );
     }
 
@@ -330,7 +352,7 @@ export class ExtractMetadataUseCase {
       const customPrompt = composePopulateWithPacks(config.AiPopulatePrompt || '', packs);
       const aiData = await this.metadataPopulator.populate(
         {
-          url,
+          url: resolvedUrl,
           websiteName,
           pageContext,
           searchContext,
@@ -360,7 +382,7 @@ export class ExtractMetadataUseCase {
         { ...scrapeWithFields, category: null },
         aiData,
         preferScrape,
-        { url, scrapeApparelSizeKey: scrapeApparelKey }
+        { url: resolvedUrl, scrapeApparelSizeKey: scrapeApparelKey }
       );
 
       const finalData: ExtractedMetadata = {
@@ -376,7 +398,7 @@ export class ExtractMetadataUseCase {
 
       return finalizeExtractedData(
         finalData,
-        url,
+        resolvedUrl,
         withAiPopulate(
           {
             ...scrapeResult.diagnostics,
@@ -385,16 +407,18 @@ export class ExtractMetadataUseCase {
           'succeeded'
         ),
         websiteName,
-        existingCategories
+        existingCategories,
+        resolvedUrl
       );
     } catch (err) {
       console.error('[AI Populate] Failed to enrich scrape result:', err);
       return finalizeExtractedData(
         baseData,
-        url,
+        resolvedUrl,
         withAiPopulate(scrapeResult.diagnostics, 'failed'),
         websiteName,
-        existingCategories
+        existingCategories,
+        resolvedUrl
       );
     }
   }

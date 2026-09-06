@@ -8,10 +8,15 @@ export class ScrapeFetchError extends Error {
   }
 }
 
+export interface FetchPageResult {
+  html: string;
+  finalUrl: string;
+}
+
 export async function fetchPageHtml(
   url: string,
   timeoutMs = scrapingConfig.fetchTimeoutMs
-): Promise<string> {
+): Promise<FetchPageResult> {
   const res = await fetch(url, {
     headers: buildFetchHeaders(url),
     signal: AbortSignal.timeout(timeoutMs),
@@ -22,5 +27,7 @@ export async function fetchPageHtml(
     throw new ScrapeFetchError(`HTTP ${res.status}`);
   }
 
-  return res.text();
+  const html = await res.text();
+  const finalUrl = (typeof res.url === 'string' && res.url.trim()) || url;
+  return { html, finalUrl };
 }

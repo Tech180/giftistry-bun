@@ -50,6 +50,7 @@ export interface SystemConfig {
   AiEnabledPackIds?: string[];
   AiCustomPacks?: CustomPackSettingsDto[];
   AiCompletionTimeoutMs?: number;
+  AiConnectTimeoutMs?: number;
   ScrapeFetchTimeoutMs?: number;
   ScrapePlaywrightTimeoutMs?: number;
   GrabInfoConcurrency?: number;
@@ -197,6 +198,10 @@ function normalizeConfig(data: Record<string, unknown>): SystemConfig {
     })(),
     AiCompletionTimeoutMs: (() => {
       const value = pick<unknown>(data, 'AiCompletionTimeoutMs', undefined);
+      return value !== undefined ? Number(value) : undefined;
+    })(),
+    AiConnectTimeoutMs: (() => {
+      const value = pick<unknown>(data, 'AiConnectTimeoutMs', undefined);
       return value !== undefined ? Number(value) : undefined;
     })(),
     ScrapeFetchTimeoutMs: (() => {

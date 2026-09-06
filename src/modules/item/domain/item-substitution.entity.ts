@@ -32,6 +32,10 @@ export interface ItemSubstitutionSummary {
   Claims: Claim[];
   IsClaimed: boolean;
   IsFullyClaimed?: boolean;
+  FundingTarget?: number;
+  TotalClaimedAmount?: number;
+  TotalClaimedQuantity?: number;
+  RemainingQuantity?: number | null;
 }
 
 export interface ItemSubstitutionOption {

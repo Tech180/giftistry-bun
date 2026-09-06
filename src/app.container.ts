@@ -157,6 +157,7 @@ export function createAppContainer(): AppContainer {
     serverConfigRepo,
     middleware: routeMiddleware,
     createNotification: createNotificationUseCase,
+    commentRepo,
   });
 
   const { module: invitesModule, invitesUseCases } = createInvitesModule({

@@ -620,6 +620,7 @@ export class RunWishlistImportJobUseCase {
         const price = extract.data.price != null ? extract.data.price : row.price;
         const websiteName =
           mergeString(extract.websiteName, row.websiteName, '') || null;
+        const resolvedLinkUrl = extract.finalUrl?.trim() || row.linkUrl;
 
         await this.itemUseCases.updateItem.execute(
           row.itemId,
@@ -630,9 +631,16 @@ export class RunWishlistImportJobUseCase {
           category,
           row.priority,
           undefined,
-          row.linkUrl,
+          resolvedLinkUrl,
           price,
-          websiteName
+          websiteName,
+          undefined,
+          undefined,
+          extract.data.imageUrl ?? null
+        );
+        await this.itemUseCases.promoteScrapedImageToPhotos.execute(
+          row.itemId,
+          extract.data.imageUrl
         );
         if (jobItem) {
           jobItem.Status = 'done';

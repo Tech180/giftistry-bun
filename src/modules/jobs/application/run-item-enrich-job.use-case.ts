@@ -91,6 +91,7 @@ export class RunItemEnrichJobUseCase {
         CategoryAlternatives: extract.data.categoryAlternatives ?? [],
         ImageUrl: extract.data.imageUrl,
         WebsiteName: extract.websiteName ?? null,
+        ResolvedUrl: extract.finalUrl ?? payload.url,
         CustomFields: {
           Predefined: extract.data.predefinedFields ?? {},
           UserDefined: extract.data.userDefinedFields ?? {},
@@ -198,6 +199,7 @@ export class RunItemEnrichJobUseCase {
       const price = extract.data.price != null ? extract.data.price : null;
       const websiteName = mergeString(extract.websiteName, null, '') || null;
       const description = text ?? '';
+      const resolvedLinkUrl = extract.finalUrl?.trim() || payload.url;
 
       await this.itemUseCases.updateItem.execute(
         itemId,
@@ -208,10 +210,17 @@ export class RunItemEnrichJobUseCase {
         category,
         current.priority,
         undefined,
-        payload.url,
+        resolvedLinkUrl,
         price,
         websiteName,
-        metadata ?? undefined
+        metadata ?? undefined,
+        undefined,
+        extract.data.imageUrl ?? null
+      );
+
+      await this.itemUseCases.promoteScrapedImageToPhotos.execute(
+        itemId,
+        extract.data.imageUrl
       );
 
       if (jobItem) {
@@ -235,6 +244,7 @@ export class RunItemEnrichJobUseCase {
         CategoryAlternatives: extract.data.categoryAlternatives ?? [],
         ImageUrl: extract.data.imageUrl,
         WebsiteName: extract.websiteName ?? null,
+        ResolvedUrl: extract.finalUrl ?? payload.url,
         CustomFields: {
           Predefined: extract.data.predefinedFields ?? {},
           UserDefined: extract.data.userDefinedFields ?? {},

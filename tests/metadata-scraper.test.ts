@@ -12,6 +12,12 @@ mock.module('@/common/infrastructure/config.loader', () => ({
   }),
 }));
 
+mock.module('@/common/utils/probe-ai-reachability.util', () => ({
+  probeAiReachability: async () => true,
+  LOCAL_MODELS_TIMEOUT_MS: 10_000,
+  OPENROUTER_PROBE_TIMEOUT_MS: 15_000,
+}));
+
 import { describe, expect, test, beforeAll } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -389,14 +395,16 @@ describe('metadata scraper use cases', () => {
     );
     const result = await useCase.execute('https://example.com/product', 'user-1');
 
-    expect(result.data.title).toBe('Test Product');
+    expect(result.data.title).toBe('AI Title');
     expect(result.data.price).toBe(25);
     expect(result.diagnostics.confidence).toBe('medium');
+    expect(result.finalUrl).toBe('https://example.com/product');
   });
 
   test('EnrichLinkMetadataUseCase updates link metadata from scrape result', async () => {
     let updatedPrice: number | null = null;
     let updatedImage: string | null = null;
+    let updatedUrl: string | null = null;
 
     const mockScraper: MetadataScraper = {
       scrape: async () => ({
@@ -414,14 +422,29 @@ describe('metadata scraper use cases', () => {
           category: null,
           imageUrl: 'https://example.com/image.jpg',
         },
+        finalUrl: 'https://example.com/product',
       }),
     };
 
-    const mockRepo: Pick<ItemRepository, 'updateLinkMetadata'> = {
-      updateLinkMetadata: async (_linkId, price, imageUrl) => {
+    const mockRepo: Pick<
+      ItemRepository,
+      'updateLink' | 'findItemIdByLinkId' | 'findLinksByItemId'
+    > = {
+      updateLink: async (_linkId, url, _retailer, price, imageUrl) => {
+        updatedUrl = url;
         updatedPrice = price;
         updatedImage = imageUrl;
+        return {
+          Id: 'link-1',
+          ItemId: 'item-1',
+          Url: url,
+          RetailerName: null,
+          ExtractedPrice: price,
+          ExtractedImageUrl: imageUrl,
+        };
       },
+      findItemIdByLinkId: async () => 'item-1',
+      findLinksByItemId: async () => [],
     };
 
     const useCase = new EnrichLinkMetadataUseCase(mockScraper, mockRepo as ItemRepository);
@@ -431,6 +454,7 @@ describe('metadata scraper use cases', () => {
     expect(updatedPrice).not.toBeNull();
     expect(updatedPrice!).toBe(42);
     expect(updatedImage!).toBe('https://example.com/image.jpg');
+    expect(updatedUrl!).toBe('https://example.com/product');
   });
 
   test('EnrichLinkMetadataUseCase preserves user-provided price', async () => {
@@ -455,10 +479,23 @@ describe('metadata scraper use cases', () => {
       }),
     };
 
-    const mockRepo: Pick<ItemRepository, 'updateLinkMetadata'> = {
-      updateLinkMetadata: async (_linkId, price) => {
+    const mockRepo: Pick<
+      ItemRepository,
+      'updateLink' | 'findItemIdByLinkId' | 'findLinksByItemId'
+    > = {
+      updateLink: async (_linkId, _url, _retailer, price) => {
         updatedPrice = price;
+        return {
+          Id: 'link-1',
+          ItemId: 'item-1',
+          Url: 'https://example.com/product',
+          RetailerName: null,
+          ExtractedPrice: price,
+          ExtractedImageUrl: null,
+        };
       },
+      findItemIdByLinkId: async () => 'item-1',
+      findLinksByItemId: async () => [],
     };
 
     const useCase = new EnrichLinkMetadataUseCase(mockScraper, mockRepo as ItemRepository);
@@ -490,9 +527,17 @@ describe('metadata scraper use cases', () => {
       }),
     };
 
-    const mockRepo: Pick<ItemRepository, 'updateLinkMetadata'> = {
-      updateLinkMetadata: async () => {
+    const mockRepo: Pick<ItemRepository, 'updateLink'> = {
+      updateLink: async () => {
         called = true;
+        return {
+          Id: 'link-1',
+          ItemId: 'item-1',
+          Url: 'https://example.com/product',
+          RetailerName: null,
+          ExtractedPrice: null,
+          ExtractedImageUrl: null,
+        };
       },
     };
 
@@ -512,10 +557,10 @@ describe('MetadataScraperOrchestrator failover', () => {
     );
 
     const scraper = new MetadataScraperOrchestrator(
-      async () => CLOUDFLARE_HTML,
-      async () => {
+      async (inputUrl) => ({ html: CLOUDFLARE_HTML, finalUrl: inputUrl }),
+      async (inputUrl) => {
         playwrightCalled = true;
-        return { html: PRODUCT_HTML, capturedJson: [] };
+        return { html: PRODUCT_HTML, capturedJson: [], finalUrl: inputUrl };
       }
     );
 
@@ -539,7 +584,7 @@ describe('MetadataScraperOrchestrator failover', () => {
       async () => {
         throw new Error('HTTP 403');
       },
-      async () => ({ html: DICKS_BLOCK_HTML, capturedJson: [] })
+      async (inputUrl) => ({ html: DICKS_BLOCK_HTML, capturedJson: [], finalUrl: inputUrl })
     );
 
     try {
@@ -559,10 +604,11 @@ describe('MetadataScraperOrchestrator failover', () => {
     );
 
     const scraper = new MetadataScraperOrchestrator(
-      async () => CLOUDFLARE_HTML,
-      async () => ({
+      async (inputUrl) => ({ html: CLOUDFLARE_HTML, finalUrl: inputUrl }),
+      async (inputUrl) => ({
         html: '<html><head><title>Blocked</title></head><body></body></html>'.padEnd(600, ' '),
         capturedJson: [DICKS_API_JSON],
+        finalUrl: inputUrl,
       })
     );
 
@@ -624,5 +670,16 @@ describe('retailer registry', () => {
     );
     const match = matchRetailer('www.amazon.com', [amazonExtractor]);
     expect(match?.hostnames).toContain('amazon.com');
+  });
+
+  test('matchRetailer resolves Amazon short-link hosts', async () => {
+    const { matchRetailer } = await import(
+      '@/modules/item/infrastructure/scraping/retailers/retailer-registry'
+    );
+    const { amazonExtractor } = await import(
+      '@/modules/item/infrastructure/scraping/retailers/amazon.extractor'
+    );
+    expect(matchRetailer('a.co', [amazonExtractor])).not.toBeNull();
+    expect(matchRetailer('amzn.to', [amazonExtractor])).not.toBeNull();
   });
 });

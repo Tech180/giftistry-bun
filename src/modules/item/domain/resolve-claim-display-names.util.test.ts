@@ -41,4 +41,48 @@ describe('resolveClaimDisplayNames', () => {
       )
     ).toEqual(['Riley Lawson', 'Anonymous']);
   });
+
+  it('shows fellow group-fund contributors by name when both are anonymous', () => {
+    expect(
+      resolveClaimDisplayNames(
+        [
+          {
+            UserId: 'user-1',
+            ClaimedByName: 'Alice',
+            Anonymous: true,
+            Amount: 30,
+          },
+          {
+            UserId: 'user-2',
+            ClaimedByName: 'Bob',
+            Anonymous: true,
+            Amount: 19.99,
+          },
+        ],
+        'user-2'
+      )
+    ).toEqual(['Alice', 'Bob']);
+  });
+
+  it('hides anonymous group-fund contributors from non-contributors', () => {
+    expect(
+      resolveClaimDisplayNames(
+        [
+          {
+            UserId: 'user-1',
+            ClaimedByName: 'Alice',
+            Anonymous: true,
+            Amount: 30,
+          },
+          {
+            UserId: 'user-2',
+            ClaimedByName: 'Bob',
+            Anonymous: true,
+            Amount: 19.99,
+          },
+        ],
+        'viewer-c'
+      )
+    ).toEqual(['Anonymous']);
+  });
 });

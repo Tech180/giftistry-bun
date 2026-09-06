@@ -110,4 +110,50 @@ describe('mergeGrabInfoDescription', () => {
     const parsed = JSON.parse(result);
     expect(parsed.DesiredQuantity).toBe(8);
   });
+
+  test('collapses Form Factor and FormFactor into one userDefined field', () => {
+    const existing = JSON.stringify({
+      Text: 'CPU',
+      CustomFields: {
+        Predefined: {},
+        UserDefined: { 'Form Factor': 'Desktop' },
+      },
+    });
+    const result = mergeGrabInfoDescription(existing, 'CPU', {}, {
+      FormFactor: 'Desktops',
+    });
+    const parsed = JSON.parse(result);
+    const userDefined = parsed.CustomFields.UserDefined as Record<string, string>;
+    expect(Object.keys(userDefined)).toHaveLength(1);
+    expect(Object.values(userDefined)[0]).toBe('Desktops');
+  });
+
+  test('collapses Base Clock and BaseClock', () => {
+    const existing = JSON.stringify({
+      Text: 'CPU',
+      CustomFields: {
+        Predefined: {},
+        UserDefined: { 'Base Clock': '3.4 GHz' },
+      },
+    });
+    const result = mergeGrabInfoDescription(existing, 'CPU', {}, {
+      BaseClock: '3.5 GHz',
+    });
+    const parsed = JSON.parse(result);
+    const userDefined = parsed.CustomFields.UserDefined as Record<string, string>;
+    expect(Object.keys(userDefined)).toHaveLength(1);
+    expect(Object.values(userDefined)[0]).toBe('3.5 GHz');
+  });
+
+  test('drops userDefined Form Factor when predefined FormFactor exists', () => {
+    const result = mergeGrabInfoDescription(
+      'CPU',
+      'CPU',
+      { FormFactor: 'Desktop' },
+      { 'Form Factor': 'Desktops', Brand: 'AMD' }
+    );
+    const parsed = JSON.parse(result);
+    expect(parsed.CustomFields.Predefined.FormFactor).toBe('Desktop');
+    expect(parsed.CustomFields.UserDefined).toEqual({ Brand: 'AMD' });
+  });
 });

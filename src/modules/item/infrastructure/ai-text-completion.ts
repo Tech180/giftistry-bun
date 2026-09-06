@@ -5,6 +5,10 @@ import {
   DEFAULT_AI_COMPLETION_TIMEOUT_MS,
 } from '@/modules/system/domain/server-config.entity';
 import {
+  fetchWithAiTimeouts,
+  resolveAiConnectTimeoutMs,
+} from '@/common/utils/ai-fetch.util';
+import {
   computeTokensPerSecond,
   consumeSseBuffer,
   createThrottledDeltaEmitter,
@@ -15,6 +19,11 @@ import {
 } from './ai-text-completion-stream.util';
 
 export { DEFAULT_AI_COMPLETION_TIMEOUT_MS };
+export {
+  formatAiTimeoutMessage,
+  isTimeoutError,
+  resolveAiConnectTimeoutMs,
+} from '@/common/utils/ai-fetch.util';
 export {
   computeTokensPerSecond,
   estimateTokensFromText,
@@ -32,6 +41,8 @@ export interface TextCompletionConfig {
   jsonResponse?: boolean;
   /** Override default completion timeout (ms). */
   timeoutMs?: number;
+  /** Override default connect timeout (ms). */
+  connectTimeoutMs?: number;
 }
 
 export interface TextCompletionUsage {
@@ -77,49 +88,6 @@ export function resolveCompletionTimeoutMs(override?: number): number {
   }
 
   return DEFAULT_AI_COMPLETION_TIMEOUT_MS;
-}
-
-export function formatAiTimeoutMessage(timeoutMs: number): string {
-  const seconds = Math.max(1, Math.round(timeoutMs / 1000));
-  if (seconds >= 60) {
-    const minutes = Math.round(seconds / 60);
-    return `AI request timed out after ${minutes} minute${minutes === 1 ? '' : 's'}. Try a faster model or a smaller file.`;
-  }
-  return `AI request timed out after ${seconds} second${seconds === 1 ? '' : 's'}. Try a faster model or a smaller file.`;
-}
-
-export function isTimeoutError(err: unknown): boolean {
-  if (!err || typeof err !== 'object') return false;
-  const error = err as { name?: string; message?: string; code?: string | number };
-  if (error.name === 'TimeoutError' || error.name === 'AbortError') return true;
-  if (error.code === 23 || error.code === 'ABORT_ERR') return true;
-  const message = error.message || '';
-  return /timed out|aborted due to timeout/i.test(message);
-}
-
-type BunFetchInit = RequestInit & { timeout?: false | number | { connect?: number; idle?: number } };
-
-async function fetchWithAiTimeout(
-  url: string,
-  init: RequestInit,
-  timeoutMs: number
-): Promise<Response> {
-  const signal = AbortSignal.timeout(timeoutMs);
-  const merged: BunFetchInit = {
-    ...init,
-    signal,
-    // Bun ignores longer AbortSignals unless the built-in ~5m ceiling is disabled.
-    timeout: false,
-  };
-
-  try {
-    return await fetch(url, merged);
-  } catch (err) {
-    if (isTimeoutError(err)) {
-      throw new Error(formatAiTimeoutMessage(timeoutMs));
-    }
-    throw err;
-  }
 }
 
 async function readResponseTextStream(
@@ -168,6 +136,10 @@ export async function completeTextPromptStream(
 ): Promise<TextCompletionResult> {
   const { provider, apiKey, model, endpoint, jsonResponse = false } = config;
   const timeoutMs = resolveCompletionTimeoutMs(config.timeoutMs);
+  const connectTimeoutMs =
+    config.connectTimeoutMs !== undefined
+      ? resolveAiConnectTimeoutMs(config.connectTimeoutMs)
+      : resolveAiConnectTimeoutMs();
 
   if (provider === 'openrouter') {
     return streamOpenAiCompatible(prompt, {
@@ -184,6 +156,7 @@ export async function completeTextPromptStream(
       },
       jsonResponse,
       timeoutMs,
+      connectTimeoutMs,
       includeUsage: true,
       onDelta,
     });
@@ -200,6 +173,7 @@ export async function completeTextPromptStream(
       model: model || 'gpt-4o-mini',
       jsonResponse,
       timeoutMs,
+      connectTimeoutMs,
       includeUsage: true,
       onDelta,
     });
@@ -215,6 +189,7 @@ export async function completeTextPromptStream(
       apiKey,
       model: model || 'claude-3-5-sonnet-20240620',
       timeoutMs,
+      connectTimeoutMs,
       onDelta,
     });
   }
@@ -237,6 +212,7 @@ export async function completeTextPromptStream(
       headers,
       jsonResponse,
       timeoutMs,
+      connectTimeoutMs,
       includeUsage: false,
       onDelta,
     });
@@ -248,6 +224,7 @@ export async function completeTextPromptStream(
     endpoint,
     jsonResponse,
     timeoutMs,
+    connectTimeoutMs,
     onDelta,
   });
 }
@@ -270,6 +247,7 @@ async function streamOpenAiCompatible(
     extraHeaders?: Record<string, string>;
     jsonResponse?: boolean;
     timeoutMs: number;
+    connectTimeoutMs: number;
     includeUsage?: boolean;
     onDelta?: TextCompletionDeltaHandler;
   }
@@ -291,7 +269,7 @@ async function streamOpenAiCompatible(
   let completionTokens: number | undefined;
   let sseBuffer = '';
 
-  const response = await fetchWithAiTimeout(
+  const response = await fetchWithAiTimeouts(
     options.url,
     {
       method: 'POST',
@@ -304,7 +282,10 @@ async function streamOpenAiCompatible(
         ...(options.jsonResponse ? { response_format: { type: 'json_object' } } : {}),
       }),
     },
-    options.timeoutMs
+    {
+      connectTimeoutMs: options.connectTimeoutMs,
+      completionTimeoutMs: options.timeoutMs,
+    }
   );
 
   if (!response.ok) {
@@ -351,6 +332,7 @@ async function streamAnthropic(
     apiKey: string;
     model: string;
     timeoutMs: number;
+    connectTimeoutMs: number;
     onDelta?: TextCompletionDeltaHandler;
   }
 ): Promise<TextCompletionResult> {
@@ -361,7 +343,7 @@ async function streamAnthropic(
   let completionTokens: number | undefined;
   let sseBuffer = '';
 
-  const response = await fetchWithAiTimeout(
+  const response = await fetchWithAiTimeouts(
     options.url,
     {
       method: 'POST',
@@ -378,7 +360,10 @@ async function streamAnthropic(
         messages: [{ role: 'user', content: prompt }],
       }),
     },
-    options.timeoutMs
+    {
+      connectTimeoutMs: options.connectTimeoutMs,
+      completionTimeoutMs: options.timeoutMs,
+    }
   );
 
   if (!response.ok) {
@@ -424,6 +409,7 @@ async function streamGemini(
     endpoint: string;
     jsonResponse?: boolean;
     timeoutMs: number;
+    connectTimeoutMs: number;
     onDelta?: TextCompletionDeltaHandler;
   }
 ): Promise<TextCompletionResult> {
@@ -443,7 +429,7 @@ async function streamGemini(
   let completionTokens: number | undefined;
   let sseBuffer = '';
 
-  const response = await fetchWithAiTimeout(
+  const response = await fetchWithAiTimeouts(
     geminiUrl,
     {
       method: 'POST',
@@ -458,7 +444,10 @@ async function streamGemini(
           : {}),
       }),
     },
-    options.timeoutMs
+    {
+      connectTimeoutMs: options.connectTimeoutMs,
+      completionTimeoutMs: options.timeoutMs,
+    }
   );
 
   if (!response.ok) {

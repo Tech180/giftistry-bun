@@ -1,9 +1,12 @@
 import type { ItemRepository } from '../domain/ports/item.repository';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
 import { AppError } from '@/common/middlewares/error.middleware';
-import { resolveItemMetadata } from '../domain/resolve-item-metadata.util';
 import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
 import { assertLinkGroupSupportsLinkedItems } from '../domain/item-supports-linked-items.util';
+import {
+  getForwardLinkedIds,
+  resolveLinkGroupMemberIds,
+} from '../domain/resolve-item-link-group.util';
 import type { Item } from '../domain/item.entity';
 
 export class SyncItemLinksUseCase {
@@ -28,14 +31,11 @@ export class SyncItemLinksUseCase {
     const getLinkedItemIds = (itemId: string): string[] => {
       const item = wishlistItems.find((i) => i.Id === itemId);
       if (!item) return [];
-      if (item.LinkedItemIds && item.LinkedItemIds.length > 0) {
-        return item.LinkedItemIds;
-      }
-      return resolveItemMetadata(item)?.LinkedItemIds ?? [];
+      return getForwardLinkedIds(item);
     };
 
     const newGroup = new Set([currentItemId, ...targetItemIds]);
-    const oldGroupIds = getLinkedItemIds(currentItemId);
+    const oldGroupIds = resolveLinkGroupMemberIds(currentItemId, wishlistItems);
     const oldGroup = new Set([currentItemId, ...oldGroupIds]);
 
     // Allow clearing links (group size 1) even for suggestions; block forming a group.

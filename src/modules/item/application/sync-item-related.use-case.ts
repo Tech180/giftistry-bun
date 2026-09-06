@@ -1,7 +1,10 @@
 import type { ItemRepository } from '../domain/ports/item.repository';
 import { AppError } from '@/common/middlewares/error.middleware';
-import { resolveItemMetadata } from '../domain/resolve-item-metadata.util';
 import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
+import {
+  getForwardRelatedIds,
+  resolveRelatedGroupMemberIds,
+} from '../domain/resolve-item-link-group.util';
 
 export class SyncItemRelatedUseCase {
   constructor(private itemRepo: ItemRepository) {}
@@ -17,14 +20,11 @@ export class SyncItemRelatedUseCase {
     const getRelatedItemIds = (itemId: string): string[] => {
       const item = wishlistItems.find((i) => i.Id === itemId);
       if (!item) return [];
-      if (item.RelatedItemIds && item.RelatedItemIds.length > 0) {
-        return item.RelatedItemIds;
-      }
-      return resolveItemMetadata(item)?.RelatedItemIds ?? [];
+      return getForwardRelatedIds(item);
     };
 
     const newGroup = new Set([currentItemId, ...targetItemIds]);
-    const oldGroupIds = getRelatedItemIds(currentItemId);
+    const oldGroupIds = resolveRelatedGroupMemberIds(currentItemId, wishlistItems);
     const oldGroup = new Set([currentItemId, ...oldGroupIds]);
 
     const itemsToUpdate = new Set<string>([...oldGroup, ...newGroup]);

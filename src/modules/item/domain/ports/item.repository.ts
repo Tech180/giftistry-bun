@@ -83,6 +83,12 @@ export interface ItemRepository {
   ): Promise<ItemLink>;
   deleteLinksByItemId(itemId: string): Promise<void>;
   findLinksByItemId(itemId: string): Promise<ItemLink[]>;
+  /** Returns the item id that owns this link, or null. */
+  findItemIdByLinkId(linkId: string): Promise<string | null>;
+  /**
+   * Replace item photos only (system / scrape promotion). Does not touch other columns.
+   */
+  replacePhotos(itemId: string, photos: ItemPhoto[]): Promise<void>;
 
   createClaim(
     itemId: string,

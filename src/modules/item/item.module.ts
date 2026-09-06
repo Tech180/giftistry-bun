@@ -40,14 +40,19 @@ import { UpdateItemSubstitutionUseCase } from './application/update-item-substit
 import { DeleteItemSubstitutionUseCase } from './application/delete-item-substitution.use-case';
 import { ReorderOwnerSubstitutionsUseCase } from './application/reorder-owner-substitutions.use-case';
 import { NotifyClaimersItemRemovedUseCase } from './application/notify-claimers-item-removed.use-case';
+import { NotifyGroupFundContributorsUseCase } from './application/notify-group-fund-contributors.use-case';
+import { PostGroupFundCommentUseCase } from './application/post-group-fund-comment.use-case';
 import { GeminiDescriptionSummarizer } from './infrastructure/gemini-description-summarizer';
 import type { CreateNotificationUseCase } from '@/modules/notifications/application/create-notification.use-case';
+import type { CommentRepository } from '@/modules/comment/domain/ports/comment.repository';
 import { GeminiMetadataPopulator } from './infrastructure/gemini-metadata-populator';
 import { GeminiCategoryClassifier } from './infrastructure/gemini-category-classifier';
 import { GeminiItemImportParser } from './infrastructure/gemini-item-import-parser';
 import { DefaultImportFileTextExtractor } from './infrastructure/import-file-text-extractor';
 import { HttpPageContextFetcher } from './infrastructure/http-page-context-fetcher';
 import { PlaywrightProductResearcher } from './infrastructure/playwright-product-researcher';
+import { FetchRemoteImageAsDataUrl } from './infrastructure/fetch-remote-image-as-data-url';
+import { PromoteScrapedImageToPhotosUseCase } from './application/promote-scraped-image-to-photos.use-case';
 import { itemRoutes } from './presentation/item.routes';
 
 export interface ItemModuleDeps {
@@ -62,6 +67,7 @@ export interface ItemModuleDeps {
   serverConfigRepo: ServerConfigRepository;
   middleware: RouteMiddleware;
   createNotification?: CreateNotificationUseCase;
+  commentRepo?: CommentRepository;
 }
 
 export function createItemModule(deps: ItemModuleDeps) {
@@ -82,7 +88,15 @@ export function createItemModule(deps: ItemModuleDeps) {
     pageContextFetcher,
     productResearcher
   );
-  const enrichLinkMetadataUseCase = new EnrichLinkMetadataUseCase(deps.metadataScraper, deps.itemRepo);
+  const promoteScrapedImageToPhotosUseCase = new PromoteScrapedImageToPhotosUseCase(
+    deps.itemRepo,
+    new FetchRemoteImageAsDataUrl()
+  );
+  const enrichLinkMetadataUseCase = new EnrichLinkMetadataUseCase(
+    deps.metadataScraper,
+    deps.itemRepo,
+    promoteScrapedImageToPhotosUseCase
+  );
   const extractItemReviewsUseCase = new ExtractItemReviewsUseCase(
     itemReviewRepo,
     reviewExtractor,
@@ -129,7 +143,11 @@ export function createItemModule(deps: ItemModuleDeps) {
   const claimItemUseCase = new ClaimItemUseCase(
     deps.itemRepo,
     deps.wishlistRepo,
-    assertItemVisibleUseCase
+    assertItemVisibleUseCase,
+    deps.commentRepo ? new PostGroupFundCommentUseCase(deps.commentRepo) : undefined,
+    deps.createNotification
+      ? new NotifyGroupFundContributorsUseCase(deps.createNotification)
+      : undefined
   );
 
   const unclaimItemUseCase = new UnclaimItemUseCase(
@@ -148,7 +166,8 @@ export function createItemModule(deps: ItemModuleDeps) {
     claimItemWithLinked: new ClaimItemWithLinkedUseCase(
       deps.itemRepo,
       claimItemUseCase,
-      assertItemVisibleUseCase
+      assertItemVisibleUseCase,
+      deps.wishlistRepo
     ),
     addItemLink: new AddItemLinkUseCase(
       deps.itemRepo,
@@ -214,6 +233,7 @@ export function createItemModule(deps: ItemModuleDeps) {
       deps.itemRepo,
       deps.wishlistRepo
     ),
+    promoteScrapedImageToPhotos: promoteScrapedImageToPhotosUseCase,
   };
 
   const module = new Elysia().use(

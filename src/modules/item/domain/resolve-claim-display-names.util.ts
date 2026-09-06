@@ -1,4 +1,8 @@
 import type { Claim } from './item.entity';
+import {
+  getGroupFundContributorUserIds,
+  shouldRevealAnonymousClaim,
+} from './redact-claims-for-viewer.util';
 
 export function isAnonymousClaim(
   claim: Pick<Claim, 'Anonymous' | 'ClaimedByName'>
@@ -11,20 +15,23 @@ export function isAnonymousClaim(
  * consolidated "Anonymous" when other viewers' anonymous claims are present.
  */
 export function resolveClaimDisplayNames(
-  claims: Pick<Claim, 'UserId' | 'ClaimedByName' | 'Anonymous'>[],
+  claims: Pick<Claim, 'UserId' | 'ClaimedByName' | 'Anonymous' | 'Amount'>[],
   currentUserId?: string | null
 ): string[] {
+  const contributorUserIds = getGroupFundContributorUserIds(claims);
   const names: string[] = [];
   const seenUserIds = new Set<string>();
   let hasOtherAnonymous = false;
 
   for (const claim of claims) {
     if (isAnonymousClaim(claim)) {
-      if (currentUserId && claim.UserId === currentUserId) {
-        if (seenUserIds.has(currentUserId)) {
+      if (
+        shouldRevealAnonymousClaim(claim, currentUserId ?? null, contributorUserIds)
+      ) {
+        if (!claim.UserId || seenUserIds.has(claim.UserId)) {
           continue;
         }
-        seenUserIds.add(currentUserId);
+        seenUserIds.add(claim.UserId);
         names.push(claim.ClaimedByName?.trim() || 'Someone');
         continue;
       }

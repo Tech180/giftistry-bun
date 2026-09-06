@@ -26,6 +26,37 @@ describe('TestAiConnectionUseCase', () => {
     );
   });
 
+  test('reachability mode succeeds with models list only', async () => {
+    let chatCalled = false;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.endsWith('/models') && init?.method !== 'POST') {
+        return new Response(JSON.stringify({ data: [{ id: 'qwen3.6:latest' }] }), { status: 200 });
+      }
+
+      if (url.endsWith('/chat/completions') || url.endsWith('/api/show')) {
+        chatCalled = true;
+      }
+
+      return new Response('not found', { status: 404 });
+    }) as typeof fetch;
+
+    const useCase = new TestAiConnectionUseCase();
+    const result = await useCase.execute({
+      AiProvider: 'local',
+      AiEndpoint: 'http://192.168.100.80:11434',
+      AiModel: 'qwen3.6:latest',
+      Mode: 'reachability',
+    });
+
+    expect(result.Reachable).toBe(true);
+    expect(result.Working).toBe(true);
+    expect(result.ModelAvailable).toBe(true);
+    expect(result.Message).toContain('qwen3.6:latest');
+    expect(chatCalled).toBe(false);
+  });
+
   test('returns success when Ollama model metadata is available', async () => {
     globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -100,5 +131,20 @@ describe('TestAiConnectionUseCase', () => {
         AiModel: 'missing-model',
       })
     ).rejects.toThrow('Model "missing-model" was not found');
+  });
+
+  test('reachability mode rejects quickly when host is unreachable', async () => {
+    globalThis.fetch = (async () => {
+      throw Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' });
+    }) as typeof fetch;
+
+    const useCase = new TestAiConnectionUseCase();
+    await expect(
+      useCase.execute({
+        AiProvider: 'local',
+        AiEndpoint: 'http://127.0.0.1:9',
+        Mode: 'reachability',
+      })
+    ).rejects.toThrow(/Could not connect to the AI server|Cannot reach AI server/);
   });
 });

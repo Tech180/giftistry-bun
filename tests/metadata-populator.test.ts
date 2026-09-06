@@ -90,6 +90,16 @@ describe('mergeFieldMaps', () => {
     expect(merged.PantsSize).toBe('32x30');
     expect(merged.ShirtSize).toBe('L');
   });
+
+  test('collapses label-equivalent keys preferring AI when preferScrape is false', () => {
+    const merged = mergeFieldMaps(
+      { 'Memory Type': 'DDR4' },
+      { MemoryType: 'DDR5' },
+      false
+    );
+    expect(Object.keys(merged)).toHaveLength(1);
+    expect(Object.values(merged)[0]).toBe('DDR5');
+  });
 });
 
 describe('mergeExtractedMetadata', () => {

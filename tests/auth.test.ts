@@ -380,6 +380,61 @@ describe("Authentication & Global Endpoints", () => {
     expect(res304.headers.get("ETag")).toBe(etag);
   });
 
+  test("Fonts stylesheet and woff2 serving with caching", async () => {
+    const resFonts = await app.handle(
+      new Request("http://localhost/api/themes/core/fonts.css", {
+        method: "GET"
+      })
+    );
+    expect(resFonts.status).toBe(200);
+    expect(resFonts.headers.get("Content-Type")).toBe("text/css");
+    expect(resFonts.headers.get("ETag")).toMatch(/^W\/"/);
+    expect(resFonts.headers.get("Cache-Control")).toBe("public, max-age=60");
+    const fontsCss = await resFonts.text();
+    expect(fontsCss).toContain("@font-face");
+    expect(fontsCss).toContain("font-family: 'Inter'");
+    expect(fontsCss).toContain("../fonts/inter-400.woff2");
+
+    const fontsEtag = resFonts.headers.get("ETag");
+    const resFonts304 = await app.handle(
+      new Request("http://localhost/api/themes/core/fonts.css", {
+        method: "GET",
+        headers: { "If-None-Match": fontsEtag! }
+      })
+    );
+    expect(resFonts304.status).toBe(304);
+    expect(resFonts304.headers.get("ETag")).toBe(fontsEtag);
+
+    const resWoff2 = await app.handle(
+      new Request("http://localhost/api/themes/fonts/inter-400.woff2", {
+        method: "GET"
+      })
+    );
+    expect(resWoff2.status).toBe(200);
+    expect(resWoff2.headers.get("Content-Type")).toBe("font/woff2");
+    expect(resWoff2.headers.get("ETag")).toMatch(/^W\/"/);
+    expect(resWoff2.headers.get("Cache-Control")).toBe("public, max-age=60");
+    const fontBytes = await resWoff2.arrayBuffer();
+    expect(fontBytes.byteLength).toBeGreaterThan(1000);
+
+    const fontEtag = resWoff2.headers.get("ETag");
+    const resWoff2304 = await app.handle(
+      new Request("http://localhost/api/themes/fonts/inter-400.woff2", {
+        method: "GET",
+        headers: { "If-None-Match": fontEtag! }
+      })
+    );
+    expect(resWoff2304.status).toBe(304);
+    expect(resWoff2304.headers.get("ETag")).toBe(fontEtag);
+
+    const resInvalid = await app.handle(
+      new Request("http://localhost/api/themes/fonts/evil.css", {
+        method: "GET"
+      })
+    );
+    expect(resInvalid.status).toBe(400);
+  });
+
   test("Signup with email can create wishlists without verification", async () => {
     const timestamp2 = Date.now() + 1;
     const email = `user_${timestamp2}@example.com`;

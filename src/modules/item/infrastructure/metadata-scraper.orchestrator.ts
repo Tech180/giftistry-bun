@@ -1,9 +1,14 @@
 import type { MetadataScraper, ScrapeResult } from '../domain/ports/metadata-scraper.port';
 import type { ScrapeMode, ScrapeSource } from '../domain/extracted-metadata';
 import { extractMetadata } from './scraping/extractors/extraction-pipeline';
-import { fetchPageHtml, ScrapeFetchError } from './scraping/fetch-scraper';
-import { playwrightFetchPage } from './scraping/playwright-scraper';
+import { fetchPageHtml, ScrapeFetchError, type FetchPageResult } from './scraping/fetch-scraper';
+import { playwrightFetchPage, type PlaywrightFetchResult } from './scraping/playwright-scraper';
 import { validateScrapeResult } from './scraping/validators';
+import { resolveScrapeFinalUrl } from './scraping/resolve-scrape-final-url.util';
+import {
+  extractOgSiteName,
+  resolveWebsiteName,
+} from './scraping/extractors/resolve-website-name.util';
 
 export class ScrapeError extends Error {
   readonly diagnostics?: {
@@ -21,8 +26,8 @@ export class ScrapeError extends Error {
   }
 }
 
-type FetchHtmlFn = (url: string) => Promise<string>;
-type PlaywrightFetchFn = (url: string) => Promise<{ html: string; capturedJson: unknown[] }>;
+type FetchHtmlFn = (url: string) => Promise<FetchPageResult>;
+type PlaywrightFetchFn = (url: string) => Promise<PlaywrightFetchResult>;
 
 function logScrape(
   url: string,
@@ -50,8 +55,12 @@ export class MetadataScraperOrchestrator implements MetadataScraper {
     let lastBlocked = false;
 
     try {
-      const html = await this.fetchHtml(url);
-      const extraction = extractMetadata({ html, url, mode });
+      const { html, finalUrl: rawFinal } = await this.fetchHtml(url);
+      const finalUrl = resolveScrapeFinalUrl(rawFinal, url);
+      if (!finalUrl) {
+        throw new ScrapeFetchError('Unsafe final URL after redirect');
+      }
+      const extraction = extractMetadata({ html, url: finalUrl, mode });
       const validation = validateScrapeResult(extraction.metadata, html, mode, {
         titleFromSlug: extraction.titleFromSlug,
       });
@@ -60,13 +69,17 @@ export class MetadataScraperOrchestrator implements MetadataScraper {
         logScrape(url, 'fetch', 'succeeded', {
           confidence: extraction.confidence,
           fields: validation.fieldsFound?.join(','),
+          finalUrl,
         });
-        return this.buildResult(extraction, 'fetch', validation);
+        return this.buildResult(extraction, 'fetch', validation, finalUrl, html);
       }
 
       lastReason = validation.reason;
       lastBlocked = validation.blocked ?? false;
-      logScrape(url, 'fetch', `invalid reason=${validation.reason}`, { blocked: lastBlocked });
+      logScrape(url, 'fetch', `invalid reason=${validation.reason}`, {
+        blocked: lastBlocked,
+        finalUrl,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (err instanceof ScrapeFetchError && (message.includes('403') || message.includes('429'))) {
@@ -76,8 +89,15 @@ export class MetadataScraperOrchestrator implements MetadataScraper {
       logScrape(url, 'fetch', `failed error=${message}`, { blocked: lastBlocked });
     }
 
-    const { html, capturedJson } = await this.browserFetch(url);
-    const extraction = extractMetadata({ html, url, mode, capturedJson });
+    const { html, capturedJson, finalUrl: rawFinal } = await this.browserFetch(url);
+    const finalUrl = resolveScrapeFinalUrl(rawFinal, url);
+    if (!finalUrl) {
+      throw new ScrapeError(`Both strategies failed: unsafe final URL after redirect`, {
+        blocked: lastBlocked,
+        validationReason: lastReason,
+      });
+    }
+    const extraction = extractMetadata({ html, url: finalUrl, mode, capturedJson });
     const validation = validateScrapeResult(extraction.metadata, html, mode, {
       titleFromSlug: extraction.titleFromSlug,
     });
@@ -93,16 +113,22 @@ export class MetadataScraperOrchestrator implements MetadataScraper {
       confidence: extraction.confidence,
       fields: validation.fieldsFound?.join(','),
       capturedJson: capturedJson.length,
+      finalUrl,
     });
 
-    return this.buildResult(extraction, 'playwright', validation);
+    return this.buildResult(extraction, 'playwright', validation, finalUrl, html);
   }
 
   private buildResult(
     extraction: ReturnType<typeof extractMetadata>,
     source: ScrapeSource,
-    validation: ReturnType<typeof validateScrapeResult>
+    validation: ReturnType<typeof validateScrapeResult>,
+    finalUrl: string,
+    html: string
   ): ScrapeResult {
+    const websiteName = resolveWebsiteName(finalUrl, {
+      ogSiteName: extractOgSiteName(html),
+    });
     return {
       data: extraction.metadata,
       diagnostics: {
@@ -111,6 +137,8 @@ export class MetadataScraperOrchestrator implements MetadataScraper {
         fieldsFound: validation.fieldsFound ?? extraction.fieldsFound,
         blocked: validation.blocked,
       },
+      finalUrl,
+      websiteName: websiteName || undefined,
     };
   }
 }

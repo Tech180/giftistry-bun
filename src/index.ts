@@ -66,6 +66,23 @@ function createCachedCssResponse(content: string, request: Request): Response {
   });
 }
 
+const FONT_FILENAME_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*-\d+\.woff2$/;
+
+function createCachedFontResponse(bytes: Uint8Array, request: Request): Response {
+  const etag = `W/"${Bun.hash(bytes).toString(36)}"`;
+  if (request.headers.get('If-None-Match') === etag) {
+    return new Response(null, { status: 304, headers: { ETag: etag } });
+  }
+  const isProd = process.env.NODE_ENV === 'production';
+  return new Response(bytes, {
+    headers: {
+      'Content-Type': 'font/woff2',
+      'Cache-Control': isProd ? 'public, max-age=31536000, immutable' : 'public, max-age=60',
+      'ETag': etag,
+    },
+  });
+}
+
 const container = createAppContainer();
 const {
   authModule,
@@ -335,6 +352,45 @@ export const app = new Elysia()
     } catch (err: any) {
       set.status = 500;
       return { status: 'error', message: `Failed to load core variables: ${err.message}` };
+    }
+  })
+  .get('/api/themes/core/fonts.css', async ({ set, request }) => {
+    try {
+      const filePath = path.join(import.meta.dir, '../../theming-engine/dist/css/fonts.css');
+      const file = Bun.file(filePath);
+      if (await file.exists()) {
+        const content = await file.text();
+        return createCachedCssResponse(content, request);
+      } else {
+        console.warn(`[WARNING] fonts.css file not found at: ${filePath}`);
+        set.status = 404;
+        return { status: 'error', message: 'Fonts stylesheet not found.' };
+      }
+    } catch (err: any) {
+      set.status = 500;
+      return { status: 'error', message: `Failed to load fonts stylesheet: ${err.message}` };
+    }
+  })
+  .get('/api/themes/fonts/:filename', async ({ params, set, request }) => {
+    const { filename } = params;
+    if (!FONT_FILENAME_RE.test(filename)) {
+      set.status = 400;
+      return { status: 'error', message: 'Invalid font filename.' };
+    }
+
+    try {
+      const filePath = path.join(import.meta.dir, '../../theming-engine/dist/fonts', filename);
+      const file = Bun.file(filePath);
+      if (await file.exists()) {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        return createCachedFontResponse(bytes, request);
+      } else {
+        set.status = 404;
+        return { status: 'error', message: 'Font file not found.' };
+      }
+    } catch (err: any) {
+      set.status = 500;
+      return { status: 'error', message: `Failed to load font file: ${err.message}` };
     }
   })
   .get('/api/themes/:theme/:appearance/css', async ({ params, set, request }) => {

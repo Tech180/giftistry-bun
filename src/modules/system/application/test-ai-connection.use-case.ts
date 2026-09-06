@@ -6,12 +6,19 @@ import {
   normalizeLocalAiEndpoint,
 } from '../domain/normalize-local-ai-endpoint';
 import { fetchLocalModelIds } from './list-system-models.use-case';
+import {
+  fetchWithAiTimeouts,
+  isConnectError,
+  resolveAiConnectTimeoutMs,
+} from '@/common/utils/ai-fetch.util';
 
 export interface TestAiConnectionInput {
   AiProvider: AiProvider | string;
   AiEndpoint?: string | null;
   AiApiKey?: string | null;
   AiModel?: string | null;
+  /** reachability: list models only. full: also verify model responds. */
+  Mode?: 'reachability' | 'full';
 }
 
 export interface TestAiConnectionResult {
@@ -23,7 +30,7 @@ export interface TestAiConnectionResult {
 }
 
 const OLLAMA_SHOW_TIMEOUT_MS = 10_000;
-const COMPLETION_TIMEOUT_MS = 120_000;
+const COMPLETION_TIMEOUT_MS = 30_000;
 
 function modelMatchesList(modelName: string, listedId: string): boolean {
   return (
@@ -39,15 +46,21 @@ async function verifyOllamaModelMetadata(
   headers: Record<string, string>
 ): Promise<boolean> {
   const rootUrl = getLocalAiRootUrl(baseEndpoint);
-  const response = await fetch(`${rootUrl}/api/show`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...headers,
+  const response = await fetchWithAiTimeouts(
+    `${rootUrl}/api/show`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...headers,
+      },
+      body: JSON.stringify({ name: targetModel }),
     },
-    body: JSON.stringify({ name: targetModel }),
-    signal: AbortSignal.timeout(OLLAMA_SHOW_TIMEOUT_MS),
-  });
+    {
+      connectTimeoutMs: resolveAiConnectTimeoutMs(),
+      completionTimeoutMs: OLLAMA_SHOW_TIMEOUT_MS,
+    }
+  );
 
   return response.ok;
 }
@@ -57,19 +70,25 @@ async function verifyOpenAiCompatibleCompletion(
   targetModel: string,
   headers: Record<string, string>
 ): Promise<void> {
-  const chatResponse = await fetch(buildLocalAiUrl(baseEndpoint, 'chat/completions'), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...headers,
+  const chatResponse = await fetchWithAiTimeouts(
+    buildLocalAiUrl(baseEndpoint, 'chat/completions'),
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...headers,
+      },
+      body: JSON.stringify({
+        model: targetModel,
+        messages: [{ role: 'user', content: 'Reply with OK.' }],
+        max_tokens: 16,
+      }),
     },
-    body: JSON.stringify({
-      model: targetModel,
-      messages: [{ role: 'user', content: 'Reply with OK.' }],
-      max_tokens: 16,
-    }),
-    signal: AbortSignal.timeout(COMPLETION_TIMEOUT_MS),
-  });
+    {
+      connectTimeoutMs: resolveAiConnectTimeoutMs(),
+      completionTimeoutMs: COMPLETION_TIMEOUT_MS,
+    }
+  );
 
   if (!chatResponse.ok) {
     const errorText = await chatResponse.text();
@@ -118,11 +137,36 @@ export class TestAiConnectionUseCase {
       throw new AppError('Local AI server returned no models', 400, 'BAD_REQUEST');
     }
 
+    const mode = input.Mode === 'reachability' ? 'reachability' : 'full';
+
+    if (mode === 'reachability') {
+      const message = modelName
+        ? `Connected — model "${modelName}" is available on the server`
+        : `Connected — default model "${targetModel}" is available on the server`;
+
+      return {
+        Reachable: true,
+        ModelAvailable: modelAvailable,
+        Working: true,
+        Message: message,
+        Models: models,
+      };
+    }
+
     let verifiedViaOllamaMetadata = false;
 
     try {
       verifiedViaOllamaMetadata = await verifyOllamaModelMetadata(baseEndpoint, targetModel, headers);
-    } catch {
+    } catch (err) {
+      if (isConnectError(err)) {
+        throw err instanceof AppError
+          ? err
+          : new AppError(
+              err instanceof Error ? err.message : 'Cannot reach local AI server',
+              400,
+              'BAD_REQUEST'
+            );
+      }
       verifiedViaOllamaMetadata = false;
     }
 
@@ -132,6 +176,13 @@ export class TestAiConnectionUseCase {
       } catch (err) {
         if (err instanceof AppError) {
           throw err;
+        }
+        if (isConnectError(err)) {
+          throw new AppError(
+            err instanceof Error ? err.message : 'Cannot reach local AI server',
+            400,
+            'BAD_REQUEST'
+          );
         }
         const message = err instanceof Error ? err.message : 'Unknown completion error';
         throw new AppError(

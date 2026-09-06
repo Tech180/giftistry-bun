@@ -2,6 +2,7 @@ import type { Claim } from '../domain/item.entity';
 import type { ClaimItemUseCase } from './claim-item.use-case';
 import type { ItemRepository } from '../domain/ports/item.repository';
 import type { CreateClaimInput } from '../domain/ports/item.repository';
+import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
 import type { AssertItemVisibleUseCase } from './assert-item-visible.use-case';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { resolveItemMetadata } from '../domain/resolve-item-metadata.util';
@@ -20,7 +21,8 @@ export class ClaimItemWithLinkedUseCase {
   constructor(
     private itemRepo: ItemRepository,
     private claimItem: ClaimItemUseCase,
-    private assertItemVisible: AssertItemVisibleUseCase
+    private assertItemVisible: AssertItemVisibleUseCase,
+    private wishlistRepo?: WishlistRepository
   ) {}
 
   async execute(
@@ -34,6 +36,8 @@ export class ClaimItemWithLinkedUseCase {
     if (!primary) {
       throw new AppError('Item not found', 404, 'NOT_FOUND');
     }
+
+    const priorClaims = await this.itemRepo.findClaimsByItemId(itemId);
 
     const prepared: CreateClaimInput[] = [
       await this.claimItem.prepare(
@@ -82,6 +86,23 @@ export class ClaimItemWithLinkedUseCase {
       itemId,
       actorUserId: userId,
     });
+
+    const primaryClaim = claims.find((c) => c.ItemId === itemId) ?? claims[0];
+    if (primaryClaim && primaryClaim.Amount != null && Number(primaryClaim.Amount) > 0) {
+      const wishlist = this.wishlistRepo
+        ? await this.wishlistRepo.findById(primary.ListId)
+        : null;
+      await this.claimItem.afterGroupFundContribution({
+        claim: primaryClaim,
+        priorClaims,
+        itemId,
+        listId: primary.ListId,
+        itemName: primary.Name,
+        listTitle: wishlist?.Title ?? 'a wishlist',
+        ownerUserId: wishlist?.UserId ?? null,
+      });
+    }
+
     return claims;
   }
 }

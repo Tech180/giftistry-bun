@@ -1,5 +1,14 @@
 import { describe, expect, mock, test } from 'bun:test';
-import { ExtractMetadataUseCase } from '../src/modules/item/application/extract-metadata.use-case';
+
+mock.module('../src/common/utils/probe-ai-reachability.util', () => ({
+  probeAiReachability: async () => true,
+  LOCAL_MODELS_TIMEOUT_MS: 10_000,
+  OPENROUTER_PROBE_TIMEOUT_MS: 15_000,
+}));
+
+const { ExtractMetadataUseCase } = await import(
+  '../src/modules/item/application/extract-metadata.use-case'
+);
 
 describe('ExtractMetadataUseCase progress', () => {
   test('emits scraping then categorizing with tok/s when AI classify runs', async () => {

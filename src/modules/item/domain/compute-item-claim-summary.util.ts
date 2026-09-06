@@ -1,3 +1,4 @@
+import { isMoneyAmountAtLeast } from '@/common/domain/compare-money-amount.util';
 import type { Claim, ItemLink } from './item.entity';
 import type { ItemDescriptionMetadata } from './item-description.util';
 import { parseItemDescription } from './item-description.util';
@@ -57,11 +58,12 @@ export function computeItemClaimSummary(input: {
   let isFullyClaimed = false;
   if (isMultiCount && desiredQuantity != null) {
     isFullyClaimed = totalClaimedQuantity >= desiredQuantity;
+  } else if (claims.some((claim) => claim.Amount === null)) {
+    isFullyClaimed = true;
   } else if (input.allowGroupFunds && fundingTarget > 0) {
-    isFullyClaimed = totalClaimedAmount >= fundingTarget;
+    isFullyClaimed = isMoneyAmountAtLeast(totalClaimedAmount, fundingTarget);
   } else {
-    isFullyClaimed =
-      claims.some((claim) => claim.Amount === null) || claims.length > 0;
+    isFullyClaimed = claims.length > 0;
   }
 
   const remainingQuantity =

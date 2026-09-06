@@ -1,10 +1,8 @@
 import type { ItemRepository } from '../domain/ports/item.repository';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
 import type { ItemSubstitutionOption } from '../domain/item-substitution.entity';
-import {
-  MAX_OWNER_APPROVED_SUBSTITUTIONS,
-  toSubstitutionSummary,
-} from '../domain/item-substitution.entity';
+import { MAX_OWNER_APPROVED_SUBSTITUTIONS } from '../domain/item-substitution.entity';
+import { buildSubstitutionSummaryWithClaimSummary } from '../domain/build-substitution-summary-with-claim-summary.util';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { isItemSuggestion } from '../domain/item-visibility.service';
 import { assertWishlistMutable } from '@/modules/wishlist/domain/assert-wishlist-mutable.util';
@@ -119,7 +117,9 @@ export class CreateOwnerSubstitutionUseCase {
       Kind: row.Kind,
       SortOrder: row.SortOrder,
       CreatedByUserId: row.CreatedByUserId,
-      Item: toSubstitutionSummary(child, links, claims),
+      Item: buildSubstitutionSummaryWithClaimSummary(child, links, claims, {
+        allowGroupFunds: !!wishlist.AllowGroupFunds,
+      }),
     };
   }
 }

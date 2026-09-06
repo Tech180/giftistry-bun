@@ -3,20 +3,7 @@ import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlis
 import type { ItemClaimMutationProjection } from '../domain/item-claim-mutation-projection';
 import { computeItemClaimSummary } from '../domain/compute-item-claim-summary.util';
 import { resolveItemMetadata } from '../domain/resolve-item-metadata.util';
-import type { Claim } from '../domain/item.entity';
-
-function redactClaimsForViewer(claims: Claim[], currentUserId: string | null): Claim[] {
-  return claims.map((c) => {
-    if (c.Anonymous && c.UserId !== currentUserId) {
-      return {
-        ...c,
-        UserId: null,
-        ClaimedByName: 'Anonymous',
-      };
-    }
-    return c;
-  });
-}
+import { redactClaimsForViewer } from '../domain/redact-claims-for-viewer.util';
 
 export class BuildItemClaimProjectionsUseCase {
   constructor(

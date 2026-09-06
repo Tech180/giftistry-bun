@@ -164,6 +164,12 @@ describe('RunWishlistImportJobUseCase resume', () => {
           if (error !== undefined) item.Error = error;
         }
       },
+      updateItemPayload: async (id, patch) => {
+        const item = items.find((row) => row.Id === id);
+        if (item) {
+          item.Payload = { ...item.Payload, ...patch };
+        }
+      },
     };
   }
 
@@ -203,8 +209,8 @@ describe('RunWishlistImportJobUseCase resume', () => {
         },
       },
       listItems: {
-        execute: async () =>
-          wishlistLinks.map((row) => ({
+        execute: async () => ({
+          Items: wishlistLinks.map((row) => ({
             Id: row.itemId,
             Name: row.name,
             Description: null,
@@ -212,6 +218,7 @@ describe('RunWishlistImportJobUseCase resume', () => {
             Priority: null,
             Links: [{ Url: row.url, ExtractedPrice: null, RetailerName: null }],
           })),
+        }),
       },
       extractMetadata: {
         execute: async () => {
@@ -240,6 +247,9 @@ describe('RunWishlistImportJobUseCase resume', () => {
           updateDescriptions.push(description ?? '');
           return {};
         },
+      },
+      promoteScrapedImageToPhotos: {
+        execute: async () => false,
       },
     } as never;
   }

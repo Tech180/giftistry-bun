@@ -302,6 +302,28 @@ export class PostgresItemRepository implements ItemRepository {
     }));
   }
 
+  async findItemIdByLinkId(linkId: string): Promise<string | null> {
+    const [row] = await sql`
+      SELECT item_id as "ItemId"
+      FROM item_links
+      WHERE id = ${linkId}
+      LIMIT 1
+    `;
+    return row?.ItemId ? String(row.ItemId) : null;
+  }
+
+  async replacePhotos(itemId: string, photos: ItemPhoto[]): Promise<void> {
+    const result = await sql`
+      UPDATE items
+      SET photos = ${sql.json(photos as never)}
+      WHERE id = ${itemId}
+      RETURNING id as "Id"
+    `;
+    if (!result.length) {
+      throw new Error('Item not found or failed to update photos');
+    }
+  }
+
   async createClaim(
     itemId: string,
     userId: string | null,
@@ -323,7 +345,7 @@ export class PostgresItemRepository implements ItemRepository {
       Id: row.Id,
       ItemId: row.ItemId,
       UserId: row.UserId,
-      Amount: row.Amount ? Number(row.Amount) : null,
+      Amount: row.Amount != null ? Number(row.Amount) : null,
       ClaimedByName: row.ClaimedByName,
       Anonymous: row.Anonymous,
       ClaimedAt: new Date(row.ClaimedAt),
@@ -372,7 +394,7 @@ export class PostgresItemRepository implements ItemRepository {
           Id: row.Id,
           ItemId: row.ItemId,
           UserId: row.UserId,
-          Amount: row.Amount ? Number(row.Amount) : null,
+          Amount: row.Amount != null ? Number(row.Amount) : null,
           ClaimedByName: row.ClaimedByName,
           Anonymous: row.Anonymous,
           ClaimedAt: new Date(row.ClaimedAt),
@@ -396,7 +418,7 @@ export class PostgresItemRepository implements ItemRepository {
       Id: row.Id,
       ItemId: row.ItemId,
       UserId: row.UserId,
-      Amount: row.Amount ? Number(row.Amount) : null,
+      Amount: row.Amount != null ? Number(row.Amount) : null,
       ClaimedByName: row.ClaimedByName,
       Anonymous: row.Anonymous,
       ClaimedAt: new Date(row.ClaimedAt),
@@ -418,7 +440,7 @@ export class PostgresItemRepository implements ItemRepository {
       Id: row.Id,
       ItemId: row.ItemId,
       UserId: row.UserId,
-      Amount: row.Amount ? Number(row.Amount) : null,
+      Amount: row.Amount != null ? Number(row.Amount) : null,
       ClaimedByName: row.ClaimedByName,
       Anonymous: row.Anonymous,
       ClaimedAt: new Date(row.ClaimedAt),

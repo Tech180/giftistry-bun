@@ -60,7 +60,9 @@ export class UpdateItemUseCase {
     price?: number | null,
     websiteName?: string | null,
     metadata?: ItemDescriptionMetadata | null,
-    isHiddenIdea?: boolean
+    isHiddenIdea?: boolean,
+    /** When set, write this onto the item link as ExtractedImageUrl (enrich scrape). */
+    extractedImageUrl?: string | null
   ): Promise<Item> {
     if (!itemId) {
       throw new AppError('Item ID is required', 400, 'BAD_REQUEST');
@@ -189,7 +191,7 @@ export class UpdateItemUseCase {
     }
 
     if (linkUrl !== undefined) {
-      await this.syncItemLink(item, linkUrl, price, websiteName ?? null);
+      await this.syncItemLink(item, linkUrl, price, websiteName ?? null, extractedImageUrl);
     }
 
     publishListChanged(item.ListId, {
@@ -208,7 +210,8 @@ export class UpdateItemUseCase {
     item: Item,
     linkUrl: string | null,
     price: number | null | undefined,
-    websiteName: string | null
+    websiteName: string | null,
+    extractedImageUrl?: string | null
   ): Promise<void> {
     const existingLinks = await this.itemRepo.findLinksByItemId(item.Id);
     const normalizedUrl = linkUrl?.trim() || null;
@@ -232,16 +235,25 @@ export class UpdateItemUseCase {
       }
     }
 
+    const resolvedImageUrl =
+      extractedImageUrl !== undefined
+        ? extractedImageUrl?.trim() || null
+        : undefined;
+
     const existingLink = existingLinks[0];
     if (existingLink) {
       const urlChanged = existingLink.Url !== normalizedUrl;
       const resolvedPrice = price !== undefined ? price : existingLink.ExtractedPrice;
+      const imageUrl =
+        resolvedImageUrl !== undefined
+          ? resolvedImageUrl
+          : existingLink.ExtractedImageUrl;
       await this.itemRepo.updateLink(
         existingLink.Id,
         normalizedUrl,
         retailerName,
         resolvedPrice,
-        existingLink.ExtractedImageUrl
+        imageUrl
       );
 
       if (urlChanged) {
@@ -260,7 +272,7 @@ export class UpdateItemUseCase {
       normalizedUrl,
       retailerName,
       price ?? null,
-      null
+      resolvedImageUrl ?? null
     );
 
     this.enrichLinkMetadata.execute(link.Id, normalizedUrl, price ?? null).catch((err) => {

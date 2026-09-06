@@ -4,6 +4,8 @@ export interface ScrapeResult {
   data: ExtractedMetadata;
   diagnostics: ScrapeDiagnostics;
   websiteName?: string;
+  /** Canonical URL after redirects; equals input when unchanged. */
+  finalUrl?: string;
 }
 
 export interface MetadataScraper {
