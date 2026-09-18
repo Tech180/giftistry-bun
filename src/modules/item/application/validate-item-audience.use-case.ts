@@ -12,7 +12,7 @@ export class ValidateItemAudienceUseCase {
     listId: string,
     sharedWithUserIds: string[] | undefined | null,
     currentUserId: string,
-    isOwner: boolean,
+    canManageItems: boolean,
     itemId?: string
   ): Promise<string[]> {
     if (!sharedWithUserIds || sharedWithUserIds.length === 0) {
@@ -43,14 +43,14 @@ export class ValidateItemAudienceUseCase {
       }
     }
 
-    if (itemId && !isOwner) {
+    if (itemId && !canManageItems) {
       const item = await this.itemRepo.findById(itemId);
       if (!item) {
         throw new AppError('Item not found', 404, 'NOT_FOUND');
       }
       if (item.SuggestedByUserId !== currentUserId) {
         throw new AppError(
-          'Forbidden: Only the item suggester or owner can change audience',
+          'Forbidden: Only the item suggester or list editor can change audience',
           403,
           'FORBIDDEN'
         );

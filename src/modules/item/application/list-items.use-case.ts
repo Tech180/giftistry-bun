@@ -1,6 +1,7 @@
 import type { ItemRepository } from '../domain/ports/item.repository';
 import type { ItemAudienceRepository } from '../domain/ports/item-audience.repository';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
+import type { ListShareRepository } from '@/modules/wishlist/domain/ports/list-share.repository';
 import type { ItemAudienceUser } from '../domain/item-audience.entity';
 import type { Item, ItemLink, Claim } from '../domain/item.entity';
 import type { ItemDescriptionMetadata } from '../domain/item-description.util';
@@ -8,6 +9,7 @@ import type { ItemSubstitutionOption } from '../domain/item-substitution.entity'
 import { buildSubstitutionSummaryWithClaimSummary } from '../domain/build-substitution-summary-with-claim-summary.util';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { canUserViewItem, isItemSuggestion } from '../domain/item-visibility.service';
+import { ListRole } from '@/common/domain/list-role.vo';
 import { resolveItemMetadata } from '../domain/resolve-item-metadata.util';
 import { sortWishlistItemsByExportOrder } from '../domain/sort-wishlist-items.util';
 import {
@@ -85,7 +87,8 @@ export class ListItemsUseCase {
   constructor(
     private itemRepo: ItemRepository,
     private wishlistRepo: WishlistRepository,
-    private audienceRepo: ItemAudienceRepository
+    private audienceRepo: ItemAudienceRepository,
+    private listShareRepo?: ListShareRepository
   ) {}
 
   async execute(listId: string, currentUserId: string | null): Promise<ListItemsResult> {
@@ -100,7 +103,13 @@ export class ListItemsUseCase {
     const isGuest = !currentUserId;
     const isOwner = currentUserId === wishlist.UserId;
     const hasExpired = wishlist.ExpiresAt ? new Date() > wishlist.ExpiresAt : false;
-    const shouldHideClaims = isGuest || (isOwner && !hasExpired);
+
+    let isListEditor = isOwner;
+    if (!isGuest && !isOwner && this.listShareRepo && currentUserId) {
+      const role = await this.listShareRepo.getRole(listId, currentUserId);
+      isListEditor = !!role && ListRole.create(role).isAtLeast('collaborator');
+    }
+    const shouldHideClaims = isGuest || (isListEditor && !hasExpired);
 
     const parentIds = items.map((i) => i.Id);
     const substitutionsByParent = await this.itemRepo.findSubstitutionsByParentIds(parentIds);

@@ -253,8 +253,15 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
 
   .group('/api/auth', (group) => group
     .use(rateLimit({ windowMs: 60000, max: 5 }))
-    .post('/signup', async ({ set, body: { Giftistry: { Auth: { Username, Email, Password, FirstName, LastName } } } }) => {
-      const user = await useCases.signup.execute(Username, Email ?? null, Password, FirstName ?? undefined, LastName ?? undefined);
+    .post('/signup', async ({ set, body: { Giftistry: { Auth: { Username, Email, Password, FirstName, LastName, InviteToken } } } }) => {
+      const user = await useCases.signup.execute(
+        Username,
+        Email ?? null,
+        Password,
+        FirstName ?? undefined,
+        LastName ?? undefined,
+        InviteToken ?? null
+      );
       const token = await createToken({ userId: user.Id, sessionVersion: user.SessionVersion ?? 0 });
       setJwtCookie(set, token);
       return { success: true, User: user, Token: token };
@@ -272,6 +279,7 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
             FirstName: t.Optional(t.Nullable(t.String({ minLength: 1, maxLength: 100 }))),
             LastName: t.Optional(t.Nullable(t.String({ minLength: 1, maxLength: 100 }))),
             Password: t.String({ minLength: 6 }),
+            InviteToken: t.Optional(t.Nullable(t.String())),
           }),
         }),
       }),
@@ -357,8 +365,10 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
         }),
       }),
     })
-    .get('/oauth/authorize', async ({ set }) => {
-      const result = await useCases.beginOidcLogin.execute();
+    .get('/oauth/authorize', async ({ set, query }) => {
+      const invite =
+        typeof query.invite === 'string' && query.invite.trim() ? query.invite.trim() : null;
+      const result = await useCases.beginOidcLogin.execute(invite);
       set.status = 302;
       set.headers['Location'] = result.AuthorizationUrl;
       return '';

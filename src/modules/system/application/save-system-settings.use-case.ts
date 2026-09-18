@@ -5,10 +5,12 @@ import type { ServerConfigRepository } from '../domain/ports/server-config.repos
 import {
   clampAiCompletionTimeoutMs,
   clampAiConnectTimeoutMs,
+  clampAiImportChunkItemLimit,
   clampGrabInfoActiveStreamLimit,
   clampGrabInfoConcurrency,
   clampScrapeFetchTimeoutMs,
   clampScrapePlaywrightTimeoutMs,
+  normalizeAiImportChunkingEnabled,
   normalizeAiProvider,
   normalizeGrabInfoConcurrencyUnlimited,
   resolveMaskedSecret,
@@ -191,6 +193,12 @@ export class SaveSystemSettingsUseCase {
       AiPopulatePrompt: settings.AiPopulatePrompt,
       AiCategoryPrompt: settings.AiCategoryPrompt,
       AiImportPrompt: settings.AiImportPrompt,
+      AiImportChunkingEnabled: normalizeAiImportChunkingEnabled(
+        settings.AiImportChunkingEnabled ?? config.AiImportChunkingEnabled
+      ),
+      AiImportChunkItemLimit: clampAiImportChunkItemLimit(
+        settings.AiImportChunkItemLimit ?? config.AiImportChunkItemLimit
+      ),
       AiEnabledPackIds:
         settings.AiEnabledPackIds !== undefined
           ? sanitizeEnabledPackIds(settings.AiEnabledPackIds, catalog)

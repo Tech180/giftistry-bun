@@ -394,7 +394,7 @@ describe('RunItemEnrichJobUseCase', () => {
     expect(url).toBe('https://example.com/x');
     expect(price).toBe(19.99);
     expect(websiteName).toBe('Example Shop');
-    expect(extractedImageUrl).toBe('https://example.com/img.png');
+    expect(extractedImageUrl).toBeNull();
     expect(metadata).toMatchObject({
       Text: 'A cool gadget',
       CustomFields: {

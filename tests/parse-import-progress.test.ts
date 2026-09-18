@@ -75,14 +75,17 @@ describe('ParseImportPreviewUseCase progress', () => {
         onProgress?: (progress: { tokensPerSecond: number | null }) => Promise<void>
       ) => {
         await onProgress?.({ tokensPerSecond: 42 });
-        return [
-          {
-            name: 'Lamp',
-            category: 'Home',
-            priority: 1,
-            isFavorite: false,
-          },
-        ];
+        return {
+          items: [
+            {
+              name: 'Lamp',
+              category: 'Home',
+              priority: 1,
+              isFavorite: false,
+            },
+          ],
+          warnings: [],
+        };
       }
     );
     const progress: Array<{
@@ -141,5 +144,63 @@ describe('ParseImportPreviewUseCase progress', () => {
     expect(progress.some((entry) => entry.ProgressRate?.Value === 42)).toBe(true);
     expect(progress.some((entry) => entry.ProgressRate?.Unit === 'tok/s')).toBe(true);
     expect(progress.at(-1)?.ProgressRate).toBeNull();
+  });
+
+  test('merges parser chunk warnings with under-count warning', async () => {
+    const parse = mock(async () => ({
+      items: [
+        {
+          name: 'Lamp',
+          category: 'Home',
+          priority: 1,
+          isFavorite: false,
+        },
+      ],
+      warnings: ['1 of 3 AI import chunks failed; results may be incomplete.'],
+    }));
+
+    const useCase = new ParseImportPreviewUseCase(
+      {
+        extract: async () => {
+          const lines = ['# Sheet: Main', 'Name\tLink'];
+          for (let i = 0; i < 40; i++) {
+            lines.push(`Gift ${i}\thttps://shop.example/p/${i}`);
+          }
+          return {
+            text: lines.join('\n'),
+            format: 'txt',
+            warnings: [],
+          };
+        },
+      } as never,
+      { parse } as never,
+      { findById: async () => null } as never,
+      { findByListId: async () => [] } as never,
+      { findById: async () => ({ Id: 'u1', AiEnabled: true }) } as never,
+      { execute: async () => undefined } as never,
+      {
+        load: () => ({
+          AiEnabled: true,
+          AiImportPrompt: '',
+          AiFastProvider: 'local',
+          AiFastEndpoint: 'http://127.0.0.1:11434/v1',
+          AiFastModel: 'llama3',
+          AiFastApiKey: '',
+        }),
+      } as never
+    );
+
+    const result = await useCase.execute('user-1', {
+      fileName: 'big.txt',
+      format: 'txt',
+      content: 'placeholder',
+      contentEncoding: 'text',
+      allowAi: true,
+    });
+
+    expect(result.warnings).toContain(
+      '1 of 3 AI import chunks failed; results may be incomplete.'
+    );
+    expect(result.warnings.some((w) => w.includes('only 1 item'))).toBe(true);
   });
 });

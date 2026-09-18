@@ -82,18 +82,18 @@ export const itemRoutes = (
   .post('/wishlists/:listId/items', async ({ getAuthUser, checkListAccess, params: { listId }, body: { Giftistry: { Items: { Name, Description, PriorityId, IsHiddenIdea, LinkUrl, Price, WebsiteName, Category, Priority, SharedWithUserIds, Metadata } } } }) => {
     const { role } = await checkListAccess('viewer');
     const user = await getAuthUser();
-    const isSuggestion = role !== 'owner';
-    const isOwner = role === 'owner';
+    const isSuggestion = role === 'viewer';
+    const canManageItems = role === 'owner' || role === 'collaborator';
     const isHiddenIdea = isSuggestion ? IsHiddenIdea !== false : false;
-    if (role === 'owner' && (IsHiddenIdea ?? false)) {
-      throw new AppError('Forbidden: Owner cannot add hidden ideas to their own list', 403, 'FORBIDDEN');
+    if (canManageItems && (IsHiddenIdea ?? false)) {
+      throw new AppError('Forbidden: List editors cannot add hidden ideas to this list', 403, 'FORBIDDEN');
     }
 
     const validatedAudience = await useCases.validateItemAudience.execute(
       listId,
       SharedWithUserIds,
       user.userId,
-      isOwner
+      canManageItems
     );
 
     const item = await useCases.addItem.execute(
@@ -245,8 +245,8 @@ export const itemRoutes = (
   })
   .post('/items/:itemId/claims', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: { Amount, ClaimedByName, Anonymous, Quantity, Selection, IncludeLinked } } } }) => {
     const { role } = await checkListAccess('viewer');
-    if (role === 'owner') {
-      throw new AppError('Forbidden: List owner cannot claim items on their own list', 403, 'FORBIDDEN');
+    if (role === 'owner' || role === 'collaborator') {
+      throw new AppError('Forbidden: List editors cannot claim items on this list', 403, 'FORBIDDEN');
     }
     const user = await getAuthUser();
     if (IncludeLinked) {
@@ -295,8 +295,8 @@ export const itemRoutes = (
   })
   .delete('/items/:itemId/claims', async ({ getAuthUser, checkListAccess, params: { itemId }, body }) => {
     const { role } = await checkListAccess('viewer');
-    if (role === 'owner') {
-      throw new AppError('Forbidden: List owner cannot unclaim items', 403, 'FORBIDDEN');
+    if (role === 'owner' || role === 'collaborator') {
+      throw new AppError('Forbidden: List editors cannot unclaim items', 403, 'FORBIDDEN');
     }
     const user = await getAuthUser();
     const includeLinked = body?.Giftistry?.Items?.IncludeLinked === true;
@@ -334,7 +334,7 @@ export const itemRoutes = (
   .put('/items/:itemId', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: { Name, Description, PriorityId, Category, Priority, SharedWithUserIds, LinkUrl, Price, WebsiteName, Metadata, IsHiddenIdea } } } }) => {
     const access = await checkListAccess('viewer');
     const user = await getAuthUser();
-    const isOwner = access.role === 'owner';
+    const canManageItems = access.role === 'owner' || access.role === 'collaborator';
 
     let validatedAudience: string[] | undefined;
     if (SharedWithUserIds !== undefined) {
@@ -342,7 +342,7 @@ export const itemRoutes = (
         access.listId,
         SharedWithUserIds,
         user.userId,
-        isOwner,
+        canManageItems,
         itemId
       );
     }
@@ -436,7 +436,7 @@ export const itemRoutes = (
     },
   })
   .post('/items/:itemId/substitutions/owner', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: payload } } }) => {
-    await checkListAccess('owner');
+    await checkListAccess('collaborator');
     const user = await getAuthUser();
     const option = await useCases.createOwnerSubstitution.execute(itemId, user.userId, payload);
     return { success: true, data: option };
@@ -462,7 +462,7 @@ export const itemRoutes = (
     body: substitutionProductBodySchema,
   })
   .patch('/items/:itemId/substitutions/reorder', async ({ getAuthUser, checkListAccess, params: { itemId }, body: { Giftistry: { Items: { OrderedIds } } } }) => {
-    await checkListAccess('owner');
+    await checkListAccess('collaborator');
     const user = await getAuthUser();
     await useCases.reorderOwnerSubstitutions.execute(itemId, user.userId, OrderedIds);
     return { success: true };

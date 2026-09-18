@@ -2,6 +2,7 @@ import {
   extractShopifyProductContext,
   formatShopifyProductContextLines,
 } from './shopify-product-context.util';
+import { extractAmazonDomPageContextLines } from './amazon-dom-page-context.util';
 import { sanitizeProductDescription } from '../../../domain/product-description.util';
 import { extractOgSiteName } from './resolve-website-name.util';
 
@@ -312,6 +313,11 @@ export function buildJsonLdPageContext(html: string, url: string): string {
 
   if (shopifyContext) {
     lines.push(...formatShopifyProductContextLines(shopifyContext));
+  }
+
+  const amazonLines = extractAmazonDomPageContextLines(html, url);
+  if (amazonLines.length > 0) {
+    lines.push(...amazonLines);
   }
 
   if (!details) return lines.join('\n');

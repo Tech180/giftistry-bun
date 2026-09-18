@@ -70,4 +70,36 @@ describe('buildItemJobNotificationCopy', () => {
       message: 'Timeout',
     });
   });
+
+  it('uses soft-fail copy when enrich completed but AiPopulate failed', () => {
+    expect(
+      buildItemJobNotificationCopy(
+        job({
+          Result: {
+            ItemId: 'item-1',
+            Title: 'Wireless Headphones',
+            Diagnostics: { AiPopulate: 'failed' },
+          },
+        }),
+        { listTitle: 'Birthday Wishlist' }
+      )
+    ).toEqual({
+      title: 'Birthday Wishlist',
+      message:
+        'Product details were found, but AI summarization has failed for “Wireless Headphones”.',
+    });
+  });
+
+  it('uses generic soft-fail body when label is missing', () => {
+    expect(
+      buildItemJobNotificationCopy(
+        job({
+          Result: { Diagnostics: { AiPopulate: 'failed' } },
+        })
+      )
+    ).toEqual({
+      title: 'Item ready',
+      message: 'Product details were found, but AI summarization has failed.',
+    });
+  });
 });

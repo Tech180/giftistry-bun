@@ -1,12 +1,15 @@
 import type { Item } from './item.entity';
 import type { Wishlist } from '@/modules/wishlist/domain/wishlist.entity';
 import { WishlistEntity } from '@/modules/wishlist/domain/wishlist.entity';
+import { ListRole, type ListRoleLevel } from '@/common/domain/list-role.vo';
 
 export interface ItemVisibilityContext {
   item: Item;
   wishlist: Wishlist;
   currentUserId: string | null;
   audienceUserIds: string[];
+  /** When set, collaborators can mutate any visible item like the owner. */
+  listRole?: ListRoleLevel | null;
 }
 
 export function parseOtherUsersCanSee(description: string | null): boolean {
@@ -25,6 +28,10 @@ export function parseOtherUsersCanSee(description: string | null): boolean {
 }
 
 export function isItemSuggestion(item: Item, wishlistOwnerId: string): boolean {
+  // Explicit false wins (collaborator-created catalog items).
+  if (item.IsSuggestion === false) {
+    return false;
+  }
   return Boolean(
     item.IsSuggestion ||
       (item.SuggestedByUserId !== null && item.SuggestedByUserId !== wishlistOwnerId)
@@ -82,7 +89,7 @@ export function canUserViewItem(ctx: ItemVisibilityContext): boolean {
 }
 
 export function canUserMutateItem(ctx: ItemVisibilityContext): boolean {
-  const { currentUserId, item, wishlist } = ctx;
+  const { currentUserId, item, wishlist, listRole } = ctx;
   if (!currentUserId) {
     return false;
   }
@@ -90,6 +97,9 @@ export function canUserMutateItem(ctx: ItemVisibilityContext): boolean {
     return false;
   }
   if (WishlistEntity.from(wishlist).isOwner(currentUserId)) {
+    return true;
+  }
+  if (listRole && ListRole.create(listRole).isAtLeast('collaborator')) {
     return true;
   }
   return item.SuggestedByUserId === currentUserId;

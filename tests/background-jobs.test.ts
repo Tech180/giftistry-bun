@@ -153,6 +153,62 @@ describe('job public view streams', () => {
       { Id: 'i2', ItemId: 'b', Label: 'Beta', Status: 'pending' },
     ]);
   });
+
+  test('toJobPublicView exposes Intent and WriteBack for draft-populate enrich', () => {
+    const job: BackgroundJob = {
+      ...baseJob,
+      Kind: 'item-enrich',
+      Payload: {
+        intent: 'draft-populate',
+        listId: 'list-1',
+        url: 'https://shop.example/p',
+        writeBack: false,
+      },
+    };
+    const view = toJobPublicView(job) as Record<string, unknown>;
+    expect(view.Intent).toBe('draft-populate');
+    expect(view.WriteBack).toBe(false);
+  });
+
+  test('toJobPublicView exposes Intent and WriteBack for update-item enrich', () => {
+    const job: BackgroundJob = {
+      ...baseJob,
+      Kind: 'item-enrich',
+      Payload: {
+        intent: 'update-item',
+        listId: 'list-1',
+        url: 'https://shop.example/p',
+        itemId: 'item-1',
+        writeBack: true,
+      },
+    };
+    const view = toJobPublicView(job) as Record<string, unknown>;
+    expect(view.Intent).toBe('update-item');
+    expect(view.WriteBack).toBe(true);
+  });
+
+  test('toJobPublicView exposes WriteBack for item-summarize', () => {
+    const withWriteBack: BackgroundJob = {
+      ...baseJob,
+      Kind: 'item-summarize',
+      Payload: {
+        listId: 'list-1',
+        writeBack: true,
+        name: 'Socks',
+      },
+    };
+    const withoutWriteBack: BackgroundJob = {
+      ...baseJob,
+      Kind: 'item-summarize',
+      Payload: {
+        listId: 'list-1',
+        writeBack: false,
+        name: 'Socks',
+      },
+    };
+    expect((toJobPublicView(withWriteBack) as Record<string, unknown>).WriteBack).toBe(true);
+    expect((toJobPublicView(withoutWriteBack) as Record<string, unknown>).WriteBack).toBe(false);
+  });
 });
 
 describe('StartWishlistImportJobUseCase', () => {

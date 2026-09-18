@@ -34,12 +34,12 @@ describe('compilePopulatePrompt', () => {
     expect(prompt).toContain('Category=tech');
   });
 
-  test('appends linked Description and Category prompt sections', () => {
+  test('appends Description field guidance and Category section', () => {
     const prompt = compilePopulatePrompt(
       'Extract fields from {url}',
       { url: 'https://shop.example/item' },
       {
-        descriptionPrompt: 'Custom description rules',
+        descriptionPrompt: 'Custom description rules that should be ignored',
         categoryPrompt: 'Custom category rules',
       }
     );
@@ -47,16 +47,43 @@ describe('compilePopulatePrompt', () => {
     expect(prompt).toContain('=== Populate Prompt ===');
     expect(prompt).toContain('Extract fields from https://shop.example/item');
     expect(prompt).toContain('=== Description ===');
-    expect(prompt).toContain('Custom description rules');
+    expect(prompt).toContain('JSON "Description" value must be 1–2 plain sentences');
+    expect(prompt).not.toContain('Custom description rules that should be ignored');
+    expect(prompt).not.toContain('wishlist assistant');
     expect(prompt).toContain('=== Category ===');
     expect(prompt).toContain('Custom category rules');
+    expect(prompt).toContain('=== Output Contract (critical) ===');
   });
 
-  test('uses default linked prompts when none provided', () => {
+  test('uses populate Description guidance and default category prompt', () => {
     const prompt = compilePopulatePrompt('Extract', { url: 'https://example.com' });
 
-    expect(prompt).toContain('wishlist assistant');
+    expect(prompt).toContain('JSON "Description" value must be 1–2 plain sentences');
+    expect(prompt).not.toContain('wishlist assistant');
     expect(prompt).toContain('product categorization assistant');
+  });
+
+  test('substitutes placeholders inside linked Category section only', () => {
+    const prompt = compilePopulatePrompt(
+      'Extract {itemName}',
+      {
+        url: 'https://shop.example/item',
+        websiteName: 'Example',
+        itemName: 'Fosi Audio C3',
+        category: 'tech',
+        pageContext: 'Brand: Fosi Audio',
+      },
+      {
+        descriptionPrompt: 'Notes for {itemName} at {websiteName} ({category})',
+        categoryPrompt: 'Classify {itemName} from {pageContext}',
+      }
+    );
+
+    expect(prompt).not.toContain('Notes for Fosi Audio C3 at Example (tech)');
+    expect(prompt).toContain('Classify Fosi Audio C3 from Brand: Fosi Audio');
+    expect(prompt).not.toContain('{itemName}');
+    expect(prompt).not.toContain('{websiteName}');
+    expect(prompt).not.toContain('{pageContext}');
   });
 });
 
@@ -306,6 +333,65 @@ describe('mergeExtractedMetadata', () => {
     );
 
     expect(merged.title).toBe('Dyson V11 Torque Drive Cordless Vacuum Cleaner, Blue');
+  });
+
+  test('compacts verbose marketplace scrape title when AI title is empty', () => {
+    const merged = mergeExtractedMetadata(
+      {
+        title:
+          'Fosi Audio C3 Gaming DAC Amp for PC, USB Headphone Amplifier with 7.1 Surround Sound, Desktop Volume Control, Footstep Enhancement, Compatible with PS5, Switch, Laptop, Headset for FPS',
+        price: 129.99,
+        description: 'Amazon.com: Fosi Audio C3 Gaming DAC Amp for PC : Electronics',
+        color: null,
+        size: null,
+        category: null,
+        imageUrl: null,
+      },
+      {
+        title: '',
+        price: 129.99,
+        description: 'USB gaming DAC amp with StepSense footstep enhancement and 7.1 surround.',
+        color: null,
+        size: null,
+        category: null,
+        imageUrl: null,
+        userDefinedFields: { Brand: 'Fosi Audio' },
+      },
+      true
+    );
+
+    expect(merged.title).toBe('Fosi Audio C3 Gaming DAC Amp for PC');
+    expect(merged.description).toContain('StepSense');
+    expect(merged.userDefinedFields?.Brand).toBe('Fosi Audio');
+  });
+
+  test('compacts verbose AI title that echoed marketplace SEO', () => {
+    const longTitle =
+      'Fosi Audio C3 Gaming DAC Amp for PC, USB Headphone Amplifier with 7.1 Surround Sound, Desktop Volume Control, Footstep Enhancement, Compatible with PS5, Switch, Laptop, Headset for FPS';
+    const merged = mergeExtractedMetadata(
+      {
+        title: longTitle,
+        price: 129.99,
+        description: `Amazon.com: ${longTitle} : Electronics`,
+        color: null,
+        size: null,
+        category: null,
+        imageUrl: null,
+      },
+      {
+        title: longTitle,
+        price: 129.99,
+        description: `Amazon.com: ${longTitle} : Electronics`,
+        color: null,
+        size: null,
+        category: null,
+        imageUrl: null,
+      },
+      true
+    );
+
+    expect(merged.title).toBe('Fosi Audio C3 Gaming DAC Amp for PC');
+    expect(merged.description).toBeNull();
   });
 
   test('prefers AI attribute fields over scrape when both are set', () => {

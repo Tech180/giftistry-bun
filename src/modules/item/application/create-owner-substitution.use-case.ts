@@ -1,10 +1,12 @@
 import type { ItemRepository } from '../domain/ports/item.repository';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
+import type { ListShareRepository } from '@/modules/wishlist/domain/ports/list-share.repository';
 import type { ItemSubstitutionOption } from '../domain/item-substitution.entity';
 import { MAX_OWNER_APPROVED_SUBSTITUTIONS } from '../domain/item-substitution.entity';
 import { buildSubstitutionSummaryWithClaimSummary } from '../domain/build-substitution-summary-with-claim-summary.util';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { isItemSuggestion } from '../domain/item-visibility.service';
+import { ListRole } from '@/common/domain/list-role.vo';
 import { assertWishlistMutable } from '@/modules/wishlist/domain/assert-wishlist-mutable.util';
 import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
 import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
@@ -17,11 +19,24 @@ import {
 
 export type { CreateSubstitutionPayload } from './substitution-payload.util';
 
+export async function actorCanManageListItems(
+  wishlistOwnerId: string,
+  listId: string,
+  actorUserId: string,
+  listShareRepo?: ListShareRepository
+): Promise<boolean> {
+  if (wishlistOwnerId === actorUserId) return true;
+  if (!listShareRepo) return false;
+  const role = await listShareRepo.getRole(listId, actorUserId);
+  return !!role && ListRole.create(role).isAtLeast('collaborator');
+}
+
 export class CreateOwnerSubstitutionUseCase {
   constructor(
     private itemRepo: ItemRepository,
     private wishlistRepo: WishlistRepository,
-    private assertUserCan: AssertUserCanUseCase
+    private assertUserCan: AssertUserCanUseCase,
+    private listShareRepo?: ListShareRepository
   ) {}
 
   async execute(
@@ -48,8 +63,18 @@ export class CreateOwnerSubstitutionUseCase {
     }
     assertWishlistMutable(wishlist);
 
-    if (wishlist.UserId !== actorUserId) {
-      throw new AppError('Only the list owner can add approved substitutions', 403, 'FORBIDDEN');
+    const canManage = await actorCanManageListItems(
+      wishlist.UserId,
+      wishlist.Id,
+      actorUserId,
+      this.listShareRepo
+    );
+    if (!canManage) {
+      throw new AppError(
+        'Only list editors can add approved substitutions',
+        403,
+        'FORBIDDEN'
+      );
     }
     if (isItemSuggestion(parent, wishlist.UserId)) {
       throw new AppError('Suggestions cannot have substitutions', 400, 'BAD_REQUEST');

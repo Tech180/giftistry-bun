@@ -153,7 +153,7 @@ describe("Items, Links & Claims", () => {
     expect(res.status).toBe(403);
   });
 
-  test("Collaborator adds a hidden idea (surprise) to the list", async () => {
+  test("Collaborator cannot add a hidden idea", async () => {
     const res = await app.handle(
       new Request(`http://localhost/api/wishlists/${listId}/items`, {
         method: "POST",
@@ -172,10 +172,81 @@ describe("Items, Links & Claims", () => {
         }),
       })
     );
+    expect(res.status).toBe(403);
+  });
+
+  test("Viewer adds a hidden idea (surprise) to the list", async () => {
+    const res = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${unrelated.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              Name: "Secret Book",
+              Description: "Surprise book!",
+              IsHiddenIdea: true
+            }
+          }
+        }),
+      })
+    );
     expect(res.status).toBe(200);
     const body = await res.json() as any;
     expect(body.Result.Name).toBe("Secret Book");
+    expect(body.Result.IsSuggestion).toBe(true);
     secretItemId = body.Result.Id;
+  });
+
+  test("Collaborator adds a catalog item (not a suggestion)", async () => {
+    const res = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${collaborator.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              Name: "Collaborator Catalog Gift",
+              Description: "Not a suggestion",
+              IsHiddenIdea: false
+            }
+          }
+        }),
+      })
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.Result.Name).toBe("Collaborator Catalog Gift");
+    expect(body.Result.IsSuggestion).toBeFalsy();
+  });
+
+  test("Collaborator can update an owner item", async () => {
+    const res = await app.handle(
+      new Request(`http://localhost/api/items/${itemId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${collaborator.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              Name: "PlayStation 5 Pro",
+              Description: "Edited by collaborator"
+            }
+          }
+        }),
+      })
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.Result.Description).toBe("Edited by collaborator");
   });
 
   test("Collaborator adds link to standard item", async () => {
@@ -238,13 +309,34 @@ describe("Items, Links & Claims", () => {
     expect(Number(updatedItem.Links[0].ExtractedPrice)).toBe(549.99);
   });
 
-  test("Collaborator claims standard item", async () => {
+  test("Collaborator cannot claim items on the list", async () => {
     const res = await app.handle(
       new Request(`http://localhost/api/items/${itemId}/claims`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${collaborator.token}`
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              Amount: 50.00,
+              ClaimedByName: "Santa Claus"
+            }
+          }
+        }),
+      })
+    );
+    expect(res.status).toBe(403);
+  });
+
+  test("Viewer claims standard item", async () => {
+    const res = await app.handle(
+      new Request(`http://localhost/api/items/${itemId}/claims`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${unrelated.token}`
         },
         body: JSON.stringify({
           Giftistry: {
@@ -290,13 +382,15 @@ describe("Items, Links & Claims", () => {
     );
     expect(res.status).toBe(200);
     const body = await res.json() as any;
-    expect(body.Result.Items.length).toBe(1);
-    expect(body.Result.Items[0].Name).toBe("PlayStation 5 Pro");
-    expect(body.Result.Items[0].Claims.length).toBe(0);
+    const names = body.Result.Items.map((i: any) => i.Name);
+    expect(names).toContain("PlayStation 5 Pro");
+    expect(names).toContain("Collaborator Catalog Gift");
+    expect(names).not.toContain("Secret Book");
+    expect(body.Result.Items.every((i: any) => i.Claims.length === 0)).toBe(true);
     expect(Array.isArray(body.Result.Groups)).toBe(true);
   });
 
-  test("Collaborator fetches items (should see secret items and claim details)", async () => {
+  test("Collaborator fetches items (sees secret suggestions, hides claims like owner)", async () => {
     const res = await app.handle(
       new Request(`http://localhost/api/wishlists/${listId}/items`, {
         method: "GET",
@@ -307,10 +401,11 @@ describe("Items, Links & Claims", () => {
     );
     expect(res.status).toBe(200);
     const body = await res.json() as any;
-    expect(body.Result.Items.length).toBe(2);
     const names = body.Result.Items.map((i: any) => i.Name);
     expect(names).toContain("PlayStation 5 Pro");
     expect(names).toContain("Secret Book");
+    expect(names).toContain("Collaborator Catalog Gift");
+    expect(body.Result.Items.every((i: any) => i.Claims.length === 0)).toBe(true);
   });
 
   test("Delete Item removes item and associated links/claims", async () => {

@@ -3,6 +3,11 @@ import type { SafeUser } from '../domain/user.entity';
 import { toSafeUser } from '../domain/user.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
 import type { GetSitePolicyUseCase } from '@/common/application/get-site-policy.use-case';
+import type { RegistrationInviteRepository } from '@/modules/registration-invite/domain/ports/registration-invite.repository';
+import {
+  consumeRegistrationInvite,
+  loadValidRegistrationInvite,
+} from '@/modules/registration-invite/application/assert-registration-invite-allows-signup.util';
 import { validatePasswordPolicy } from '@/common/domain/password-policy';
 import { validateUsernamePolicy } from '@/common/domain/username-policy';
 import { mergeUserPolicy } from '@/common/types/user-policy';
@@ -10,7 +15,8 @@ import { mergeUserPolicy } from '@/common/types/user-policy';
 export class SignupUseCase {
   constructor(
     private userRepo: UserRepository,
-    private getSitePolicy: GetSitePolicyUseCase
+    private getSitePolicy: GetSitePolicyUseCase,
+    private registrationInviteRepo: RegistrationInviteRepository
   ) {}
 
   async execute(
@@ -18,7 +24,8 @@ export class SignupUseCase {
     email: string | null | undefined,
     password: string,
     firstName?: string,
-    lastName?: string
+    lastName?: string,
+    inviteToken?: string | null
   ): Promise<SafeUser> {
     if (!username || !password) {
       throw new AppError('Username and password are required', 400, 'BAD_REQUEST');
@@ -35,11 +42,11 @@ export class SignupUseCase {
       throw new AppError('Registration is currently disabled', 403, 'FORBIDDEN');
     }
 
+    let inviteToConsume = null;
     if (sitePolicy.RegistrationMode === 'invite_only') {
-      throw new AppError(
-        'Registration is invite-only. Contact an administrator for access.',
-        403,
-        'FORBIDDEN'
+      inviteToConsume = await loadValidRegistrationInvite(
+        this.registrationInviteRepo,
+        inviteToken
       );
     }
 
@@ -82,6 +89,10 @@ export class SignupUseCase {
     );
 
     await this.userRepo.setDefaultUserPolicy(user.Id, JSON.stringify(mergeUserPolicy(sitePolicy.DefaultUserPolicy)));
+
+    if (inviteToConsume) {
+      await consumeRegistrationInvite(this.registrationInviteRepo, inviteToConsume);
+    }
 
     return toSafeUser(user);
   }

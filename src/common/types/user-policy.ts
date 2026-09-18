@@ -21,6 +21,10 @@ export interface SitePolicy {
   AllowPasswordLogin: boolean;
   RequireStrongPasswords: boolean;
   AllowedEmailDomains: string[];
+  /** Hours until a regenerated registration invite expires. */
+  RegistrationInviteTtlHours: number;
+  /** Optional cap on successful signups per invite; null = unlimited until expiry. */
+  RegistrationInviteMaxUses: number | null;
   DefaultUserPolicy: GiftistryUserPolicy;
 }
 
@@ -45,6 +49,8 @@ export const DEFAULT_SITE_POLICY: SitePolicy = {
   AllowPasswordLogin: true,
   RequireStrongPasswords: true,
   AllowedEmailDomains: [],
+  RegistrationInviteTtlHours: 168,
+  RegistrationInviteMaxUses: 1,
   DefaultUserPolicy: { ...DEFAULT_USER_POLICY },
 };
 
@@ -80,6 +86,18 @@ export function mergeSitePolicy(raw: unknown): SitePolicy {
     AllowedEmailDomains: Array.isArray(obj.AllowedEmailDomains)
       ? obj.AllowedEmailDomains
       : base.AllowedEmailDomains,
+    RegistrationInviteTtlHours:
+      typeof obj.RegistrationInviteTtlHours === 'number' &&
+      Number.isFinite(obj.RegistrationInviteTtlHours) &&
+      obj.RegistrationInviteTtlHours > 0
+        ? Math.min(Math.floor(obj.RegistrationInviteTtlHours), 8760)
+        : base.RegistrationInviteTtlHours,
+    RegistrationInviteMaxUses:
+      typeof obj.RegistrationInviteMaxUses === 'number' &&
+      Number.isFinite(obj.RegistrationInviteMaxUses) &&
+      obj.RegistrationInviteMaxUses > 0
+        ? Math.floor(obj.RegistrationInviteMaxUses)
+        : base.RegistrationInviteMaxUses,
     DefaultUserPolicy: mergeUserPolicy(obj.DefaultUserPolicy ?? base.DefaultUserPolicy),
   };
 }

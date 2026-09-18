@@ -19,10 +19,21 @@ export interface ItemImportParserConfig {
   model: string;
   customPrompt: string;
   endpoint: string;
+  /** When false, send the full file in one AI call. Default true. */
+  chunkingEnabled?: boolean;
+  /** Max candidate item rows per AI import chunk when chunking is enabled. */
+  chunkItemLimit?: number;
 }
 
 export interface ItemImportParserProgress {
   tokensPerSecond: number | null;
+  chunkIndex?: number;
+  chunkTotal?: number;
+}
+
+export interface ItemImportParserResult {
+  items: ImportedItemPreview[];
+  warnings: string[];
 }
 
 export interface ItemImportParser {
@@ -30,5 +41,5 @@ export interface ItemImportParser {
     input: ItemImportParserInput,
     config: ItemImportParserConfig,
     onProgress?: (progress: ItemImportParserProgress) => void | Promise<void>
-  ): Promise<ImportedItemPreview[]>;
+  ): Promise<ItemImportParserResult>;
 }

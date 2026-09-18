@@ -2,6 +2,11 @@ import type { UserRepository } from '../domain/ports/user.repository';
 import type { OidcClientPort } from '../domain/ports/oidc-client.port';
 import type { ServerConfigRepository } from '@/modules/system/domain/ports/server-config.repository';
 import type { GetSitePolicyUseCase } from '@/common/application/get-site-policy.use-case';
+import type { RegistrationInviteRepository } from '@/modules/registration-invite/domain/ports/registration-invite.repository';
+import {
+  consumeRegistrationInvite,
+  loadValidRegistrationInvite,
+} from '@/modules/registration-invite/application/assert-registration-invite-allows-signup.util';
 import { UserEntity, toSafeUser, type SafeUser } from '../domain/user.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { mergeUserPolicy } from '@/common/types/user-policy';
@@ -27,16 +32,17 @@ export class HandleOidcCallbackUseCase {
     private oidcClient: OidcClientPort,
     private userRepo: UserRepository,
     private serverConfigRepo: ServerConfigRepository,
-    private getSitePolicy: GetSitePolicyUseCase
+    private getSitePolicy: GetSitePolicyUseCase,
+    private registrationInviteRepo: RegistrationInviteRepository
   ) {}
 
   async execute(code: string, state: string): Promise<SafeUser> {
-    const nonce = consumeOAuthState(state);
-    if (!nonce) {
+    const oauthState = consumeOAuthState(state);
+    if (!oauthState) {
       throw new AppError('OAuth session expired or invalid state', 400, 'BAD_REQUEST');
     }
 
-    const profile = await this.oidcClient.exchangeCode(code, state, state, nonce);
+    const profile = await this.oidcClient.exchangeCode(code, state, state, oauthState.nonce);
     const config = this.serverConfigRepo.load();
     const sitePolicy = await this.getSitePolicy.execute();
 
@@ -70,11 +76,11 @@ export class HandleOidcCallbackUseCase {
       throw new AppError('Registration is currently disabled', 403, 'FORBIDDEN');
     }
 
+    let inviteToConsume = null;
     if (sitePolicy.RegistrationMode === 'invite_only') {
-      throw new AppError(
-        'Registration is invite-only. Contact an administrator for access.',
-        403,
-        'FORBIDDEN'
+      inviteToConsume = await loadValidRegistrationInvite(
+        this.registrationInviteRepo,
+        oauthState.inviteToken
       );
     }
 
@@ -94,6 +100,9 @@ export class HandleOidcCallbackUseCase {
     });
 
     await this.userRepo.setDefaultUserPolicy(user.Id, JSON.stringify(mergeUserPolicy(sitePolicy.DefaultUserPolicy)));
+    if (inviteToConsume) {
+      await consumeRegistrationInvite(this.registrationInviteRepo, inviteToConsume);
+    }
     await this.userRepo.resetLockoutAndRecordLogin(user.Id);
     return toSafeUser(user);
   }

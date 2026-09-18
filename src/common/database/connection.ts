@@ -47,6 +47,8 @@ export interface SystemConfig {
   AiPopulatePrompt?: string;
   AiCategoryPrompt?: string;
   AiImportPrompt?: string;
+  AiImportChunkingEnabled?: boolean;
+  AiImportChunkItemLimit?: number;
   AiEnabledPackIds?: string[];
   AiCustomPacks?: CustomPackSettingsDto[];
   AiCompletionTimeoutMs?: number;
@@ -184,6 +186,14 @@ function normalizeConfig(data: Record<string, unknown>): SystemConfig {
     AiPopulatePrompt: pick(data, 'AiPopulatePrompt', ''),
     AiCategoryPrompt: pick(data, 'AiCategoryPrompt', ''),
     AiImportPrompt: pick(data, 'AiImportPrompt', ''),
+    AiImportChunkingEnabled: (() => {
+      const value = pick<unknown>(data, 'AiImportChunkingEnabled', undefined);
+      return value !== undefined ? Boolean(value) : true;
+    })(),
+    AiImportChunkItemLimit: (() => {
+      const value = pick<unknown>(data, 'AiImportChunkItemLimit', undefined);
+      return value !== undefined ? Number(value) : undefined;
+    })(),
     AiEnabledPackIds: (() => {
       if (!hasKey(data, 'AiEnabledPackIds') || !Array.isArray(data.AiEnabledPackIds)) {
         return undefined;
@@ -285,6 +295,7 @@ export function loadConfig(): SystemConfig {
     SmtpType: 'local',
     AllowSetup: true,
     AiRateLimitEnabled: true,
+    AiImportChunkingEnabled: true,
     AiFastProvider: 'openrouter',
     AiIntelligentProvider: 'openrouter',
   };

@@ -1,5 +1,6 @@
 import type { ExtractedMetadata } from './extracted-metadata';
 import { coerceApparelSizeFields } from './coerce-apparel-size-fields.util';
+import { compactGiftTitle } from './compact-gift-title.util';
 import { mergeFieldMapsByNormalizedKey } from './collapse-custom-field-maps.util';
 import { resolveDesiredQuantity } from './parse-pack-quantity.util';
 import { isUnusableProductDescription } from './product-description.util';
@@ -37,8 +38,18 @@ export function mergeExtractedMetadata(
   };
 
   const pickTitle = () => {
-    if (ai.title.trim()) return ai.title.trim();
-    return scrape.title.trim() || '';
+    const aiTitle = ai.title.trim();
+    if (aiTitle) {
+      return isVerboseProductTitle(aiTitle)
+        ? compactGiftTitle(aiTitle) || aiTitle
+        : aiTitle;
+    }
+    const scrapeTitle = scrape.title.trim();
+    if (!scrapeTitle) return '';
+    if (isVerboseProductTitle(scrapeTitle)) {
+      return compactGiftTitle(scrapeTitle) || scrapeTitle;
+    }
+    return scrapeTitle;
   };
 
   const color = pickAiFirst(scrape.color, ai.color);
@@ -51,7 +62,9 @@ export function mergeExtractedMetadata(
       color,
       size,
     });
-    if (aiDescription) return aiDescription;
+    if (aiDescription && !isVerboseMarketingDescription(aiDescription)) {
+      return aiDescription;
+    }
 
     const scrapeDescription = scrape.description?.trim();
     if (scrapeDescription && isVerboseMarketingDescription(scrapeDescription)) {
@@ -108,6 +121,28 @@ export function mergeExtractedMetadata(
     userDefinedFields: mergeFieldMaps(scrape.userDefinedFields, ai.userDefinedFields, false),
     desiredQuantity,
   };
+}
+
+export function isEmptyAiPopulateResult(ai: ExtractedMetadata): boolean {
+  const hasTitle = Boolean(ai.title?.trim());
+  const hasDescription = Boolean(ai.description?.trim());
+  const hasPrice = ai.price != null;
+  const hasColor = Boolean(ai.color?.trim());
+  const hasSize = Boolean(ai.size?.trim());
+  const hasImage = Boolean(ai.imageUrl?.trim());
+  const predefinedCount = Object.keys(ai.predefinedFields ?? {}).length;
+  const userDefinedCount = Object.keys(ai.userDefinedFields ?? {}).length;
+
+  return (
+    !hasTitle &&
+    !hasDescription &&
+    !hasPrice &&
+    !hasColor &&
+    !hasSize &&
+    !hasImage &&
+    predefinedCount === 0 &&
+    userDefinedCount === 0
+  );
 }
 
 export function isVerboseProductTitle(title: string | null | undefined): boolean {

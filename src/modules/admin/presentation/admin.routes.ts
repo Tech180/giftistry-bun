@@ -104,6 +104,8 @@ const sitePolicySchema = t.Object({
   AllowPasswordLogin: t.Optional(t.Boolean()),
   RequireStrongPasswords: t.Optional(t.Boolean()),
   AllowedEmailDomains: t.Optional(t.Array(t.String())),
+  RegistrationInviteTtlHours: t.Optional(t.Number()),
+  RegistrationInviteMaxUses: t.Optional(t.Union([t.Number(), t.Null()])),
   DefaultUserPolicy: t.Optional(giftistryUserPolicySchema),
 });
 

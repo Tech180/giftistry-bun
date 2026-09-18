@@ -20,6 +20,15 @@ import { resolveItemCategory } from '../domain/resolve-item-category.util';
 import { resolveDesiredQuantity } from '../domain/parse-pack-quantity.util';
 import type { ImportedItemPreview } from '../domain/imported-item-preview';
 import {
+  estimateImportRowCount,
+  formatAiImportUnderCountWarning,
+  isAiImportUnderCount,
+} from '../domain/chunk-ai-import-content.util';
+import {
+  clampAiImportChunkItemLimit,
+  normalizeAiImportChunkingEnabled,
+} from '@/modules/system/domain/server-config.entity';
+import {
   tokensPerSecondRate,
   type JobProgressRate,
 } from '@/modules/jobs/domain/job-progress-rate.util';
@@ -121,6 +130,8 @@ export class ParseImportPreviewUseCase {
         suggestedWishlistTitle:
           deterministic.suggestedWishlistTitle ||
           filenameStemAsTitle(input.fileName),
+        inputTruncated: extracted.truncated,
+        estimatedRowCount: estimateImportRowCount(extracted.text),
       };
     }
 
@@ -147,7 +158,7 @@ export class ParseImportPreviewUseCase {
     });
 
     try {
-      const items = await this.importParser.parse(
+      const { items, warnings: parserWarnings } = await this.importParser.parse(
         {
           fileName: input.fileName,
           format: extracted.format,
@@ -162,17 +173,39 @@ export class ParseImportPreviewUseCase {
           model,
           customPrompt: config.AiImportPrompt || '',
           endpoint,
+          chunkingEnabled: normalizeAiImportChunkingEnabled(config.AiImportChunkingEnabled),
+          chunkItemLimit: clampAiImportChunkItemLimit(config.AiImportChunkItemLimit),
         },
         async (progress) => {
+          const chunkTotal = progress.chunkTotal ?? 0;
+          const chunkIndex = progress.chunkIndex ?? 0;
+          const message =
+            chunkTotal > 1
+              ? `Asking AI (chunk ${chunkIndex + 1}/${chunkTotal})…`
+              : 'Asking AI…';
+          const progressDone =
+            chunkTotal > 1
+              ? 25 + Math.round((chunkIndex / chunkTotal) * 15)
+              : 30;
           await onProgress?.({
-            message: 'Asking AI…',
-            progressDone: 30,
+            message,
+            progressDone,
             ProgressRate: tokensPerSecondRate(progress.tokensPerSecond),
           });
         }
       );
 
       const canonical = canonicalizePreviewItems(items, existingCategoryList);
+      const estimatedRowCount = estimateImportRowCount(extracted.text);
+      const warnings = [
+        ...extracted.warnings,
+        ...parserWarnings,
+        ...(items.length === 0 ? ['AI could not extract any items from this file.'] : []),
+      ];
+      if (isAiImportUnderCount(canonical.length, estimatedRowCount)) {
+        warnings.push(formatAiImportUnderCountWarning(canonical.length, estimatedRowCount));
+      }
+
       await onProgress?.({
         message: formatFoundMessage(canonical.length),
         progressDone: 40,
@@ -181,13 +214,12 @@ export class ParseImportPreviewUseCase {
 
       return {
         items: canonical,
-        warnings: [
-          ...extracted.warnings,
-          ...(items.length === 0 ? ['AI could not extract any items from this file.'] : []),
-        ],
+        warnings,
         sourceFormat: extracted.format,
         parseMode: 'ai',
         suggestedWishlistTitle: filenameStemAsTitle(input.fileName) || wishlistTitle || undefined,
+        inputTruncated: extracted.truncated,
+        estimatedRowCount,
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'AI import failed';

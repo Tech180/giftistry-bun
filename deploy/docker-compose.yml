@@ -3,6 +3,7 @@
 #   cp config/config.example.json config/config.json
 #   docker compose up -d --build
 #
+# Services: postgres, api (HTTP/WS), worker (background jobs), web.
 # Optional Mailpit (local SMTP + web UI):
 #   docker compose --profile mail up -d
 
@@ -33,6 +34,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
+      GIFTISTRY_PROCESS_ROLE: api
       PGHOST: postgres
       PGPORT: 5432
       PGUSER: ${PGUSER:-giftistry}
@@ -57,6 +59,49 @@ services:
         condition: service_healthy
     expose:
       - '3001'
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: giftistry-bun/Dockerfile
+    restart: unless-stopped
+    command: ['bun', 'run', '--no-env-file', 'src/worker.ts']
+    environment:
+      NODE_ENV: production
+      GIFTISTRY_PROCESS_ROLE: worker
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: ${PGUSER:-giftistry}
+      PGPASSWORD: ${PGPASSWORD}
+      PGDATABASE: ${PGDATABASE:-giftistry}
+      JWT_SECRET: ${JWT_SECRET:-}
+      JWT_SECRET_FILE: ${JWT_SECRET_FILE:-}
+      CREDENTIALS_DIRECTORY: ${CREDENTIALS_DIRECTORY:-}
+      GIFTISTRY_CREDENTIALS_DIRECTORY: ${GIFTISTRY_CREDENTIALS_DIRECTORY:-}
+      GIFTISTRY_CONFIG_PATH: /etc/giftistry/config.json
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_FROM: ${SMTP_FROM:-noreply@giftistry.local}
+    volumes:
+      - ./config/config.json:/etc/giftistry/config.json
+      - giftistry_data:/var/lib/giftistry
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'bun',
+          '-e',
+          "const r=process.env.GIFTISTRY_PROCESS_ROLE; if(r!=='worker') process.exit(1)",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
 
   web:
     build:

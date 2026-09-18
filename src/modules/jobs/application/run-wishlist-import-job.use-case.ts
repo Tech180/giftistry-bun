@@ -2,7 +2,10 @@ import { getListAccessContext } from '@/common/middlewares/list-access.middlewar
 import { MAX_BULK_ADD_BATCH } from '@/modules/item/application/bulk-add-items.use-case';
 import type { ItemUseCases } from '@/modules/item/application/item-use-cases.interface';
 import type { CreateWishlistUseCase } from '@/modules/wishlist/application/create-wishlist.use-case';
-import type { ImportedItemPreview } from '@/modules/item/domain/imported-item-preview';
+import type {
+  ImportedItemPreview,
+  ImportPreviewResult,
+} from '@/modules/item/domain/imported-item-preview';
 import { mapImportedPreviewToBulkFields } from '@/modules/item/domain/build-imported-item-metadata.util';
 import type { BackgroundJobRepository } from '../domain/ports/background-job.repository';
 import type {
@@ -25,6 +28,31 @@ import {
 
 export function importItemDedupeKey(name: string, linkUrl?: string | null): string {
   return `${name.trim().toLowerCase()}\0${(linkUrl || '').trim().toLowerCase()}`;
+}
+
+function buildImportParseResultFields(preview: ImportPreviewResult): Record<string, unknown> {
+  const parsedCount = preview.items.filter((item) => item.name.trim()).length;
+  return {
+    ParseMode: preview.parseMode,
+    ParsedCount: parsedCount,
+    InputTruncated: preview.inputTruncated === true,
+    ...(preview.warnings.length > 0 ? { Warnings: preview.warnings } : {}),
+  };
+}
+
+function pickImportParseResultFields(
+  result: Record<string, unknown> | null | undefined
+): Record<string, unknown> {
+  if (!result) return {};
+  const out: Record<string, unknown> = {};
+  if (typeof result.ParseMode === 'string') out.ParseMode = result.ParseMode;
+  if (typeof result.ParsedCount === 'number') out.ParsedCount = result.ParsedCount;
+  if (typeof result.InputTruncated === 'boolean') out.InputTruncated = result.InputTruncated;
+  if (Array.isArray(result.Warnings)) out.Warnings = result.Warnings;
+  if (typeof result.Created === 'number') out.Created = result.Created;
+  if (typeof result.Failed === 'number') out.Failed = result.Failed;
+  if (typeof result.GrabFailed === 'number') out.GrabFailed = result.GrabFailed;
+  return out;
 }
 
 function chunkArray<T>(items: T[], size: number): T[][] {
@@ -121,6 +149,13 @@ export class RunWishlistImportJobUseCase {
         const preview = await this.parsePreview(job);
         if (await this.jobRepo.shouldStop(job.Id)) return;
 
+        await this.patch(job.Id, {
+          result: {
+            ...pickImportParseResultFields(job.Result),
+            ...buildImportParseResultFields(preview),
+          },
+        });
+
         const validItems = preview.items.filter((item) => item.name.trim());
         if (validItems.length === 0 && existingItems.length === 0) {
           await this.fail(job.Id, 'No items found in this file.');
@@ -185,6 +220,10 @@ export class RunWishlistImportJobUseCase {
 
       const preview = await this.parsePreview(job);
       if (await this.jobRepo.shouldStop(job.Id)) return;
+
+      await this.patch(job.Id, {
+        result: buildImportParseResultFields(preview),
+      });
 
       const validItems = preview.items.filter((item) => item.name.trim());
       if (validItems.length === 0) {
@@ -636,7 +675,7 @@ export class RunWishlistImportJobUseCase {
           websiteName,
           undefined,
           undefined,
-          extract.data.imageUrl ?? null
+          null
         );
         await this.itemUseCases.promoteScrapedImageToPhotos.execute(
           row.itemId,
@@ -650,9 +689,10 @@ export class RunWishlistImportJobUseCase {
       } catch (err) {
         grabFailed += 1;
         if (jobItem) {
-          jobItem.Status = 'failed';
+          // Soft-fail: spreadsheet item stays; mark skipped so resume does not hard-fail.
+          jobItem.Status = 'skipped';
           jobItem.Error = err instanceof Error ? err.message : 'Grab failed';
-          await this.jobRepo.updateItemStatus(jobItem.Id, 'failed', jobItem.Error);
+          await this.jobRepo.updateItemStatus(jobItem.Id, 'skipped', jobItem.Error);
           await clearGrabItemProgress(jobItem);
         }
       } finally {
@@ -684,6 +724,7 @@ export class RunWishlistImportJobUseCase {
         ? `Import finished — ${created} item${created === 1 ? '' : 's'} added, ${grabFailed} grab failure${grabFailed === 1 ? '' : 's'}`
         : `Import finished — ${created} item${created === 1 ? '' : 's'} added`;
 
+    const current = await this.jobRepo.findById(jobId);
     const updated = await this.jobRepo.updateProgress(jobId, {
       status: 'completed',
       phase: 'completed',
@@ -693,6 +734,7 @@ export class RunWishlistImportJobUseCase {
       finishedAt: new Date(),
       progressRate: null,
       result: {
+        ...pickImportParseResultFields(current?.Result),
         Created: counts.createdCount,
         Failed: counts.failedCount,
         GrabFailed: grabFailed,
@@ -709,6 +751,7 @@ export class RunWishlistImportJobUseCase {
     failedCount: number,
     progressTotal: number
   ): Promise<void> {
+    const current = await this.jobRepo.findById(jobId);
     const updated = await this.jobRepo.updateProgress(jobId, {
       status: 'completed',
       phase: 'completed',
@@ -717,7 +760,11 @@ export class RunWishlistImportJobUseCase {
       progressTotal: Math.max(progressTotal, createdCount),
       finishedAt: new Date(),
       progressRate: null,
-      result: { Created: createdCount, Failed: failedCount },
+      result: {
+        ...pickImportParseResultFields(current?.Result),
+        Created: createdCount,
+        Failed: failedCount,
+      },
     });
     if (updated) this.jobProgressPublisher.publish(updated, 'job.completed');
   }

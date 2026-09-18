@@ -2,6 +2,7 @@ import type { CommentRepository } from '../domain/ports/comment.repository';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
 import type { Comment } from '../domain/comment.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
+import { canUserViewComment } from '../domain/comment-visibility.service';
 
 export class ListCommentsUseCase {
   constructor(
@@ -16,15 +17,15 @@ export class ListCommentsUseCase {
     }
 
     const comments = await this.commentRepo.findByListId(listId);
-    const isOwner = currentUserId === wishlist.UserId;
     const hasExpired = wishlist.ExpiresAt ? new Date() > wishlist.ExpiresAt : false;
 
-    // Filter comments: owner cannot see non-owner-visible comments unless expired
-    return comments.filter((comment) => {
-      if (isOwner && !comment.IsOwnerVisible && !hasExpired) {
-        return false;
-      }
-      return true;
-    });
+    return comments.filter((comment) =>
+      canUserViewComment({
+        comment,
+        viewerUserId: currentUserId,
+        wishlistOwnerId: wishlist.UserId,
+        hasExpired,
+      })
+    );
   }
 }

@@ -35,9 +35,26 @@ Mount a volume for `config.json` (or set `GIFTISTRY_CONFIG_PATH`) so server sett
 
 ```bash
 bun install
-bun dev          # hot reload
+bun dev          # hot reload (single process: API + jobs, role=all)
 bun test         # test suite (uses isolated test DB)
 ```
+
+### Split API + worker (optional locally)
+
+Default `bun dev` uses `GIFTISTRY_PROCESS_ROLE=all` (HTTP and jobs in one process).
+
+To mirror production isolation:
+
+```bash
+# terminal A — API only (listens for worker fanout via Postgres NOTIFY)
+GIFTISTRY_PROCESS_ROLE=api bun src/index.ts
+
+# terminal B — background jobs
+bun run dev:worker
+# or: GIFTISTRY_PROCESS_ROLE=worker bun src/worker.ts
+```
+
+Production Docker Compose runs `api` + `worker` services from the same image.
 
 ### HTTPie collection
 
@@ -64,6 +81,7 @@ Regenerate after adding or changing routes. Coverage tests under `collections/` 
 | `GIFTISTRY_ALLOW_SETUP` | no | When `false`, blocks first-run setup even if no users exist (default `true`) |
 | `GIFTISTRY_SETUP_TOKEN` | **yes** | When set, `POST /api/system/setup` requires `X-Giftistry-Setup-Token` header or `Setup.SetupToken` body |
 | `GIFTISTRY_CONFIG_PATH` | no | Override path to `config.json` |
+| `GIFTISTRY_PROCESS_ROLE` | no | Process role: `all` (default, API+jobs), `api` (HTTP/WS only), `worker` (jobs only; use `src/worker.ts`) |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_SECURE`, `SMTP_FROM` | no | Default/local SMTP |
 | `SMTP_PASS` | **yes** | SMTP password |
 | `OPENROUTER_API_KEY` | **yes** | Fallback OpenRouter key when slot key empty |

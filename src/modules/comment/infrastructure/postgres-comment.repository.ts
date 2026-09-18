@@ -2,6 +2,24 @@ import type { CommentRepository } from '../domain/ports/comment.repository';
 import type { Comment } from '../domain/comment.entity';
 import { sql } from '@/common/database/connection';
 
+function parseVisibleToUserIds(value: unknown): string[] | null {
+  if (value == null) return null;
+  if (Array.isArray(value)) {
+    return value.filter((id): id is string => typeof id === 'string');
+  }
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((id): id is string => typeof id === 'string');
+      }
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 export class PostgresCommentRepository implements CommentRepository {
   async create(
     listId: string,
@@ -11,14 +29,26 @@ export class PostgresCommentRepository implements CommentRepository {
     isOwnerVisible: boolean,
     isRollover: boolean,
     parentId?: string | null,
-    imageUrl?: string | null
+    imageUrl?: string | null,
+    visibleToUserIds?: string[] | null
   ): Promise<Comment> {
+    const visibleJson =
+      visibleToUserIds && visibleToUserIds.length > 0
+        ? JSON.stringify(visibleToUserIds)
+        : null;
     const [row] = await sql<any[]>`
-      INSERT INTO comments (list_id, user_id, commenter_name, content, is_owner_visible, is_rollover, parent_id, image_url)
-      VALUES (${listId}, ${userId}, ${commenterName}, ${content}, ${isOwnerVisible}, ${isRollover}, ${parentId || null}, ${imageUrl || null})
+      INSERT INTO comments (
+        list_id, user_id, commenter_name, content, is_owner_visible, is_rollover,
+        parent_id, image_url, visible_to_user_ids
+      )
+      VALUES (
+        ${listId}, ${userId}, ${commenterName}, ${content}, ${isOwnerVisible}, ${isRollover},
+        ${parentId || null}, ${imageUrl || null}, ${visibleJson}::jsonb
+      )
       RETURNING id as "Id", list_id as "ListId", user_id as "UserId", commenter_name as "CommenterName", 
                 content as "Content", is_owner_visible as "IsOwnerVisible", is_rollover as "IsRollover", 
-                is_deleted as "IsDeleted", parent_id as "ParentId", image_url as "ImageUrl", created_at as "CreatedAt"
+                is_deleted as "IsDeleted", parent_id as "ParentId", image_url as "ImageUrl",
+                visible_to_user_ids as "VisibleToUserIds", created_at as "CreatedAt"
     `;
     if (!row) throw new Error('Failed to create comment');
     return {
@@ -28,6 +58,7 @@ export class PostgresCommentRepository implements CommentRepository {
       CommenterName: row.CommenterName,
       Content: row.Content,
       IsOwnerVisible: row.IsOwnerVisible,
+      VisibleToUserIds: parseVisibleToUserIds(row.VisibleToUserIds),
       IsRollover: row.IsRollover,
       IsDeleted: row.IsDeleted,
       ParentId: row.ParentId,
@@ -41,7 +72,8 @@ export class PostgresCommentRepository implements CommentRepository {
     const rows = await sql<any[]>`
       SELECT id as "Id", list_id as "ListId", user_id as "UserId", commenter_name as "CommenterName", 
              content as "Content", is_owner_visible as "IsOwnerVisible", is_rollover as "IsRollover", 
-             is_deleted as "IsDeleted", parent_id as "ParentId", image_url as "ImageUrl", created_at as "CreatedAt"
+             is_deleted as "IsDeleted", parent_id as "ParentId", image_url as "ImageUrl",
+             visible_to_user_ids as "VisibleToUserIds", created_at as "CreatedAt"
       FROM comments
       WHERE list_id = ${listId}
       ORDER BY created_at ASC
@@ -74,6 +106,7 @@ export class PostgresCommentRepository implements CommentRepository {
       CommenterName: row.CommenterName,
       Content: row.Content,
       IsOwnerVisible: row.IsOwnerVisible,
+      VisibleToUserIds: parseVisibleToUserIds(row.VisibleToUserIds),
       IsRollover: row.IsRollover,
       IsDeleted: row.IsDeleted,
       ParentId: row.ParentId,
@@ -87,7 +120,8 @@ export class PostgresCommentRepository implements CommentRepository {
     const [row] = await sql<any[]>`
       SELECT id as "Id", list_id as "ListId", user_id as "UserId", commenter_name as "CommenterName", 
              content as "Content", is_owner_visible as "IsOwnerVisible", is_rollover as "IsRollover", 
-             is_deleted as "IsDeleted", parent_id as "ParentId", image_url as "ImageUrl", created_at as "CreatedAt"
+             is_deleted as "IsDeleted", parent_id as "ParentId", image_url as "ImageUrl",
+             visible_to_user_ids as "VisibleToUserIds", created_at as "CreatedAt"
       FROM comments
       WHERE id = ${commentId}
     `;
@@ -106,6 +140,7 @@ export class PostgresCommentRepository implements CommentRepository {
       CommenterName: row.CommenterName,
       Content: row.Content,
       IsOwnerVisible: row.IsOwnerVisible,
+      VisibleToUserIds: parseVisibleToUserIds(row.VisibleToUserIds),
       IsRollover: row.IsRollover,
       IsDeleted: row.IsDeleted,
       ParentId: row.ParentId,

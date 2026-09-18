@@ -11,10 +11,7 @@ import { sql } from './common/database/connection';
 import { verifyToken } from '@/common/utils/token';
 import { getListAccessContext } from '@/common/middlewares/list-access.middleware';
 import { pascalizeKeys } from '@/common/utils/api-case.util';
-import { setWishlistJobPublisher } from '@/modules/jobs/infrastructure/wishlist-job-publisher';
-import { setListChangedPublisher } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
 import { setCommentPublisher } from '@/modules/comment/infrastructure/comment-publisher';
-import { setNotificationPublisher } from '@/modules/notifications/infrastructure/notification-publisher';
 import { PostgresWishlistRepository } from '@/modules/wishlist/infrastructure/postgres-wishlist.repository';
 import {
   addWishlistWsConnection,
@@ -26,7 +23,17 @@ import {
   addUserWsConnection,
   removeUserWsConnection,
 } from '@/modules/notifications/infrastructure/user-ws-registry';
-import { shouldDeliverCommentEventToUser } from '@/modules/comment/domain/should-deliver-comment-event.util';
+import { shouldDeliverCommentEventToUser, commentCreatedNeedsVisibilityFilter } from '@/modules/comment/domain/should-deliver-comment-event.util';
+import {
+  resolveProcessRole,
+  shouldListenRealtimeFanout,
+  shouldRunJobs,
+  shouldServeHttp,
+} from '@/common/utils/process-role.util';
+import {
+  wireDirectRealtimePublishers,
+} from '@/boot/runtime-publishers';
+import { startPostgresRealtimeListener } from '@/modules/jobs/infrastructure/postgres-realtime-listener';
 
 function getNumericStatus(status: any, defaultStatus = 200): number {
   if (typeof status === 'number') return status;
@@ -83,17 +90,30 @@ function createCachedFontResponse(bytes: Uint8Array, request: Request): Response
   });
 }
 
-const container = createAppContainer();
+const processRole = resolveProcessRole();
+if (processRole === 'worker') {
+  console.error(
+    '[boot] GIFTISTRY_PROCESS_ROLE=worker is not valid for src/index.ts. Use: bun run src/worker.ts'
+  );
+  process.exit(1);
+}
+
+const container = createAppContainer({
+  skipItemJobCompletionNotify: false,
+});
 const {
   authModule,
   wishlistModule,
   itemModule,
   jobsModule,
   jobRunner,
+  jobRepo,
+  notifyItemJobCompletion,
   commentModule,
   friendsModule,
   notificationsModule,
   invitesModule,
+  registrationInviteModule,
   systemModule,
   adminModule,
   authMiddleware,
@@ -234,6 +254,7 @@ export const app = new Elysia()
   .use(commentModule)
   .use(friendsModule)
   .use(invitesModule)
+  .use(registrationInviteModule)
   .use(systemModule)
   .use(adminModule)
   .ws('/ws/wishlist/:listId', {
@@ -515,6 +536,11 @@ await runMigrations().catch((err) => {
 });
 
 if (process.env.NODE_ENV !== 'test') {
+  if (!shouldServeHttp(processRole)) {
+    console.error(`[boot] Role "${processRole}" cannot serve HTTP via index.ts`);
+    process.exit(1);
+  }
+
   if (env.isProduction && !getPublicAppUrl()) {
     console.warn(
       '[boot] GIFTISTRY_PUBLIC_APP_URL is not set in production. Email links, CORS, and WebAuthn may not work correctly.'
@@ -522,16 +548,8 @@ if (process.env.NODE_ENV !== 'test') {
   }
 
   app.listen(env.PORT);
-  setWishlistJobPublisher((listId, userId, payload) => {
-    if (listId) {
-      app.server?.publish(listId, JSON.stringify(payload));
-    }
-    if (userId) {
-      app.server?.publish(userId, JSON.stringify(payload));
-    }
-  });
-  setListChangedPublisher((listId, payload) => {
-    app.server?.publish(listId, JSON.stringify(payload));
+  wireDirectRealtimePublishers((room, data) => {
+    app.server?.publish(room, data);
   });
   setCommentPublisher((listId, payload) => {
     const room = getWishlistWsRoom(listId);
@@ -540,9 +558,15 @@ if (process.env.NODE_ENV !== 'test') {
     }
 
     const eventType = typeof payload.Type === 'string' ? payload.Type : '';
-    const comment = payload.Comment as { IsOwnerVisible?: boolean } | undefined;
-    const needsOwnerFilter =
-      eventType === 'comment.created' && comment?.IsOwnerVisible === false;
+    const comment = payload.Comment as
+      | {
+          UserId?: string | null;
+          IsOwnerVisible?: boolean;
+          VisibleToUserIds?: string[] | null;
+        }
+      | undefined;
+    const needsVisibilityFilter =
+      eventType === 'comment.created' && commentCreatedNeedsVisibilityFilter(comment);
 
     const deliver = (wishlistOwnerId: string, listHasExpired: boolean) => {
       const json = JSON.stringify(payload);
@@ -550,6 +574,7 @@ if (process.env.NODE_ENV !== 'test') {
         if (
           !shouldDeliverCommentEventToUser({
             eventType,
+            comment,
             commentIsOwnerVisible: comment?.IsOwnerVisible,
             recipientUserId: entry.userId,
             wishlistOwnerId,
@@ -566,7 +591,7 @@ if (process.env.NODE_ENV !== 'test') {
       }
     };
 
-    if (!needsOwnerFilter) {
+    if (!needsVisibilityFilter) {
       deliver('', false);
       return;
     }
@@ -585,12 +610,31 @@ if (process.env.NODE_ENV !== 'test') {
       })
       .catch((err) => {
         console.error('[ERROR] Failed to resolve wishlist for comment WS filter:', err);
-        // Fail closed for surprise events: do not broadcast to everyone without owner filter
+        // Fail closed for restricted events: do not broadcast to everyone without filter
       });
   });
-  setNotificationPublisher((userId, payload) => {
-    app.server?.publish(userId, JSON.stringify(payload));
-  });
-  jobRunner.start();
-  console.log(`Giftistry API is running at http://${app.server?.hostname}:${app.server?.port}`);
+
+  if (shouldListenRealtimeFanout(processRole)) {
+    void startPostgresRealtimeListener({
+      jobRepo,
+      publishToWs: (room, payloadJson) => {
+        app.server?.publish(room, payloadJson);
+      },
+      notifyItemJobCompletion,
+    }).catch((err) => {
+      console.error('[boot] Failed to start realtime fanout listener:', err);
+    });
+  }
+
+  if (shouldRunJobs(processRole)) {
+    jobRunner.start();
+  } else {
+    console.log(
+      `[boot] Job runner disabled (GIFTISTRY_PROCESS_ROLE=${processRole}); use the worker process for jobs`
+    );
+  }
+
+  console.log(
+    `Giftistry API is running at http://${app.server?.hostname}:${app.server?.port} (role=${processRole})`
+  );
 }

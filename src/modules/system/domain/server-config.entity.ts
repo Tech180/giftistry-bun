@@ -51,6 +51,8 @@ export interface ServerConfig {
   AiPopulatePrompt?: string;
   AiCategoryPrompt?: string;
   AiImportPrompt?: string;
+  AiImportChunkingEnabled?: boolean;
+  AiImportChunkItemLimit?: number;
   AiEnabledPackIds?: string[];
   AiCustomPacks?: CustomPackSettingsDto[];
   AiCompletionTimeoutMs?: number;
@@ -136,6 +138,8 @@ export interface SystemSettingsPayload {
   AiPopulatePrompt?: string;
   AiCategoryPrompt?: string;
   AiImportPrompt?: string;
+  AiImportChunkingEnabled?: boolean;
+  AiImportChunkItemLimit?: number;
   AiEnabledPackIds?: string[];
   AiCustomPacks?: CustomPackSettingsDto[];
   AiCompletionTimeoutMs?: number;
@@ -194,6 +198,8 @@ export interface SystemSettingsView {
   AiPopulatePrompt: string;
   AiCategoryPrompt: string;
   AiImportPrompt: string;
+  AiImportChunkingEnabled: boolean;
+  AiImportChunkItemLimit: number;
   AiEnabledPackIds: string[];
   AiCustomPacks: CustomPackSettingsDto[];
   AiCompletionTimeoutMs: number;
@@ -254,6 +260,11 @@ export const DEFAULT_AI_CONNECT_TIMEOUT_MS = 5_000;
 export const AI_CONNECT_TIMEOUT_MIN_MS = 1_000;
 export const AI_CONNECT_TIMEOUT_MAX_MS = 30_000;
 
+export const DEFAULT_AI_IMPORT_CHUNKING_ENABLED = true;
+export const DEFAULT_AI_IMPORT_CHUNK_ITEM_LIMIT = 20;
+export const AI_IMPORT_CHUNK_ITEM_LIMIT_MIN = 1;
+export const AI_IMPORT_CHUNK_ITEM_LIMIT_MAX = 100;
+
 export function normalizeAiProvider(value: unknown): AiProvider {
   const raw = String(value ?? '')
     .trim()
@@ -294,6 +305,19 @@ export function clampAiConnectTimeoutMs(value: unknown): number {
   return Math.min(
     AI_CONNECT_TIMEOUT_MAX_MS,
     Math.max(AI_CONNECT_TIMEOUT_MIN_MS, Math.round(n))
+  );
+}
+
+export function normalizeAiImportChunkingEnabled(value: unknown): boolean {
+  return value !== false;
+}
+
+export function clampAiImportChunkItemLimit(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return DEFAULT_AI_IMPORT_CHUNK_ITEM_LIMIT;
+  return Math.min(
+    AI_IMPORT_CHUNK_ITEM_LIMIT_MAX,
+    Math.max(AI_IMPORT_CHUNK_ITEM_LIMIT_MIN, Math.round(n))
   );
 }
 
@@ -386,6 +410,12 @@ export function toSystemSettingsView(config: ServerConfig): SystemSettingsView {
     AiPopulatePrompt: config.AiPopulatePrompt || '',
     AiCategoryPrompt: config.AiCategoryPrompt || '',
     AiImportPrompt: config.AiImportPrompt || '',
+    AiImportChunkingEnabled: normalizeAiImportChunkingEnabled(
+      config.AiImportChunkingEnabled
+    ),
+    AiImportChunkItemLimit: clampAiImportChunkItemLimit(
+      config.AiImportChunkItemLimit ?? DEFAULT_AI_IMPORT_CHUNK_ITEM_LIMIT
+    ),
     AiEnabledPackIds: sanitizeEnabledPackIdsForConfig(config),
     AiCustomPacks: sanitizeCustomPacks(config.AiCustomPacks).map(toCustomPackSettingsDto),
     AiCompletionTimeoutMs: clampAiCompletionTimeoutMs(

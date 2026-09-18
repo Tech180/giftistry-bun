@@ -9,7 +9,8 @@ export interface CommentRepository {
     isOwnerVisible: boolean,
     isRollover: boolean,
     parentId?: string | null,
-    imageUrl?: string | null
+    imageUrl?: string | null,
+    visibleToUserIds?: string[] | null
   ): Promise<Comment>;
   
   findByListId(listId: string): Promise<Comment[]>;

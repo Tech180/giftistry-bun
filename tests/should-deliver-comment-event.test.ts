@@ -58,4 +58,49 @@ describe('shouldDeliverCommentEventToUser', () => {
       })
     ).toBe(true);
   });
+
+  test('suppresses selected-audience comment.created for users not in VisibleToUserIds', () => {
+    expect(
+      shouldDeliverCommentEventToUser({
+        eventType: 'comment.created',
+        comment: {
+          UserId: 'author',
+          IsOwnerVisible: true,
+          VisibleToUserIds: ['owner', 'collab-a'],
+        },
+        recipientUserId: 'collab-b',
+        wishlistOwnerId: 'owner',
+        listHasExpired: false,
+      })
+    ).toBe(false);
+  });
+
+  test('delivers selected-audience comment.created to included users and author', () => {
+    expect(
+      shouldDeliverCommentEventToUser({
+        eventType: 'comment.created',
+        comment: {
+          UserId: 'author',
+          IsOwnerVisible: true,
+          VisibleToUserIds: ['owner', 'collab-a'],
+        },
+        recipientUserId: 'collab-a',
+        wishlistOwnerId: 'owner',
+        listHasExpired: false,
+      })
+    ).toBe(true);
+    expect(
+      shouldDeliverCommentEventToUser({
+        eventType: 'comment.created',
+        comment: {
+          UserId: 'author',
+          IsOwnerVisible: true,
+          VisibleToUserIds: ['owner', 'collab-a'],
+        },
+        recipientUserId: 'author',
+        wishlistOwnerId: 'owner',
+        listHasExpired: false,
+      })
+    ).toBe(true);
+  });
 });

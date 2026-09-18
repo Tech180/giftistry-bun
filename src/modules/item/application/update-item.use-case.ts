@@ -61,8 +61,8 @@ export class UpdateItemUseCase {
     websiteName?: string | null,
     metadata?: ItemDescriptionMetadata | null,
     isHiddenIdea?: boolean,
-    /** When set, write this onto the item link as ExtractedImageUrl (enrich scrape). */
-    extractedImageUrl?: string | null
+    /** @deprecated Scraped images belong in Photos only; link image is always cleared. */
+    _extractedImageUrl?: string | null
   ): Promise<Item> {
     if (!itemId) {
       throw new AppError('Item ID is required', 400, 'BAD_REQUEST');
@@ -82,9 +82,13 @@ export class UpdateItemUseCase {
     let resolvedHidden: boolean | undefined = undefined;
     if (isHiddenIdea !== undefined) {
       const isOwner = WishlistEntity.from(visible.wishlist).isOwner(currentUserId);
-      if (isOwner && isHiddenIdea) {
+      const isListEditor =
+        isOwner ||
+        (!!visible.listRole &&
+          (visible.listRole === 'owner' || visible.listRole === 'collaborator'));
+      if (isListEditor && isHiddenIdea) {
         throw new AppError(
-          'Forbidden: Owner cannot add hidden ideas to their own list',
+          'Forbidden: List editors cannot add hidden ideas to this list',
           403,
           'FORBIDDEN'
         );
@@ -191,7 +195,12 @@ export class UpdateItemUseCase {
     }
 
     if (linkUrl !== undefined) {
-      await this.syncItemLink(item, linkUrl, price, websiteName ?? null, extractedImageUrl);
+      await this.syncItemLink(item, linkUrl, price, websiteName ?? null);
+    }
+
+    // Photos are the sole image store; clear any legacy link scrape URL.
+    if (metadataWrite?.Photos !== undefined) {
+      await this.clearLinkExtractedImages(item.Id);
     }
 
     publishListChanged(item.ListId, {
@@ -206,12 +215,25 @@ export class UpdateItemUseCase {
     };
   }
 
+  private async clearLinkExtractedImages(itemId: string): Promise<void> {
+    const links = await this.itemRepo.findLinksByItemId(itemId);
+    for (const link of links) {
+      if (!link.ExtractedImageUrl) continue;
+      await this.itemRepo.updateLink(
+        link.Id,
+        link.Url,
+        link.RetailerName,
+        link.ExtractedPrice,
+        null
+      );
+    }
+  }
+
   private async syncItemLink(
     item: Item,
     linkUrl: string | null,
     price: number | null | undefined,
-    websiteName: string | null,
-    extractedImageUrl?: string | null
+    websiteName: string | null
   ): Promise<void> {
     const existingLinks = await this.itemRepo.findLinksByItemId(item.Id);
     const normalizedUrl = linkUrl?.trim() || null;
@@ -235,25 +257,16 @@ export class UpdateItemUseCase {
       }
     }
 
-    const resolvedImageUrl =
-      extractedImageUrl !== undefined
-        ? extractedImageUrl?.trim() || null
-        : undefined;
-
     const existingLink = existingLinks[0];
     if (existingLink) {
       const urlChanged = existingLink.Url !== normalizedUrl;
       const resolvedPrice = price !== undefined ? price : existingLink.ExtractedPrice;
-      const imageUrl =
-        resolvedImageUrl !== undefined
-          ? resolvedImageUrl
-          : existingLink.ExtractedImageUrl;
       await this.itemRepo.updateLink(
         existingLink.Id,
         normalizedUrl,
         retailerName,
         resolvedPrice,
-        imageUrl
+        null
       );
 
       if (urlChanged) {
@@ -272,7 +285,7 @@ export class UpdateItemUseCase {
       normalizedUrl,
       retailerName,
       price ?? null,
-      resolvedImageUrl ?? null
+      null
     );
 
     this.enrichLinkMetadata.execute(link.Id, normalizedUrl, price ?? null).catch((err) => {

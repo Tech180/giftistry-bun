@@ -139,6 +139,7 @@ export class MetadataScraperOrchestrator implements MetadataScraper {
       },
       finalUrl,
       websiteName: websiteName || undefined,
+      html,
     };
   }
 }

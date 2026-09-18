@@ -1,13 +1,16 @@
 import type { ItemRepository } from '../domain/ports/item.repository';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
+import type { ListShareRepository } from '@/modules/wishlist/domain/ports/list-share.repository';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { assertWishlistMutable } from '@/modules/wishlist/domain/assert-wishlist-mutable.util';
 import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
+import { actorCanManageListItems } from './create-owner-substitution.use-case';
 
 export class ReorderOwnerSubstitutionsUseCase {
   constructor(
     private itemRepo: ItemRepository,
-    private wishlistRepo: WishlistRepository
+    private wishlistRepo: WishlistRepository,
+    private listShareRepo?: ListShareRepository
   ) {}
 
   async execute(
@@ -26,8 +29,14 @@ export class ReorderOwnerSubstitutionsUseCase {
     }
     assertWishlistMutable(wishlist);
 
-    if (wishlist.UserId !== actorUserId) {
-      throw new AppError('Only the list owner can reorder substitutions', 403, 'FORBIDDEN');
+    const canManage = await actorCanManageListItems(
+      wishlist.UserId,
+      wishlist.Id,
+      actorUserId,
+      this.listShareRepo
+    );
+    if (!canManage) {
+      throw new AppError('Only list editors can reorder substitutions', 403, 'FORBIDDEN');
     }
 
     const existing = await this.itemRepo.findSubstitutionsByParentId(parentItemId);

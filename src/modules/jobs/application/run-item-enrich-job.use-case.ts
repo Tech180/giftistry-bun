@@ -215,7 +215,7 @@ export class RunItemEnrichJobUseCase {
         websiteName,
         metadata ?? undefined,
         undefined,
-        extract.data.imageUrl ?? null
+        null
       );
 
       await this.itemUseCases.promoteScrapedImageToPhotos.execute(

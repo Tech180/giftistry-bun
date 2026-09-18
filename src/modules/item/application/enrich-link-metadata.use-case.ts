@@ -28,12 +28,13 @@ export class EnrichLinkMetadataUseCase {
             ? (await this.itemRepo.findLinksByItemId(itemId)).find((link) => link.Id === linkId)
             : undefined;
 
+        // Scraped images go into Item.Photos only — never persist on the link.
         await this.itemRepo.updateLink(
           linkId,
           resolvedUrl,
           websiteName?.trim() || existing?.RetailerName || null,
           finalPrice,
-          data.imageUrl
+          null
         );
 
         if (data.imageUrl && this.promoteScrapedImageToPhotos && itemId) {

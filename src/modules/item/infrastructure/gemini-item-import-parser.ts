@@ -3,9 +3,12 @@ import type {
   ItemImportParserConfig,
   ItemImportParserInput,
   ItemImportParserProgress,
+  ItemImportParserResult,
 } from '../domain/ports/item-import-parser.port';
 import type { ImportedItemPreview } from '../domain/imported-item-preview';
 import { normalizeImportedItem, parsePriceValue } from '../domain/giftistry-export-detect';
+import { parseAiImportChunks } from '../domain/parse-ai-import-chunks.util';
+import { AI_IMPORT_MAX_TOKENS } from '../constants/ai-import-limits.constant';
 import { completeTextPromptStream } from './ai-text-completion';
 import { getDefaultAiPrompt } from '@/modules/system/domain/prompts';
 
@@ -149,22 +152,44 @@ export class GeminiItemImportParser implements ItemImportParser {
     input: ItemImportParserInput,
     config: ItemImportParserConfig,
     onProgress?: (progress: ItemImportParserProgress) => void | Promise<void>
-  ): Promise<ImportedItemPreview[]> {
-    const prompt = compileImportPrompt(config.customPrompt, input);
-    const result = await completeTextPromptStream(
-      prompt,
+  ): Promise<ItemImportParserResult> {
+    const result = await parseAiImportChunks(
+      input.fileContent,
       {
-        provider: config.provider,
-        apiKey: config.apiKey,
-        model: config.model,
-        endpoint: config.endpoint,
-        jsonResponse: true,
+        enabled: config.chunkingEnabled,
+        itemLimit: config.chunkItemLimit,
       },
-      async (delta) => {
-        await onProgress?.({ tokensPerSecond: delta.tokensPerSecond });
+      async (chunk, meta) => {
+        const prompt = compileImportPrompt(config.customPrompt, {
+          ...input,
+          fileContent: chunk,
+        });
+        const completion = await completeTextPromptStream(
+          prompt,
+          {
+            provider: config.provider,
+            apiKey: config.apiKey,
+            model: config.model,
+            endpoint: config.endpoint,
+            jsonResponse: true,
+            maxTokens: AI_IMPORT_MAX_TOKENS,
+          },
+          async (delta) => {
+            await onProgress?.({
+              tokensPerSecond: delta.tokensPerSecond,
+              chunkIndex: meta.index,
+              chunkTotal: meta.total,
+            });
+          }
+        );
+        const parsed = extractJsonObject(completion.text);
+        return mapAiImportItems(parsed);
       }
     );
-    const parsed = extractJsonObject(result.text);
-    return mapAiImportItems(parsed);
+
+    return {
+      items: result.items,
+      warnings: result.warnings,
+    };
   }
 }

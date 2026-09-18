@@ -155,6 +155,22 @@ describe('Authz audit (visibility, expiry, collaborator, comments)', () => {
     expect(res.status).toBe(403);
   });
 
+  test('collaborator cannot claim items on the list', async () => {
+    const res = await app.handle(
+      new Request(`http://localhost/api/items/${activeItemId}/claims`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${collaborator.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: { Items: { Anonymous: false } },
+        }),
+      })
+    );
+    expect(res.status).toBe(403);
+  });
+
   test('collaborator cannot claim on an expired wishlist', async () => {
     const res = await app.handle(
       new Request(`http://localhost/api/items/${expiredItemId}/claims`, {
@@ -168,7 +184,8 @@ describe('Authz audit (visibility, expiry, collaborator, comments)', () => {
         }),
       })
     );
-    expect(res.status).toBe(400);
+    // List editors are blocked from claiming before expiry checks.
+    expect(res.status).toBe(403);
   });
 
   test('viewer role can add suggestions', async () => {

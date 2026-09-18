@@ -43,7 +43,7 @@ describe('EnrichLinkMetadataUseCase', () => {
       'https://shop.example.com/p/canonical',
       'Example',
       12,
-      'https://cdn.example.com/a.jpg'
+      null
     );
     expect(findItemIdByLinkId).toHaveBeenCalledWith('link-1');
     expect(promote).toHaveBeenCalledWith('item-1', 'https://cdn.example.com/a.jpg');

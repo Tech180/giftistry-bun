@@ -21,6 +21,7 @@ export function isUnusableProductDescription(text: string | null | undefined): b
   const trimmed = text?.trim() ?? '';
   if (!trimmed) return false;
   if (trimmed.length > 300) return true;
+  if (/^amazon\.com\s*:/i.test(trimmed)) return true;
   return MARKETING_FLUFF_PATTERNS.some((pattern) => pattern.test(trimmed));
 }
 

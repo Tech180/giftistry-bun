@@ -10,7 +10,8 @@ import type { ProductResearcher } from '../domain/ports/product-researcher.port'
 import type { PageContextFetcher } from '../domain/ports/page-context.port';
 import type { ItemRepository } from '../domain/ports/item.repository';
 import type { AiPopulateStatus, ExtractedMetadata } from '../domain/extracted-metadata';
-import { mergeExtractedMetadata, shouldRunAiPopulate } from '../domain/merge-extracted-metadata';
+import { mergeExtractedMetadata, shouldRunAiPopulate, isEmptyAiPopulateResult } from '../domain/merge-extracted-metadata';
+import { polishGiftFacingMetadata } from '../domain/polish-gift-facing-metadata.util';
 import { normalizeCategoryLabel } from '../domain/normalize-category-label.util';
 import { mapScrapeToCustomFields } from '../domain/map-scrape-to-custom-fields';
 import { resolveWebSearchForExtract } from '@/common/application/user-web-search-access.util';
@@ -93,6 +94,7 @@ function finalizeExtractedData(
   finalUrl?: string
 ): ScrapeResult {
   let finalized = attachScrapeCustomFields(data, url);
+  finalized = polishGiftFacingMetadata(finalized);
   const mapped = mapScrapeToCustomFields(finalized, url);
   finalized = {
     ...finalized,
@@ -232,7 +234,9 @@ export class ExtractMetadataUseCase {
 
     const { provider, apiKey, model, endpoint } = fastConnection;
 
-    const pageHtml = await this.pageContextFetcher.fetchHtml(resolvedUrl);
+    const pageHtml = scrapeResult.html?.trim()
+      ? scrapeResult.html
+      : await this.pageContextFetcher.fetchHtml(resolvedUrl);
     const websiteName =
       scrapeResult.websiteName ??
       this.pageContextFetcher.resolveWebsiteName(resolvedUrl, pageHtml);
@@ -376,6 +380,18 @@ export class ExtractMetadataUseCase {
           },
         }
       );
+
+      if (isEmptyAiPopulateResult(aiData)) {
+        console.warn('[AI Populate] Empty populate result; keeping scrape fields');
+        return finalizeExtractedData(
+          baseData,
+          resolvedUrl,
+          withAiPopulate(scrapeResult.diagnostics, 'failed'),
+          websiteName,
+          existingCategories,
+          resolvedUrl
+        );
+      }
 
       const preferScrape = scrapeResult.diagnostics.confidence === 'high';
       const merged = mergeExtractedMetadata(

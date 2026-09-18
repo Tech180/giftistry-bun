@@ -49,8 +49,8 @@ export class BulkAddItemsUseCase {
       );
     }
 
-    const isSuggestion = role !== 'owner';
-    const isOwner = role === 'owner';
+    const isSuggestion = role === 'viewer';
+    const canManageItems = role === 'owner' || role === 'collaborator';
     const createdItems: Item[] = [];
     const failed: Array<{ index: number; message: string }> = [];
 
@@ -58,8 +58,12 @@ export class BulkAddItemsUseCase {
       const row = items[index];
       try {
         const resolvedHidden = row.isHiddenIdea ?? false;
-        if (role === 'owner' && resolvedHidden) {
-          throw new AppError('Owner cannot add hidden ideas to their own list', 403, 'FORBIDDEN');
+        if (canManageItems && resolvedHidden) {
+          throw new AppError(
+            'List editors cannot add hidden ideas to this list',
+            403,
+            'FORBIDDEN'
+          );
         }
         const isHiddenIdea = isSuggestion ? (row.isHiddenIdea !== false) : false;
 
@@ -67,7 +71,7 @@ export class BulkAddItemsUseCase {
           listId,
           row.sharedWithUserIds,
           userId,
-          isOwner
+          canManageItems
         );
 
         const item = await this.addItem.execute(

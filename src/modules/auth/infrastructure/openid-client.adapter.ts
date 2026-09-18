@@ -35,11 +35,14 @@ async function getConfiguration(serverConfigRepo: ServerConfigRepository): Promi
 export class OpenIdClientAdapter implements OidcClientPort {
   constructor(private serverConfigRepo: ServerConfigRepository) {}
 
-  async buildAuthorizationRequest(scopes: string): Promise<OidcAuthorizationRequest> {
+  async buildAuthorizationRequest(
+    scopes: string,
+    inviteToken?: string | null
+  ): Promise<OidcAuthorizationRequest> {
     const configuration = await getConfiguration(this.serverConfigRepo);
     const state = crypto.randomUUID();
     const nonce = crypto.randomUUID();
-    saveOAuthState(state, nonce);
+    saveOAuthState(state, nonce, inviteToken);
 
     const authorizationUrl = client.buildAuthorizationUrl(configuration, {
       redirect_uri: getOAuthRedirectUri(),

@@ -452,5 +452,30 @@ export async function runMigrations(dbSql: typeof sql = sql): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_items_substitution_for_item_id ON items (substitution_for_item_id)
   `;
 
+  console.log('[INFO] Applying registration invite table...');
+  await dbSql`
+    CREATE TABLE IF NOT EXISTS registration_invites (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      token_hash TEXT NOT NULL UNIQUE,
+      token TEXT DEFAULT NULL,
+      expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+      max_uses INTEGER DEFAULT NULL,
+      use_count INTEGER NOT NULL DEFAULT 0,
+      created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      revoked_at TIMESTAMP WITH TIME ZONE DEFAULT NULL
+    )
+  `;
+  await dbSql`ALTER TABLE registration_invites ADD COLUMN IF NOT EXISTS token TEXT DEFAULT NULL`;
+  await dbSql`
+    CREATE INDEX IF NOT EXISTS idx_registration_invites_active
+      ON registration_invites (revoked_at, expires_at)
+  `;
+
+  console.log('[INFO] Applying comment granular visibility column...');
+  await dbSql`
+    ALTER TABLE comments ADD COLUMN IF NOT EXISTS visible_to_user_ids JSONB DEFAULT NULL
+  `;
+
   console.log('[INFO] Database migrations completed successfully.');
 }

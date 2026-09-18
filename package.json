@@ -1,13 +1,15 @@
 {
   "name": "giftistry-api",
-  "version": "0.0.20",
+  "version": "0.0.21",
   "private": true,
   "type": "module",
   "scripts": {
     "predev": "cd ../theming-engine && bun run build",
     "dev": "bun --hot src/index.ts",
+    "dev:worker": "GIFTISTRY_PROCESS_ROLE=worker bun --hot src/worker.ts",
     "prestart": "cd ../theming-engine && bun run build",
     "start": "NODE_ENV=production bun src/index.ts",
+    "worker": "GIFTISTRY_PROCESS_ROLE=worker bun src/worker.ts",
     "pretest": "bun run scripts/ensure-test-database.ts",
     "test": "bun test --parallel=1",
     "check:sql": "bun run scripts/check-sql-imports.ts",

@@ -13,6 +13,9 @@ export interface OidcAuthorizationRequest {
 }
 
 export interface OidcClientPort {
-  buildAuthorizationRequest(scopes: string): Promise<OidcAuthorizationRequest>;
+  buildAuthorizationRequest(
+    scopes: string,
+    inviteToken?: string | null
+  ): Promise<OidcAuthorizationRequest>;
   exchangeCode(code: string, state: string, expectedState: string, nonce: string): Promise<OidcUserInfo>;
 }

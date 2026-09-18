@@ -97,6 +97,30 @@ describe('NotifyItemJobCompletionUseCase', () => {
     expect(createExecute.mock.calls[0][2]).toBe('Auto-fill failed');
   });
 
+  it('marks SoftFailure metadata when enrich completed but AiPopulate failed', async () => {
+    const notified = await useCase.execute(
+      baseJob({
+        Result: {
+          ItemId: 'item-1',
+          Title: 'Cool Gadget',
+          Diagnostics: { AiPopulate: 'failed' },
+        },
+      })
+    );
+    expect(notified).toBe(true);
+    expect(createExecute.mock.calls[0][1]).toBe('job_completed');
+    expect(createExecute.mock.calls[0][3]).toBe(
+      'Product details were found, but AI summarization has failed for “Cool Gadget”.'
+    );
+    expect(createExecute.mock.calls[0][4]).toEqual(
+      expect.objectContaining({
+        SoftFailure: true,
+        AiPopulate: 'failed',
+        ItemId: 'item-1',
+      })
+    );
+  });
+
   it('notifies item-summarize success', async () => {
     const notified = await useCase.execute(
       baseJob({

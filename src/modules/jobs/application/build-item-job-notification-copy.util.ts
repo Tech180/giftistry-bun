@@ -36,6 +36,14 @@ export function buildItemJobNotificationCopy(
   const label = resolveItemLabel(job);
 
   if (isEnrich) {
+    if (isAiPopulateFailed(job)) {
+      return {
+        title: listTitle || 'Item ready',
+        message: label
+          ? `Product details were found, but AI summarization has failed for “${label}”.`
+          : 'Product details were found, but AI summarization has failed.',
+      };
+    }
     return {
       title: listTitle || 'Item ready',
       message: label
@@ -50,6 +58,15 @@ export function buildItemJobNotificationCopy(
       ? `Notes for “${label}” are ready.`
       : 'Your item summary is ready.',
   };
+}
+
+/** True when enrich completed but AI populate soft-failed on Result.Diagnostics. */
+export function isAiPopulateFailed(job: Pick<BackgroundJob, 'Result'>): boolean {
+  const result = job.Result;
+  if (!result || typeof result !== 'object') return false;
+  const diagnostics = (result as Record<string, unknown>).Diagnostics;
+  if (!diagnostics || typeof diagnostics !== 'object') return false;
+  return (diagnostics as Record<string, unknown>).AiPopulate === 'failed';
 }
 
 function resolveItemLabel(job: BackgroundJob): string | null {

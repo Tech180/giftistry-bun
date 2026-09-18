@@ -119,7 +119,10 @@ export class RolloverWishlistUseCase {
         comment.CommenterName,
         comment.Content,
         comment.IsOwnerVisible,
-        true // retains is_rollover for subsequent rollovers
+        true, // retains is_rollover for subsequent rollovers
+        null,
+        comment.ImageUrl ?? null,
+        comment.VisibleToUserIds ?? null
       );
     }
 

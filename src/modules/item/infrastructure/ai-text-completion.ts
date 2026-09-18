@@ -43,6 +43,8 @@ export interface TextCompletionConfig {
   timeoutMs?: number;
   /** Override default connect timeout (ms). */
   connectTimeoutMs?: number;
+  /** Max completion tokens when the provider supports it. */
+  maxTokens?: number;
 }
 
 export interface TextCompletionUsage {
@@ -134,7 +136,7 @@ export async function completeTextPromptStream(
   config: TextCompletionConfig,
   onDelta?: TextCompletionDeltaHandler
 ): Promise<TextCompletionResult> {
-  const { provider, apiKey, model, endpoint, jsonResponse = false } = config;
+  const { provider, apiKey, model, endpoint, jsonResponse = false, maxTokens } = config;
   const timeoutMs = resolveCompletionTimeoutMs(config.timeoutMs);
   const connectTimeoutMs =
     config.connectTimeoutMs !== undefined
@@ -155,6 +157,7 @@ export async function completeTextPromptStream(
         'X-Title': 'Giftistry',
       },
       jsonResponse,
+      maxTokens,
       timeoutMs,
       connectTimeoutMs,
       includeUsage: true,
@@ -172,6 +175,7 @@ export async function completeTextPromptStream(
       apiKey,
       model: model || 'gpt-4o-mini',
       jsonResponse,
+      maxTokens,
       timeoutMs,
       connectTimeoutMs,
       includeUsage: true,
@@ -188,6 +192,7 @@ export async function completeTextPromptStream(
         : 'https://api.anthropic.com/v1/messages',
       apiKey,
       model: model || 'claude-3-5-sonnet-20240620',
+      maxTokens: maxTokens ?? 2000,
       timeoutMs,
       connectTimeoutMs,
       onDelta,
@@ -211,6 +216,7 @@ export async function completeTextPromptStream(
       model: model || 'llama3',
       headers,
       jsonResponse,
+      maxTokens,
       timeoutMs,
       connectTimeoutMs,
       includeUsage: false,
@@ -223,6 +229,7 @@ export async function completeTextPromptStream(
     model: model || 'gemini-1.5-flash',
     endpoint,
     jsonResponse,
+    maxTokens,
     timeoutMs,
     connectTimeoutMs,
     onDelta,
@@ -246,6 +253,7 @@ async function streamOpenAiCompatible(
     headers?: Record<string, string>;
     extraHeaders?: Record<string, string>;
     jsonResponse?: boolean;
+    maxTokens?: number;
     timeoutMs: number;
     connectTimeoutMs: number;
     includeUsage?: boolean;
@@ -278,6 +286,7 @@ async function streamOpenAiCompatible(
         model: options.model,
         messages: [{ role: 'user', content: prompt }],
         stream: true,
+        ...(options.maxTokens != null ? { max_tokens: options.maxTokens } : {}),
         ...(options.includeUsage ? { stream_options: { include_usage: true } } : {}),
         ...(options.jsonResponse ? { response_format: { type: 'json_object' } } : {}),
       }),
@@ -331,6 +340,7 @@ async function streamAnthropic(
     url: string;
     apiKey: string;
     model: string;
+    maxTokens: number;
     timeoutMs: number;
     connectTimeoutMs: number;
     onDelta?: TextCompletionDeltaHandler;
@@ -355,7 +365,7 @@ async function streamAnthropic(
       },
       body: JSON.stringify({
         model: options.model,
-        max_tokens: 2000,
+        max_tokens: options.maxTokens,
         stream: true,
         messages: [{ role: 'user', content: prompt }],
       }),
@@ -408,6 +418,7 @@ async function streamGemini(
     model: string;
     endpoint: string;
     jsonResponse?: boolean;
+    maxTokens?: number;
     timeoutMs: number;
     connectTimeoutMs: number;
     onDelta?: TextCompletionDeltaHandler;
@@ -429,6 +440,14 @@ async function streamGemini(
   let completionTokens: number | undefined;
   let sseBuffer = '';
 
+  const generationConfig: Record<string, unknown> = {};
+  if (options.jsonResponse) {
+    generationConfig.responseMimeType = 'application/json';
+  }
+  if (options.maxTokens != null) {
+    generationConfig.maxOutputTokens = options.maxTokens;
+  }
+
   const response = await fetchWithAiTimeouts(
     geminiUrl,
     {
@@ -439,8 +458,8 @@ async function streamGemini(
       },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        ...(options.jsonResponse
-          ? { generationConfig: { responseMimeType: 'application/json' } }
+        ...(Object.keys(generationConfig).length > 0
+          ? { generationConfig }
           : {}),
       }),
     },

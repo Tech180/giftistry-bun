@@ -1,15 +1,18 @@
 import type { ItemRepository } from '../domain/ports/item.repository';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
+import type { ListShareRepository } from '@/modules/wishlist/domain/ports/list-share.repository';
 import type { NotifyClaimersItemRemovedUseCase } from './notify-claimers-item-removed.use-case';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { assertWishlistMutable } from '@/modules/wishlist/domain/assert-wishlist-mutable.util';
 import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
+import { actorCanManageListItems } from './create-owner-substitution.use-case';
 
 export class DeleteItemSubstitutionUseCase {
   constructor(
     private itemRepo: ItemRepository,
     private wishlistRepo: WishlistRepository,
-    private notifyClaimersItemRemoved?: NotifyClaimersItemRemovedUseCase
+    private notifyClaimersItemRemoved?: NotifyClaimersItemRemovedUseCase,
+    private listShareRepo?: ListShareRepository
   ) {}
 
   async execute(substitutionId: string, actorUserId: string): Promise<void> {
@@ -29,9 +32,14 @@ export class DeleteItemSubstitutionUseCase {
     }
     assertWishlistMutable(wishlist);
 
-    const isOwner = wishlist.UserId === actorUserId;
+    const canManage = await actorCanManageListItems(
+      wishlist.UserId,
+      wishlist.Id,
+      actorUserId,
+      this.listShareRepo
+    );
     const isCreator = row.CreatedByUserId === actorUserId;
-    if (!isOwner && !isCreator) {
+    if (!canManage && !isCreator) {
       throw new AppError('Forbidden', 403, 'FORBIDDEN');
     }
 

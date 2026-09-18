@@ -5,11 +5,30 @@ export interface DescriptionFieldContext {
   size?: string | null;
 }
 
+/** Only structured attribute keys — never free-text Note/Features prose. */
+const SPEC_FIELD_KEYS = new Set(
+  [
+    'Color',
+    'Size',
+    'ShirtSize',
+    'PantsSize',
+    'ShoesSize',
+    'SocksSize',
+    'ModelNumber',
+    'StorageCapacity',
+    'RAM',
+  ].map((key) => key.toLowerCase())
+);
+
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function collectSpecValues(ctx: DescriptionFieldContext): string[] {
+function isSpecFieldKey(key: string): boolean {
+  return SPEC_FIELD_KEYS.has(key.trim().toLowerCase());
+}
+
+export function collectSpecValues(ctx: DescriptionFieldContext): string[] {
   const values = new Set<string>();
 
   const add = (val: string | null | undefined) => {
@@ -21,7 +40,8 @@ function collectSpecValues(ctx: DescriptionFieldContext): string[] {
   add(ctx.size);
 
   for (const map of [ctx.predefinedFields, ctx.userDefinedFields]) {
-    for (const val of Object.values(map ?? {})) {
+    for (const [key, val] of Object.entries(map ?? {})) {
+      if (!isSpecFieldKey(key)) continue;
       add(val);
     }
   }

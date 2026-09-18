@@ -9,6 +9,7 @@ import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
 import type { ServerConfigRepository } from '@/modules/system/domain/ports/server-config.repository';
 import type { SaveSystemSettingsUseCase } from '@/modules/system/application/save-system-settings.use-case';
+import type { RegistrationInviteRepository } from '@/modules/registration-invite/domain/ports/registration-invite.repository';
 import { SignupUseCase } from './application/signup.use-case';
 import { LoginUseCase } from './application/login.use-case';
 import { ChangePasswordUseCase } from './application/change-password.use-case';
@@ -47,6 +48,7 @@ export interface AuthModuleDeps {
   wishlistRepo: WishlistRepository;
   serverConfigRepo: ServerConfigRepository;
   saveSystemSettingsUseCase: SaveSystemSettingsUseCase;
+  registrationInviteRepo: RegistrationInviteRepository;
 }
 
 export let authMiddleware: ReturnType<typeof createAuthMiddleware>;
@@ -56,7 +58,11 @@ export function createAuthModule(deps: AuthModuleDeps) {
   const oidcClient = new OpenIdClientAdapter(deps.serverConfigRepo);
 
   const authUseCases = {
-    signup: new SignupUseCase(deps.userRepo, deps.getSitePolicyUseCase),
+    signup: new SignupUseCase(
+      deps.userRepo,
+      deps.getSitePolicyUseCase,
+      deps.registrationInviteRepo
+    ),
     login: new LoginUseCase(deps.userRepo, deps.getSitePolicyUseCase),
     changePassword: new ChangePasswordUseCase(deps.userRepo, deps.getSitePolicyUseCase),
     updateProfile: new UpdateProfileUseCase(deps.userRepo),
@@ -89,7 +95,8 @@ export function createAuthModule(deps: AuthModuleDeps) {
       oidcClient,
       deps.userRepo,
       deps.serverConfigRepo,
-      deps.getSitePolicyUseCase
+      deps.getSitePolicyUseCase,
+      deps.registrationInviteRepo
     ),
   };
 

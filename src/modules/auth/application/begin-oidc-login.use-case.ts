@@ -8,14 +8,15 @@ export class BeginOidcLoginUseCase {
     private serverConfigRepo: ServerConfigRepository
   ) {}
 
-  async execute(): Promise<{ AuthorizationUrl: string }> {
+  async execute(inviteToken?: string | null): Promise<{ AuthorizationUrl: string }> {
     const config = this.serverConfigRepo.load();
     if (!config.OAuthEnabled) {
       throw new AppError('OAuth login is not enabled on this server', 403, 'FORBIDDEN');
     }
 
     const request = await this.oidcClient.buildAuthorizationRequest(
-      config.OAuthScopes || 'openid email profile'
+      config.OAuthScopes || 'openid email profile',
+      inviteToken
     );
 
     return { AuthorizationUrl: request.authorizationUrl };

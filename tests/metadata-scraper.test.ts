@@ -453,7 +453,7 @@ describe('metadata scraper use cases', () => {
 
     expect(updatedPrice).not.toBeNull();
     expect(updatedPrice!).toBe(42);
-    expect(updatedImage!).toBe('https://example.com/image.jpg');
+    expect(updatedImage).toBeNull();
     expect(updatedUrl!).toBe('https://example.com/product');
   });
 

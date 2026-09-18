@@ -1,21 +1,28 @@
 interface OAuthStateEntry {
   nonce: string;
+  inviteToken: string | null;
   expiresAt: number;
 }
 
 const store = new Map<string, OAuthStateEntry>();
 const TTL_MS = 10 * 60 * 1000;
 
-export function saveOAuthState(state: string, nonce: string): void {
-  store.set(state, { nonce, expiresAt: Date.now() + TTL_MS });
+export function saveOAuthState(state: string, nonce: string, inviteToken?: string | null): void {
+  store.set(state, {
+    nonce,
+    inviteToken: inviteToken?.trim() || null,
+    expiresAt: Date.now() + TTL_MS,
+  });
 }
 
-export function consumeOAuthState(state: string): string | null {
+export function consumeOAuthState(
+  state: string
+): { nonce: string; inviteToken: string | null } | null {
   const entry = store.get(state);
   store.delete(state);
   if (!entry) return null;
   if (Date.now() > entry.expiresAt) return null;
-  return entry.nonce;
+  return { nonce: entry.nonce, inviteToken: entry.inviteToken };
 }
 
 export function purgeExpiredOAuthStates(): void {

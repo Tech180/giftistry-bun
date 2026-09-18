@@ -150,6 +150,8 @@ export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '
           AiPopulatePrompt: t.Optional(t.String()),
           AiCategoryPrompt: t.Optional(t.String()),
           AiImportPrompt: t.Optional(t.String()),
+          AiImportChunkingEnabled: t.Optional(t.Boolean()),
+          AiImportChunkItemLimit: t.Optional(t.Numeric()),
           AiEnabledPackIds: t.Optional(t.Array(t.String())),
           AiCustomPacks: t.Optional(
             t.Array(

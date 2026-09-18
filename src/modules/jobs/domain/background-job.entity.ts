@@ -227,6 +227,17 @@ export function toJobPublicView(
     view.FileName = payload?.fileName;
   }
 
+  if (job.Kind === 'item-enrich') {
+    const payload = job.Payload as ItemEnrichJobPayload;
+    view.Intent = payload.intent;
+    view.WriteBack = payload.intent !== 'draft-populate';
+  }
+
+  if (job.Kind === 'item-summarize') {
+    const payload = job.Payload as ItemSummarizeJobPayload;
+    view.WriteBack = payload.writeBack === true;
+  }
+
   if (items && items.length > 0) {
     view.ItemsSummary = summarizeJobItems(items);
     const streamLimit = clampGrabInfoActiveStreamLimit(

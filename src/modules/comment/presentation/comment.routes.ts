@@ -23,21 +23,18 @@ export const commentRoutes = (
       security: [{ bearerAuth: [] }]
     }
   })
-  .post('/wishlists/:listId/comments', async ({ getAuthUser, checkListAccess, params: { listId }, body: { Giftistry: { Comments: { Content, CommenterName, IsOwnerVisible, IsRollover, ParentId, ImageUrl } } } }) => {
-    const { role } = await checkListAccess('viewer');
+  .post('/wishlists/:listId/comments', async ({ getAuthUser, checkListAccess, params: { listId }, body: { Giftistry: { Comments: { Content, CommenterName, IsOwnerVisible, IsRollover, ParentId, ImageUrl, VisibleToUserIds } } } }) => {
+    await checkListAccess('viewer');
     const user = await getAuthUser();
-    
+
     const resolvedOwnerVisible = IsOwnerVisible ?? true;
-    if (role === 'owner' && !resolvedOwnerVisible) {
-      throw new AppError('Forbidden: List owner cannot post non-owner-visible comments on their own list', 403, 'FORBIDDEN');
-    }
 
     if (ImageUrl) {
       assertImageDataUrl(ImageUrl, { maxBytes: COMMENT_IMAGE_MAX_BYTES });
     }
 
     const resolvedCommenterName = CommenterName?.trim() || user.Username;
-    
+
     const comment = await useCases.addComment.execute(
       listId,
       user.userId,
@@ -46,14 +43,15 @@ export const commentRoutes = (
       resolvedOwnerVisible,
       IsRollover ?? false,
       ParentId || null,
-      ImageUrl || null
+      ImageUrl || null,
+      VisibleToUserIds ?? null
     );
     return { success: true, data: comment };
   }, {
     detail: {
       tags: ['Comments'],
       summary: 'Add comment to wishlist',
-      description: 'Post a comment on a wishlist. Owners cannot post surprise comments.',
+      description: 'Post a comment on a wishlist. Owners cannot post surprise comments. Optional VisibleToUserIds restricts audience.',
       security: [{ bearerAuth: [] }]
     },
     body: t.Object({
@@ -65,6 +63,7 @@ export const commentRoutes = (
           IsRollover: t.Optional(t.Boolean()),
           ParentId: t.Optional(t.Nullable(t.String())),
           ImageUrl: t.Optional(t.Nullable(t.String())),
+          VisibleToUserIds: t.Optional(t.Nullable(t.Array(t.String()))),
         })
       })
     })

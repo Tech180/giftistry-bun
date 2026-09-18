@@ -5,6 +5,8 @@ export interface Comment {
   CommenterName: string;
   Content: string;
   IsOwnerVisible: boolean;
+  /** When set, only these users (plus author) can see the comment. */
+  VisibleToUserIds?: string[] | null;
   IsRollover: boolean;
   IsDeleted?: boolean;
   ParentId?: string | null;
@@ -20,6 +22,7 @@ export class CommentEntity implements Comment {
   CommenterName!: string;
   Content!: string;
   IsOwnerVisible!: boolean;
+  VisibleToUserIds?: string[] | null;
   IsRollover!: boolean;
   IsDeleted?: boolean;
   ParentId?: string | null;

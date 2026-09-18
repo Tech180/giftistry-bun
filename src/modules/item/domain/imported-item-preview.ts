@@ -27,4 +27,8 @@ export interface ImportPreviewResult {
   sourceFormat: ImportFileFormat;
   parseMode: ImportParseMode;
   suggestedWishlistTitle?: string;
+  /** True when extractor truncated file text before parsing. */
+  inputTruncated?: boolean;
+  /** Rough non-empty data-row estimate used for under-count checks. */
+  estimatedRowCount?: number;
 }

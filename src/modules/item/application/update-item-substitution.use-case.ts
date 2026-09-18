@@ -1,5 +1,6 @@
 import type { ItemRepository } from '../domain/ports/item.repository';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
+import type { ListShareRepository } from '@/modules/wishlist/domain/ports/list-share.repository';
 import type { ItemSubstitutionOption } from '../domain/item-substitution.entity';
 import { buildSubstitutionSummaryWithClaimSummary } from '../domain/build-substitution-summary-with-claim-summary.util';
 import type { CreateSubstitutionPayload } from './substitution-payload.util';
@@ -12,12 +13,14 @@ import { AppError } from '@/common/middlewares/error.middleware';
 import { assertWishlistMutable } from '@/modules/wishlist/domain/assert-wishlist-mutable.util';
 import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
 import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
+import { actorCanManageListItems } from './create-owner-substitution.use-case';
 
 export class UpdateItemSubstitutionUseCase {
   constructor(
     private itemRepo: ItemRepository,
     private wishlistRepo: WishlistRepository,
-    private assertUserCan: AssertUserCanUseCase
+    private assertUserCan: AssertUserCanUseCase,
+    private listShareRepo?: ListShareRepository
   ) {}
 
   async execute(
@@ -46,9 +49,14 @@ export class UpdateItemSubstitutionUseCase {
     }
     assertWishlistMutable(wishlist);
 
-    const isOwner = wishlist.UserId === actorUserId;
+    const canManage = await actorCanManageListItems(
+      wishlist.UserId,
+      wishlist.Id,
+      actorUserId,
+      this.listShareRepo
+    );
     const isCreator = row.CreatedByUserId === actorUserId;
-    if (!isOwner && !isCreator) {
+    if (!canManage && !isCreator) {
       throw new AppError('Forbidden', 403, 'FORBIDDEN');
     }
 

@@ -344,6 +344,7 @@ export async function initializeSchema(dbSql: typeof sql = sql) {
         commenter_name VARCHAR(100) NOT NULL,
         content TEXT NOT NULL,
         is_owner_visible BOOLEAN DEFAULT TRUE,
+        visible_to_user_ids JSONB DEFAULT NULL,
         is_rollover BOOLEAN DEFAULT FALSE,
         is_deleted BOOLEAN DEFAULT FALSE,
         parent_id UUID REFERENCES comments(id) ON DELETE CASCADE,

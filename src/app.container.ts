@@ -42,6 +42,8 @@ import { createInvitesModule } from '@/modules/invites/invites.module';
 import { createNotificationsModule } from '@/modules/notifications/notifications.module';
 import { createAdminModule } from '@/modules/admin/admin.module';
 import { createSystemModule } from '@/modules/system/system.module';
+import { createRegistrationInviteModule } from '@/modules/registration-invite/registration-invite.module';
+import { PostgresRegistrationInviteRepository } from '@/modules/registration-invite/infrastructure/postgres-registration-invite.repository';
 import { SaveSystemSettingsUseCase } from '@/modules/system/application/save-system-settings.use-case';
 import { TestAiConnectionUseCase } from '@/modules/system/application/test-ai-connection.use-case';
 import { createJobsModule } from '@/modules/jobs/jobs.module';
@@ -52,23 +54,34 @@ import { createListAccessMiddleware } from '@/common/middlewares/list-access.mid
 import type { UserRepository } from '@/modules/auth/domain/ports/user.repository';
 import type { RouteMiddleware } from '@/common/types/route-middleware';
 
+export interface CreateAppContainerOptions {
+  /**
+   * When true, job runners do not call NotifyItemJobCompletion (worker role).
+   * The API process handles notify after LISTEN fanout with real WS presence.
+   */
+  skipItemJobCompletionNotify?: boolean;
+}
+
 export interface AppContainer {
   authModule: ReturnType<typeof createAuthModule>;
   wishlistModule: ReturnType<typeof createWishlistModule>['module'];
   itemModule: ReturnType<typeof createItemModule>['module'];
   jobsModule: ReturnType<typeof createJobsModule>['module'];
   jobRunner: BackgroundJobRunner;
+  jobRepo: PostgresBackgroundJobRepository;
+  notifyItemJobCompletion: NotifyItemJobCompletionUseCase;
   commentModule: ReturnType<typeof createCommentModule>;
   friendsModule: ReturnType<typeof createFriendsModule>;
   notificationsModule: ReturnType<typeof createNotificationsModule>;
   invitesModule: ReturnType<typeof createInvitesModule>['module'];
+  registrationInviteModule: ReturnType<typeof createRegistrationInviteModule>['module'];
   systemModule: ReturnType<typeof createSystemModule>['module'];
   adminModule: ReturnType<typeof createAdminModule>;
   authMiddleware: ReturnType<typeof createAuthMiddleware>;
   userRepo: UserRepository;
 }
 
-export function createAppContainer(): AppContainer {
+export function createAppContainer(options: CreateAppContainerOptions = {}): AppContainer {
   const userRepo = new PostgresUserRepository();
   const passkeyRepo = new PostgresPasskeyRepository();
   const emailSender = new SmtpEmailAdapter();
@@ -87,6 +100,7 @@ export function createAppContainer(): AppContainer {
   const pushSubscriptionRepo = new PostgresPushSubscriptionRepository();
   const linkTokenRepo = new PostgresListLinkTokenRepository();
   const emailInviteRepo = new PostgresListEmailInviteRepository();
+  const registrationInviteRepo = new PostgresRegistrationInviteRepository();
   const adminUserRepo = new PostgresAdminUserRepository();
   const moderationRepo = new PostgresModerationRepository();
   const reportRepo = new PostgresReportRepository();
@@ -137,6 +151,13 @@ export function createAppContainer(): AppContainer {
     wishlistRepo,
     serverConfigRepo,
     saveSystemSettingsUseCase,
+    registrationInviteRepo,
+  });
+
+  const { module: registrationInviteModule } = createRegistrationInviteModule({
+    inviteRepo: registrationInviteRepo,
+    getSitePolicyUseCase,
+    writeAuditLogUseCase,
   });
 
   const checkListAccessUseCase = createCheckListAccessUseCase(listShareRepo);
@@ -193,12 +214,15 @@ export function createAppContainer(): AppContainer {
     createWishlist: wishlistUseCases.createWishlist,
     middleware: routeMiddleware,
     jobRepo,
-    notifyItemJobCompletion,
+    notifyItemJobCompletion: options.skipItemJobCompletionNotify
+      ? undefined
+      : notifyItemJobCompletion,
   });
 
   const commentModule = createCommentModule({
     commentRepo,
     wishlistRepo,
+    listShareRepo,
     assertUserCanUseCase,
     middleware: routeMiddleware,
   });
@@ -240,10 +264,13 @@ export function createAppContainer(): AppContainer {
     itemModule,
     jobsModule,
     jobRunner,
+    jobRepo,
+    notifyItemJobCompletion,
     commentModule,
     friendsModule,
     notificationsModule,
     invitesModule,
+    registrationInviteModule,
     systemModule,
     adminModule,
     authMiddleware,

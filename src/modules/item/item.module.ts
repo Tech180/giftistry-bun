@@ -128,7 +128,8 @@ export function createItemModule(deps: ItemModuleDeps) {
   const assertItemVisibleUseCase = new AssertItemVisibleUseCase(
     deps.itemRepo,
     deps.wishlistRepo,
-    deps.audienceRepo
+    deps.audienceRepo,
+    deps.listShareRepo
   );
 
   const addItemUseCase = new AddItemUseCase(
@@ -161,7 +162,12 @@ export function createItemModule(deps: ItemModuleDeps) {
 
   const useCases = {
     addItem: addItemUseCase,
-    listItems: new ListItemsUseCase(deps.itemRepo, deps.wishlistRepo, deps.audienceRepo),
+    listItems: new ListItemsUseCase(
+      deps.itemRepo,
+      deps.wishlistRepo,
+      deps.audienceRepo,
+      deps.listShareRepo
+    ),
     claimItem: claimItemUseCase,
     claimItemWithLinked: new ClaimItemWithLinkedUseCase(
       deps.itemRepo,
@@ -212,26 +218,31 @@ export function createItemModule(deps: ItemModuleDeps) {
     createOwnerSubstitution: new CreateOwnerSubstitutionUseCase(
       deps.itemRepo,
       deps.wishlistRepo,
-      deps.assertUserCanUseCase
+      deps.assertUserCanUseCase,
+      deps.listShareRepo
     ),
     createClaimerSubstitution: new CreateClaimerSubstitutionUseCase(
       deps.itemRepo,
       deps.wishlistRepo,
-      deps.assertUserCanUseCase
+      deps.assertUserCanUseCase,
+      deps.listShareRepo
     ),
     updateItemSubstitution: new UpdateItemSubstitutionUseCase(
       deps.itemRepo,
       deps.wishlistRepo,
-      deps.assertUserCanUseCase
+      deps.assertUserCanUseCase,
+      deps.listShareRepo
     ),
     deleteItemSubstitution: new DeleteItemSubstitutionUseCase(
       deps.itemRepo,
       deps.wishlistRepo,
-      notifyClaimersItemRemoved
+      notifyClaimersItemRemoved,
+      deps.listShareRepo
     ),
     reorderOwnerSubstitutions: new ReorderOwnerSubstitutionsUseCase(
       deps.itemRepo,
-      deps.wishlistRepo
+      deps.wishlistRepo,
+      deps.listShareRepo
     ),
     promoteScrapedImageToPhotos: promoteScrapedImageToPhotosUseCase,
   };

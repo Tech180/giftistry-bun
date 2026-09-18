@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   canUserMutateItem,
   canUserViewItem,
+  isItemSuggestion,
 } from '../src/modules/item/domain/item-visibility.service';
 import type { Item } from '../src/modules/item/domain/item.entity';
 import type { Wishlist } from '../src/modules/wishlist/domain/wishlist.entity';
@@ -197,7 +198,32 @@ describe('canUserMutateItem', () => {
         wishlist: baseWishlist(),
         currentUserId: 'viewer-1',
         audienceUserIds: [],
+        listRole: 'viewer',
       })
+    ).toBe(false);
+  });
+
+  test('collaborator can mutate an owner item', () => {
+    expect(
+      canUserMutateItem({
+        item: baseItem(),
+        wishlist: baseWishlist(),
+        currentUserId: 'collab-1',
+        audienceUserIds: [],
+        listRole: 'collaborator',
+      })
+    ).toBe(true);
+  });
+
+  test('explicit IsSuggestion false is not a suggestion', () => {
+    expect(
+      isItemSuggestion(
+        baseItem({
+          IsSuggestion: false,
+          SuggestedByUserId: 'collab-1',
+        }),
+        'owner-1'
+      )
     ).toBe(false);
   });
 

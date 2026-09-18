@@ -2,7 +2,10 @@ import type { BackgroundJob } from '../domain/background-job.entity';
 import type { CreateNotificationUseCase } from '@/modules/notifications/application/create-notification.use-case';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
 import { isUserPresentOnList } from '@/modules/wishlist/infrastructure/wishlist-ws-registry';
-import { buildItemJobNotificationCopy } from './build-item-job-notification-copy.util';
+import {
+  buildItemJobNotificationCopy,
+  isAiPopulateFailed,
+} from './build-item-job-notification-copy.util';
 
 const ITEM_JOB_KINDS = new Set(['item-enrich', 'item-summarize']);
 
@@ -57,6 +60,14 @@ export class NotifyItemJobCompletionUseCase {
     const itemId = readResultItemId(job);
     if (itemId) {
       metadata.ItemId = itemId;
+    }
+    if (
+      job.Kind === 'item-enrich' &&
+      job.Status === 'completed' &&
+      isAiPopulateFailed(job)
+    ) {
+      metadata.SoftFailure = true;
+      metadata.AiPopulate = 'failed';
     }
 
     const created = await this.createNotification.execute(

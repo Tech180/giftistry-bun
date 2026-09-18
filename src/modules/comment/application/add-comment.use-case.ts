@@ -1,17 +1,23 @@
 import type { CommentRepository } from '../domain/ports/comment.repository';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
+import type { ListShareRepository } from '@/modules/wishlist/domain/ports/list-share.repository';
 import type { Comment } from '../domain/comment.entity';
 import { CommentEntity } from '../domain/comment.entity';
 import { WishlistEntity } from '@/modules/wishlist/domain/wishlist.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
 import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
 import { publishCommentEvent } from '../infrastructure/comment-publisher';
+import {
+  validateMentionsInAudience,
+  validateVisibilityPayload,
+} from '../domain/comment-visibility.service';
 
 export class AddCommentUseCase {
   constructor(
     private commentRepo: CommentRepository,
     private wishlistRepo: WishlistRepository,
-    private assertUserCan: AssertUserCanUseCase
+    private assertUserCan: AssertUserCanUseCase,
+    private listShareRepo: ListShareRepository
   ) {}
 
   async execute(
@@ -22,7 +28,8 @@ export class AddCommentUseCase {
     isOwnerVisible: boolean = true,
     isRollover: boolean = false,
     parentId?: string | null,
-    imageUrl?: string | null
+    imageUrl?: string | null,
+    visibleToUserIds?: string[] | null
   ): Promise<Comment> {
     if (!listId) {
       throw new AppError('List ID is required', 400, 'BAD_REQUEST');
@@ -49,15 +56,32 @@ export class AddCommentUseCase {
     const wishlistEntity = WishlistEntity.from(wishlist);
     const isOwner = userId !== null && wishlistEntity.isOwner(userId);
     const resolvedIsRollover = wishlist.AutoRollover === true && isRollover;
+
+    const shares = await this.listShareRepo.findSharesByListId(listId);
+    const allowedParticipantIds = new Set<string>([
+      wishlist.UserId,
+      ...shares.map((share) => share.UserId),
+    ]);
+
+    const visibility = validateVisibilityPayload({
+      isOwner,
+      isOwnerVisible,
+      visibleToUserIds,
+      authorUserId: userId,
+      allowedParticipantIds,
+    });
+
     const finalIsOwnerVisible = CommentEntity.from({
       Id: '',
       ListId: listId,
       UserId: userId,
       CommenterName: commenterName,
       Content: content,
-      IsOwnerVisible: isOwnerVisible,
+      IsOwnerVisible: visibility.isOwnerVisible,
       IsRollover: resolvedIsRollover,
-    }).resolveOwnerVisibility(isOwner, isOwnerVisible);
+    }).resolveOwnerVisibility(isOwner, visibility.isOwnerVisible);
+
+    validateMentionsInAudience(content, visibility.visibleToUserIds, userId);
 
     const comment = await this.commentRepo.create(
       listId,
@@ -67,7 +91,8 @@ export class AddCommentUseCase {
       finalIsOwnerVisible,
       resolvedIsRollover,
       parentId,
-      imageUrl
+      imageUrl,
+      visibility.visibleToUserIds
     );
 
     publishCommentEvent(listId, 'comment.created', { Comment: comment });
