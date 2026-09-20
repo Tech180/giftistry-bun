@@ -4,15 +4,16 @@ import type { ListShareRepository } from '@/modules/wishlist/domain/ports/list-s
 import type { NotifyClaimersItemRemovedUseCase } from './notify-claimers-item-removed.use-case';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { assertWishlistMutable } from '@/modules/wishlist/domain/assert-wishlist-mutable.util';
-import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
+import type { ListChangedPublisher } from '@/modules/wishlist/domain/ports/list-changed-publisher.port';
 import { actorCanManageListItems } from './create-owner-substitution.use-case';
 
 export class DeleteItemSubstitutionUseCase {
   constructor(
     private itemRepo: ItemRepository,
     private wishlistRepo: WishlistRepository,
-    private notifyClaimersItemRemoved?: NotifyClaimersItemRemovedUseCase,
-    private listShareRepo?: ListShareRepository
+    private notifyClaimersItemRemoved: NotifyClaimersItemRemovedUseCase | undefined,
+    private listShareRepo: ListShareRepository | undefined,
+    private listChanged: ListChangedPublisher
   ) {}
 
   async execute(substitutionId: string, actorUserId: string): Promise<void> {
@@ -59,7 +60,7 @@ export class DeleteItemSubstitutionUseCase {
 
     await this.itemRepo.deleteSubstitution(substitutionId);
 
-    publishListChanged(parent.ListId, {
+    this.listChanged.publish(parent.ListId, {
       reason: 'item.substitution',
       itemId: parent.Id,
       actorUserId: actorUserId,

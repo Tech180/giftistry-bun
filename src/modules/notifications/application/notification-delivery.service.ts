@@ -6,7 +6,6 @@ import {
 } from '../domain/ports/push-notification.port';
 import type { PushTransport } from '../domain/push-subscription.entity';
 import type { ServerConfigRepository } from '@/modules/system/domain/ports/server-config.repository';
-import { isUserForegroundConnected } from '../infrastructure/user-ws-registry';
 
 export type UserForegroundPresencePort = {
   isUserForegroundConnected: (userId: string) => boolean;
@@ -17,7 +16,7 @@ export class NotificationDeliveryService {
     private pushSubscriptionRepo: PushSubscriptionRepository,
     private adapters: Partial<Record<PushTransport, PushNotificationPort>>,
     private serverConfigRepo: ServerConfigRepository,
-    private presence: UserForegroundPresencePort = { isUserForegroundConnected }
+    private presence: UserForegroundPresencePort
   ) {}
 
   async deliverPush(

@@ -63,7 +63,8 @@ describe('AddItemUseCase linked items for suggestions', () => {
       { execute: mock() } as never,
       { execute: mock() } as never,
       { execute: mock(() => Promise.resolve()) } as never,
-      wishlistRepo as never
+      wishlistRepo as never,
+      { publish: mock() }
     );
   });
 
@@ -83,7 +84,7 @@ describe('AddItemUseCase linked items for suggestions', () => {
         true,
         null,
         [],
-        { LinkedItemIds: ['peer-1'] }
+        { Text: null, LinkedItemIds: ['peer-1'] }
       )
     ).rejects.toMatchObject({
       message: LINKED_ITEMS_SUGGESTION_UNSUPPORTED_MESSAGE,
@@ -108,7 +109,7 @@ describe('AddItemUseCase linked items for suggestions', () => {
       false,
       null,
       [],
-      { LinkedItemIds: ['peer-1'] }
+      { Text: null, LinkedItemIds: ['peer-1'] }
     );
     expect(itemRepo.create).toHaveBeenCalled();
     expect(itemRepo.replaceLinkedItemIds).toHaveBeenCalledWith('new-1', ['peer-1']);
@@ -133,7 +134,9 @@ describe('SyncItemLinksUseCase suggestion rejection', () => {
     wishlistRepo = {
       findById: mock(() => Promise.resolve(baseWishlist())),
     };
-    useCase = new SyncItemLinksUseCase(itemRepo as never, wishlistRepo as never);
+    useCase = new SyncItemLinksUseCase(itemRepo as never, wishlistRepo as never, {
+      publish: mock(),
+    });
   });
 
   it('rejects syncing links onto a suggestion', async () => {

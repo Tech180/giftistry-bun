@@ -18,4 +18,5 @@ export interface OidcClientPort {
     inviteToken?: string | null
   ): Promise<OidcAuthorizationRequest>;
   exchangeCode(code: string, state: string, expectedState: string, nonce: string): Promise<OidcUserInfo>;
+  consumeOAuthState(state: string): { nonce: string; inviteToken: string | null } | null;
 }

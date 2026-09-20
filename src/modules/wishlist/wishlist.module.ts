@@ -15,6 +15,8 @@ import type {
 import type { EventBus } from '@/common/domain/events/event-bus.port';
 import type { ServerConfigRepository } from '@/modules/system/domain/ports/server-config.repository';
 import type { CheckListAccessUseCase } from './application/check-list-access.use-case';
+import type { ListChangedPublisher } from './domain/ports/list-changed-publisher.port';
+import { WebsocketListChangedPublisher } from './infrastructure/websocket-list-changed-publisher';
 import { PostgresListAccessRepository } from './infrastructure/postgres-list-access.repository';
 import { PostgresItemReviewRepository } from '@/modules/item/infrastructure/postgres-item-review.repository';
 import { GeminiReviewExtractor } from '@/modules/item/infrastructure/gemini-review-extractor';
@@ -61,9 +63,11 @@ export interface WishlistModuleDeps {
   invitesUseCases: Parameters<typeof wishlistRoutes>[1];
   serverConfigRepo: ServerConfigRepository;
   middleware: RouteMiddleware;
+  listChanged?: ListChangedPublisher;
 }
 
 export function createWishlistModule(deps: WishlistModuleDeps) {
+  const listChanged = deps.listChanged ?? new WebsocketListChangedPublisher();
   const itemReviewRepo = new PostgresItemReviewRepository();
   const extractItemReviewsUseCase = new ExtractItemReviewsUseCase(
     itemReviewRepo,
@@ -129,7 +133,8 @@ export function createWishlistModule(deps: WishlistModuleDeps) {
           deps.userRepo,
           deps.assertUserCanUseCase,
           backfillListReviewsUseCase,
-          deps.serverConfigRepo
+          deps.serverConfigRepo,
+          listChanged
         ),
         deleteWishlist: new DeleteWishlistUseCase(deps.wishlistRepo, deps.jobRepo),
         listListShares: new ListListSharesUseCase(deps.listShareRepo),

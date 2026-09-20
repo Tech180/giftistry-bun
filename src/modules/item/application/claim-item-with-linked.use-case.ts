@@ -6,7 +6,7 @@ import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlis
 import type { AssertItemVisibleUseCase } from './assert-item-visible.use-case';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { resolveItemMetadata } from '../domain/resolve-item-metadata.util';
-import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
+import type { ListChangedPublisher } from '@/modules/wishlist/domain/ports/list-changed-publisher.port';
 
 export interface ClaimWithLinkedInput {
   amount: number | null;
@@ -22,7 +22,8 @@ export class ClaimItemWithLinkedUseCase {
     private itemRepo: ItemRepository,
     private claimItem: ClaimItemUseCase,
     private assertItemVisible: AssertItemVisibleUseCase,
-    private wishlistRepo?: WishlistRepository
+    private wishlistRepo: WishlistRepository | undefined,
+    private listChanged: ListChangedPublisher
   ) {}
 
   async execute(
@@ -81,7 +82,7 @@ export class ClaimItemWithLinkedUseCase {
     }
 
     const claims = await this.itemRepo.createClaimsAtomic(prepared);
-    publishListChanged(primary.ListId, {
+    this.listChanged.publish(primary.ListId, {
       reason: 'claim.changed',
       itemId,
       actorUserId: userId,

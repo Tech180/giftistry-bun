@@ -1,5 +1,5 @@
 import type { CommentRepository } from '@/modules/comment/domain/ports/comment.repository';
-import { publishCommentEvent } from '@/modules/comment/infrastructure/comment-publisher';
+import type { CommentRealtimePublisher } from '@/modules/comment/domain/ports/comment-realtime-publisher.port';
 
 export const GROUP_FUND_SYSTEM_COMMENTER_NAME = 'System';
 
@@ -16,7 +16,10 @@ export interface PostGroupFundCommentInput {
  * Soft-fails at the caller — claim success must not depend on comment insert.
  */
 export class PostGroupFundCommentUseCase {
-  constructor(private commentRepo: CommentRepository) {}
+  constructor(
+    private commentRepo: CommentRepository,
+    private commentRealtime: CommentRealtimePublisher
+  ) {}
 
   async execute(input: PostGroupFundCommentInput): Promise<void> {
     const itemName = input.itemName.trim() || 'Item';
@@ -38,6 +41,6 @@ export class PostGroupFundCommentUseCase {
       null
     );
 
-    publishCommentEvent(input.listId, 'comment.created', { Comment: comment });
+    this.commentRealtime.publish(input.listId, 'comment.created', { Comment: comment });
   }
 }

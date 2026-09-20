@@ -28,15 +28,35 @@ function isPrivateHostname(hostname: string): boolean {
   const ipv4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
   if (ipv4) {
     const parts = ipv4.slice(1).map((p) => Number(p));
-    if (parts.some((n) => !Number.isFinite(n) || n < 0 || n > 255)) return true;
-    const [a, b] = parts;
-    if (a === 10) return true;
-    if (a === 127) return true;
-    if (a === 0) return true;
-    if (a === 169 && b === 254) return true;
-    if (a === 172 && b >= 16 && b <= 31) return true;
-    if (a === 192 && b === 168) return true;
-    if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
+    if (parts.some((n) => !Number.isFinite(n) || n < 0 || n > 255) || parts.length < 2) {
+      return true;
+    }
+    const a = parts[0];
+    const b = parts[1];
+    if (a === undefined || b === undefined) {
+      return true;
+    }
+    if (a === 10) {
+      return true;
+    }
+    if (a === 127) {
+      return true;
+    }
+    if (a === 0) {
+      return true;
+    }
+    if (a === 169 && b === 254) {
+      return true;
+    }
+    if (a === 172 && b >= 16 && b <= 31) {
+      return true;
+    }
+    if (a === 192 && b === 168) {
+      return true;
+    }
+    if (a === 100 && b >= 64 && b <= 127) {
+      return true; // CGNAT
+    }
     return false;
   }
 
@@ -68,9 +88,13 @@ function sniffMime(bytes: Uint8Array, contentType: string | null): string | null
     if (entry.bytes.every((b, i) => bytes[i] === b)) {
       if (entry.mime === 'image/webp') {
         // RIFF....WEBP
-        if (bytes.length < 12) continue;
-        const tag = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]);
-        if (tag !== 'WEBP') continue;
+        if (bytes.length < 12) {
+          continue;
+        }
+        const tag = String.fromCharCode(...bytes.subarray(8, 12));
+        if (tag !== 'WEBP') {
+          continue;
+        }
       }
       return entry.mime;
     }

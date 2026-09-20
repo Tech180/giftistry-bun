@@ -1,16 +1,14 @@
+import { computeTokensPerSecond } from '@/common/domain/compute-tokens-per-second.util';
+
+export { computeTokensPerSecond };
+
 /** Approximate token count from streamed text until provider usage arrives. */
 export function estimateTokensFromText(text: string): number {
-  if (!text) return 0;
-  return Math.max(1, Math.ceil(text.length / 4));
-}
+  if (!text) {
+    return 0;
+  }
 
-/** Tokens per second from token count and elapsed milliseconds. */
-export function computeTokensPerSecond(
-  tokenCount: number,
-  elapsedMs: number
-): number | null {
-  if (!(tokenCount > 0) || !(elapsedMs > 0)) return null;
-  return Math.max(1, Math.round((tokenCount / elapsedMs) * 1000));
+  return Math.max(1, Math.ceil(text.length / 4));
 }
 
 export function createThrottledDeltaEmitter(

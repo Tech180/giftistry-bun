@@ -181,10 +181,10 @@ export class ExportWishlistDataUseCase {
 
         const categoryGroups: { [key: string]: any[] } = {};
         for (const item of sorted) {
-          if (!categoryGroups[item.categoryFormatted]) {
-            categoryGroups[item.categoryFormatted] = [];
-          }
-          categoryGroups[item.categoryFormatted].push(item);
+          const groupKey = item.categoryFormatted;
+          const group = categoryGroups[groupKey] ?? [];
+          group.push(item);
+          categoryGroups[groupKey] = group;
         }
 
         const categories = Object.keys(categoryGroups).sort((a, b) => {
@@ -197,6 +197,9 @@ export class ExportWishlistDataUseCase {
           rows.push([`${cat}:`, ...headers.slice(1).map(() => '')]);
 
           const catItems = categoryGroups[cat];
+          if (!catItems) {
+            continue;
+          }
           for (const item of catItems) {
             const priorityVal = item.Priority !== null && item.Priority !== undefined ? item.Priority : '';
             const starVal = item.isFav ? '*' : '';
@@ -314,10 +317,10 @@ export class ExportWishlistDataUseCase {
 
         const categoryGroups: { [key: string]: any[] } = {};
         for (const item of sorted) {
-          if (!categoryGroups[item.categoryFormatted]) {
-            categoryGroups[item.categoryFormatted] = [];
-          }
-          categoryGroups[item.categoryFormatted].push(item);
+          const groupKey = item.categoryFormatted;
+          const group = categoryGroups[groupKey] ?? [];
+          group.push(item);
+          categoryGroups[groupKey] = group;
         }
 
         const categories = Object.keys(categoryGroups).sort((a, b) => {
@@ -343,6 +346,9 @@ export class ExportWishlistDataUseCase {
           catCell.alignment = { vertical: 'middle', wrapText: true };
 
           const catItems = categoryGroups[cat];
+          if (!catItems) {
+            continue;
+          }
           for (const item of catItems) {
             const priorityVal = item.Priority !== null && item.Priority !== undefined ? item.Priority : '';
             const starVal = item.isFav ? '*' : '';
@@ -425,10 +431,10 @@ export class ExportWishlistDataUseCase {
 
         const categoryGroups: { [key: string]: any[] } = {};
         for (const item of sorted) {
-          if (!categoryGroups[item.categoryFormatted]) {
-            categoryGroups[item.categoryFormatted] = [];
-          }
-          categoryGroups[item.categoryFormatted].push(item);
+          const groupKey = item.categoryFormatted;
+          const group = categoryGroups[groupKey] ?? [];
+          group.push(item);
+          categoryGroups[groupKey] = group;
         }
 
         const categories = Object.keys(categoryGroups).sort((a, b) => {
@@ -442,6 +448,9 @@ export class ExportWishlistDataUseCase {
           sections.push('-'.repeat(cat.length + 2));
 
           const catItems = categoryGroups[cat];
+          if (!catItems) {
+            continue;
+          }
           for (const item of catItems) {
             const starPrefix = item.isFav ? '★ ' : '  ';
             const priorityLabel = item.Priority !== null && item.Priority !== undefined ? `(Priority: ${item.Priority})` : '';

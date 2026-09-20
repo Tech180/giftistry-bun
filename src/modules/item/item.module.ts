@@ -45,6 +45,9 @@ import { PostGroupFundCommentUseCase } from './application/post-group-fund-comme
 import { GeminiDescriptionSummarizer } from './infrastructure/gemini-description-summarizer';
 import type { CreateNotificationUseCase } from '@/modules/notifications/application/create-notification.use-case';
 import type { CommentRepository } from '@/modules/comment/domain/ports/comment.repository';
+import type { CommentRealtimePublisher } from '@/modules/comment/domain/ports/comment-realtime-publisher.port';
+import type { ListChangedPublisher } from '@/modules/wishlist/domain/ports/list-changed-publisher.port';
+import { WebsocketListChangedPublisher } from '@/modules/wishlist/infrastructure/websocket-list-changed-publisher';
 import { GeminiMetadataPopulator } from './infrastructure/gemini-metadata-populator';
 import { GeminiCategoryClassifier } from './infrastructure/gemini-category-classifier';
 import { GeminiItemImportParser } from './infrastructure/gemini-item-import-parser';
@@ -68,9 +71,12 @@ export interface ItemModuleDeps {
   middleware: RouteMiddleware;
   createNotification?: CreateNotificationUseCase;
   commentRepo?: CommentRepository;
+  commentRealtime?: CommentRealtimePublisher;
+  listChanged?: ListChangedPublisher;
 }
 
 export function createItemModule(deps: ItemModuleDeps) {
+  const listChanged = deps.listChanged ?? new WebsocketListChangedPublisher();
   const itemReviewRepo = new PostgresItemReviewRepository();
   const reviewExtractor = new GeminiReviewExtractor();
   const pageContextFetcher = new HttpPageContextFetcher();
@@ -138,22 +144,27 @@ export function createItemModule(deps: ItemModuleDeps) {
     enrichLinkMetadataUseCase,
     extractItemReviewsUseCase,
     deps.assertUserCanUseCase,
-    deps.wishlistRepo
+    deps.wishlistRepo,
+    listChanged
   );
 
   const claimItemUseCase = new ClaimItemUseCase(
     deps.itemRepo,
     deps.wishlistRepo,
     assertItemVisibleUseCase,
-    deps.commentRepo ? new PostGroupFundCommentUseCase(deps.commentRepo) : undefined,
+    deps.commentRepo && deps.commentRealtime
+      ? new PostGroupFundCommentUseCase(deps.commentRepo, deps.commentRealtime)
+      : undefined,
     deps.createNotification
       ? new NotifyGroupFundContributorsUseCase(deps.createNotification)
-      : undefined
+      : undefined,
+    listChanged
   );
 
   const unclaimItemUseCase = new UnclaimItemUseCase(
     deps.itemRepo,
-    assertItemVisibleUseCase
+    assertItemVisibleUseCase,
+    listChanged
   );
 
   const notifyClaimersItemRemoved = deps.createNotification
@@ -173,18 +184,21 @@ export function createItemModule(deps: ItemModuleDeps) {
       deps.itemRepo,
       claimItemUseCase,
       assertItemVisibleUseCase,
-      deps.wishlistRepo
+      deps.wishlistRepo,
+      listChanged
     ),
     addItemLink: new AddItemLinkUseCase(
       deps.itemRepo,
       assertItemVisibleUseCase,
       enrichLinkMetadataUseCase,
-      extractItemReviewsUseCase
+      extractItemReviewsUseCase,
+      listChanged
     ),
     deleteItem: new DeleteItemUseCase(
       deps.itemRepo,
       assertItemVisibleUseCase,
-      notifyClaimersItemRemoved
+      notifyClaimersItemRemoved,
+      listChanged
     ),
     updateItem: new UpdateItemUseCase(
       deps.itemRepo,
@@ -193,14 +207,16 @@ export function createItemModule(deps: ItemModuleDeps) {
       enrichLinkMetadataUseCase,
       extractItemReviewsUseCase,
       deps.assertUserCanUseCase,
-      notifyClaimersItemRemoved
+      notifyClaimersItemRemoved,
+      listChanged
     ),
     getFieldDefinitions: new GetFieldDefinitionsUseCase(deps.fieldRepo, deps.serverConfigRepo),
     unclaimItem: unclaimItemUseCase,
     unclaimItemWithLinked: new UnclaimItemWithLinkedUseCase(
       deps.itemRepo,
       assertItemVisibleUseCase,
-      unclaimItemUseCase
+      unclaimItemUseCase,
+      listChanged
     ),
     buildItemClaimProjections: new BuildItemClaimProjectionsUseCase(
       deps.itemRepo,
@@ -212,37 +228,42 @@ export function createItemModule(deps: ItemModuleDeps) {
     summarizeItemDescription: summarizeItemDescriptionUseCase,
     parseImportPreview: parseImportPreviewUseCase,
     bulkAddItems: new BulkAddItemsUseCase(addItemUseCase, validateItemAudienceUseCase),
-    syncItemLinks: new SyncItemLinksUseCase(deps.itemRepo, deps.wishlistRepo),
-    syncItemRelated: new SyncItemRelatedUseCase(deps.itemRepo),
+    syncItemLinks: new SyncItemLinksUseCase(deps.itemRepo, deps.wishlistRepo, listChanged),
+    syncItemRelated: new SyncItemRelatedUseCase(deps.itemRepo, listChanged),
     listItemSubstitutions: new ListItemSubstitutionsUseCase(deps.itemRepo, deps.wishlistRepo),
     createOwnerSubstitution: new CreateOwnerSubstitutionUseCase(
       deps.itemRepo,
       deps.wishlistRepo,
       deps.assertUserCanUseCase,
-      deps.listShareRepo
+      deps.listShareRepo,
+      listChanged
     ),
     createClaimerSubstitution: new CreateClaimerSubstitutionUseCase(
       deps.itemRepo,
       deps.wishlistRepo,
       deps.assertUserCanUseCase,
-      deps.listShareRepo
+      deps.listShareRepo,
+      listChanged
     ),
     updateItemSubstitution: new UpdateItemSubstitutionUseCase(
       deps.itemRepo,
       deps.wishlistRepo,
       deps.assertUserCanUseCase,
-      deps.listShareRepo
+      deps.listShareRepo,
+      listChanged
     ),
     deleteItemSubstitution: new DeleteItemSubstitutionUseCase(
       deps.itemRepo,
       deps.wishlistRepo,
       notifyClaimersItemRemoved,
-      deps.listShareRepo
+      deps.listShareRepo,
+      listChanged
     ),
     reorderOwnerSubstitutions: new ReorderOwnerSubstitutionsUseCase(
       deps.itemRepo,
       deps.wishlistRepo,
-      deps.listShareRepo
+      deps.listShareRepo,
+      listChanged
     ),
     promoteScrapedImageToPhotos: promoteScrapedImageToPhotosUseCase,
   };

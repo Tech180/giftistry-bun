@@ -1,9 +1,12 @@
 import type { CommentRepository } from '../domain/ports/comment.repository';
 import { AppError } from '@/common/middlewares/error.middleware';
-import { publishCommentEvent } from '../infrastructure/comment-publisher';
+import type { CommentRealtimePublisher } from '../domain/ports/comment-realtime-publisher.port';
 
 export class ToggleReactionUseCase {
-  constructor(private commentRepo: CommentRepository) {}
+  constructor(
+    private commentRepo: CommentRepository,
+    private commentRealtime: CommentRealtimePublisher
+  ) {}
 
   async execute(
     commentId: string,
@@ -23,7 +26,7 @@ export class ToggleReactionUseCase {
     }
     const result = await this.commentRepo.toggleReaction(commentId, userId, username, reaction.trim());
     
-    publishCommentEvent(comment.ListId, 'reaction.toggled', {
+    this.commentRealtime.publish(comment.ListId, 'reaction.toggled', {
       CommentId: commentId,
       UserId: userId,
       Username: username,

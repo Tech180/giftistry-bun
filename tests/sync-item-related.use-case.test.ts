@@ -35,7 +35,7 @@ describe('SyncItemRelatedUseCase bidirectional unlink', () => {
       findByListId: mock(),
       replaceRelatedItemIds: mock(() => Promise.resolve()),
     };
-    useCase = new SyncItemRelatedUseCase(itemRepo as never);
+    useCase = new SyncItemRelatedUseCase(itemRepo as never, { publish: mock() });
   });
 
   it('clears asymmetric A→B related when unlinking from B', async () => {

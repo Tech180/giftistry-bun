@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
-import { env } from '@/common/consts/env.consts';
-import { loadConfig } from '@/common/database/connection';
+import { env } from '@/common/consts/runtime-config';
+import { loadConfig } from '@/common/infrastructure/config.loader';
 import { getPublicAppUrl } from '@/common/utils/public-app-url.util';
 import type { EmailSender } from '../domain/ports/email-sender.port';
 

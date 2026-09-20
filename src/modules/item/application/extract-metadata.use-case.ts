@@ -28,12 +28,9 @@ import {
   resolveMetadataPacks,
   sanitizeEnabledPackIdsForConfig,
 } from '@/modules/system/domain/packs';
+import type { ExtractMetadataPhase } from '../domain/extract-metadata-phase';
 
-export type ExtractMetadataPhase =
-  | 'scraping'
-  | 'categorizing'
-  | 'researching'
-  | 'populating';
+export type { ExtractMetadataPhase };
 
 export interface ExtractMetadataProgress {
   phase: ExtractMetadataPhase;

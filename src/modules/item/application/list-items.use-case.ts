@@ -11,7 +11,7 @@ import { AppError } from '@/common/middlewares/error.middleware';
 import { canUserViewItem, isItemSuggestion } from '../domain/item-visibility.service';
 import { ListRole } from '@/common/domain/list-role.vo';
 import { resolveItemMetadata } from '../domain/resolve-item-metadata.util';
-import { sortWishlistItemsByExportOrder } from '../domain/sort-wishlist-items.util';
+import { sortWishlistItemsByExportOrder, type SortableWishlistItem } from '../domain/sort-wishlist-items.util';
 import {
   computeItemClaimSummary,
   type ItemClaimSummary,
@@ -38,13 +38,14 @@ function groupItemsByCategory(items: Record<string, unknown>[]): ListItemGroupDt
   for (const item of items) {
     const key = String(item.CategoryKey || 'uncategorized');
     const label = String(item.CategoryLabel || 'General Items');
-    let index = indexByKey.get(key);
-    if (index === undefined) {
-      index = groups.length;
-      indexByKey.set(key, index);
-      groups.push({ CategoryKey: key, CategoryLabel: label, Items: [] });
+    const existingIndex = indexByKey.get(key);
+    let group = existingIndex !== undefined ? groups[existingIndex] : undefined;
+    if (!group) {
+      group = { CategoryKey: key, CategoryLabel: label, Items: [] };
+      indexByKey.set(key, groups.length);
+      groups.push(group);
     }
-    groups[index].Items.push(item);
+    group.Items.push(item);
   }
 
   return groups;
@@ -76,10 +77,10 @@ function toGuestItemDto(input: {
     Metadata: metadata,
     IsFavorite: item.IsFavorite === true || metadata?.IsFavorite === true,
     IsPinned: item.IsPinned === true || metadata?.IsPinned === true,
-    DesiredQuantity: item.DesiredQuantity ?? metadata?.DesiredQuantity ?? null,
     MultiCount: item.MultiCount === true || metadata?.MultiCount === true,
     IsClaimed: false,
     ...claimSummary,
+    DesiredQuantity: item.DesiredQuantity ?? metadata?.DesiredQuantity ?? null,
   };
 }
 
@@ -241,23 +242,25 @@ export class ListItemsUseCase {
           Photos: item.Photos ?? [],
           IsFavorite: item.IsFavorite === true || metadata?.IsFavorite === true,
           IsPinned: item.IsPinned === true || metadata?.IsPinned === true,
-          DesiredQuantity: item.DesiredQuantity ?? metadata?.DesiredQuantity ?? null,
           MultiCount: item.MultiCount === true || metadata?.MultiCount === true,
           AllowSubstitutions: item.AllowSubstitutions !== false,
           SubstitutionOptions: substitutionOptions,
           ActiveSubstitutionId: activeSubstitutionId,
           ...claimSummary,
+          DesiredQuantity: item.DesiredQuantity ?? metadata?.DesiredQuantity ?? null,
         };
       })
     );
 
     const visible = itemsWithDetails.filter(
       (item): item is NonNullable<typeof item> => item !== null
-    ) as Record<string, unknown>[];
-    const sorted = sortWishlistItemsByExportOrder(visible as never);
+    );
+    const sorted = sortWishlistItemsByExportOrder(
+      visible as Array<Record<string, unknown> & SortableWishlistItem>
+    );
     return {
-      Items: sorted as Record<string, unknown>[],
-      Groups: groupItemsByCategory(sorted as Record<string, unknown>[]),
+      Items: sorted,
+      Groups: groupItemsByCategory(sorted),
     };
   }
 }

@@ -6,7 +6,7 @@ import { CommentEntity } from '../domain/comment.entity';
 import { WishlistEntity } from '@/modules/wishlist/domain/wishlist.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
 import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
-import { publishCommentEvent } from '../infrastructure/comment-publisher';
+import type { CommentRealtimePublisher } from '../domain/ports/comment-realtime-publisher.port';
 import {
   validateMentionsInAudience,
   validateVisibilityPayload,
@@ -17,7 +17,8 @@ export class AddCommentUseCase {
     private commentRepo: CommentRepository,
     private wishlistRepo: WishlistRepository,
     private assertUserCan: AssertUserCanUseCase,
-    private listShareRepo: ListShareRepository
+    private listShareRepo: ListShareRepository,
+    private commentRealtime: CommentRealtimePublisher
   ) {}
 
   async execute(
@@ -95,7 +96,7 @@ export class AddCommentUseCase {
       visibility.visibleToUserIds
     );
 
-    publishCommentEvent(listId, 'comment.created', { Comment: comment });
+    this.commentRealtime.publish(listId, 'comment.created', { Comment: comment });
 
     return comment;
   }

@@ -1,8 +1,9 @@
 import { Elysia, t } from 'elysia';
 import { authMiddleware } from '@/modules/auth/auth.module';
 import { AppError } from '@/common/middlewares/error.middleware';
-import { env } from '@/common/consts/env.consts';
+import { env } from '@/common/consts/runtime-config';
 import { timingSafeEqualString } from '@/common/utils/public-app-url.util';
+import type { SystemSettingsPayload } from '../domain/server-config.entity';
 import type { SystemUseCases } from './system-use-cases.interface';
 
 const SETUP_TOKEN_HEADER = 'x-giftistry-setup-token';
@@ -25,7 +26,6 @@ const oauthSettingsFields = {
   OAuthClientId: t.Optional(t.String()),
   OAuthClientSecret: t.Optional(t.String()),
   OAuthScopes: t.Optional(t.String()),
-  OAuthButtonText: t.Optional(t.String()),
   OAuthAutoRegister: t.Optional(t.Boolean()),
   OAuthAutoLaunch: t.Optional(t.Boolean()),
 };
@@ -114,7 +114,7 @@ export const systemRoutes = (useCases: SystemUseCases) => new Elysia({ prefix: '
       throw new AppError('Forbidden: Owner access required', 403, 'FORBIDDEN');
     }
 
-    await useCases.saveSystemSettings.execute(settings, {
+    await useCases.saveSystemSettings.execute(settings as SystemSettingsPayload, {
       actorIsOwner: true,
     });
     return { success: true };

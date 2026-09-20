@@ -6,7 +6,7 @@ import { CompositeSecretSource } from '@/common/infrastructure/secrets/composite
 import { CredentialsDirectoryProvider } from '@/common/infrastructure/secrets/credentials-directory.provider';
 import { EnvSecretProvider } from '@/common/infrastructure/secrets/env-secret.provider';
 import { FileEnvSecretProvider } from '@/common/infrastructure/secrets/file-env-secret.provider';
-import { loadRuntimeConfig } from '@/common/consts/env.consts';
+import { loadRuntimeConfig } from '@/common/consts/runtime-config';
 import type { SecretSource } from '@/common/domain/ports/secret-source.port';
 
 const saved: Record<string, string | undefined> = {};

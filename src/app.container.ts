@@ -31,12 +31,18 @@ import { WriteAuditLogUseCase } from '@/common/application/write-audit-log.use-c
 import { InProcessEventBus } from '@/common/infrastructure/in-process-event-bus';
 import { CreateNotificationUseCase } from '@/modules/notifications/application/create-notification.use-case';
 import { registerCreateNotificationHandlers } from '@/modules/notifications/infrastructure/event-handlers/create-notification.handler';
+import { WebsocketNotificationRealtimePublisher } from '@/modules/notifications/infrastructure/websocket-notification-realtime-publisher';
+import { isUserForegroundConnected } from '@/modules/notifications/infrastructure/user-ws-registry';
 import { CheerioPlaywrightMetadataScraper } from '@/modules/item/infrastructure/cheerio-playwright-metadata-scraper';
 import { createAuthModule, authMiddleware } from '@/modules/auth/auth.module';
 import type { createAuthMiddleware } from '@/modules/auth/presentation/auth.routes';
 import { createWishlistModule, createCheckListAccessUseCase } from '@/modules/wishlist/wishlist.module';
+import { WishlistWsPresenceAdapter } from '@/modules/wishlist/infrastructure/wishlist-ws-presence.adapter';
+import { WebsocketListChangedPublisher } from '@/modules/wishlist/infrastructure/websocket-list-changed-publisher';
 import { createItemModule } from '@/modules/item/item.module';
 import { createCommentModule } from '@/modules/comment/comment.module';
+import { WebsocketCommentRealtimePublisher } from '@/modules/comment/infrastructure/websocket-comment-realtime-publisher';
+import { getWishlistWsRoom } from '@/modules/wishlist/infrastructure/wishlist-ws-registry';
 import { createFriendsModule } from '@/modules/friends/friends.module';
 import { createInvitesModule } from '@/modules/invites/invites.module';
 import { createNotificationsModule } from '@/modules/notifications/notifications.module';
@@ -49,8 +55,11 @@ import { TestAiConnectionUseCase } from '@/modules/system/application/test-ai-co
 import { createJobsModule } from '@/modules/jobs/jobs.module';
 import { NotifyItemJobCompletionUseCase } from '@/modules/jobs/application/notify-item-job-completion.use-case';
 import { PostgresBackgroundJobRepository } from '@/modules/jobs/infrastructure/postgres-background-job.repository';
+import { WebsocketJobProgressPublisher } from '@/modules/jobs/infrastructure/websocket-job-progress-publisher';
 import type { BackgroundJobRunner } from '@/modules/jobs/application/background-job-runner';
+import type { RealtimePublisherAdapters } from '@/boot/runtime-publishers';
 import { createListAccessMiddleware } from '@/common/middlewares/list-access.middleware';
+import { setPublicAppUrlConfigSource } from '@/common/utils/public-app-url.util';
 import type { UserRepository } from '@/modules/auth/domain/ports/user.repository';
 import type { RouteMiddleware } from '@/common/types/route-middleware';
 
@@ -79,6 +88,7 @@ export interface AppContainer {
   adminModule: ReturnType<typeof createAdminModule>;
   authMiddleware: ReturnType<typeof createAuthMiddleware>;
   userRepo: UserRepository;
+  realtimePublishers: RealtimePublisherAdapters;
 }
 
 export function createAppContainer(options: CreateAppContainerOptions = {}): AppContainer {
@@ -105,6 +115,7 @@ export function createAppContainer(options: CreateAppContainerOptions = {}): App
   const moderationRepo = new PostgresModerationRepository();
   const reportRepo = new PostgresReportRepository();
   const serverConfigRepo = new PostgresServerConfigRepository();
+  setPublicAppUrlConfigSource(() => serverConfigRepo.load().PublicAppUrl);
   const metadataScraper = new CheerioPlaywrightMetadataScraper();
 
   const getSitePolicyUseCase = new GetSitePolicyUseCase(sitePolicyRepo);
@@ -123,18 +134,34 @@ export function createAppContainer(options: CreateAppContainerOptions = {}): App
       webpush: webPushAdapter,
       fcm: fcmPushAdapter,
     },
-    serverConfigRepo
+    serverConfigRepo,
+    { isUserForegroundConnected }
   );
 
   const eventBus = new InProcessEventBus();
+  const notificationRealtime = new WebsocketNotificationRealtimePublisher();
+  const listChanged = new WebsocketListChangedPublisher();
+  const jobProgressPublisher = new WebsocketJobProgressPublisher();
+  const commentRealtime = new WebsocketCommentRealtimePublisher(
+    getWishlistWsRoom,
+    (listId) => wishlistRepo.findById(listId)
+  );
+  const wishlistPresence = new WishlistWsPresenceAdapter();
+  const realtimePublishers: RealtimePublisherAdapters = {
+    jobProgress: jobProgressPublisher,
+    listChanged,
+    notification: notificationRealtime,
+  };
   const createNotificationUseCase = new CreateNotificationUseCase(
     notificationRepo,
+    notificationRealtime,
     notificationDelivery
   );
   registerCreateNotificationHandlers(eventBus, createNotificationUseCase);
   const notifyItemJobCompletion = new NotifyItemJobCompletionUseCase(
     createNotificationUseCase,
-    wishlistRepo
+    wishlistRepo,
+    wishlistPresence
   );
 
   const testAiConnectionUseCase = new TestAiConnectionUseCase();
@@ -179,6 +206,8 @@ export function createAppContainer(options: CreateAppContainerOptions = {}): App
     middleware: routeMiddleware,
     createNotification: createNotificationUseCase,
     commentRepo,
+    commentRealtime,
+    listChanged,
   });
 
   const { module: invitesModule, invitesUseCases } = createInvitesModule({
@@ -207,6 +236,7 @@ export function createAppContainer(options: CreateAppContainerOptions = {}): App
     invitesUseCases,
     serverConfigRepo,
     middleware: routeMiddleware,
+    listChanged,
   });
 
   const { module: jobsModule, runner: jobRunner } = createJobsModule({
@@ -214,6 +244,8 @@ export function createAppContainer(options: CreateAppContainerOptions = {}): App
     createWishlist: wishlistUseCases.createWishlist,
     middleware: routeMiddleware,
     jobRepo,
+    jobProgressPublisher,
+    serverConfigRepo,
     notifyItemJobCompletion: options.skipItemJobCompletionNotify
       ? undefined
       : notifyItemJobCompletion,
@@ -224,6 +256,7 @@ export function createAppContainer(options: CreateAppContainerOptions = {}): App
     wishlistRepo,
     listShareRepo,
     assertUserCanUseCase,
+    commentRealtime,
     middleware: routeMiddleware,
   });
 
@@ -275,5 +308,6 @@ export function createAppContainer(options: CreateAppContainerOptions = {}): App
     adminModule,
     authMiddleware,
     userRepo,
+    realtimePublishers,
   };
 }

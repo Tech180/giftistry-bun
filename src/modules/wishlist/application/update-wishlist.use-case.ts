@@ -7,7 +7,7 @@ import type { BackfillListReviewsUseCase } from '@/modules/item/application/back
 import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
 import { assertOwnerCanEnableListAi } from '@/common/application/user-ai-access.util';
 import { assertOwnerCanEnableListWebSearch } from '@/common/application/user-web-search-access.util';
-import { publishListChanged } from '../infrastructure/wishlist-list-publisher';
+import type { ListChangedPublisher } from '../domain/ports/list-changed-publisher.port';
 
 export class UpdateWishlistUseCase {
   constructor(
@@ -15,7 +15,8 @@ export class UpdateWishlistUseCase {
     private userRepo: UserRepository,
     private assertUserCan: AssertUserCanUseCase,
     private backfillListReviews: BackfillListReviewsUseCase,
-    private configRepo: ServerConfigRepository
+    private configRepo: ServerConfigRepository,
+    private listChanged: ListChangedPublisher
   ) {}
 
   async execute(
@@ -76,7 +77,7 @@ export class UpdateWishlistUseCase {
       autoRollover
     );
 
-    publishListChanged(listId, {
+    this.listChanged.publish(listId, {
       reason: 'list.updated',
       actorUserId: existing.UserId,
     });

@@ -1,4 +1,4 @@
-import type { ImportedItemPreview } from '../imported-item-preview';
+import type { ImportedItemPreview } from './imported-item-preview';
 import {
   findGiftistryTabularHeader,
   isSheetPreambleLine,
@@ -25,6 +25,9 @@ export function tryParseGiftistryExportCsv(text: string): ParseGiftistryCsvResul
 
   for (let i = headerIndex + 1; i < lines.length; i++) {
     const line = lines[i];
+    if (!line) {
+      continue;
+    }
     if (!line.trim() || isSheetPreambleLine(line)) {
       continue;
     }
@@ -34,8 +37,13 @@ export function tryParseGiftistryExportCsv(text: string): ParseGiftistryCsvResul
       cells.push('');
     }
 
-    const [categoryCell, priorityCell, itemCell, starCell, priceCell, linkCell, descriptionCell] =
-      cells;
+    const categoryCell = cells[0] ?? '';
+    const priorityCell = cells[1] ?? '';
+    const itemCell = cells[2] ?? '';
+    const starCell = cells[3] ?? '';
+    const priceCell = cells[4] ?? '';
+    const linkCell = cells[5] ?? '';
+    const descriptionCell = cells[6] ?? '';
 
     const categoryTrimmed = categoryCell.trim();
     const itemTrimmed = itemCell.trim();
@@ -61,10 +69,13 @@ export function tryParseGiftistryExportCsv(text: string): ParseGiftistryCsvResul
     );
 
     if (existingIndex >= 0) {
-      if (linkCell.trim() && !items[existingIndex].websiteLink) {
-        items[existingIndex].websiteLink = linkCell.trim();
-      } else if (linkCell.trim()) {
-        warnings.push(`Item "${itemTrimmed}" has multiple links; keeping the first only.`);
+      const existing = items[existingIndex];
+      if (existing) {
+        if (linkCell.trim() && !existing.websiteLink) {
+          existing.websiteLink = linkCell.trim();
+        } else if (linkCell.trim()) {
+          warnings.push(`Item "${itemTrimmed}" has multiple links; keeping the first only.`);
+        }
       }
       continue;
     }

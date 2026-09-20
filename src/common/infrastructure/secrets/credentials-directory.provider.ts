@@ -4,7 +4,7 @@ import type { SecretName, SecretSource } from '@/common/domain/ports/secret-sour
 
 /**
  * Reads `$CREDENTIALS_DIRECTORY/NAME` or `$GIFTISTRY_CREDENTIALS_DIRECTORY/NAME`
- * (systemd LoadCredential, Docker /run/secrets when CREDENTIALS_DIRECTORY is set).
+ * (systemd LoadCredential / credentials directory when CREDENTIALS_DIRECTORY is set).
  */
 export class CredentialsDirectoryProvider implements SecretSource {
   get(name: SecretName): string | undefined {

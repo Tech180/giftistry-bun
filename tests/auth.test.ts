@@ -296,6 +296,19 @@ describe("Authentication & Global Endpoints", () => {
   });
 
   test("Dynamic stylesheet serving endpoint", async () => {
+    const catalogRes = await app.handle(
+      new Request("http://localhost/api/themes", {
+        method: "GET"
+      })
+    );
+    expect(catalogRes.status).toBe(200);
+    const catalogBody = await catalogRes.json() as any;
+    expect(catalogBody.Meta.Status).toBe("Success");
+    expect(Array.isArray(catalogBody.Result.Themes)).toBe(true);
+    expect(catalogBody.Result.Themes.length).toBeGreaterThanOrEqual(20);
+    expect(catalogBody.Result.Themes.some((t: any) => t.Id === "cyberpunk" && t.Category === "standard")).toBe(true);
+    expect(catalogBody.Result.Themes.some((t: any) => t.Id === "halloween" && t.Category === "holiday")).toBe(true);
+
     const resStatic = await app.handle(
       new Request("http://localhost/api/themes/cyberpunk/dark/css", {
         method: "GET"

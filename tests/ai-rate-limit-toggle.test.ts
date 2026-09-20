@@ -1,21 +1,13 @@
-import { describe, expect, mock, test, beforeEach, afterEach } from 'bun:test';
+import { describe, expect, test, beforeEach, afterEach } from 'bun:test';
 import { Elysia } from 'elysia';
-
-const loadConfigMock = mock(() => ({
-  AiRateLimitEnabled: true,
-}));
-
-mock.module('../src/common/database/connection', () => ({
-  loadConfig: loadConfigMock,
-}));
-
-const { rateLimit } = await import('../src/common/middlewares/rate-limit.middleware');
+import { rateLimit } from '../src/common/middlewares/rate-limit.middleware';
 
 describe('AI rate limit toggle', () => {
   const originalEnv = process.env.NODE_ENV;
+  let aiRateLimitEnabled = true;
 
   beforeEach(() => {
-    loadConfigMock.mockClear();
+    aiRateLimitEnabled = true;
     process.env.NODE_ENV = 'production';
   });
 
@@ -24,7 +16,7 @@ describe('AI rate limit toggle', () => {
   });
 
   test('skips enforcement when AiRateLimitEnabled is false', async () => {
-    loadConfigMock.mockReturnValue({ AiRateLimitEnabled: false });
+    aiRateLimitEnabled = false;
 
     const app = new Elysia()
       .use(
@@ -33,6 +25,7 @@ describe('AI rate limit toggle', () => {
           max: 1,
           paths: ['/jobs/item-enrich'],
           respectAiRateLimitToggle: true,
+          isAiRateLimitEnabled: () => aiRateLimitEnabled,
         })
       )
       .post('/api/jobs/item-enrich', () => ({ ok: true }));
@@ -49,7 +42,7 @@ describe('AI rate limit toggle', () => {
   });
 
   test('enforces when AiRateLimitEnabled is true', async () => {
-    loadConfigMock.mockReturnValue({ AiRateLimitEnabled: true });
+    aiRateLimitEnabled = true;
 
     const app = new Elysia()
       .use(
@@ -58,6 +51,7 @@ describe('AI rate limit toggle', () => {
           max: 1,
           paths: ['/jobs/item-enrich'],
           respectAiRateLimitToggle: true,
+          isAiRateLimitEnabled: () => aiRateLimitEnabled,
         })
       )
       .post('/api/jobs/item-enrich', () => ({ ok: true }));

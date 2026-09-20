@@ -14,7 +14,7 @@ import { GetPushConfigPublicUseCase } from './application/get-push-config-public
 import { TestNtfyUseCase } from './application/test-ntfy.use-case';
 import { systemRoutes } from './presentation/system.routes';
 import type { SystemUseCases } from './presentation/system-use-cases.interface';
-import { Elysia } from 'elysia';
+import { Elysia, type AnyElysia } from 'elysia';
 import type { ServerConfigRepository } from './domain/ports/server-config.repository';
 
 export interface SystemModuleDeps {
@@ -25,7 +25,7 @@ export interface SystemModuleDeps {
 }
 
 export function createSystemModule(deps: SystemModuleDeps): {
-  module: Elysia;
+  module: AnyElysia;
   systemUseCases: SystemUseCases;
 } {
   const testAiConnectionUseCase = new TestAiConnectionUseCase();

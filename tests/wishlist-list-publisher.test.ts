@@ -1,25 +1,23 @@
 import { describe, expect, test } from 'bun:test';
-import {
-  publishListChanged,
-  setListChangedPublisher,
-} from '../src/modules/wishlist/infrastructure/wishlist-list-publisher';
+import { WebsocketListChangedPublisher } from '../src/modules/wishlist/infrastructure/websocket-list-changed-publisher';
 import { DeleteItemUseCase } from '../src/modules/item/application/delete-item.use-case';
 
-describe('wishlist-list-publisher', () => {
-  test('no-ops when publisher is unset', () => {
-    setListChangedPublisher(null);
+describe('WebsocketListChangedPublisher', () => {
+  test('no-ops when transport is unset', () => {
+    const adapter = new WebsocketListChangedPublisher();
     expect(() =>
-      publishListChanged('list-1', { reason: 'item.created', itemId: 'item-1' })
+      adapter.publish('list-1', { reason: 'item.created', itemId: 'item-1' })
     ).not.toThrow();
   });
 
-  test('invokes publisher with list.changed payload', () => {
+  test('invokes transport with list.changed payload', () => {
     const calls: Array<{ listId: string; payload: Record<string, unknown> }> = [];
-    setListChangedPublisher((listId, payload) => {
+    const adapter = new WebsocketListChangedPublisher();
+    adapter.setTransport((listId, payload) => {
       calls.push({ listId, payload });
     });
 
-    publishListChanged('list-1', {
+    adapter.publish('list-1', {
       reason: 'claim.changed',
       itemId: 'item-9',
       actorUserId: 'user-2',
@@ -36,17 +34,17 @@ describe('wishlist-list-publisher', () => {
         },
       },
     ]);
-
-    setListChangedPublisher(null);
   });
 });
 
 describe('DeleteItemUseCase list.changed', () => {
   test('publishes item.deleted after successful delete', async () => {
-    const calls: Array<{ listId: string; payload: Record<string, unknown> }> = [];
-    setListChangedPublisher((listId, payload) => {
-      calls.push({ listId, payload });
-    });
+    const calls: Array<{ listId: string; event: { reason: string; itemId?: string; actorUserId?: string } }> = [];
+    const listChanged = {
+      publish(listId: string, event: { reason: string; itemId?: string; actorUserId?: string }) {
+        calls.push({ listId, event });
+      },
+    };
 
     const useCase = new DeleteItemUseCase(
       {
@@ -63,7 +61,9 @@ describe('DeleteItemUseCase list.changed', () => {
           },
           audienceUserIds: [],
         }),
-      } as never
+      } as never,
+      undefined,
+      listChanged
     );
 
     await useCase.execute('item-1', 'owner-1');
@@ -71,14 +71,37 @@ describe('DeleteItemUseCase list.changed', () => {
     expect(calls).toHaveLength(1);
     expect(calls[0]).toEqual({
       listId: 'list-1',
-      payload: {
-        Type: 'list.changed',
-        Reason: 'item.deleted',
-        ItemId: 'item-1',
-        ActorUserId: 'owner-1',
+      event: {
+        reason: 'item.deleted',
+        itemId: 'item-1',
+        actorUserId: 'owner-1',
       },
     });
+  });
 
-    setListChangedPublisher(null);
+  test('adapter encodes list.changed payload via transport', () => {
+    const calls: Array<{ listId: string; payload: Record<string, unknown> }> = [];
+    const adapter = new WebsocketListChangedPublisher();
+    adapter.setTransport((listId, payload) => {
+      calls.push({ listId, payload });
+    });
+
+    adapter.publish('list-1', {
+      reason: 'item.deleted',
+      itemId: 'item-1',
+      actorUserId: 'owner-1',
+    });
+
+    expect(calls).toEqual([
+      {
+        listId: 'list-1',
+        payload: {
+          Type: 'list.changed',
+          Reason: 'item.deleted',
+          ItemId: 'item-1',
+          ActorUserId: 'owner-1',
+        },
+      },
+    ]);
   });
 });

@@ -22,6 +22,8 @@ import type { BackgroundJobRepository } from '@/modules/jobs/domain/ports/backgr
 import type { JobProgressPublisher } from '@/modules/jobs/domain/ports/job-progress-publisher.port';
 import { AppError } from '@/common/middlewares/error.middleware';
 
+const stubServerConfig = { load: () => ({}), save: () => {} } as never;
+
 const noopPublisher: JobProgressPublisher = {
   publish: () => {},
 };
@@ -145,7 +147,7 @@ describe('StartItemEnrichJobUseCase', () => {
 
   test('create-from-url creates a placeholder item and pending job item', async () => {
     const { itemUseCases, addItemCalls } = makeItemUseCases({ Id: 'item-1', Name: 'Example' });
-    const useCase = new StartItemEnrichJobUseCase(makeRepo(), itemUseCases);
+    const useCase = new StartItemEnrichJobUseCase(makeRepo(), itemUseCases, stubServerConfig);
 
     const result = await useCase.execute(
       'user-1',
@@ -171,7 +173,7 @@ describe('StartItemEnrichJobUseCase', () => {
 
   test('create-from-url creates a suggestion for viewers', async () => {
     const { itemUseCases, addItemCalls } = makeItemUseCases({ Id: 'item-2', Name: 'Example' });
-    const useCase = new StartItemEnrichJobUseCase(makeRepo(), itemUseCases);
+    const useCase = new StartItemEnrichJobUseCase(makeRepo(), itemUseCases, stubServerConfig);
 
     await useCase.execute(
       'user-viewer',
@@ -188,7 +190,7 @@ describe('StartItemEnrichJobUseCase', () => {
 
   test('create-from-url creates a suggestion for collaborators', async () => {
     const { itemUseCases, addItemCalls } = makeItemUseCases({ Id: 'item-3', Name: 'Example' });
-    const useCase = new StartItemEnrichJobUseCase(makeRepo(), itemUseCases);
+    const useCase = new StartItemEnrichJobUseCase(makeRepo(), itemUseCases, stubServerConfig);
 
     await useCase.execute(
       'user-collab',
@@ -205,7 +207,7 @@ describe('StartItemEnrichJobUseCase', () => {
 
   test('update-item requires an itemId', async () => {
     const { itemUseCases } = makeItemUseCases({});
-    const useCase = new StartItemEnrichJobUseCase(makeRepo(), itemUseCases);
+    const useCase = new StartItemEnrichJobUseCase(makeRepo(), itemUseCases, stubServerConfig);
 
     await expect(
       useCase.execute(
@@ -219,7 +221,7 @@ describe('StartItemEnrichJobUseCase', () => {
 
   test('update-item inserts a job item for the existing item', async () => {
     const { itemUseCases } = makeItemUseCases({});
-    const useCase = new StartItemEnrichJobUseCase(makeRepo(), itemUseCases);
+    const useCase = new StartItemEnrichJobUseCase(makeRepo(), itemUseCases, stubServerConfig);
 
     const result = await useCase.execute(
       'user-1',
@@ -241,7 +243,7 @@ describe('StartItemEnrichJobUseCase', () => {
 
   test('draft-populate creates a job with no job items', async () => {
     const { itemUseCases } = makeItemUseCases({});
-    const useCase = new StartItemEnrichJobUseCase(makeRepo(), itemUseCases);
+    const useCase = new StartItemEnrichJobUseCase(makeRepo(), itemUseCases, stubServerConfig);
 
     const result = await useCase.execute(
       'user-1',
@@ -257,7 +259,7 @@ describe('StartItemEnrichJobUseCase', () => {
 
   test('rejects an invalid URL', async () => {
     const { itemUseCases } = makeItemUseCases({});
-    const useCase = new StartItemEnrichJobUseCase(makeRepo(), itemUseCases);
+    const useCase = new StartItemEnrichJobUseCase(makeRepo(), itemUseCases, stubServerConfig);
 
     await expect(
       useCase.execute(
@@ -463,7 +465,7 @@ describe('RunItemEnrichJobUseCase', () => {
 
 describe('StartItemSummarizeJobUseCase', () => {
   test('requires listId and name', async () => {
-    const useCase = new StartItemSummarizeJobUseCase(makeRepo());
+    const useCase = new StartItemSummarizeJobUseCase(makeRepo(), stubServerConfig);
     await expect(
       useCase.execute(
         'user-1',
@@ -482,7 +484,7 @@ describe('StartItemSummarizeJobUseCase', () => {
   });
 
   test('creates a queued item-summarize job', async () => {
-    const useCase = new StartItemSummarizeJobUseCase(makeRepo());
+    const useCase = new StartItemSummarizeJobUseCase(makeRepo(), stubServerConfig);
     const view = await useCase.execute(
       'user-1',
       { listId: 'list-1', name: 'Gadget', writeBack: false },

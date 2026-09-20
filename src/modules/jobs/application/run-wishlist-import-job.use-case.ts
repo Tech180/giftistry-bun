@@ -18,7 +18,7 @@ import { withJobHeartbeat } from './with-job-heartbeat.util';
 import { mergeGrabInfoDescription } from './merge-grab-info-description.util';
 import { resolveDesiredQuantity } from '@/modules/item/domain/parse-pack-quantity.util';
 import { resolveImportCategoryWithOptimize } from '@/modules/item/domain/is-soft-import-category.util';
-import { loadConfig } from '@/common/infrastructure/config.loader';
+import type { ServerConfigRepository } from '@/modules/system/domain/ports/server-config.repository';
 import { resolveGrabInfoConcurrency } from '@/modules/system/domain/server-config.entity';
 import { itemsPerSecondRate } from '../domain/job-progress-rate.util';
 import {
@@ -119,7 +119,8 @@ export class RunWishlistImportJobUseCase {
     private jobRepo: BackgroundJobRepository,
     private itemUseCases: ItemUseCases,
     private createWishlist: CreateWishlistUseCase,
-    private jobProgressPublisher: JobProgressPublisher
+    private jobProgressPublisher: JobProgressPublisher,
+    private serverConfigRepo: ServerConfigRepository
   ) {}
 
   async execute(job: BackgroundJob): Promise<void> {
@@ -611,7 +612,7 @@ export class RunWishlistImportJobUseCase {
       jobItems
     );
 
-    const grabConcurrency = resolveGrabInfoConcurrency(loadConfig(), workRows.length);
+    const grabConcurrency = resolveGrabInfoConcurrency(this.serverConfigRepo.load(), workRows.length);
     await mapPool(workRows, grabConcurrency, async (row) => {
       if (await this.jobRepo.shouldStop(job.Id)) return;
       const jobItem = byItemId.get(row.itemId);

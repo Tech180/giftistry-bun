@@ -86,6 +86,7 @@ export interface UserRepository {
   getTwoFactorSecrets(id: string): Promise<TwoFactorSecrets | null>;
   countMutualFriends(viewerId: string, userId: string): Promise<number>;
   listCustomThemes(userId: string): Promise<CustomTheme[]>;
+  findCustomThemeById(themeId: string): Promise<CustomTheme | null>;
   saveCustomTheme(userId: string, theme: CustomThemeInput): Promise<CustomTheme>;
   deleteCustomTheme(userId: string, themeId: string): Promise<void>;
   searchUsers(query: string, excludeId: string): Promise<UserSearchResult[]>;

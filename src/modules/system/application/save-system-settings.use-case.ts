@@ -69,14 +69,19 @@ export class SaveSystemSettingsUseCase {
         throw new AppError('SMTP host and port are required for remote SMTP type', 400, 'BAD_REQUEST');
       }
 
-      const transportOptions: nodemailer.TransportOptions = {
+      const transportOptions: {
+        host: string;
+        port: number;
+        secure?: boolean;
+        auth?: { user: string; pass: string };
+      } = {
         host: settings.SmtpHost,
         port: settings.SmtpPort,
         secure: settings.SmtpSecure,
       };
       if (settings.SmtpUser || smtpPass) {
         transportOptions.auth = {
-          user: settings.SmtpUser,
+          user: settings.SmtpUser || '',
           pass: smtpPass,
         };
       }
@@ -174,7 +179,6 @@ export class SaveSystemSettingsUseCase {
         resolveOAuthClientSecret(config) || config.OAuthClientSecret
       ),
       OAuthScopes: settings.OAuthScopes ?? config.OAuthScopes,
-      OAuthButtonText: settings.OAuthButtonText ?? config.OAuthButtonText,
       OAuthAutoRegister: settings.OAuthAutoRegister ?? config.OAuthAutoRegister,
       OAuthAutoLaunch: settings.OAuthAutoLaunch ?? config.OAuthAutoLaunch,
       AiEnabled: settings.AiEnabled,

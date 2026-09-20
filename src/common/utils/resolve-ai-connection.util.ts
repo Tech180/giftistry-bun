@@ -1,6 +1,6 @@
 import type { AiProvider } from '@/modules/system/domain/server-config.entity';
 import { normalizeAiProvider } from '@/modules/system/domain/server-config.entity';
-import { env } from '@/common/consts/env.consts';
+import { env } from '@/common/consts/runtime-config';
 import { resolveAiModel, type AiModelSlot } from './resolve-ai-model.util';
 
 export type { AiModelSlot };

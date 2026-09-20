@@ -9,10 +9,10 @@ export function nextRolloverTitle(title: string): string {
   }
 
   const match = /^(.*?)\s+(\d+)$/.exec(trimmed);
-  if (match) {
-    const base = match[1].trimEnd();
-    const next = Number(match[2]) + 1;
-    return `${base} ${next}`;
+  const base = match?.[1];
+  const n = match?.[2];
+  if (base !== undefined && n !== undefined) {
+    return `${base.trimEnd()} ${Number(n) + 1}`;
   }
   return `${trimmed} 1`;
 }

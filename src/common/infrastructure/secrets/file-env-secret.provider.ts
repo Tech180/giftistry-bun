@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import type { SecretName, SecretSource } from '@/common/domain/ports/secret-source.port';
 
 /**
- * If Bun.env[`${NAME}_FILE`] is set, read that path (Docker/Swarm secrets, systemd credentials paths).
+ * If Bun.env[`${NAME}_FILE`] is set, read that path (systemd credentials, secret files, etc.).
  */
 export class FileEnvSecretProvider implements SecretSource {
   get(name: SecretName): string | undefined {

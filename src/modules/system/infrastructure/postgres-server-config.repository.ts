@@ -22,14 +22,14 @@ export class PostgresServerConfigRepository implements ServerConfigRepository {
 
   async isSystemInitialized(): Promise<boolean> {
     try {
-      const [row] = await sql<any[]>`
+      const [row] = await sql<{ exists: boolean }[]>`
         SELECT EXISTS (
           SELECT FROM information_schema.tables
           WHERE table_name = 'users'
         ) as exists
       `;
       if (row?.exists) {
-        const [countRow] = await sql<any[]>`SELECT COUNT(*)::integer as count FROM users`;
+        const [countRow] = await sql<{ count: number }[]>`SELECT COUNT(*)::integer as count FROM users`;
         return !!(countRow && countRow.count > 0);
       }
     } catch {

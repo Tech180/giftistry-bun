@@ -4,14 +4,15 @@ import type { AssertItemVisibleUseCase } from './assert-item-visible.use-case';
 import { AppError } from '@/common/middlewares/error.middleware';
 import type { EnrichLinkMetadataUseCase } from './enrich-link-metadata.use-case';
 import type { ExtractItemReviewsUseCase } from './extract-item-reviews.use-case';
-import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
+import type { ListChangedPublisher } from '@/modules/wishlist/domain/ports/list-changed-publisher.port';
 
 export class AddItemLinkUseCase {
   constructor(
     private itemRepo: ItemRepository,
     private assertItemVisible: AssertItemVisibleUseCase,
     private enrichLinkMetadata: EnrichLinkMetadataUseCase,
-    private extractItemReviews: ExtractItemReviewsUseCase
+    private extractItemReviews: ExtractItemReviewsUseCase,
+    private listChanged: ListChangedPublisher
   ) {}
 
   async execute(itemId: string, url: string, currentUserId: string): Promise<ItemLink> {
@@ -55,7 +56,7 @@ export class AddItemLinkUseCase {
       console.error('Background AI review extraction trigger failed:', err);
     });
 
-    publishListChanged(item.ListId, {
+    this.listChanged.publish(item.ListId, {
       reason: 'item.updated',
       itemId,
       actorUserId: currentUserId,

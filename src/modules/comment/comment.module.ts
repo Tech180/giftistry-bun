@@ -4,6 +4,7 @@ import type { CommentRepository } from './domain/ports/comment.repository';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
 import type { ListShareRepository } from '@/modules/wishlist/domain/ports/list-share.repository';
 import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
+import type { CommentRealtimePublisher } from './domain/ports/comment-realtime-publisher.port';
 import { AddCommentUseCase } from './application/add-comment.use-case';
 import { ListCommentsUseCase } from './application/list-comments.use-case';
 import { DeleteCommentUseCase } from './application/delete-comment.use-case';
@@ -15,6 +16,7 @@ export interface CommentModuleDeps {
   wishlistRepo: WishlistRepository;
   listShareRepo: ListShareRepository;
   assertUserCanUseCase: AssertUserCanUseCase;
+  commentRealtime: CommentRealtimePublisher;
   middleware: RouteMiddleware;
 }
 
@@ -26,11 +28,12 @@ export function createCommentModule(deps: CommentModuleDeps) {
           deps.commentRepo,
           deps.wishlistRepo,
           deps.assertUserCanUseCase,
-          deps.listShareRepo
+          deps.listShareRepo,
+          deps.commentRealtime
         ),
         listComments: new ListCommentsUseCase(deps.commentRepo, deps.wishlistRepo),
-        deleteComment: new DeleteCommentUseCase(deps.commentRepo),
-        toggleReaction: new ToggleReactionUseCase(deps.commentRepo),
+        deleteComment: new DeleteCommentUseCase(deps.commentRepo, deps.commentRealtime),
+        toggleReaction: new ToggleReactionUseCase(deps.commentRepo, deps.commentRealtime),
       },
       deps.middleware
     )

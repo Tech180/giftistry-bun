@@ -1,12 +1,13 @@
 import type { NotificationRepository } from '../domain/ports/notification.repository';
 import { NotificationEntity, type Notification } from '../domain/notification.entity';
 import { shouldCreateNotification } from '../domain/notification-preference.util';
-import { publishNotification } from '../infrastructure/notification-publisher';
+import type { NotificationRealtimePublisher } from '../domain/ports/notification-realtime-publisher.port';
 import type { NotificationDeliveryService } from './notification-delivery.service';
 
 export class CreateNotificationUseCase {
   constructor(
     private notificationRepo: NotificationRepository,
+    private realtime: NotificationRealtimePublisher,
     private delivery?: NotificationDeliveryService
   ) {}
 
@@ -30,7 +31,7 @@ export class CreateNotificationUseCase {
       notification.Message,
       notification.Metadata
     );
-    publishNotification(userId, created);
+    this.realtime.publish(userId, created);
     if (this.delivery) {
       void this.delivery.deliverPush(userId, created, prefs).catch((err) => {
         console.error('[Notifications] Push delivery failed:', err);

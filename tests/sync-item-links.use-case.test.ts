@@ -52,7 +52,9 @@ describe('SyncItemLinksUseCase bidirectional unlink', () => {
     wishlistRepo = {
       findById: mock(() => Promise.resolve(baseWishlist())),
     };
-    useCase = new SyncItemLinksUseCase(itemRepo as never, wishlistRepo as never);
+    useCase = new SyncItemLinksUseCase(itemRepo as never, wishlistRepo as never, {
+      publish: mock(),
+    });
   });
 
   it('clears asymmetric A→B when unlinking from B', async () => {

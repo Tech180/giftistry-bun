@@ -75,7 +75,9 @@ describe('CreateOwnerSubstitutionUseCase', () => {
     useCase = new CreateOwnerSubstitutionUseCase(
       itemRepo as never,
       wishlistRepo as never,
-      { execute: mock(() => Promise.resolve()) } as never
+      { execute: mock(() => Promise.resolve()) } as never,
+      undefined,
+      { publish: mock(() => undefined) } as never
     );
   });
 
@@ -164,7 +166,9 @@ describe('CreateClaimerSubstitutionUseCase', () => {
     useCase = new CreateClaimerSubstitutionUseCase(
       itemRepo as never,
       wishlistRepo as never,
-      { execute: mock(() => Promise.resolve()) } as never
+      { execute: mock(() => Promise.resolve()) } as never,
+      undefined,
+      { publish: mock(() => undefined) } as never
     );
   });
 

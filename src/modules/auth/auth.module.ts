@@ -36,6 +36,8 @@ import { BeginOidcLoginUseCase } from './application/begin-oidc-login.use-case';
 import { HandleOidcCallbackUseCase } from './application/handle-oidc-callback.use-case';
 import { OpenIdClientAdapter } from './infrastructure/openid-client.adapter';
 import { authRoutes, createAuthMiddleware } from './presentation/auth.routes';
+import { themeRoutes } from './presentation/theme.routes';
+import { GetThemeCssUseCase } from './application/get-theme-css.use-case';
 
 export interface AuthModuleDeps {
   userRepo: UserRepository;
@@ -100,7 +102,9 @@ export function createAuthModule(deps: AuthModuleDeps) {
     ),
   };
 
-  return new Elysia().use(authRoutes(authUseCases, deps.userRepo));
+  return new Elysia()
+    .use(themeRoutes({ getThemeCss: new GetThemeCssUseCase(deps.userRepo) }))
+    .use(authRoutes(authUseCases, deps.userRepo, deps.serverConfigRepo));
 }
 
 export { createAuthMiddleware } from './presentation/auth.routes';

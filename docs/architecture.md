@@ -127,3 +127,10 @@ To add a new retailer extractor, create a file in `scraping/retailers/` implemen
 2. No static service classes in `common/services/`.
 3. Routes delegate exclusively to use cases.
 4. External systems (email, AI, scraping) are accessed through domain ports.
+
+## Related
+
+- [Development](development.md) — scripts, verify, env
+- [Install](INSTALL.md) — NixOS / local Bun
+- [Source map](../src/README.md) — nested module READMEs
+- [Contributing](../CONTRIBUTING.md)

@@ -1,4 +1,4 @@
-import type { ImportedItemPreview } from '../imported-item-preview';
+import type { ImportedItemPreview } from './imported-item-preview';
 import {
   isGiftistryExportTxt,
   normalizeImportedItem,
@@ -39,27 +39,32 @@ export function tryParseGiftistryExportTxt(text: string): ParseGiftistryTxtResul
   let openItem: ImportedItemPreview | null = null;
 
   const commitOpen = () => {
-    if (!openItem) return;
+    if (!openItem) {
+      return;
+    }
     const existingIndex = items.findIndex(
       (item) =>
         item.name === openItem!.name && (item.category || '') === (openItem!.category || '')
     );
     if (existingIndex >= 0) {
-      if (openItem.websiteLink && !items[existingIndex].websiteLink) {
-        items[existingIndex].websiteLink = openItem.websiteLink;
-      } else if (openItem.websiteLink) {
-        warnings.push(
-          `Item "${openItem.name}" has multiple links; keeping the first only.`
-        );
-      }
-      if (openItem.price != null && items[existingIndex].price == null) {
-        items[existingIndex].price = openItem.price;
-      }
-      if (openItem.description && !items[existingIndex].description) {
-        items[existingIndex].description = openItem.description;
-      }
-      if (openItem.isFavorite) {
-        items[existingIndex].isFavorite = true;
+      const existing = items[existingIndex];
+      if (existing) {
+        if (openItem.websiteLink && !existing.websiteLink) {
+          existing.websiteLink = openItem.websiteLink;
+        } else if (openItem.websiteLink) {
+          warnings.push(
+            `Item "${openItem.name}" has multiple links; keeping the first only.`
+          );
+        }
+        if (openItem.price != null && existing.price == null) {
+          existing.price = openItem.price;
+        }
+        if (openItem.description && !existing.description) {
+          existing.description = openItem.description;
+        }
+        if (openItem.isFavorite) {
+          existing.isFavorite = true;
+        }
       }
       openItem = null;
       return;
@@ -79,13 +84,13 @@ export function tryParseGiftistryExportTxt(text: string): ParseGiftistryTxtResul
     }
 
     const registryMatch = trimmed.match(REGISTRY_RE);
-    if (registryMatch) {
+    if (registryMatch?.[1]) {
       suggestedWishlistTitle = titleCaseWords(registryMatch[1]);
       continue;
     }
 
     const categoryMatch = trimmed.match(CATEGORY_RE);
-    if (categoryMatch) {
+    if (categoryMatch?.[1]) {
       commitOpen();
       currentCategory = titleCaseWords(categoryMatch[1]);
       continue;
@@ -98,7 +103,7 @@ export function tryParseGiftistryExportTxt(text: string): ParseGiftistryTxtResul
     const descriptionMatch = line.match(DESCRIPTION_RE);
     if (descriptionMatch) {
       if (openItem && !openItem.description) {
-        openItem.description = descriptionMatch[1].trim() || undefined;
+        openItem.description = descriptionMatch[1]?.trim() || undefined;
       }
       continue;
     }
@@ -106,7 +111,7 @@ export function tryParseGiftistryExportTxt(text: string): ParseGiftistryTxtResul
     const linkMatch = line.match(LINK_RE);
     if (linkMatch) {
       if (openItem) {
-        const url = linkMatch[1].trim();
+        const url = linkMatch[1]?.trim() ?? '';
         if (!openItem.websiteLink) {
           openItem.websiteLink = url || undefined;
         } else if (url) {
@@ -119,7 +124,7 @@ export function tryParseGiftistryExportTxt(text: string): ParseGiftistryTxtResul
     }
 
     const titleMatch = line.match(TITLE_LINE_RE);
-    if (titleMatch) {
+    if (titleMatch?.[1]) {
       commitOpen();
       const name = titleMatch[1].trim();
       const price = titleMatch[2] ? parsePriceValue(`$${titleMatch[2]}`) : undefined;

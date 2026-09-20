@@ -14,6 +14,7 @@ import { RunItemSummarizeJobUseCase } from './application/run-item-summarize-job
 import type { NotifyItemJobCompletionUseCase } from './application/notify-item-job-completion.use-case';
 import { BackgroundJobRunner } from './application/background-job-runner';
 import { jobsRoutes } from './presentation/jobs.routes';
+import type { ServerConfigRepository } from '@/modules/system/domain/ports/server-config.repository';
 
 export interface JobsModuleDeps {
   itemUseCases: ItemUseCases;
@@ -22,27 +23,39 @@ export interface JobsModuleDeps {
   jobRepo?: PostgresBackgroundJobRepository;
   jobProgressPublisher?: JobProgressPublisher;
   notifyItemJobCompletion?: NotifyItemJobCompletionUseCase;
+  serverConfigRepo: ServerConfigRepository;
 }
 
 export function createJobsModule(deps: JobsModuleDeps) {
   const jobRepo = deps.jobRepo ?? new PostgresBackgroundJobRepository();
   const jobProgressPublisher =
     deps.jobProgressPublisher ?? new WebsocketJobProgressPublisher();
-  const startWishlistImport = new StartWishlistImportJobUseCase(jobRepo);
+  const startWishlistImport = new StartWishlistImportJobUseCase(
+    jobRepo,
+    deps.serverConfigRepo
+  );
   const runWishlistImport = new RunWishlistImportJobUseCase(
     jobRepo,
     deps.itemUseCases,
     deps.createWishlist,
-    jobProgressPublisher
+    jobProgressPublisher,
+    deps.serverConfigRepo
   );
-  const startItemEnrich = new StartItemEnrichJobUseCase(jobRepo, deps.itemUseCases);
+  const startItemEnrich = new StartItemEnrichJobUseCase(
+    jobRepo,
+    deps.itemUseCases,
+    deps.serverConfigRepo
+  );
   const runItemEnrich = new RunItemEnrichJobUseCase(
     jobRepo,
     deps.itemUseCases,
     jobProgressPublisher,
     deps.notifyItemJobCompletion
   );
-  const startItemSummarize = new StartItemSummarizeJobUseCase(jobRepo);
+  const startItemSummarize = new StartItemSummarizeJobUseCase(
+    jobRepo,
+    deps.serverConfigRepo
+  );
   const runItemSummarize = new RunItemSummarizeJobUseCase(
     jobRepo,
     deps.itemUseCases,
@@ -64,6 +77,7 @@ export function createJobsModule(deps: JobsModuleDeps) {
         startItemSummarize,
         jobRepo,
         middleware: deps.middleware,
+        serverConfigRepo: deps.serverConfigRepo,
       })
     ),
     runner,

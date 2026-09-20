@@ -28,6 +28,7 @@ const PUBLIC_KEYS = new Set<string>([
   overlayKey('GET', '/api/themes/core/css'),
   overlayKey('GET', '/api/themes/core/fonts.css'),
   overlayKey('GET', '/api/themes/fonts/<filename>'),
+  overlayKey('GET', '/api/themes'),
   overlayKey('GET', '/api/themes/<theme>/<appearance>/css'),
   overlayKey('GET', '/api/invites/link/<token>'),
   overlayKey('GET', '/api/invites/link/<token>/preview'),

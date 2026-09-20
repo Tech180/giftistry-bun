@@ -1,10 +1,93 @@
 import type { WishlistRepository } from '../domain/ports/wishlist.repository';
 import type { Wishlist, Priority } from '../domain/wishlist.entity';
+import type { GrantedVia, ListShareWithUser, ShareRole } from '../domain/list-share.entity';
 import { sql } from '@/common/database/connection';
+
+interface WishlistOwnerRow {
+  Id: string;
+  UserId: string;
+  Title: string;
+  ExpiresAt: Date | string | null;
+  AllowGroupFunds: boolean;
+  IsActive: boolean;
+  Category: string | null;
+  RevealSuggestions: boolean;
+  AiEnabled: boolean;
+  WebSearchEnabled: boolean;
+  ManualJobBackground: boolean;
+  AutoRollover: boolean;
+  CreatedAt: Date | string;
+  OwnerUsername: string | null;
+  OwnerFirstName: string | null;
+  OwnerLastName: string | null;
+  OwnerAvatar: string | null;
+}
+
+interface WishlistWithRoleRow {
+  Id: string;
+  UserId: string;
+  Title: string;
+  ExpiresAt: Date | string | null;
+  AllowGroupFunds: boolean;
+  IsActive: boolean;
+  CreatedAt: Date | string;
+  Category: string | null;
+  RevealSuggestions: boolean;
+  AiEnabled: boolean;
+  WebSearchEnabled: boolean;
+  ManualJobBackground: boolean;
+  AutoRollover: boolean;
+  OwnerUsername: string | null;
+  OwnerFirstName: string | null;
+  OwnerAvatar: string | null;
+  Role: 'owner' | 'collaborator' | 'viewer';
+}
+
+interface WishlistBaseRow {
+  Id: string;
+  UserId: string;
+  Title: string;
+  ExpiresAt: Date | string | null;
+  AllowGroupFunds: boolean;
+  IsActive: boolean;
+  Category: string | null;
+  RevealSuggestions: boolean;
+  AiEnabled: boolean;
+  WebSearchEnabled?: boolean;
+  ManualJobBackground?: boolean;
+  AutoRollover: boolean;
+  CreatedAt: Date | string;
+}
+
+interface ListShareWithUserRow {
+  Id: string;
+  ListId: string;
+  UserId: string;
+  Role: ShareRole;
+  GrantedVia: GrantedVia | null;
+  CreatedAt: Date | string | null;
+  Username: string;
+  FirstName: string;
+  LastName: string;
+  Email: string;
+  Avatar: string | null;
+}
+
+interface PriorityRow {
+  Id: string;
+  UserId: string;
+  Label: string;
+  Weight: number | string;
+}
+
+interface ListCountsRow {
+  active: number;
+  archived: number;
+}
 
 export class PostgresWishlistRepository implements WishlistRepository {
   async findById(id: string): Promise<Wishlist | null> {
-    const [row] = await sql<any[]>`
+    const [row] = await sql<WishlistOwnerRow[]>`
       SELECT l.id as "Id", l.user_id as "UserId", l.title as "Title", l.expires_at as "ExpiresAt", 
              l.allow_group_funds as "AllowGroupFunds", l.is_active as "IsActive", 
              l.category as "Category", l.reveal_suggestions as "RevealSuggestions", l.ai_enabled as "AiEnabled", l.web_search_enabled as "WebSearchEnabled",
@@ -16,7 +99,10 @@ export class PostgresWishlistRepository implements WishlistRepository {
       LEFT JOIN users u ON l.user_id = u.id
       WHERE l.id = ${id}
     `;
-    if (!row) return null;
+    if (!row) {
+      return null;
+    }
+
     return {
       Id: row.Id,
       UserId: row.UserId,
@@ -25,21 +111,21 @@ export class PostgresWishlistRepository implements WishlistRepository {
       AllowGroupFunds: row.AllowGroupFunds,
       IsActive: row.IsActive,
       CreatedAt: new Date(row.CreatedAt),
-      Category: row.Category,
+      Category: row.Category ?? undefined,
       RevealSuggestions: row.RevealSuggestions,
       AiEnabled: row.AiEnabled,
       WebSearchEnabled: row.WebSearchEnabled,
       ManualJobBackground: row.ManualJobBackground !== false,
       AutoRollover: row.AutoRollover === true,
-      OwnerUsername: row.OwnerUsername,
-      OwnerFirstName: row.OwnerFirstName,
-      OwnerLastName: row.OwnerLastName,
+      OwnerUsername: row.OwnerUsername ?? undefined,
+      OwnerFirstName: row.OwnerFirstName ?? undefined,
+      OwnerLastName: row.OwnerLastName ?? undefined,
       OwnerAvatar: row.OwnerAvatar ?? null,
     };
   }
 
   async findByUserId(userId: string): Promise<Wishlist[]> {
-    const rows = await sql<any[]>`
+    const rows = await sql<WishlistWithRoleRow[]>`
       SELECT l.id as "Id", l.user_id as "UserId", l.title as "Title", l.expires_at as "ExpiresAt", 
              l.allow_group_funds as "AllowGroupFunds", l.is_active as "IsActive", 
              l.created_at as "CreatedAt", l.category as "Category",
@@ -63,10 +149,12 @@ export class PostgresWishlistRepository implements WishlistRepository {
       ORDER BY l.created_at DESC
     `;
 
-    if (rows.length === 0) return [];
+    if (rows.length === 0) {
+      return [];
+    }
 
     const listIds = rows.map(r => r.Id);
-    const shares = await sql<any[]>`
+    const shares = await sql<ListShareWithUserRow[]>`
       SELECT ls.id as "Id", ls.list_id as "ListId", ls.user_id as "UserId", ls.role as "Role",
              ls.granted_via as "GrantedVia", ls.created_at as "CreatedAt",
              u.username as "Username", u.first_name as "FirstName", u.last_name as "LastName",
@@ -77,7 +165,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
       ORDER BY ls.created_at ASC
     `;
 
-    const sharesByListId = new Map<string, any[]>();
+    const sharesByListId = new Map<string, ListShareWithUser[]>();
     shares.forEach(share => {
       const listShares = sharesByListId.get(share.ListId) || [];
       listShares.push({
@@ -85,7 +173,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
         ListId: share.ListId,
         UserId: share.UserId,
         Role: share.Role,
-        GrantedVia: share.GrantedVia,
+        GrantedVia: share.GrantedVia ?? undefined,
         CreatedAt: share.CreatedAt ? new Date(share.CreatedAt) : undefined,
         Username: share.Username,
         FirstName: share.FirstName,
@@ -104,14 +192,14 @@ export class PostgresWishlistRepository implements WishlistRepository {
       AllowGroupFunds: row.AllowGroupFunds,
       IsActive: row.IsActive,
       CreatedAt: new Date(row.CreatedAt),
-      Category: row.Category,
+      Category: row.Category ?? undefined,
       RevealSuggestions: row.RevealSuggestions,
       AiEnabled: row.AiEnabled,
       WebSearchEnabled: row.WebSearchEnabled,
       ManualJobBackground: row.ManualJobBackground !== false,
       AutoRollover: row.AutoRollover === true,
-      OwnerUsername: row.OwnerUsername,
-      OwnerFirstName: row.OwnerFirstName,
+      OwnerUsername: row.OwnerUsername ?? undefined,
+      OwnerFirstName: row.OwnerFirstName ?? undefined,
       OwnerAvatar: row.OwnerAvatar ?? null,
       Role: row.Role,
       Shares: sharesByListId.get(row.Id) || [],
@@ -130,7 +218,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
     manualJobBackground: boolean = true,
     autoRollover: boolean = false
   ): Promise<Wishlist> {
-    const [row] = await sql<any[]>`
+    const [row] = await sql<WishlistBaseRow[]>`
       INSERT INTO lists (user_id, title, expires_at, allow_group_funds, category, reveal_suggestions, ai_enabled, web_search_enabled, manual_job_background, auto_rollover)
       VALUES (${userId}, ${title}, ${expiresAt}, ${allowGroupFunds}, ${category}, ${revealSuggestions}, ${aiEnabled}, ${webSearchEnabled}, ${manualJobBackground}, ${autoRollover})
       RETURNING id as "Id", user_id as "UserId", title as "Title", expires_at as "ExpiresAt", 
@@ -141,7 +229,10 @@ export class PostgresWishlistRepository implements WishlistRepository {
                 auto_rollover as "AutoRollover",
                 created_at as "CreatedAt"
     `;
-    if (!row) throw new Error('Failed to create wishlist');
+    if (!row) {
+      throw new Error('Failed to create wishlist');
+    }
+
     return {
       Id: row.Id,
       UserId: row.UserId,
@@ -150,7 +241,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
       AllowGroupFunds: row.AllowGroupFunds,
       IsActive: row.IsActive,
       CreatedAt: new Date(row.CreatedAt),
-      Category: row.Category,
+      Category: row.Category ?? undefined,
       RevealSuggestions: row.RevealSuggestions,
       AiEnabled: row.AiEnabled,
       WebSearchEnabled: row.WebSearchEnabled,
@@ -205,7 +296,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
     manualJobBackground?: boolean,
     autoRollover?: boolean
   ): Promise<Wishlist> {
-    const [row] = await sql<any[]>`
+    const [row] = await sql<WishlistBaseRow[]>`
       UPDATE lists
       SET title = ${title}, expires_at = ${expiresAt}, allow_group_funds = ${allowGroupFunds},
           category = COALESCE(${category || null}, category),
@@ -222,7 +313,10 @@ export class PostgresWishlistRepository implements WishlistRepository {
                 auto_rollover as "AutoRollover",
                 created_at as "CreatedAt"
     `;
-    if (!row) throw new Error('Failed to update wishlist');
+    if (!row) {
+      throw new Error('Failed to update wishlist');
+    }
+
     return {
       Id: row.Id,
       UserId: row.UserId,
@@ -231,7 +325,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
       AllowGroupFunds: row.AllowGroupFunds,
       IsActive: row.IsActive,
       CreatedAt: new Date(row.CreatedAt),
-      Category: row.Category,
+      Category: row.Category ?? undefined,
       RevealSuggestions: row.RevealSuggestions,
       AiEnabled: row.AiEnabled,
       WebSearchEnabled: row.WebSearchEnabled,
@@ -258,7 +352,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
   }
 
   async findExpiredActive(): Promise<Wishlist[]> {
-    const rows = await sql<any[]>`
+    const rows = await sql<WishlistBaseRow[]>`
       SELECT id as "Id", user_id as "UserId", title as "Title", expires_at as "ExpiresAt", 
              allow_group_funds as "AllowGroupFunds", is_active as "IsActive", 
              category as "Category", reveal_suggestions as "RevealSuggestions", ai_enabled as "AiEnabled",
@@ -274,7 +368,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
       AllowGroupFunds: row.AllowGroupFunds,
       IsActive: row.IsActive,
       CreatedAt: new Date(row.CreatedAt),
-      Category: row.Category,
+      Category: row.Category ?? undefined,
       RevealSuggestions: row.RevealSuggestions,
       AiEnabled: row.AiEnabled,
       AutoRollover: row.AutoRollover === true,
@@ -282,22 +376,25 @@ export class PostgresWishlistRepository implements WishlistRepository {
   }
 
   async createPriority(userId: string, label: string, weight: number): Promise<Priority> {
-    const [row] = await sql<any[]>`
+    const [row] = await sql<PriorityRow[]>`
       INSERT INTO priorities (user_id, label, weight)
       VALUES (${userId}, ${label}, ${weight})
       RETURNING id as "Id", user_id as "UserId", label as "Label", weight as "Weight"
     `;
-    if (!row) throw new Error('Failed to create priority');
+    if (!row) {
+      throw new Error('Failed to create priority');
+    }
+
     return {
       Id: row.Id,
       UserId: row.UserId,
       Label: row.Label,
-      Weight: row.Weight,
+      Weight: Number(row.Weight),
     };
   }
 
   async findPrioritiesByUserId(userId: string): Promise<Priority[]> {
-    const rows = await sql<any[]>`
+    const rows = await sql<PriorityRow[]>`
       SELECT id as "Id", user_id as "UserId", label as "Label", weight as "Weight"
       FROM priorities
       WHERE user_id = ${userId}
@@ -307,31 +404,34 @@ export class PostgresWishlistRepository implements WishlistRepository {
       Id: row.Id,
       UserId: row.UserId,
       Label: row.Label,
-      Weight: row.Weight,
+      Weight: Number(row.Weight),
     }));
   }
 
   async findPriorityById(id: string): Promise<Priority | null> {
-    const [row] = await sql<any[]>`
+    const [row] = await sql<PriorityRow[]>`
       SELECT id as "Id", user_id as "UserId", label as "Label", weight as "Weight"
       FROM priorities
       WHERE id = ${id}
     `;
-    if (!row) return null;
+    if (!row) {
+      return null;
+    }
+
     return {
       Id: row.Id,
       UserId: row.UserId,
       Label: row.Label,
-      Weight: row.Weight,
+      Weight: Number(row.Weight),
     };
   }
 
   async findPrioritiesByWishlistForUser(wishlistId: string, userId: string, isOwner: boolean): Promise<Priority[]> {
     const ownedPriorities = await this.findPrioritiesByUserId(userId);
     
-    let rows: any[] = [];
+    let rows: PriorityRow[] = [];
     if (isOwner) {
-      rows = await sql<any[]>`
+      rows = await sql<PriorityRow[]>`
         SELECT DISTINCT p.id as "Id", p.user_id as "UserId", p.label as "Label", p.weight as "Weight"
         FROM priorities p
         JOIN items i ON i.priority_id = p.id
@@ -339,13 +439,13 @@ export class PostgresWishlistRepository implements WishlistRepository {
           AND i.is_hidden_idea = false
       `;
     } else {
-      const ownerQuery = sql<any[]>`
+      const ownerQuery = sql<PriorityRow[]>`
         SELECT id as "Id", user_id as "UserId", label as "Label", weight as "Weight"
         FROM priorities
         WHERE user_id = (SELECT user_id FROM lists WHERE id = ${wishlistId})
       `;
       
-      const itemQuery = sql<any[]>`
+      const itemQuery = sql<PriorityRow[]>`
         SELECT DISTINCT p.id as "Id", p.user_id as "UserId", p.label as "Label", p.weight as "Weight"
         FROM priorities p
         JOIN items i ON i.priority_id = p.id
@@ -376,7 +476,7 @@ export class PostgresWishlistRepository implements WishlistRepository {
   }
 
   async countListsByUser(userId: string): Promise<{ active: number; archived: number }> {
-    const [row] = await sql<any[]>`
+    const [row] = await sql<ListCountsRow[]>`
       SELECT
         COUNT(CASE WHEN is_active = true THEN 1 END)::integer as active,
         COUNT(CASE WHEN is_active = false THEN 1 END)::integer as archived

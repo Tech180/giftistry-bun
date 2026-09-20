@@ -2,12 +2,13 @@ import { Elysia, t } from 'elysia';
 import type { RouteMiddleware } from '@/common/types/route-middleware';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { getListAccessContext } from '@/common/middlewares/list-access.middleware';
-import { toJobPublicView } from '../domain/background-job.entity';
+import { mapToJobPublicView } from '../application/map-to-job-public-view.util';
 import type { BackgroundJob, ItemEnrichJobPayload } from '../domain/background-job.entity';
 import type { StartWishlistImportJobUseCase } from '../application/start-wishlist-import-job.use-case';
 import type { StartItemEnrichJobUseCase } from '../application/start-item-enrich-job.use-case';
 import type { StartItemSummarizeJobUseCase } from '../application/start-item-summarize-job.use-case';
 import type { BackgroundJobRepository } from '../domain/ports/background-job.repository';
+import type { ServerConfigRepository } from '@/modules/system/domain/ports/server-config.repository';
 import {
   resolveItemEnrichMinRole,
   resolveItemSummarizeMinRole,
@@ -19,13 +20,18 @@ export interface JobsRouteDeps {
   startItemSummarize: StartItemSummarizeJobUseCase;
   jobRepo: BackgroundJobRepository;
   middleware: RouteMiddleware;
+  serverConfigRepo: ServerConfigRepository;
 }
 
-async function toViews(jobRepo: BackgroundJobRepository, jobs: BackgroundJob[]) {
+async function toViews(
+  jobRepo: BackgroundJobRepository,
+  jobs: BackgroundJob[],
+  serverConfigRepo: ServerConfigRepository
+) {
   return Promise.all(
     jobs.map(async (job) => {
       const items = await jobRepo.listItems(job.Id);
-      return toJobPublicView(job, items);
+      return mapToJobPublicView(job, items, serverConfigRepo);
     })
   );
 }
@@ -239,7 +245,10 @@ export const jobsRoutes = (deps: JobsRouteDeps) =>
     .get('/jobs/mine', async ({ getAuthUser }) => {
       const user = await getAuthUser();
       const jobs = await deps.jobRepo.listActiveByUserId(user.userId);
-      return { success: true, data: await toViews(deps.jobRepo, jobs) };
+      return {
+        success: true,
+        data: await toViews(deps.jobRepo, jobs, deps.serverConfigRepo),
+      };
     }, { detail: { ...jobsDetail, summary: 'List my jobs' } })
     .get('/admin/jobs', async ({ getAuthUser }) => {
       const user = await getAuthUser();
@@ -247,7 +256,10 @@ export const jobsRoutes = (deps: JobsRouteDeps) =>
         throw new AppError('Admin access required', 403, 'FORBIDDEN');
       }
       const jobs = await deps.jobRepo.listActiveAll();
-      return { success: true, data: await toViews(deps.jobRepo, jobs) };
+      return {
+        success: true,
+        data: await toViews(deps.jobRepo, jobs, deps.serverConfigRepo),
+      };
     }, { detail: { ...jobsDetail, summary: 'List all jobs (admin)' } })
     .get('/jobs/:jobId', async ({ getAuthUser, params: { jobId } }) => {
       const user = await getAuthUser();
@@ -256,7 +268,7 @@ export const jobsRoutes = (deps: JobsRouteDeps) =>
         throw new AppError('Job not found', 404, 'NOT_FOUND');
       }
       const items = await deps.jobRepo.listItems(jobId);
-      return { success: true, data: toJobPublicView(job, items) };
+      return { success: true, data: mapToJobPublicView(job, items, deps.serverConfigRepo) };
     }, { detail: { ...jobsDetail, summary: 'Get job' } })
     .get(
       '/wishlists/:listId/jobs/active',
@@ -268,7 +280,7 @@ export const jobsRoutes = (deps: JobsRouteDeps) =>
           return { success: true, data: null };
         }
         const items = await deps.jobRepo.listItems(job.Id);
-        return { success: true, data: toJobPublicView(job, items) };
+        return { success: true, data: mapToJobPublicView(job, items, deps.serverConfigRepo) };
       },
       { detail: { ...jobsDetail, summary: 'Get active wishlist job' } }
     )
@@ -279,7 +291,7 @@ export const jobsRoutes = (deps: JobsRouteDeps) =>
         throw new AppError('Job not found', 404, 'NOT_FOUND');
       }
       const items = await deps.jobRepo.listItems(jobId);
-      return { success: true, data: toJobPublicView(job, items) };
+      return { success: true, data: mapToJobPublicView(job, items, deps.serverConfigRepo) };
     }, { detail: { ...jobsDetail, summary: 'Cancel job' } })
     .post('/jobs/:jobId/suspend', async ({ getAuthUser, params: { jobId } }) => {
       const user = await getAuthUser();
@@ -288,7 +300,7 @@ export const jobsRoutes = (deps: JobsRouteDeps) =>
         throw new AppError('Job not found or cannot be suspended', 404, 'NOT_FOUND');
       }
       const items = await deps.jobRepo.listItems(jobId);
-      return { success: true, data: toJobPublicView(job, items) };
+      return { success: true, data: mapToJobPublicView(job, items, deps.serverConfigRepo) };
     }, { detail: { ...jobsDetail, summary: 'Suspend job' } })
     .post('/jobs/:jobId/resume', async ({ getAuthUser, params: { jobId } }) => {
       const user = await getAuthUser();
@@ -297,7 +309,7 @@ export const jobsRoutes = (deps: JobsRouteDeps) =>
         throw new AppError('Job not found or cannot be resumed', 404, 'NOT_FOUND');
       }
       const items = await deps.jobRepo.listItems(jobId);
-      return { success: true, data: toJobPublicView(job, items) };
+      return { success: true, data: mapToJobPublicView(job, items, deps.serverConfigRepo) };
     }, { detail: { ...jobsDetail, summary: 'Resume job' } })
     .post('/admin/jobs/:jobId/cancel', async ({ getAuthUser, params: { jobId } }) => {
       const user = await getAuthUser();
@@ -309,7 +321,7 @@ export const jobsRoutes = (deps: JobsRouteDeps) =>
         throw new AppError('Job not found', 404, 'NOT_FOUND');
       }
       const items = await deps.jobRepo.listItems(jobId);
-      return { success: true, data: toJobPublicView(job, items) };
+      return { success: true, data: mapToJobPublicView(job, items, deps.serverConfigRepo) };
     }, { detail: { ...jobsDetail, summary: 'Cancel job (admin)' } })
     .post('/admin/jobs/:jobId/suspend', async ({ getAuthUser, params: { jobId } }) => {
       const user = await getAuthUser();
@@ -321,7 +333,7 @@ export const jobsRoutes = (deps: JobsRouteDeps) =>
         throw new AppError('Job not found or cannot be suspended', 404, 'NOT_FOUND');
       }
       const items = await deps.jobRepo.listItems(jobId);
-      return { success: true, data: toJobPublicView(job, items) };
+      return { success: true, data: mapToJobPublicView(job, items, deps.serverConfigRepo) };
     }, { detail: { ...jobsDetail, summary: 'Suspend job (admin)' } })
     .post('/admin/jobs/:jobId/resume', async ({ getAuthUser, params: { jobId } }) => {
       const user = await getAuthUser();
@@ -333,5 +345,5 @@ export const jobsRoutes = (deps: JobsRouteDeps) =>
         throw new AppError('Job not found or cannot be resumed', 404, 'NOT_FOUND');
       }
       const items = await deps.jobRepo.listItems(jobId);
-      return { success: true, data: toJobPublicView(job, items) };
+      return { success: true, data: mapToJobPublicView(job, items, deps.serverConfigRepo) };
     }, { detail: { ...jobsDetail, summary: 'Resume job (admin)' } });

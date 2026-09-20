@@ -1,75 +1,12 @@
 import postgres from 'postgres';
-import { env } from '../consts/env.consts';
+import { env } from '../consts/runtime-config';
 import * as fs from 'fs';
 import { getConfigFilePath } from '@/common/utils/config-path.util';
-import { normalizeAiProvider, type AiProvider } from '@/modules/system/domain/server-config.entity';
+import {
+  normalizeAiProvider,
+  type ServerConfig,
+} from '@/modules/system/domain/server-config.entity';
 import type { CustomPackSettingsDto } from '@/modules/system/domain/packs';
-
-export interface SystemConfig {
-  DbType: 'local' | 'remote';
-  DbUrl?: string;
-  SmtpType: 'local' | 'remote';
-  SmtpHost?: string;
-  SmtpPort?: number;
-  SmtpUser?: string;
-  SmtpPass?: string;
-  SmtpSecure?: boolean;
-  SmtpFrom?: string;
-  /** Public-facing SPA origin (emails, WebAuthn, CORS). Overridable by GIFTISTRY_PUBLIC_APP_URL. */
-  PublicAppUrl?: string;
-  /** When false, first-run setup is sealed. Env GIFTISTRY_ALLOW_SETUP can still block. */
-  AllowSetup?: boolean;
-  /** Server owner first-run onboarding completed once. */
-  OwnerOnboardingCompleted?: boolean;
-  /** @deprecated Prefer OwnerOnboardingCompleted; still read for migration. */
-  AdminOnboardingCompleted?: boolean;
-  OAuthEnabled?: boolean;
-  OAuthIssuerUrl?: string;
-  OAuthClientId?: string;
-  OAuthClientSecret?: string;
-  OAuthScopes?: string;
-  OAuthButtonText?: string;
-  OAuthAutoRegister?: boolean;
-  OAuthAutoLaunch?: boolean;
-  AiEnabled?: boolean;
-  AiWebSearchEnabled?: boolean;
-  AiRateLimitEnabled?: boolean;
-  AiFastProvider?: AiProvider;
-  AiFastEndpoint?: string;
-  AiFastApiKey?: string;
-  AiFastModel?: string;
-  AiIntelligentProvider?: AiProvider;
-  AiIntelligentEndpoint?: string;
-  AiIntelligentApiKey?: string;
-  AiIntelligentModel?: string;
-  AiPrompt?: string;
-  AiDescriptionPrompt?: string;
-  AiPopulatePrompt?: string;
-  AiCategoryPrompt?: string;
-  AiImportPrompt?: string;
-  AiImportChunkingEnabled?: boolean;
-  AiImportChunkItemLimit?: number;
-  AiEnabledPackIds?: string[];
-  AiCustomPacks?: CustomPackSettingsDto[];
-  AiCompletionTimeoutMs?: number;
-  AiConnectTimeoutMs?: number;
-  ScrapeFetchTimeoutMs?: number;
-  ScrapePlaywrightTimeoutMs?: number;
-  GrabInfoConcurrency?: number;
-  GrabInfoConcurrencyUnlimited?: boolean;
-  GrabInfoActiveStreamLimit?: number;
-  NtfyEnabled?: boolean;
-  NtfyBaseUrl?: string;
-  NtfyAuthToken?: string;
-  NtfyTopicPrefix?: string;
-  WebPushEnabled?: boolean;
-  WebPushVapidPublicKey?: string;
-  WebPushVapidPrivateKey?: string;
-  WebPushSubject?: string;
-  FcmEnabled?: boolean;
-  FcmProjectId?: string;
-  FcmServiceAccountJson?: string;
-}
 
 function pick<T>(data: Record<string, unknown>, key: string, fallback: T): T {
   if (data[key] !== undefined && data[key] !== null) return data[key] as T;
@@ -80,7 +17,7 @@ function hasKey(data: Record<string, unknown>, key: string): boolean {
   return data[key] !== undefined;
 }
 
-function normalizeConfig(data: Record<string, unknown>): SystemConfig {
+function normalizeConfig(data: Record<string, unknown>): ServerConfig {
   const legacyModel = String(pick(data, 'AiModel', '')).trim();
   const hasFast = hasKey(data, 'AiFastModel');
   const hasIntelligent = hasKey(data, 'AiIntelligentModel');
@@ -155,7 +92,6 @@ function normalizeConfig(data: Record<string, unknown>): SystemConfig {
     OAuthClientId: String(pick(data, 'OAuthClientId', '')).trim() || undefined,
     OAuthClientSecret: String(pick(data, 'OAuthClientSecret', '')).trim() || undefined,
     OAuthScopes: String(pick(data, 'OAuthScopes', '')).trim() || undefined,
-    OAuthButtonText: String(pick(data, 'OAuthButtonText', '')).trim() || undefined,
     OAuthAutoRegister: (() => {
       const value = pick<unknown>(data, 'OAuthAutoRegister', undefined);
       return value !== undefined ? Boolean(value) : undefined;
@@ -276,7 +212,7 @@ function needsConfigRewrite(data: Record<string, unknown>): boolean {
   );
 }
 
-export function loadConfig(): SystemConfig {
+export function loadConfig(): ServerConfig {
   const configPath = getConfigFilePath();
   if (fs.existsSync(configPath)) {
     try {
@@ -301,13 +237,13 @@ export function loadConfig(): SystemConfig {
   };
 }
 
-export function saveConfig(config: SystemConfig) {
+export function saveConfig(config: ServerConfig) {
   const configPath = getConfigFilePath();
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
   reinitializeDbConnection();
 }
 
-function createSqlClient(config: SystemConfig) {
+function createSqlClient(config: ServerConfig) {
   if (config.DbType === 'remote' && config.DbUrl) {
     return postgres(config.DbUrl, {
       max: 10,
@@ -356,3 +292,13 @@ export const sql = new Proxy(() => {}, {
     return Reflect.apply(activeSql as any, activeSql, argumentsList);
   }
 }) as unknown as typeof activeSql;
+
+/** Bootstrap connectivity check for process entrypoints. */
+export async function pingDatabase(): Promise<void> {
+  await sql`SELECT 1`;
+}
+
+/** Graceful pool shutdown for process entrypoints. */
+export async function closeDatabasePool(options?: { timeout?: number }): Promise<void> {
+  await sql.end({ timeout: options?.timeout ?? 5 });
+}

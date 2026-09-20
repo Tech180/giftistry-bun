@@ -12,7 +12,7 @@ import {
   wouldExceedMoneyTarget,
 } from '@/common/domain/compare-money-amount.util';
 import { assertWishlistMutable } from '@/modules/wishlist/domain/assert-wishlist-mutable.util';
-import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
+import type { ListChangedPublisher } from '@/modules/wishlist/domain/ports/list-changed-publisher.port';
 import { isItemSuggestion } from '../domain/item-visibility.service';
 
 export class ClaimItemUseCase {
@@ -20,8 +20,9 @@ export class ClaimItemUseCase {
     private itemRepo: ItemRepository,
     private wishlistRepo: WishlistRepository,
     private assertItemVisible: AssertItemVisibleUseCase,
-    private postGroupFundComment?: PostGroupFundCommentUseCase,
-    private notifyGroupFundContributors?: NotifyGroupFundContributorsUseCase
+    private postGroupFundComment: PostGroupFundCommentUseCase | undefined,
+    private notifyGroupFundContributors: NotifyGroupFundContributorsUseCase | undefined,
+    private listChanged: ListChangedPublisher
   ) {}
 
   /**
@@ -324,7 +325,7 @@ export class ClaimItemUseCase {
 
     const item = await this.itemRepo.findById(itemId);
     if (item) {
-      publishListChanged(item.ListId, {
+      this.listChanged.publish(item.ListId, {
         reason: 'claim.changed',
         itemId,
         actorUserId: userId ?? undefined,

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
-mock.module('../src/common/middlewares/list-access.middleware', () => ({
+mock.module('@/common/middlewares/list-access.middleware', () => ({
   getListAccessContext: async () => ({ role: 'owner' }),
 }));
 
@@ -18,6 +18,11 @@ import type { JobProgressPublisher } from '@/modules/jobs/domain/ports/job-progr
 const noopPublisher: JobProgressPublisher = {
   publish: () => {},
 };
+
+const stubServerConfig = {
+  load: () => ({ GrabInfoConcurrency: 2 }),
+  save: () => {},
+} as never;
 
 describe('importItemDedupeKey', () => {
   test('normalizes name and link', () => {
@@ -181,7 +186,7 @@ describe('RunWishlistImportJobUseCase resume', () => {
       parseImportPreview: {
         execute: async () => {
           parseCalls += 1;
-          return { items: previewItems, suggestedWishlistTitle: null };
+          return { items: previewItems, suggestedWishlistTitle: null, warnings: [] };
         },
       },
       bulkAddItems: {
@@ -269,7 +274,8 @@ describe('RunWishlistImportJobUseCase resume', () => {
       makeRepo(),
       makeItemUseCases([{ name: 'Alpha', websiteLink: 'https://example.com/a' }]),
       { execute: async () => ({ Id: 'list-1' }) } as never,
-      noopPublisher
+      noopPublisher,
+      stubServerConfig
     );
 
     await useCase.execute(jobs.get('job-1')!);
@@ -307,7 +313,8 @@ describe('RunWishlistImportJobUseCase resume', () => {
         userDefinedFields: { Material: 'Cotton' },
       }),
       { execute: async () => ({ Id: 'list-1' }) } as never,
-      noopPublisher
+      noopPublisher,
+      stubServerConfig
     );
 
     await useCase.execute(jobs.get('job-1')!);
@@ -350,7 +357,8 @@ describe('RunWishlistImportJobUseCase resume', () => {
         { name: 'Beta', websiteLink: 'https://example.com/b' },
       ]),
       { execute: async () => ({ Id: 'list-1' }) } as never,
-      noopPublisher
+      noopPublisher,
+      stubServerConfig
     );
 
     await useCase.execute(jobs.get('job-1')!);
@@ -394,7 +402,8 @@ describe('RunWishlistImportJobUseCase resume', () => {
       makeRepo(),
       makeItemUseCases([{ name: 'Alpha', websiteLink: 'https://example.com/a' }]),
       { execute: async () => ({ Id: 'list-1' }) } as never,
-      noopPublisher
+      noopPublisher,
+      stubServerConfig
     );
 
     await useCase.execute(jobs.get('job-1')!);
@@ -425,7 +434,8 @@ describe('RunWishlistImportJobUseCase resume', () => {
       makeRepo(),
       makeItemUseCases([]),
       { execute: async () => ({ Id: 'list-1' }) } as never,
-      noopPublisher
+      noopPublisher,
+      stubServerConfig
     );
 
     await useCase.execute(jobs.get('job-1')!);

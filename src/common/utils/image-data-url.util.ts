@@ -30,11 +30,12 @@ export function assertImageDataUrl(
   }
 
   const matches = value.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
-  if (!matches) {
+  const mimeType = matches?.[1]?.toLowerCase();
+  const base64Data = matches?.[2];
+  if (!mimeType || !base64Data) {
     throw new AppError('Invalid base64 Data URL encoding.', 400, 'BAD_REQUEST');
   }
 
-  const mimeType = matches[1].toLowerCase();
   if (!allowedTypes.includes(mimeType)) {
     throw new AppError(
       `Invalid image format: ${mimeType}. Allowed formats: JPEG, PNG, GIF, WEBP.`,
@@ -43,7 +44,6 @@ export function assertImageDataUrl(
     );
   }
 
-  const base64Data = matches[2];
   const estimatedSize = base64Data.length * 0.75;
   if (estimatedSize > maxBytes) {
     const mb = Math.round(maxBytes / (1024 * 1024));

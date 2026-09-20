@@ -1,5 +1,6 @@
 import { sql } from '@/common/database/connection';
-import { toJobPublicView } from '../domain/background-job.entity';
+import { loadConfig } from '@/common/infrastructure/config.loader';
+import { mapToJobPublicView } from '../application/map-to-job-public-view.util';
 import type { BackgroundJobRepository } from '../domain/ports/background-job.repository';
 import {
   isCompactJobFanoutPayload,
@@ -65,7 +66,7 @@ export async function handleFanoutNotify(
       const items = await deps.jobRepo.listItems(jobId).catch(() => null);
       payload = {
         Type: payload.Type,
-        Job: toJobPublicView(job, items),
+        Job: mapToJobPublicView(job, items, { load: loadConfig }),
       };
     } catch (err) {
       console.error('[RealtimeListener] failed to hydrate job fanout:', err);

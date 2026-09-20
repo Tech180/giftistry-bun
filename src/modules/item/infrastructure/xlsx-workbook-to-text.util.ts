@@ -2,8 +2,12 @@ import JSZip from 'jszip';
 
 /** Prefer hyperlink href over display text (e.g. "amazon.com"). */
 export function cellValueToText(value: unknown): string {
-  if (value == null) return '';
-  if (typeof value !== 'object') return String(value);
+  if (value == null) {
+    return '';
+  }
+  if (typeof value !== 'object') {
+    return String(value);
+  }
 
   const record = value as { text?: unknown; hyperlink?: unknown; result?: unknown };
   if (typeof record.hyperlink === 'string' && record.hyperlink.trim()) {
@@ -38,10 +42,14 @@ function columnLettersToIndex(letters: string): number {
 
 function parseCellRef(ref: string): { col: number; row: number } | null {
   const match = /^([A-Za-z]+)(\d+)$/.exec(ref.trim());
-  if (!match) return null;
+  const letters = match?.[1];
+  const rowText = match?.[2];
+  if (!letters || !rowText) {
+    return null;
+  }
   return {
-    col: columnLettersToIndex(match[1]),
-    row: Number(match[2]),
+    col: columnLettersToIndex(letters),
+    row: Number(rowText),
   };
 }
 
@@ -50,11 +58,18 @@ function parseSharedStrings(xml: string): string[] {
   const siRe = /<si\b[^>]*>([\s\S]*?)<\/si>/gi;
   let siMatch: RegExpExecArray | null;
   while ((siMatch = siRe.exec(xml))) {
+    const siBody = siMatch[1];
+    if (siBody === undefined) {
+      continue;
+    }
     const texts: string[] = [];
     const tRe = /<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/gi;
     let tMatch: RegExpExecArray | null;
-    while ((tMatch = tRe.exec(siMatch[1]))) {
-      texts.push(decodeXmlEntities(tMatch[1]));
+    while ((tMatch = tRe.exec(siBody))) {
+      const text = tMatch[1];
+      if (text !== undefined) {
+        texts.push(decodeXmlEntities(text));
+      }
     }
     strings.push(texts.join(''));
   }
@@ -68,13 +83,19 @@ function parseHyperlinkTargets(sheetXml: string, relsXml: string | null): Map<st
       /<Relationship\b[^>]*\bId="([^"]+)"[^>]*\bTarget="([^"]+)"[^>]*>/gi;
     let relMatch: RegExpExecArray | null;
     while ((relMatch = relRe.exec(relsXml))) {
-      relTargets.set(relMatch[1], decodeXmlEntities(relMatch[2]));
+      const id = relMatch[1];
+      const target = relMatch[2];
+      if (id !== undefined && target !== undefined) {
+        relTargets.set(id, decodeXmlEntities(target));
+      }
     }
     const relReAlt =
       /<Relationship\b[^>]*\bTarget="([^"]+)"[^>]*\bId="([^"]+)"[^>]*>/gi;
     while ((relMatch = relReAlt.exec(relsXml))) {
-      if (!relTargets.has(relMatch[2])) {
-        relTargets.set(relMatch[2], decodeXmlEntities(relMatch[1]));
+      const target = relMatch[1];
+      const id = relMatch[2];
+      if (id !== undefined && target !== undefined && !relTargets.has(id)) {
+        relTargets.set(id, decodeXmlEntities(target));
       }
     }
   }
@@ -84,8 +105,13 @@ function parseHyperlinkTargets(sheetXml: string, relsXml: string | null): Map<st
   let hyperMatch: RegExpExecArray | null;
   while ((hyperMatch = hyperlinkRe.exec(sheetXml))) {
     const attrs = hyperMatch[1];
+    if (attrs === undefined) {
+      continue;
+    }
     const ref = /\bref="([^"]+)"/i.exec(attrs)?.[1];
-    if (!ref) continue;
+    if (!ref) {
+      continue;
+    }
     const inlineTarget = /\bTarget="([^"]+)"/i.exec(attrs)?.[1];
     const rId =
       /\br:id="([^"]+)"/i.exec(attrs)?.[1] || /\bid="([^"]+)"/i.exec(attrs)?.[1];
@@ -119,7 +145,10 @@ function cellDisplayText(
     const tRe = /<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/gi;
     let tMatch: RegExpExecArray | null;
     while ((tMatch = tRe.exec(inlineStr))) {
-      texts.push(decodeXmlEntities(tMatch[1]));
+      const text = tMatch[1];
+      if (text !== undefined) {
+        texts.push(decodeXmlEntities(text));
+      }
     }
     return { text: texts.join(''), formulaUrl };
   }
@@ -153,15 +182,22 @@ function sheetXmlToRows(
 
   while ((rowMatch = rowRe.exec(sheetXml))) {
     const rowXml = rowMatch[1];
+    if (rowXml === undefined) {
+      continue;
+    }
     const cellRe = /<c\b([^>]*)>([\s\S]*?)<\/c>|<c\b([^>]*)\/>/gi;
     let cellMatch: RegExpExecArray | null;
     while ((cellMatch = cellRe.exec(rowXml))) {
       const attrs = cellMatch[1] || cellMatch[3] || '';
       const body = cellMatch[2] || '';
       const ref = /\br="([^"]+)"/i.exec(attrs)?.[1];
-      if (!ref) continue;
+      if (!ref) {
+        continue;
+      }
       const parsed = parseCellRef(ref);
-      if (!parsed) continue;
+      if (!parsed) {
+        continue;
+      }
 
       const { text, formulaUrl } = cellDisplayText(
         `<c ${attrs}>${body}</c>`,
@@ -211,7 +247,9 @@ function listWorksheetPaths(workbookXml: string): string[] {
 
 async function readZipText(zip: JSZip, path: string): Promise<string | null> {
   const file = zip.file(path) || zip.file(path.replace(/^\//, ''));
-  if (!file) return null;
+  if (!file) {
+    return null;
+  }
   return file.async('string');
 }
 
@@ -238,10 +276,15 @@ export async function workbookBytesToText(bytes: Uint8Array): Promise<string> {
     let sheetTag: RegExpExecArray | null;
     while ((sheetTag = sheetTagRe.exec(workbookXml))) {
       const attrs = sheetTag[1];
+      if (attrs === undefined) {
+        continue;
+      }
       const name = /\bname="([^"]+)"/i.exec(attrs)?.[1];
       const rId =
         /\br:id="([^"]+)"/i.exec(attrs)?.[1] || /\bid="([^"]+)"/i.exec(attrs)?.[1];
-      if (name && rId) sheetNameByRid.set(rId, decodeXmlEntities(name));
+      if (name && rId) {
+        sheetNameByRid.set(rId, decodeXmlEntities(name));
+      }
     }
 
     const relRe =
@@ -250,10 +293,14 @@ export async function workbookBytesToText(bytes: Uint8Array): Promise<string> {
     while ((relMatch = relRe.exec(workbookRels))) {
       const tag = relMatch[0];
       const type = /\bType="([^"]+)"/i.exec(tag)?.[1] || '';
-      if (!type.includes('/worksheet')) continue;
+      if (!type.includes('/worksheet')) {
+        continue;
+      }
       const id = /\bId="([^"]+)"/i.exec(tag)?.[1];
       const target = /\bTarget="([^"]+)"/i.exec(tag)?.[1];
-      if (!id || !target) continue;
+      if (!id || !target) {
+        continue;
+      }
       const name = sheetNameByRid.get(id) || `Sheet${sheetTargets.length + 1}`;
       const normalized = target.replace(/^\//, '');
       const path = normalized.startsWith('xl/') ? normalized : `xl/${normalized}`;
@@ -278,7 +325,9 @@ export async function workbookBytesToText(bytes: Uint8Array): Promise<string> {
   const lines: string[] = [];
   for (const sheet of sheetTargets) {
     const sheetXml = await readZipText(zip, sheet.target);
-    if (!sheetXml) continue;
+    if (!sheetXml) {
+      continue;
+    }
 
     const sheetFileName = sheet.target.split('/').pop() || 'sheet1.xml';
     const relsPath = `xl/worksheets/_rels/${sheetFileName}.rels`;

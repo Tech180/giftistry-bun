@@ -1,7 +1,7 @@
 import type { ItemRepository } from '../domain/ports/item.repository';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
 import { AppError } from '@/common/middlewares/error.middleware';
-import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
+import type { ListChangedPublisher } from '@/modules/wishlist/domain/ports/list-changed-publisher.port';
 import { assertLinkGroupSupportsLinkedItems } from '../domain/item-supports-linked-items.util';
 import {
   getForwardLinkedIds,
@@ -12,7 +12,8 @@ import type { Item } from '../domain/item.entity';
 export class SyncItemLinksUseCase {
   constructor(
     private itemRepo: ItemRepository,
-    private wishlistRepo: WishlistRepository
+    private wishlistRepo: WishlistRepository,
+    private listChanged: ListChangedPublisher
   ) {}
 
   async execute(currentItemId: string, targetItemIds: string[], currentUserId: string): Promise<void> {
@@ -74,7 +75,7 @@ export class SyncItemLinksUseCase {
     }
 
     if (didChange) {
-      publishListChanged(currentItem.ListId, {
+      this.listChanged.publish(currentItem.ListId, {
         reason: 'item.links',
         itemId: currentItemId,
         actorUserId: currentUserId,

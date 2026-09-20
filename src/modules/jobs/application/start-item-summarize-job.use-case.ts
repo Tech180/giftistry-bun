@@ -1,11 +1,15 @@
 import type { BackgroundJobRepository } from '../domain/ports/background-job.repository';
 import type { ItemSummarizeJobPayload } from '../domain/background-job.entity';
-import { toJobPublicView } from '../domain/background-job.entity';
+import { mapToJobPublicView } from './map-to-job-public-view.util';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { checkRateLimit } from '@/common/middlewares/rate-limit.middleware';
+import type { ServerConfigRepository } from '@/modules/system/domain/ports/server-config.repository';
 
 export class StartItemSummarizeJobUseCase {
-  constructor(private jobRepo: BackgroundJobRepository) {}
+  constructor(
+    private jobRepo: BackgroundJobRepository,
+    private serverConfigRepo: ServerConfigRepository
+  ) {}
 
   async execute(
     userId: string,
@@ -29,6 +33,6 @@ export class StartItemSummarizeJobUseCase {
     });
     const started = (await this.jobRepo.updateProgress(job.Id, { progressTotal: 1 })) ?? job;
 
-    return toJobPublicView(started);
+    return mapToJobPublicView(started, null, this.serverConfigRepo);
   }
 }

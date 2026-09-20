@@ -26,7 +26,7 @@ export function mapOpenRouterCatalogToModels(rawData: unknown[]): SystemModelVie
       let displayName = fullName;
       if (fullName.includes(':')) {
         const parts = fullName.split(':');
-        company = parts[0].trim() || 'Other';
+        company = parts[0]?.trim() || 'Other';
         displayName = parts.slice(1).join(':').trim() || fullName;
       }
       return {

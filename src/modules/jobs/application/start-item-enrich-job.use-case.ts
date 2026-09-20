@@ -1,11 +1,12 @@
 import type { BackgroundJobRepository } from '../domain/ports/background-job.repository';
 import type { ItemEnrichJobPayload } from '../domain/background-job.entity';
-import { toJobPublicView } from '../domain/background-job.entity';
+import { mapToJobPublicView } from './map-to-job-public-view.util';
 import type { ItemUseCases } from '@/modules/item/application/item-use-cases.interface';
 import type { Item } from '@/modules/item/domain/item.entity';
 import type { ListRoleLevel } from '@/common/domain/list-role.vo';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { checkRateLimit } from '@/common/middlewares/rate-limit.middleware';
+import type { ServerConfigRepository } from '@/modules/system/domain/ports/server-config.repository';
 
 export interface StartItemEnrichJobResult {
   Job: Record<string, unknown>;
@@ -35,7 +36,8 @@ function placeholderNameFromUrl(url: string): string {
 export class StartItemEnrichJobUseCase {
   constructor(
     private jobRepo: BackgroundJobRepository,
-    private itemUseCases: ItemUseCases
+    private itemUseCases: ItemUseCases,
+    private serverConfigRepo: ServerConfigRepository
   ) {}
 
   async execute(
@@ -90,7 +92,10 @@ export class StartItemEnrichJobUseCase {
       ]);
       const started = (await this.jobRepo.updateProgress(job.Id, { progressTotal: 1 })) ?? job;
 
-      return { Job: toJobPublicView(started, items), Item: item };
+      return {
+        Job: mapToJobPublicView(started, items, this.serverConfigRepo),
+        Item: item,
+      };
     }
 
     if (payload.intent === 'update-item') {
@@ -114,7 +119,7 @@ export class StartItemEnrichJobUseCase {
       ]);
       const started = (await this.jobRepo.updateProgress(job.Id, { progressTotal: 1 })) ?? job;
 
-      return { Job: toJobPublicView(started) };
+      return { Job: mapToJobPublicView(started, null, this.serverConfigRepo) };
     }
 
     // draft-populate: no item is created or mutated, just extract-and-return via the job result.
@@ -126,6 +131,6 @@ export class StartItemEnrichJobUseCase {
     });
     const started = (await this.jobRepo.updateProgress(job.Id, { progressTotal: 1 })) ?? job;
 
-    return { Job: toJobPublicView(started) };
+    return { Job: mapToJobPublicView(started, null, this.serverConfigRepo) };
   }
 }

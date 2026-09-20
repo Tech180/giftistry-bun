@@ -2,12 +2,13 @@ import type { ItemRepository } from '../domain/ports/item.repository';
 import type { AssertItemVisibleUseCase } from './assert-item-visible.use-case';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { assertWishlistMutable } from '@/modules/wishlist/domain/assert-wishlist-mutable.util';
-import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
+import type { ListChangedPublisher } from '@/modules/wishlist/domain/ports/list-changed-publisher.port';
 
 export class UnclaimItemUseCase {
   constructor(
     private itemRepo: ItemRepository,
-    private assertItemVisible: AssertItemVisibleUseCase
+    private assertItemVisible: AssertItemVisibleUseCase,
+    private listChanged: ListChangedPublisher
   ) {}
 
   async execute(itemId: string, userId: string): Promise<void> {
@@ -33,7 +34,7 @@ export class UnclaimItemUseCase {
     }
 
     await this.itemRepo.deleteClaim(itemId, userId);
-    publishListChanged(item.ListId, {
+    this.listChanged.publish(item.ListId, {
       reason: 'claim.changed',
       itemId,
       actorUserId: userId,

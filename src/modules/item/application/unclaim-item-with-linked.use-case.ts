@@ -3,14 +3,15 @@ import type { AssertItemVisibleUseCase } from './assert-item-visible.use-case';
 import type { UnclaimItemUseCase } from './unclaim-item.use-case';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { assertWishlistMutable } from '@/modules/wishlist/domain/assert-wishlist-mutable.util';
-import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
+import type { ListChangedPublisher } from '@/modules/wishlist/domain/ports/list-changed-publisher.port';
 import { resolveLinkGroupItemIds } from '../domain/resolve-link-group-item-ids.util';
 
 export class UnclaimItemWithLinkedUseCase {
   constructor(
     private itemRepo: ItemRepository,
     private assertItemVisible: AssertItemVisibleUseCase,
-    private unclaimItem: UnclaimItemUseCase
+    private unclaimItem: UnclaimItemUseCase,
+    private listChanged: ListChangedPublisher
   ) {}
 
   /**
@@ -61,7 +62,7 @@ export class UnclaimItemWithLinkedUseCase {
     }
 
     const affected = await this.itemRepo.deleteClaimsAtomic(toUnclaim, userId);
-    publishListChanged(item.ListId, {
+    this.listChanged.publish(item.ListId, {
       reason: 'claim.changed',
       itemId,
       actorUserId: userId,

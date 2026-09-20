@@ -14,7 +14,6 @@
   "OAuthIssuerUrl": "",
   "OAuthClientId": "",
   "OAuthClientSecret": "",
-  "OAuthButtonText": "Sign in with SSO",
   "OAuthAutoRegister": true,
   "AiEnabled": true,
   "AiWebSearchEnabled": true,

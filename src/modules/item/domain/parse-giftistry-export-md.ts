@@ -112,7 +112,7 @@ export function tryParseGiftistryExportMd(text: string): ParseGiftistryMdResult 
 
     const wishlistMatch = trimmed.match(WISHLIST_TITLE_RE);
     if (wishlistMatch) {
-      suggestedWishlistTitle = wishlistMatch[1].trim() || undefined;
+      suggestedWishlistTitle = wishlistMatch[1]?.trim() || undefined;
       continue;
     }
 
@@ -129,7 +129,7 @@ export function tryParseGiftistryExportMd(text: string): ParseGiftistryMdResult 
     const headingMatch = trimmed.match(ITEM_HEADING_RE);
     if (headingMatch && !trimmed.toLowerCase().startsWith('# wishlist:')) {
       commit();
-      current = { name: headingMatch[1].trim() };
+      current = { name: headingMatch[1]?.trim() || undefined };
       inCustom = false;
       customEntries = [];
       continue;
@@ -141,9 +141,9 @@ export function tryParseGiftistryExportMd(text: string): ParseGiftistryMdResult 
 
     const metaMatch = trimmed.match(META_LINE_RE);
     if (metaMatch) {
-      const keyRaw = metaMatch[1].trim();
+      const keyRaw = metaMatch[1]?.trim() ?? '';
       const key = keyRaw.toLowerCase();
-      const value = metaMatch[2].trim();
+      const value = metaMatch[2]?.trim() ?? '';
 
       if (inCustom) {
         if (keyRaw && value) {

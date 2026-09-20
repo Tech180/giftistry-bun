@@ -4,13 +4,14 @@ import type { NotifyClaimersItemRemovedUseCase } from './notify-claimers-item-re
 import { AppError } from '@/common/middlewares/error.middleware';
 import { canUserMutateItem } from '../domain/item-visibility.service';
 import { assertWishlistMutable } from '@/modules/wishlist/domain/assert-wishlist-mutable.util';
-import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
+import type { ListChangedPublisher } from '@/modules/wishlist/domain/ports/list-changed-publisher.port';
 
 export class DeleteItemUseCase {
   constructor(
     private itemRepo: ItemRepository,
     private assertItemVisible: AssertItemVisibleUseCase,
-    private notifyClaimersItemRemoved?: NotifyClaimersItemRemovedUseCase
+    private notifyClaimersItemRemoved: NotifyClaimersItemRemovedUseCase | undefined,
+    private listChanged: ListChangedPublisher
   ) {}
 
   async execute(itemId: string, currentUserId: string): Promise<void> {
@@ -53,7 +54,7 @@ export class DeleteItemUseCase {
     }
 
     await this.itemRepo.delete(itemId);
-    publishListChanged(visible.wishlist.Id, {
+    this.listChanged.publish(visible.wishlist.Id, {
       reason: 'item.deleted',
       itemId,
       actorUserId: currentUserId,

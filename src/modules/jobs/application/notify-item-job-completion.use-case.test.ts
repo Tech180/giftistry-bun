@@ -3,7 +3,7 @@ import { NotifyItemJobCompletionUseCase } from './notify-item-job-completion.use
 import type { BackgroundJob } from '../domain/background-job.entity';
 import type { CreateNotificationUseCase } from '@/modules/notifications/application/create-notification.use-case';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
-import { clearWishlistWsRegistry, addWishlistWsConnection } from '@/modules/wishlist/infrastructure/wishlist-ws-registry';
+import type { WishlistPresencePort } from '@/modules/wishlist/domain/ports/wishlist-presence.port';
 
 function baseJob(overrides: Partial<BackgroundJob> = {}): BackgroundJob {
   return {
@@ -30,19 +30,23 @@ function baseJob(overrides: Partial<BackgroundJob> = {}): BackgroundJob {
 describe('NotifyItemJobCompletionUseCase', () => {
   let createExecute: ReturnType<typeof mock>;
   let findById: ReturnType<typeof mock>;
+  let isUserPresentOnList: ReturnType<typeof mock>;
   let useCase: NotifyItemJobCompletionUseCase;
 
   beforeEach(() => {
-    clearWishlistWsRegistry();
     createExecute = mock(() => Promise.resolve({ Id: 'n1' }));
     findById = mock(() => Promise.resolve({ Id: 'list-1', Title: 'Birthday Wishlist' }));
+    isUserPresentOnList = mock(() => false);
     const createNotification = {
       execute: createExecute,
     } as unknown as CreateNotificationUseCase;
     const wishlistRepo = {
       findById,
     } as unknown as WishlistRepository;
-    useCase = new NotifyItemJobCompletionUseCase(createNotification, wishlistRepo);
+    const presence = {
+      isUserPresentOnList,
+    } as unknown as WishlistPresencePort;
+    useCase = new NotifyItemJobCompletionUseCase(createNotification, wishlistRepo, presence);
   });
 
   it('notifies off-page creator on successful item-enrich', async () => {
@@ -65,11 +69,7 @@ describe('NotifyItemJobCompletionUseCase', () => {
   });
 
   it('skips when creator is present on the list WebSocket', async () => {
-    addWishlistWsConnection('list-1', 'ws-1', {
-      userId: 'user-1',
-      username: 'alice',
-      send: () => {},
-    });
+    isUserPresentOnList.mockImplementation(() => true);
     const notified = await useCase.execute(baseJob());
     expect(notified).toBe(false);
     expect(createExecute).not.toHaveBeenCalled();

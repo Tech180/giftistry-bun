@@ -13,7 +13,7 @@
  */
 
 import { createAppContainer } from '../src/app.container';
-import { env } from '../src/common/consts/env.consts';
+import { env } from '../src/common/consts/runtime-config';
 import { loadConfig, saveConfig, sql } from '../src/common/database/connection';
 import { validatePasswordPolicy } from '../src/common/domain/password-policy';
 import { GetSitePolicyUseCase } from '../src/common/application/get-site-policy.use-case';

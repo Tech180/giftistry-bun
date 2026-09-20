@@ -3,7 +3,7 @@ import { AppError } from '@/common/middlewares/error.middleware';
 import type { ServerConfigRepository } from '@/modules/system/domain/ports/server-config.repository';
 import { getOAuthRedirectUri, resolveOAuthClientSecret } from '@/common/utils/oauth-config.util';
 import type { OidcClientPort, OidcAuthorizationRequest, OidcUserInfo } from '../domain/ports/oidc-client.port';
-import { saveOAuthState } from './oauth-state.store';
+import { saveOAuthState, consumeOAuthState as consumeStoredOAuthState } from './oauth-state.store';
 
 let cachedIssuer: client.Configuration | null = null;
 let cachedIssuerUrl = '';
@@ -91,5 +91,9 @@ export class OpenIdClientAdapter implements OidcClientPort {
       preferredUsername:
         typeof claims.preferred_username === 'string' ? claims.preferred_username : null,
     };
+  }
+
+  consumeOAuthState(state: string): { nonce: string; inviteToken: string | null } | null {
+    return consumeStoredOAuthState(state);
   }
 }

@@ -56,6 +56,10 @@ export class BulkAddItemsUseCase {
 
     for (let index = 0; index < items.length; index++) {
       const row = items[index];
+      if (!row) {
+        continue;
+      }
+
       try {
         const resolvedHidden = row.isHiddenIdea ?? false;
         if (canManageItems && resolvedHidden) {

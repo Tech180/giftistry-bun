@@ -13,6 +13,8 @@ import { DeleteWishlistUseCase } from '../src/modules/wishlist/application/delet
 import type { BackgroundJobRepository } from '../src/modules/jobs/domain/ports/background-job.repository';
 import { AppError } from '../src/common/middlewares/error.middleware';
 
+const stubServerConfig = { load: () => ({}), save: () => {} } as never;
+
 describe('resolveAiModel', () => {
   test('returns fast and intelligent slots independently', () => {
     const config = {
@@ -131,7 +133,7 @@ describe('job public view streams', () => {
   });
 
   test('toActiveStreams includes running and pending rows with labels', () => {
-    const streams = toActiveStreams(items);
+    const streams = toActiveStreams(items, 10);
     expect(streams).toHaveLength(2);
     expect(streams[0]).toMatchObject({ Id: 'i1', Label: 'Alpha', Status: 'running' });
     expect(streams[1]).toMatchObject({ Id: 'i2', Label: 'Beta', Status: 'pending' });
@@ -288,8 +290,8 @@ describe('StartWishlistImportJobUseCase', () => {
             FinishedAt: null,
           };
         },
-      })
-    );
+      }),
+      stubServerConfig);
 
     const view = await useCase.execute(
       'user-1',
@@ -338,8 +340,8 @@ describe('StartWishlistImportJobUseCase', () => {
             FinishedAt: null,
           };
         },
-      })
-    );
+      }),
+      stubServerConfig);
 
     await useCase.execute(
       'user-1',
@@ -383,8 +385,8 @@ describe('StartWishlistImportJobUseCase', () => {
             FinishedAt: null,
           };
         },
-      })
-    );
+      }),
+      stubServerConfig);
 
     await useCase.execute(
       'user-1',
@@ -404,7 +406,8 @@ describe('StartWishlistImportJobUseCase', () => {
   });
 
   test('requires title for create-list mode', async () => {
-    const useCase = new StartWishlistImportJobUseCase(makeRepo());
+    const useCase = new StartWishlistImportJobUseCase(makeRepo(),
+      stubServerConfig);
     await expect(
       useCase.execute(
         'user-1',

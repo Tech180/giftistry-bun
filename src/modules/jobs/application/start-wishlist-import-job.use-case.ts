@@ -1,11 +1,15 @@
 import type { BackgroundJobRepository } from '../domain/ports/background-job.repository';
 import type { WishlistImportJobPayload } from '../domain/background-job.entity';
-import { toJobPublicView } from '../domain/background-job.entity';
+import { mapToJobPublicView } from './map-to-job-public-view.util';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { checkRateLimit } from '@/common/middlewares/rate-limit.middleware';
+import type { ServerConfigRepository } from '@/modules/system/domain/ports/server-config.repository';
 
 export class StartWishlistImportJobUseCase {
-  constructor(private jobRepo: BackgroundJobRepository) {}
+  constructor(
+    private jobRepo: BackgroundJobRepository,
+    private serverConfigRepo: ServerConfigRepository
+  ) {}
 
   async execute(
     userId: string,
@@ -39,6 +43,6 @@ export class StartWishlistImportJobUseCase {
       },
     });
 
-    return toJobPublicView(job);
+    return mapToJobPublicView(job, null, this.serverConfigRepo);
   }
 }

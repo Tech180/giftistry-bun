@@ -95,8 +95,8 @@ export class GeminiReviewExtractor implements ReviewExtractor {
           html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']description["']/i);
 
         pageContext = `
-          Page Title: ${titleMatch ? titleMatch[1].trim() : ''}
-          Meta Description: ${metaDescMatch ? metaDescMatch[1].trim() : ''}
+          Page Title: ${titleMatch?.[1]?.trim() ?? ''}
+          Meta Description: ${metaDescMatch?.[1]?.trim() ?? ''}
         `;
       }
     } catch {

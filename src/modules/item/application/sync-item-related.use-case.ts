@@ -1,13 +1,16 @@
 import type { ItemRepository } from '../domain/ports/item.repository';
 import { AppError } from '@/common/middlewares/error.middleware';
-import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
+import type { ListChangedPublisher } from '@/modules/wishlist/domain/ports/list-changed-publisher.port';
 import {
   getForwardRelatedIds,
   resolveRelatedGroupMemberIds,
 } from '../domain/resolve-item-link-group.util';
 
 export class SyncItemRelatedUseCase {
-  constructor(private itemRepo: ItemRepository) {}
+  constructor(
+    private itemRepo: ItemRepository,
+    private listChanged: ListChangedPublisher
+  ) {}
 
   async execute(currentItemId: string, targetItemIds: string[], currentUserId: string): Promise<void> {
     const currentItem = await this.itemRepo.findById(currentItemId);
@@ -55,7 +58,7 @@ export class SyncItemRelatedUseCase {
     }
 
     if (didChange) {
-      publishListChanged(currentItem.ListId, {
+      this.listChanged.publish(currentItem.ListId, {
         reason: 'item.related',
         itemId: currentItemId,
         actorUserId: currentUserId,

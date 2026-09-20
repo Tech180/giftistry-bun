@@ -4,8 +4,8 @@
  *
  * Run with: GIFTISTRY_PROCESS_ROLE=worker bun run src/worker.ts
  */
-import { env } from './common/consts/env.consts';
-import { sql } from './common/database/connection';
+import { getEnv } from './common/consts/runtime-config';
+import { closeDatabasePool, pingDatabase } from './common/database/connection';
 import { createAppContainer } from './app.container';
 import { resolveProcessRole } from './common/utils/process-role.util';
 import {
@@ -23,28 +23,28 @@ if (role !== 'worker') {
 
 async function main(): Promise<void> {
   try {
-    await sql`SELECT 1`;
+    await pingDatabase();
   } catch (err) {
     console.error('[worker] Database unreachable:', err);
     process.exit(1);
   }
 
-  const { jobRunner } = createAppContainer({
+  const { jobRunner, realtimePublishers } = createAppContainer({
     skipItemJobCompletionNotify: true,
   });
 
-  wirePostgresRealtimePublishers();
+  wirePostgresRealtimePublishers(realtimePublishers);
   jobRunner.start();
   console.log(
-    `[worker] Giftistry job worker started (NODE_ENV=${env.NODE_ENV})`
+    `[worker] Giftistry job worker started (NODE_ENV=${getEnv().NODE_ENV})`
   );
 
   const shutdown = async (signal: string) => {
     console.log(`[worker] ${signal} received, shutting down…`);
     jobRunner.stop();
-    clearRealtimePublishers();
+    clearRealtimePublishers(realtimePublishers);
     try {
-      await sql.end({ timeout: 5 });
+      await closeDatabasePool({ timeout: 5 });
     } catch (err) {
       console.error('[worker] Error closing DB pool:', err);
     }

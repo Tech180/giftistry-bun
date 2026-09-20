@@ -13,7 +13,7 @@ import type { ItemMetadataWrite } from '../domain/ports/item.repository';
 import { normalizeItemPhotosWrite } from '../domain/normalize-item-photos.util';
 import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
 import { assertWishlistMutable } from '@/modules/wishlist/domain/assert-wishlist-mutable.util';
-import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
+import type { ListChangedPublisher } from '@/modules/wishlist/domain/ports/list-changed-publisher.port';
 import { assertLinkGroupSupportsLinkedItems } from '../domain/item-supports-linked-items.util';
 
 function toMetadataWrite(
@@ -42,7 +42,8 @@ export class AddItemUseCase {
     private enrichLinkMetadata: EnrichLinkMetadataUseCase,
     private extractItemReviews: ExtractItemReviewsUseCase,
     private assertUserCan: AssertUserCanUseCase,
-    private wishlistRepo: WishlistRepository
+    private wishlistRepo: WishlistRepository,
+    private listChanged: ListChangedPublisher
   ) {}
 
   async execute(
@@ -165,7 +166,7 @@ export class AddItemUseCase {
       });
 
       if (!options?.skipListChanged) {
-        publishListChanged(listId, {
+        this.listChanged.publish(listId, {
           reason: 'item.created',
           itemId: item.Id,
           actorUserId: suggestedByUserId ?? undefined,
@@ -180,7 +181,7 @@ export class AddItemUseCase {
     }
 
     if (!options?.skipListChanged) {
-      publishListChanged(listId, {
+      this.listChanged.publish(listId, {
         reason: 'item.created',
         itemId: item.Id,
         actorUserId: suggestedByUserId ?? undefined,

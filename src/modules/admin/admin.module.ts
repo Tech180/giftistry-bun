@@ -21,7 +21,9 @@ import { SaveSitePolicyAdminUseCase } from './application/save-site-policy-admin
 import { ListAuditLogUseCase } from './application/list-audit-log.use-case';
 import { ModerateCommentUseCase } from './application/moderate-comment.use-case';
 import { HandleReportUseCase } from './application/handle-report.use-case';
+import { CreateReportUseCase } from './application/create-report.use-case';
 import { adminRoutes } from './presentation/admin.routes';
+import { reportsRoutes } from './presentation/reports.routes';
 
 export interface AdminModuleDeps {
   adminUserRepo: AdminUserRepository;
@@ -34,34 +36,38 @@ export interface AdminModuleDeps {
 }
 
 export function createAdminModule(deps: AdminModuleDeps) {
-  return new Elysia().use(adminRoutes({
-    getOverview: new GetAdminOverviewUseCase(
-      deps.adminUserRepo,
-      deps.reportRepo,
-      deps.auditLogRepo,
-      deps.getSitePolicyUseCase
-    ),
-    listUsers: new ListAdminUsersUseCase(deps.adminUserRepo),
-    getUser: new GetAdminUserUseCase(deps.adminUserRepo),
-    createUser: new CreateAdminUserUseCase(
-      deps.adminUserRepo,
-      deps.getSitePolicyUseCase,
-      deps.writeAuditLogUseCase
-    ),
-    updateUser: new UpdateAdminUserUseCase(deps.adminUserRepo, deps.writeAuditLogUseCase),
-    updateUserPolicy: new UpdateUserPolicyUseCase(deps.adminUserRepo, deps.writeAuditLogUseCase),
-    resetPassword: new ResetUserPasswordUseCase(
-      deps.adminUserRepo,
-      deps.writeAuditLogUseCase,
-      deps.getSitePolicyUseCase
-    ),
-    unlockUser: new UnlockUserUseCase(deps.adminUserRepo, deps.writeAuditLogUseCase),
-    revokeSessions: new RevokeUserSessionsUseCase(deps.adminUserRepo, deps.writeAuditLogUseCase),
-    deleteUser: new DeleteAdminUserUseCase(deps.adminUserRepo, deps.writeAuditLogUseCase),
-    getSitePolicy: new GetSitePolicyAdminUseCase(deps.getSitePolicyUseCase),
-    saveSitePolicy: new SaveSitePolicyAdminUseCase(deps.saveSitePolicyUseCase, deps.writeAuditLogUseCase),
-    listAuditLog: new ListAuditLogUseCase(deps.auditLogRepo),
-    moderateComment: new ModerateCommentUseCase(deps.moderationRepo, deps.writeAuditLogUseCase),
-    handleReport: new HandleReportUseCase(deps.reportRepo, deps.writeAuditLogUseCase),
-  }));
+  const createReport = new CreateReportUseCase(deps.reportRepo);
+
+  return new Elysia()
+    .use(reportsRoutes({ createReport }))
+    .use(adminRoutes({
+      getOverview: new GetAdminOverviewUseCase(
+        deps.adminUserRepo,
+        deps.reportRepo,
+        deps.auditLogRepo,
+        deps.getSitePolicyUseCase
+      ),
+      listUsers: new ListAdminUsersUseCase(deps.adminUserRepo),
+      getUser: new GetAdminUserUseCase(deps.adminUserRepo),
+      createUser: new CreateAdminUserUseCase(
+        deps.adminUserRepo,
+        deps.getSitePolicyUseCase,
+        deps.writeAuditLogUseCase
+      ),
+      updateUser: new UpdateAdminUserUseCase(deps.adminUserRepo, deps.writeAuditLogUseCase),
+      updateUserPolicy: new UpdateUserPolicyUseCase(deps.adminUserRepo, deps.writeAuditLogUseCase),
+      resetPassword: new ResetUserPasswordUseCase(
+        deps.adminUserRepo,
+        deps.writeAuditLogUseCase,
+        deps.getSitePolicyUseCase
+      ),
+      unlockUser: new UnlockUserUseCase(deps.adminUserRepo, deps.writeAuditLogUseCase),
+      revokeSessions: new RevokeUserSessionsUseCase(deps.adminUserRepo, deps.writeAuditLogUseCase),
+      deleteUser: new DeleteAdminUserUseCase(deps.adminUserRepo, deps.writeAuditLogUseCase),
+      getSitePolicy: new GetSitePolicyAdminUseCase(deps.getSitePolicyUseCase),
+      saveSitePolicy: new SaveSitePolicyAdminUseCase(deps.saveSitePolicyUseCase, deps.writeAuditLogUseCase),
+      listAuditLog: new ListAuditLogUseCase(deps.auditLogRepo),
+      moderateComment: new ModerateCommentUseCase(deps.moderationRepo, deps.writeAuditLogUseCase),
+      handleReport: new HandleReportUseCase(deps.reportRepo, deps.writeAuditLogUseCase),
+    }));
 }

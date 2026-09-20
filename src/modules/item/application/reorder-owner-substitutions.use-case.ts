@@ -3,14 +3,15 @@ import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlis
 import type { ListShareRepository } from '@/modules/wishlist/domain/ports/list-share.repository';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { assertWishlistMutable } from '@/modules/wishlist/domain/assert-wishlist-mutable.util';
-import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
+import type { ListChangedPublisher } from '@/modules/wishlist/domain/ports/list-changed-publisher.port';
 import { actorCanManageListItems } from './create-owner-substitution.use-case';
 
 export class ReorderOwnerSubstitutionsUseCase {
   constructor(
     private itemRepo: ItemRepository,
     private wishlistRepo: WishlistRepository,
-    private listShareRepo?: ListShareRepository
+    private listShareRepo: ListShareRepository | undefined,
+    private listChanged: ListChangedPublisher
   ) {}
 
   async execute(
@@ -57,7 +58,7 @@ export class ReorderOwnerSubstitutionsUseCase {
 
     await this.itemRepo.updateSubstitutionSortOrders(parentItemId, orderedIds);
 
-    publishListChanged(parent.ListId, {
+    this.listChanged.publish(parent.ListId, {
       reason: 'item.substitution',
       itemId: parentItemId,
       actorUserId: actorUserId,

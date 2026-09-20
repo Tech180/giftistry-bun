@@ -8,7 +8,7 @@ import { AppError } from '@/common/middlewares/error.middleware';
 import { isItemSuggestion } from '../domain/item-visibility.service';
 import { ListRole } from '@/common/domain/list-role.vo';
 import { assertWishlistMutable } from '@/modules/wishlist/domain/assert-wishlist-mutable.util';
-import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
+import type { ListChangedPublisher } from '@/modules/wishlist/domain/ports/list-changed-publisher.port';
 import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
 import {
   type CreateSubstitutionPayload,
@@ -36,7 +36,8 @@ export class CreateOwnerSubstitutionUseCase {
     private itemRepo: ItemRepository,
     private wishlistRepo: WishlistRepository,
     private assertUserCan: AssertUserCanUseCase,
-    private listShareRepo?: ListShareRepository
+    private listShareRepo: ListShareRepository | undefined,
+    private listChanged: ListChangedPublisher
   ) {}
 
   async execute(
@@ -131,7 +132,7 @@ export class CreateOwnerSubstitutionUseCase {
     const links = await this.itemRepo.findLinksByItemId(child.Id);
     const claims = await this.itemRepo.findClaimsByItemId(child.Id);
 
-    publishListChanged(parent.ListId, {
+    this.listChanged.publish(parent.ListId, {
       reason: 'item.substitution',
       itemId: parentItemId,
       actorUserId: actorUserId,

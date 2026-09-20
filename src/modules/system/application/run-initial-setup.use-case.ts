@@ -1,7 +1,7 @@
 import postgres from 'postgres';
 import nodemailer from 'nodemailer';
 import { AppError } from '@/common/middlewares/error.middleware';
-import { env } from '@/common/consts/env.consts';
+import { env } from '@/common/consts/runtime-config';
 import { validatePasswordPolicy } from '@/common/domain/password-policy';
 import { validateUsernamePolicy } from '@/common/domain/username-policy';
 import { DEFAULT_SITE_POLICY } from '@/common/types/user-policy';
@@ -52,7 +52,12 @@ export class RunInitialSetupUseCase {
       if (!payload.SmtpHost || payload.SmtpPort === undefined) {
         throw new AppError('SMTP host and port are required for remote SMTP type', 400, 'BAD_REQUEST');
       }
-      const transportOptions: nodemailer.TransportOptions = {
+      const transportOptions: {
+        host: string;
+        port: number;
+        secure?: boolean;
+        auth?: { user: string; pass: string };
+      } = {
         host: payload.SmtpHost,
         port: payload.SmtpPort,
         secure: payload.SmtpSecure,

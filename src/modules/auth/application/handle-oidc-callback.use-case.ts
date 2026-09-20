@@ -10,7 +10,6 @@ import {
 import { UserEntity, toSafeUser, type SafeUser } from '../domain/user.entity';
 import { AppError } from '@/common/middlewares/error.middleware';
 import { mergeUserPolicy } from '@/common/types/user-policy';
-import { consumeOAuthState } from '../infrastructure/oauth-state.store';
 
 function sanitizeUsername(raw: string): string {
   const cleaned = raw.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 50);
@@ -37,7 +36,7 @@ export class HandleOidcCallbackUseCase {
   ) {}
 
   async execute(code: string, state: string): Promise<SafeUser> {
-    const oauthState = consumeOAuthState(state);
+    const oauthState = this.oidcClient.consumeOAuthState(state);
     if (!oauthState) {
       throw new AppError('OAuth session expired or invalid state', 400, 'BAD_REQUEST');
     }

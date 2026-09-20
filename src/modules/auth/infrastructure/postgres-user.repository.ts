@@ -26,54 +26,161 @@ const USER_SELECT = `
   is_onboarded as "IsOnboarded", oauth_sub as "OauthSub"
 `;
 
-function mapUserRow(row: Record<string, unknown>): User {
+interface UserRow {
+  Id: string;
+  Username: string;
+  Email: string | null;
+  FirstName: string;
+  LastName: string;
+  AuthHash: string;
+  CreatedAt: Date | string | null;
+  Bio: string | null;
+  Theme: string | null;
+  Avatar: string | null;
+  Birthday: Date | string | null;
+  EmailVerified: boolean;
+  TwoFactorEnabled: boolean;
+  IsAdmin: boolean;
+  IsOwner: boolean;
+  LastOnline: Date | string | null;
+  LastLoginAt: Date | string | null;
+  IsDisabled: boolean;
+  IsHidden: boolean;
+  LockedUntil: Date | string | null;
+  FailedLoginCount: number;
+  ForcePasswordChange: boolean;
+  LoginAttemptsBeforeLockout: number | null;
+  SessionVersion: number;
+  PolicyJson: unknown;
+  AiEnabled: boolean;
+  WebSearchEnabled: boolean;
+  IsOnboarded: boolean;
+  OauthSub: string | null;
+}
+
+interface UserUpdateFieldsRow {
+  email_verified: boolean;
+  email_verification_token: string | null;
+  email_verification_expires: Date | string | null;
+  two_factor_enabled: boolean;
+  two_factor_secret: string | null;
+  two_factor_recovery_codes: string | null;
+  is_admin: boolean;
+  ai_enabled: boolean;
+  web_search_enabled: boolean;
+  is_onboarded: boolean;
+}
+
+interface CountRow {
+  count: number;
+}
+
+interface EmailVerificationRow {
+  id: string;
+  email_verification_expires: Date | string;
+}
+
+interface AdminAccountStatusRow {
+  id: string;
+  is_admin: boolean;
+  is_disabled: boolean;
+}
+
+interface DeleteAccountStatusRow {
+  id: string;
+  auth_hash: string;
+  is_admin: boolean;
+  is_disabled: boolean;
+}
+
+interface TwoFactorSecretsRow {
+  two_factor_secret: string | null;
+  two_factor_recovery_codes: string | null;
+}
+
+interface CustomThemeRow {
+  Id: string;
+  Name: string;
+  Colors: unknown;
+  Advanced: unknown;
+}
+
+interface UserSearchRow {
+  Id: string;
+  Username: string;
+  FirstName: string;
+  LastName: string;
+  Avatar: string | null;
+}
+
+function mapUserRow(row: UserRow): User {
   return {
-    Id: row.Id as string,
-    Username: row.Username as string,
-    Email: (row.Email as string | null) ?? null,
-    FirstName: row.FirstName as string,
-    LastName: row.LastName as string,
-    AuthHash: row.AuthHash as string,
-    CreatedAt: row.CreatedAt ? new Date(row.CreatedAt as string | Date) : undefined,
-    Bio: row.Bio as string | undefined,
-    Theme: row.Theme as string | undefined,
-    Avatar: row.Avatar as string | null | undefined,
+    Id: row.Id,
+    Username: row.Username,
+    Email: row.Email ?? null,
+    FirstName: row.FirstName,
+    LastName: row.LastName,
+    AuthHash: row.AuthHash,
+    CreatedAt: row.CreatedAt ? new Date(row.CreatedAt) : undefined,
+    Bio: row.Bio ?? undefined,
+    Theme: row.Theme ?? undefined,
+    Avatar: row.Avatar,
     Birthday: row.Birthday
       ? (row.Birthday instanceof Date ? row.Birthday.toISOString().split('T')[0] : String(row.Birthday))
       : null,
-    EmailVerified: row.EmailVerified as boolean | undefined,
-    TwoFactorEnabled: row.TwoFactorEnabled as boolean | undefined,
-    IsAdmin: row.IsAdmin as boolean | undefined,
-    IsOwner: row.IsOwner as boolean | undefined,
-    LastOnline: row.LastOnline ? new Date(row.LastOnline as string | Date) : null,
-    LastLoginAt: row.LastLoginAt ? new Date(row.LastLoginAt as string | Date) : null,
-    IsDisabled: row.IsDisabled as boolean | undefined,
-    IsHidden: row.IsHidden as boolean | undefined,
-    LockedUntil: row.LockedUntil ? new Date(row.LockedUntil as string | Date) : null,
-    FailedLoginCount: row.FailedLoginCount as number | undefined,
-    ForcePasswordChange: row.ForcePasswordChange as boolean | undefined,
-    LoginAttemptsBeforeLockout: row.LoginAttemptsBeforeLockout as number | undefined,
-    SessionVersion: row.SessionVersion as number | undefined,
+    EmailVerified: row.EmailVerified,
+    TwoFactorEnabled: row.TwoFactorEnabled,
+    IsAdmin: row.IsAdmin,
+    IsOwner: row.IsOwner,
+    LastOnline: row.LastOnline ? new Date(row.LastOnline) : null,
+    LastLoginAt: row.LastLoginAt ? new Date(row.LastLoginAt) : null,
+    IsDisabled: row.IsDisabled,
+    IsHidden: row.IsHidden,
+    LockedUntil: row.LockedUntil ? new Date(row.LockedUntil) : null,
+    FailedLoginCount: row.FailedLoginCount,
+    ForcePasswordChange: row.ForcePasswordChange,
+    LoginAttemptsBeforeLockout: row.LoginAttemptsBeforeLockout ?? undefined,
+    SessionVersion: row.SessionVersion,
     PolicyJson: mergeUserPolicy(typeof row.PolicyJson === 'string' ? JSON.parse(row.PolicyJson) : row.PolicyJson),
     AiEnabled: row.AiEnabled !== false,
     WebSearchEnabled: row.WebSearchEnabled !== false,
     IsOnboarded: row.IsOnboarded === true,
-    OauthSub: (row.OauthSub as string | null) ?? null,
+    OauthSub: row.OauthSub ?? null,
   };
 }
 
-function mapCustomThemeRow(row: Record<string, unknown>): CustomTheme {
+function parseJsonField<T>(value: unknown, fallback: T): T {
+  if (value === null || value === undefined) {
+    return fallback;
+  }
+
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return fallback;
+    }
+  }
+
+  if (typeof value === 'object') {
+    return value as T;
+  }
+
+  return fallback;
+}
+
+function mapCustomThemeRow(row: CustomThemeRow): CustomTheme {
   return {
-    Id: row.Id as string,
-    Name: row.Name as string,
-    Colors: row.Colors as Record<string, string>,
-    Advanced: (row.Advanced as Record<string, unknown>) || {},
+    Id: row.Id,
+    Name: row.Name,
+    Colors: parseJsonField<Record<string, string>>(row.Colors, {}),
+    Advanced: parseJsonField<Record<string, unknown>>(row.Advanced, {}),
   };
 }
 
 export class PostgresUserRepository implements UserRepository {
   async findByEmail(email: string): Promise<User | null> {
-    const [row] = await sql<any[]>`
+    const [row] = await sql<UserRow[]>`
       SELECT ${sql.unsafe(USER_SELECT)}
       FROM users
       WHERE email = ${email}
@@ -82,7 +189,7 @@ export class PostgresUserRepository implements UserRepository {
   }
 
   async findByUsername(username: string): Promise<User | null> {
-    const [row] = await sql<any[]>`
+    const [row] = await sql<UserRow[]>`
       SELECT ${sql.unsafe(USER_SELECT)}
       FROM users
       WHERE username = ${username}
@@ -91,7 +198,7 @@ export class PostgresUserRepository implements UserRepository {
   }
 
   async findById(id: string): Promise<User | null> {
-    const [row] = await sql<any[]>`
+    const [row] = await sql<UserRow[]>`
       SELECT ${sql.unsafe(USER_SELECT)}
       FROM users
       WHERE id = ${id}
@@ -100,7 +207,7 @@ export class PostgresUserRepository implements UserRepository {
   }
 
   async findByOauthSub(oauthSub: string): Promise<User | null> {
-    const [row] = await sql<any[]>`
+    const [row] = await sql<UserRow[]>`
       SELECT ${sql.unsafe(USER_SELECT)}
       FROM users
       WHERE oauth_sub = ${oauthSub}
@@ -119,7 +226,7 @@ export class PostgresUserRepository implements UserRepository {
   }): Promise<User> {
     const avatar = generateAvatarColor();
     const unusableHash = await Bun.password.hash(crypto.randomUUID());
-    const [row] = await sql<any[]>`
+    const [row] = await sql<UserRow[]>`
       INSERT INTO users (
         username, email, first_name, last_name, auth_hash, is_admin, is_owner, avatar,
         policy_json, email_verified, oauth_sub, is_onboarded
@@ -140,38 +247,50 @@ export class PostgresUserRepository implements UserRepository {
       )
       RETURNING ${sql.unsafe(USER_SELECT)}
     `;
-    if (!row) throw new Error('Failed to create OAuth user');
+    if (!row) {
+      throw new Error('Failed to create OAuth user');
+    }
+
     return mapUserRow(row);
   }
 
   async linkOauthSub(userId: string, oauthSub: string): Promise<User> {
-    const [row] = await sql<any[]>`
+    const [row] = await sql<UserRow[]>`
       UPDATE users SET oauth_sub = ${oauthSub}
       WHERE id = ${userId}
       RETURNING ${sql.unsafe(USER_SELECT)}
     `;
-    if (!row) throw new Error('Failed to link OAuth subject');
+    if (!row) {
+      throw new Error('Failed to link OAuth subject');
+    }
+
     return mapUserRow(row);
   }
 
   async setOnboarded(id: string, isOnboarded: boolean = true): Promise<User> {
-    const [row] = await sql<any[]>`
+    const [row] = await sql<UserRow[]>`
       UPDATE users SET is_onboarded = ${isOnboarded}
       WHERE id = ${id}
       RETURNING ${sql.unsafe(USER_SELECT)}
     `;
-    if (!row) throw new Error('Failed to update onboarding state');
+    if (!row) {
+      throw new Error('Failed to update onboarding state');
+    }
+
     return mapUserRow(row);
   }
 
   async create(username: string, email: string | null, firstName: string, lastName: string, authHash: string, isAdmin: boolean = false, isOwner: boolean = false): Promise<User> {
     const avatar = generateAvatarColor();
-    const [row] = await sql<any[]>`
+    const [row] = await sql<UserRow[]>`
       INSERT INTO users (username, email, first_name, last_name, auth_hash, is_admin, is_owner, avatar, policy_json, email_verified)
       VALUES (${username}, ${email}, ${firstName}, ${lastName}, ${authHash}, ${isAdmin}, ${isOwner}, ${avatar}, ${JSON.stringify(mergeUserPolicy({}))}::jsonb, true)
       RETURNING ${sql.unsafe(USER_SELECT)}
     `;
-    if (!row) throw new Error('Failed to create user');
+    if (!row) {
+      throw new Error('Failed to create user');
+    }
+
     return mapUserRow(row);
   }
 
@@ -195,7 +314,9 @@ export class PostgresUserRepository implements UserRepository {
     isOnboarded?: boolean;
   }): Promise<User> {
     const user = await this.findById(id);
-    if (!user) throw new Error('User not found');
+    if (!user) {
+      throw new Error('User not found');
+    }
 
     const username = updates.username !== undefined ? updates.username : user.Username;
     const firstName = updates.firstName !== undefined ? updates.firstName : user.FirstName;
@@ -205,12 +326,15 @@ export class PostgresUserRepository implements UserRepository {
     const avatar = updates.avatar !== undefined ? updates.avatar : (user.Avatar || null);
     const birthday = updates.birthday !== undefined ? updates.birthday : (user.Birthday || null);
 
-    const [curr] = await sql<any[]>`
+    const [curr] = await sql<UserUpdateFieldsRow[]>`
       SELECT email_verified, email_verification_token, email_verification_expires,
              two_factor_enabled, two_factor_secret, two_factor_recovery_codes, is_admin,
              ai_enabled, web_search_enabled, is_onboarded
       FROM users WHERE id = ${id}
     `;
+    if (!curr) {
+      throw new Error('User not found');
+    }
 
     const emailVerified = updates.emailVerified !== undefined ? updates.emailVerified : curr.email_verified;
     const emailVerificationToken = updates.emailVerificationToken !== undefined ? updates.emailVerificationToken : curr.email_verification_token;
@@ -224,7 +348,7 @@ export class PostgresUserRepository implements UserRepository {
       updates.webSearchEnabled !== undefined ? updates.webSearchEnabled : curr.web_search_enabled !== false;
     const isOnboarded = updates.isOnboarded !== undefined ? updates.isOnboarded : curr.is_onboarded === true;
 
-    const [row] = await sql<any[]>`
+    const [row] = await sql<UserRow[]>`
       UPDATE users SET
         username = ${username}, first_name = ${firstName}, last_name = ${lastName},
         bio = ${bio}, theme = ${theme}, avatar = ${avatar}, birthday = ${birthday},
@@ -236,12 +360,15 @@ export class PostgresUserRepository implements UserRepository {
       WHERE id = ${id}
       RETURNING ${sql.unsafe(USER_SELECT)}
     `;
-    if (!row) throw new Error('Failed to update user');
+    if (!row) {
+      throw new Error('Failed to update user');
+    }
+
     return mapUserRow(row);
   }
 
   async count(): Promise<number> {
-    const [row] = await sql<any[]>`SELECT COUNT(*)::integer as count FROM users`;
+    const [row] = await sql<CountRow[]>`SELECT COUNT(*)::integer as count FROM users`;
     return row ? row.count : 0;
   }
 
@@ -264,10 +391,13 @@ export class PostgresUserRepository implements UserRepository {
   }
 
   async findByEmailVerificationToken(token: string): Promise<EmailVerificationLookup | null> {
-    const [row] = await sql<any[]>`
+    const [row] = await sql<EmailVerificationRow[]>`
       SELECT id, email_verification_expires FROM users WHERE email_verification_token = ${token}
     `;
-    if (!row) return null;
+    if (!row) {
+      return null;
+    }
+
     return {
       id: row.id,
       emailVerificationExpires: new Date(row.email_verification_expires),
@@ -283,11 +413,11 @@ export class PostgresUserRepository implements UserRepository {
 
   async countEnabledAdmins(excludeUserId?: string): Promise<number> {
     const rows = excludeUserId
-      ? await sql<any[]>`
+      ? await sql<CountRow[]>`
           SELECT COUNT(*)::integer as count FROM users
           WHERE is_admin = true AND is_disabled = false AND id != ${excludeUserId}
         `
-      : await sql<any[]>`
+      : await sql<CountRow[]>`
           SELECT COUNT(*)::integer as count FROM users
           WHERE is_admin = true AND is_disabled = false
         `;
@@ -295,10 +425,13 @@ export class PostgresUserRepository implements UserRepository {
   }
 
   async getAccountStatusForDisable(id: string): Promise<AdminAccountStatus | null> {
-    const [row] = await sql<any[]>`
+    const [row] = await sql<AdminAccountStatusRow[]>`
       SELECT id, is_admin, is_disabled FROM users WHERE id = ${id}
     `;
-    if (!row) return null;
+    if (!row) {
+      return null;
+    }
+
     return {
       id: row.id,
       isAdmin: row.is_admin,
@@ -307,10 +440,13 @@ export class PostgresUserRepository implements UserRepository {
   }
 
   async getAccountStatusForDelete(id: string): Promise<DeleteAccountStatus | null> {
-    const [row] = await sql<any[]>`
+    const [row] = await sql<DeleteAccountStatusRow[]>`
       SELECT id, auth_hash, is_admin, is_disabled FROM users WHERE id = ${id}
     `;
-    if (!row) return null;
+    if (!row) {
+      return null;
+    }
+
     return {
       id: row.id,
       authHash: row.auth_hash,
@@ -329,7 +465,7 @@ export class PostgresUserRepository implements UserRepository {
   }
 
   async updatePassword(id: string, authHash: string): Promise<User> {
-    const [row] = await sql<any[]>`
+    const [row] = await sql<UserRow[]>`
       UPDATE users SET
         auth_hash = ${authHash},
         force_password_change = false,
@@ -337,7 +473,10 @@ export class PostgresUserRepository implements UserRepository {
       WHERE id = ${id}
       RETURNING ${sql.unsafe(USER_SELECT)}
     `;
-    if (!row) throw new Error('Failed to update password');
+    if (!row) {
+      throw new Error('Failed to update password');
+    }
+
     return mapUserRow(row);
   }
 
@@ -346,10 +485,13 @@ export class PostgresUserRepository implements UserRepository {
   }
 
   async getTwoFactorSecrets(id: string): Promise<TwoFactorSecrets | null> {
-    const [row] = await sql<any[]>`
+    const [row] = await sql<TwoFactorSecretsRow[]>`
       SELECT two_factor_secret, two_factor_recovery_codes FROM users WHERE id = ${id}
     `;
-    if (!row) return null;
+    if (!row) {
+      return null;
+    }
+
     return {
       twoFactorSecret: row.two_factor_secret,
       twoFactorRecoveryCodes: row.two_factor_recovery_codes,
@@ -357,7 +499,7 @@ export class PostgresUserRepository implements UserRepository {
   }
 
   async countMutualFriends(viewerId: string, userId: string): Promise<number> {
-    const [row] = await sql<any[]>`
+    const [row] = await sql<CountRow[]>`
       SELECT COUNT(*)::integer as count
       FROM (
         SELECT CASE WHEN f1.user_a_id = ${viewerId} THEN f1.user_b_id ELSE f1.user_a_id END as friend_id
@@ -374,7 +516,7 @@ export class PostgresUserRepository implements UserRepository {
   }
 
   async listCustomThemes(userId: string): Promise<CustomTheme[]> {
-    const rows = await sql<any[]>`
+    const rows = await sql<CustomThemeRow[]>`
       SELECT id as "Id", name as "Name", colors as "Colors", advanced as "Advanced"
       FROM user_custom_themes
       WHERE user_id = ${userId}
@@ -383,14 +525,28 @@ export class PostgresUserRepository implements UserRepository {
     return rows.map(mapCustomThemeRow);
   }
 
+  async findCustomThemeById(themeId: string): Promise<CustomTheme | null> {
+    const [row] = await sql<CustomThemeRow[]>`
+      SELECT id as "Id", name as "Name", colors as "Colors", advanced as "Advanced"
+      FROM user_custom_themes
+      WHERE id = ${themeId}
+      LIMIT 1
+    `;
+    return row ? mapCustomThemeRow(row) : null;
+  }
+
   async saveCustomTheme(userId: string, theme: CustomThemeInput): Promise<CustomTheme> {
-    const [row] = await sql<any[]>`
+    const [row] = await sql<CustomThemeRow[]>`
       INSERT INTO user_custom_themes (id, user_id, name, colors, advanced)
       VALUES (${theme.id}, ${userId}, ${theme.name}, ${JSON.stringify(theme.colors)}, ${JSON.stringify(theme.advanced || {})})
       ON CONFLICT (id) DO UPDATE
       SET name = EXCLUDED.name, colors = EXCLUDED.colors, advanced = EXCLUDED.advanced
       RETURNING id as "Id", name as "Name", colors as "Colors", advanced as "Advanced"
     `;
+    if (!row) {
+      throw new Error('Failed to save custom theme');
+    }
+
     return mapCustomThemeRow(row);
   }
 
@@ -403,7 +559,7 @@ export class PostgresUserRepository implements UserRepository {
 
   async searchUsers(query: string, excludeId: string): Promise<UserSearchResult[]> {
     const pattern = `%${query}%`;
-    const rows = await sql<any[]>`
+    const rows = await sql<UserSearchRow[]>`
       SELECT id as "Id", username as "Username", first_name as "FirstName",
              last_name as "LastName", avatar as "Avatar"
       FROM users
@@ -432,7 +588,10 @@ export class PostgresUserRepository implements UserRepository {
     const [row] = await sql<{ is_disabled: boolean }[]>`
       SELECT is_disabled FROM users WHERE id = ${userId}
     `;
-    if (!row) return null;
+    if (!row) {
+      return null;
+    }
+
     return row.is_disabled;
   }
 }

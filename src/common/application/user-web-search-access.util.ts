@@ -1,4 +1,3 @@
-import type { SystemConfig } from '@/common/database/connection';
 import { AppError } from '@/common/middlewares/error.middleware';
 import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
 import type { UserRepository } from '@/modules/auth/domain/ports/user.repository';
@@ -6,7 +5,10 @@ import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlis
 import type { User } from '@/modules/auth/domain/user.entity';
 import type { Wishlist } from '@/modules/wishlist/domain/wishlist.entity';
 
-export type WebSearchServerConfig = Pick<SystemConfig, 'AiEnabled' | 'AiWebSearchEnabled'>;
+export type WebSearchServerConfig = {
+  AiEnabled?: boolean;
+  AiWebSearchEnabled?: boolean;
+};
 
 export function serverAllowsWebSearch(config: WebSearchServerConfig): boolean {
   return Boolean(config.AiEnabled && config.AiWebSearchEnabled);

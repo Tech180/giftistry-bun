@@ -4,6 +4,11 @@ import {
   PostGroupFundCommentUseCase,
 } from './post-group-fund-comment.use-case';
 import type { CommentRepository } from '@/modules/comment/domain/ports/comment.repository';
+import type { CommentRealtimePublisher } from '@/modules/comment/domain/ports/comment-realtime-publisher.port';
+
+function mockCommentRealtime(): CommentRealtimePublisher {
+  return { publish: mock(() => {}) };
+}
 
 describe('PostGroupFundCommentUseCase', () => {
   test('creates owner-hidden system start comment with item tag', async () => {
@@ -24,7 +29,7 @@ describe('PostGroupFundCommentUseCase', () => {
       })
     );
     const commentRepo = { create } as unknown as CommentRepository;
-    const useCase = new PostGroupFundCommentUseCase(commentRepo);
+    const useCase = new PostGroupFundCommentUseCase(commentRepo, mockCommentRealtime());
 
     await useCase.execute({
       listId: 'list-1',
@@ -64,7 +69,7 @@ describe('PostGroupFundCommentUseCase', () => {
       })
     );
     const commentRepo = { create } as unknown as CommentRepository;
-    const useCase = new PostGroupFundCommentUseCase(commentRepo);
+    const useCase = new PostGroupFundCommentUseCase(commentRepo, mockCommentRealtime());
 
     await useCase.execute({
       listId: 'list-1',

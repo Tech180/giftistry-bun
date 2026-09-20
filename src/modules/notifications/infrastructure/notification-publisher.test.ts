@@ -1,20 +1,17 @@
 import { describe, expect, test } from 'bun:test';
-import {
-  setNotificationPublisher,
-  publishNotification,
-} from './notification-publisher';
+import { WebsocketNotificationRealtimePublisher } from './websocket-notification-realtime-publisher';
 import type { Notification } from '../domain/notification.entity';
 
-describe('notification-publisher', () => {
-  test('no-ops when publisher unset', () => {
-    setNotificationPublisher(null);
+describe('WebsocketNotificationRealtimePublisher', () => {
+  test('no-ops when transport is unset', () => {
+    const adapter = new WebsocketNotificationRealtimePublisher();
     expect(() =>
-      publishNotification('u1', {
+      adapter.publish('u1', {
         Id: 'n1',
         UserId: 'u1',
-        Type: 'system',
+        Type: 'test',
         Title: 't',
-        Message: 'm',
+        Message: 'b',
         Metadata: {},
         ReadAt: null,
         CreatedAt: new Date(),
@@ -22,30 +19,29 @@ describe('notification-publisher', () => {
     ).not.toThrow();
   });
 
-  test('publishes notification.received with Notification payload', () => {
-    const calls: { userId: string; payload: Record<string, unknown> }[] = [];
-    setNotificationPublisher((userId, payload) => {
+  test('invokes transport with notification.received payload', () => {
+    const calls: Array<{ userId: string; payload: Record<string, unknown> }> = [];
+    const adapter = new WebsocketNotificationRealtimePublisher();
+    adapter.setTransport((userId, payload) => {
       calls.push({ userId, payload });
     });
 
     const notification: Notification = {
       Id: 'n1',
       UserId: 'u1',
-      Type: 'friend_request',
-      Title: 'Hi',
-      Message: 'There',
-      Metadata: { RequestId: 'r1' },
+      Type: 'test',
+      Title: 'Hello',
+      Message: 'World',
+      Metadata: {},
       ReadAt: null,
-      CreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      CreatedAt: new Date(),
     };
 
-    publishNotification('u1', notification);
+    adapter.publish('u1', notification);
 
     expect(calls).toHaveLength(1);
-    expect(calls[0].userId).toBe('u1');
-    expect(calls[0].payload.Type).toBe('notification.received');
-    expect(calls[0].payload.Notification).toEqual(notification);
-
-    setNotificationPublisher(null);
+    expect(calls[0]?.userId).toBe('u1');
+    expect(calls[0]?.payload.Type).toBe('notification.received');
+    expect(calls[0]?.payload.Notification).toEqual(notification);
   });
 });

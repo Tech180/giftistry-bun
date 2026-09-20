@@ -2,7 +2,7 @@ import { expect, test, describe, beforeAll, afterAll, beforeEach, afterEach } fr
 import { app } from '../src/index';
 import { sql } from '../src/common/database/connection';
 import { testPassword } from './helper';
-import { getEnv, loadRuntimeConfig, setEnvForTests } from '../src/common/consts/env.consts';
+import { getEnv, loadRuntimeConfig, setEnvForTests } from '../src/common/consts/runtime-config';
 import * as fs from 'fs';
 import * as path from 'path';
 

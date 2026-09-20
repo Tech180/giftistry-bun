@@ -1,12 +1,20 @@
 import { sql } from '@/common/database/connection';
 import type {
   ContentReport,
+  CreateReportInput,
   ReportListResult,
   ReportRepository,
   ReportStatus,
 } from '../domain/ports/report.repository';
 
 export class PostgresReportRepository implements ReportRepository {
+  async create(input: CreateReportInput): Promise<void> {
+    await sql`
+      INSERT INTO content_reports (reporter_id, target_type, target_id, reason)
+      VALUES (${input.reporterId}, ${input.targetType}, ${input.targetId}, ${input.reason})
+    `;
+  }
+
   async list(status: string, page: number, limit: number): Promise<ReportListResult> {
     const offset = (page - 1) * limit;
 

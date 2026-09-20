@@ -1,6 +1,5 @@
-import { loadConfig } from '@/common/infrastructure/config.loader';
 import { clampGrabInfoActiveStreamLimit } from '@/modules/system/domain/server-config.entity';
-import { readResultProgressRate } from './job-progress-rate.util';
+import { readResultProgressRate, type JobProgressRate } from './job-progress-rate.util';
 import {
   formatGrabPhaseDetail,
   readGrabPhase,
@@ -119,7 +118,7 @@ export interface JobActiveStream {
   Status: BackgroundJobItemStatus;
   Phase?: GrabPhase | null;
   Detail?: string | null;
-  ProgressRate?: { Value: number; Unit: 'tok/s' } | null;
+  ProgressRate?: JobProgressRate | null;
 }
 
 function streamLabel(item: BackgroundJobItem): string {
@@ -195,7 +194,8 @@ export function toActiveStreams(
 
 export function toJobPublicView(
   job: BackgroundJob,
-  items?: BackgroundJobItem[] | null
+  items?: BackgroundJobItem[] | null,
+  options?: { activeStreamLimit?: number }
 ) {
   const view: Record<string, unknown> = {
     Id: job.Id,
@@ -240,9 +240,7 @@ export function toJobPublicView(
 
   if (items && items.length > 0) {
     view.ItemsSummary = summarizeJobItems(items);
-    const streamLimit = clampGrabInfoActiveStreamLimit(
-      loadConfig().GrabInfoActiveStreamLimit
-    );
+    const streamLimit = clampGrabInfoActiveStreamLimit(options?.activeStreamLimit);
     const streams = toActiveStreams(items, streamLimit);
     if (streams.length > 0) {
       view.ActiveStreams = streams;

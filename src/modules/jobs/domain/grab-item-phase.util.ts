@@ -1,4 +1,4 @@
-import type { ExtractMetadataPhase } from '@/modules/item/application/extract-metadata.use-case';
+import type { ExtractMetadataPhase } from '@/modules/item/domain/extract-metadata-phase';
 import { tokensPerSecondRate, type JobProgressRate } from './job-progress-rate.util';
 
 export type GrabPhase = ExtractMetadataPhase;

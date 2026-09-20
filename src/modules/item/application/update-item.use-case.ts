@@ -14,7 +14,7 @@ import type { ItemMetadataWrite } from '../domain/ports/item.repository';
 import { normalizeItemPhotosWrite } from '../domain/normalize-item-photos.util';
 import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
 import { assertWishlistMutable } from '@/modules/wishlist/domain/assert-wishlist-mutable.util';
-import { publishListChanged } from '@/modules/wishlist/infrastructure/wishlist-list-publisher';
+import type { ListChangedPublisher } from '@/modules/wishlist/domain/ports/list-changed-publisher.port';
 import { assertLinkGroupSupportsLinkedItems } from '../domain/item-supports-linked-items.util';
 
 function toMetadataWrite(
@@ -44,7 +44,8 @@ export class UpdateItemUseCase {
     private enrichLinkMetadata: EnrichLinkMetadataUseCase,
     private extractItemReviews: ExtractItemReviewsUseCase,
     private assertUserCan: AssertUserCanUseCase,
-    private notifyClaimersItemRemoved?: NotifyClaimersItemRemovedUseCase
+    private notifyClaimersItemRemoved: NotifyClaimersItemRemovedUseCase | undefined,
+    private listChanged: ListChangedPublisher
   ) {}
 
   async execute(
@@ -203,7 +204,7 @@ export class UpdateItemUseCase {
       await this.clearLinkExtractedImages(item.Id);
     }
 
-    publishListChanged(item.ListId, {
+    this.listChanged.publish(item.ListId, {
       reason: 'item.updated',
       itemId: updated.Id,
       actorUserId: currentUserId,

@@ -1,29 +1,23 @@
-import { Elysia, StatusMap, t } from 'elysia';
-import path from 'path';
+import { Elysia, StatusMap, t, type AnyElysia } from 'elysia';
 import { cors } from '@elysiajs/cors';
 import { swagger } from '@elysiajs/swagger';
-import { env } from './common/consts/env.consts';
+import { env } from './common/consts/runtime-config';
 import { getPublicAppUrl } from './common/utils/public-app-url.util';
 import { handleError } from './common/middlewares/error.middleware';
 import { createAppContainer } from './app.container';
 import { runMigrations } from './common/database/migrations';
-import { sql } from './common/database/connection';
 import { verifyToken } from '@/common/utils/token';
 import { getListAccessContext } from '@/common/middlewares/list-access.middleware';
 import { pascalizeKeys } from '@/common/utils/api-case.util';
-import { setCommentPublisher } from '@/modules/comment/infrastructure/comment-publisher';
-import { PostgresWishlistRepository } from '@/modules/wishlist/infrastructure/postgres-wishlist.repository';
 import {
   addWishlistWsConnection,
   getOnlineUsers,
-  getWishlistWsRoom,
   removeWishlistWsConnection,
 } from '@/modules/wishlist/infrastructure/wishlist-ws-registry';
 import {
   addUserWsConnection,
   removeUserWsConnection,
 } from '@/modules/notifications/infrastructure/user-ws-registry';
-import { shouldDeliverCommentEventToUser, commentCreatedNeedsVisibilityFilter } from '@/modules/comment/domain/should-deliver-comment-event.util';
 import {
   resolveProcessRole,
   shouldListenRealtimeFanout,
@@ -58,38 +52,6 @@ function cleanHeaders(headers: any): Record<string, string> {
   return result;
 }
 
-function createCachedCssResponse(content: string, request: Request): Response {
-  const etag = `W/"${Bun.hash(content).toString(36)}"`;
-  if (request.headers.get('If-None-Match') === etag) {
-    return new Response(null, { status: 304, headers: { ETag: etag } });
-  }
-  const isProd = process.env.NODE_ENV === 'production';
-  return new Response(content, {
-    headers: {
-      'Content-Type': 'text/css',
-      'Cache-Control': isProd ? 'public, max-age=31536000, immutable' : 'public, max-age=60',
-      'ETag': etag,
-    },
-  });
-}
-
-const FONT_FILENAME_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*-\d+\.woff2$/;
-
-function createCachedFontResponse(bytes: Uint8Array, request: Request): Response {
-  const etag = `W/"${Bun.hash(bytes).toString(36)}"`;
-  if (request.headers.get('If-None-Match') === etag) {
-    return new Response(null, { status: 304, headers: { ETag: etag } });
-  }
-  const isProd = process.env.NODE_ENV === 'production';
-  return new Response(bytes, {
-    headers: {
-      'Content-Type': 'font/woff2',
-      'Cache-Control': isProd ? 'public, max-age=31536000, immutable' : 'public, max-age=60',
-      'ETag': etag,
-    },
-  });
-}
-
 const processRole = resolveProcessRole();
 if (processRole === 'worker') {
   console.error(
@@ -116,10 +78,9 @@ const {
   registrationInviteModule,
   systemModule,
   adminModule,
-  authMiddleware,
   userRepo: userRepoForWs,
+  realtimePublishers,
 } = container;
-const wishlistRepoForWs = new PostgresWishlistRepository();
 
 function publishPresence(listId: string, ws?: { publish: (topic: string, data: string) => void; send?: (data: string) => void }) {
   const users = getOnlineUsers(listId);
@@ -133,7 +94,7 @@ function publishPresence(listId: string, ws?: { publish: (topic: string, data: s
   }
 }
 
-function resolveCorsOrigin(request: Request): boolean | string {
+function resolveCorsOrigin(request: Request): boolean {
   if (!env.isProduction) {
     return true;
   }
@@ -145,7 +106,7 @@ function resolveCorsOrigin(request: Request): boolean | string {
 
   const origin = request.headers.get('origin');
   if (!origin) {
-    return publicUrl;
+    return true;
   }
 
   try {
@@ -159,7 +120,7 @@ function resolveCorsOrigin(request: Request): boolean | string {
   }
 }
 
-export const app = new Elysia()
+let app: AnyElysia = new Elysia()
   .use(cors({
     credentials: true,
     origin: resolveCorsOrigin,
@@ -245,23 +206,27 @@ export const app = new Elysia()
       status: numericStatus,
       headers: cleanHeaders(set.headers)
     });
-  })
-  .use(authModule)
-  .use(notificationsModule)
-  .use(wishlistModule)
-  .use(itemModule)
-  .use(jobsModule)
-  .use(commentModule)
-  .use(friendsModule)
-  .use(invitesModule)
-  .use(registrationInviteModule)
-  .use(systemModule)
-  .use(adminModule)
+  });
+
+app = app
+  .use(authModule as AnyElysia)
+  .use(notificationsModule as AnyElysia)
+  .use(wishlistModule as AnyElysia)
+  .use(itemModule as AnyElysia)
+  .use(jobsModule as AnyElysia)
+  .use(commentModule as AnyElysia)
+  .use(friendsModule as AnyElysia)
+  .use(invitesModule as AnyElysia)
+  .use(registrationInviteModule as AnyElysia)
+  .use(systemModule as AnyElysia)
+  .use(adminModule as AnyElysia);
+
+app = (app as any)
   .ws('/ws/wishlist/:listId', {
     query: t.Object({
       token: t.String()
     }),
-    async open(ws) {
+    async open(ws: any) {
       const { listId } = ws.data.params;
       const { token } = ws.data.query;
       
@@ -285,8 +250,8 @@ export const app = new Elysia()
       }
       
       const wsId = crypto.randomUUID();
-      (ws.data as any).wsId = wsId;
-      (ws.data as any).user = user;
+      ws.data.wsId = wsId;
+      ws.data.user = user;
       
       ws.subscribe(listId);
 
@@ -298,12 +263,12 @@ export const app = new Elysia()
 
       publishPresence(listId, ws);
     },
-    message(ws, message: any) {
+    message(ws: any, message: any) {
       const { listId } = ws.data.params;
       try {
         const data = typeof message === 'string' ? JSON.parse(message) : message;
         if (data && data.Type === 'typing') {
-          const user = (ws.data as any).user;
+          const user = ws.data.user;
           if (user) {
             ws.publish(listId, JSON.stringify({
               Type: 'typing',
@@ -317,9 +282,9 @@ export const app = new Elysia()
         console.error('Error handling ws message:', err);
       }
     },
-    close(ws) {
+    close(ws: any) {
       const { listId } = ws.data.params;
-      const wsId = (ws.data as any).wsId;
+      const wsId = ws.data.wsId;
       if (wsId && removeWishlistWsConnection(listId, wsId)) {
         publishPresence(listId, ws);
       }
@@ -329,7 +294,7 @@ export const app = new Elysia()
     query: t.Object({
       token: t.String()
     }),
-    async open(ws) {
+    async open(ws: any) {
       const { token } = ws.data.query;
       const payload = await verifyToken(token);
       if (!payload) {
@@ -344,189 +309,23 @@ export const app = new Elysia()
       }
       
       const wsId = crypto.randomUUID();
-      (ws.data as any).wsId = wsId;
-      (ws.data as any).user = user;
+      ws.data.wsId = wsId;
+      ws.data.user = user;
       
       ws.subscribe(user.Id);
       addUserWsConnection(user.Id, wsId);
     },
-    close(ws) {
-      const user = (ws.data as any).user;
-      const wsId = (ws.data as any).wsId;
+    close(ws: any) {
+      const user = ws.data.user;
+      const wsId = ws.data.wsId;
       if (user?.Id && wsId) {
         removeUserWsConnection(user.Id, wsId);
       }
     }
   })
-  .get('/api/themes/core/css', async ({ set, request }) => {
-    try {
-      const filePath = path.join(import.meta.dir, '../../theming-engine/dist/css/variables.css');
-      const file = Bun.file(filePath);
-      if (await file.exists()) {
-        const content = await file.text();
-        return createCachedCssResponse(content, request);
-      } else {
-        console.warn(`[WARNING] Core variables.css file not found at: ${filePath}`);
-        set.status = 404;
-        return { status: 'error', message: 'Core variables stylesheet not found.' };
-      }
-    } catch (err: any) {
-      set.status = 500;
-      return { status: 'error', message: `Failed to load core variables: ${err.message}` };
-    }
-  })
-  .get('/api/themes/core/fonts.css', async ({ set, request }) => {
-    try {
-      const filePath = path.join(import.meta.dir, '../../theming-engine/dist/css/fonts.css');
-      const file = Bun.file(filePath);
-      if (await file.exists()) {
-        const content = await file.text();
-        return createCachedCssResponse(content, request);
-      } else {
-        console.warn(`[WARNING] fonts.css file not found at: ${filePath}`);
-        set.status = 404;
-        return { status: 'error', message: 'Fonts stylesheet not found.' };
-      }
-    } catch (err: any) {
-      set.status = 500;
-      return { status: 'error', message: `Failed to load fonts stylesheet: ${err.message}` };
-    }
-  })
-  .get('/api/themes/fonts/:filename', async ({ params, set, request }) => {
-    const { filename } = params;
-    if (!FONT_FILENAME_RE.test(filename)) {
-      set.status = 400;
-      return { status: 'error', message: 'Invalid font filename.' };
-    }
+  .get('/health', () => ({ Status: 'ok', Database: 'connected', Version: '0.1.0' })) as AnyElysia;
 
-    try {
-      const filePath = path.join(import.meta.dir, '../../theming-engine/dist/fonts', filename);
-      const file = Bun.file(filePath);
-      if (await file.exists()) {
-        const bytes = new Uint8Array(await file.arrayBuffer());
-        return createCachedFontResponse(bytes, request);
-      } else {
-        set.status = 404;
-        return { status: 'error', message: 'Font file not found.' };
-      }
-    } catch (err: any) {
-      set.status = 500;
-      return { status: 'error', message: `Failed to load font file: ${err.message}` };
-    }
-  })
-  .get('/api/themes/:theme/:appearance/css', async ({ params, set, request }) => {
-    const { theme, appearance } = params;
-    if (appearance !== 'light' && appearance !== 'dark') {
-      set.status = 400;
-      return { status: 'error', message: 'Invalid appearance. Must be light or dark.' };
-    }
-
-    const builtInThemes = [
-      'default', 'cyberpunk', 'neon', 'mystic', 'burnt-forest',
-      'halloween', 'christmas',
-      'valentines', 'st-patricks', 'earth-day', 'independence', 'thanksgiving',
-      'paper', 'paper-mario', 'retro-80s', 'pixel', 'matrix', 'terminal', 'vaporwave', 'arcade',
-    ];
-    if (builtInThemes.includes(theme)) {
-      try {
-        const filePath = path.join(import.meta.dir, '../../theming-engine/dist/css/themes', `${theme}-${appearance}.css`);
-        const file = Bun.file(filePath);
-        if (await file.exists()) {
-          const content = await file.text();
-          return createCachedCssResponse(content, request);
-        } else {
-          console.warn(`[WARNING] Built-in theme file not found: ${filePath}. Please make sure to run the build command inside the theming-engine directory.`);
-        }
-      } catch (err: any) {
-        console.error('Failed to read theme file:', err);
-      }
-    }
-
-    // Dynamic Compilation Fallback (Simulates database retrieval of user-generated theme tokens)
-    try {
-      const [customTheme] = await sql<any[]>`
-        SELECT name, colors, advanced FROM user_custom_themes WHERE id = ${theme}
-      `;
-
-      let dbTokens = {
-        primary: '#ff00ff',
-        primaryHover: '#cc00cc',
-        accent: '#00ffff',
-        bg: '#121212',
-        surface: '#1e1e1e',
-        surfaceHover: '#2d2d2d',
-        surfaceGlass: 'rgba(30, 30, 30, 0.5)',
-        border: '#333333',
-        text: '#ffffff',
-        textMuted: '#aaaaaa',
-        radius: '12px',
-        shadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-        bgGradient: 'linear-gradient(135deg, #121212 0%, #1e1e1e 100%)',
-      };
-
-      if (customTheme) {
-        let colors = customTheme.colors;
-        if (typeof colors === 'string') {
-          try {
-            colors = JSON.parse(colors);
-          } catch (e) {}
-        }
-        let advanced = customTheme.advanced;
-        if (typeof advanced === 'string') {
-          try {
-            advanced = JSON.parse(advanced);
-          } catch (e) {}
-        }
-        if (!advanced || typeof advanced !== 'object') {
-          advanced = {};
-        }
-        
-        dbTokens = {
-          primary: colors.primary || dbTokens.primary,
-          primaryHover: colors.primaryHover || `${colors.primary || dbTokens.primary}dd`,
-          accent: colors.primary || dbTokens.accent,
-          bg: colors.bg || dbTokens.bg,
-          surface: colors.surface || dbTokens.surface,
-          surfaceHover: colors.surfaceHover || `${colors.surface || dbTokens.surface}f0`,
-          surfaceGlass: `rgba(30, 30, 30, 0.5)`,
-          border: colors.border || dbTokens.border,
-          text: colors.text || dbTokens.text,
-          textMuted: colors['text-muted'] || colors.textMuted || colors.text || dbTokens.textMuted,
-          radius: advanced.radius?.default || dbTokens.radius,
-          shadow: advanced.shadows?.md || dbTokens.shadow,
-          bgGradient: `linear-gradient(135deg, ${colors.bg || dbTokens.bg} 0%, ${colors.surface || dbTokens.surface} 100%)`,
-        };
-      }
-
-      const { compileDynamicThemeCss } = await import('../../theming-engine/src/dynamic-compiler');
-      const cssContent = await compileDynamicThemeCss(theme, appearance as 'light' | 'dark', dbTokens);
-
-      return createCachedCssResponse(cssContent, request);
-    } catch (err: any) {
-      set.status = 500;
-      return { status: 'error', message: `Failed to compile theme: ${err.message}` };
-    }
-  })
-  .get('/health', () => ({ Status: 'ok', Database: 'connected', Version: '0.1.0' }))
-  .use(authMiddleware)
-  .post('/api/reports', async ({ getAuthUser, body: { Giftistry: { Report } } }) => {
-    const user = await getAuthUser();
-    await sql`
-      INSERT INTO content_reports (reporter_id, target_type, target_id, reason)
-      VALUES (${user.Id}, ${Report.TargetType}, ${Report.TargetId}, ${Report.Reason ?? ''})
-    `;
-    return { success: true };
-  }, {
-    body: t.Object({
-      Giftistry: t.Object({
-        Report: t.Object({
-          TargetType: t.Union([t.Literal('comment'), t.Literal('wishlist'), t.Literal('user')]),
-          TargetId: t.String(),
-          Reason: t.Optional(t.String()),
-        }),
-      }),
-    }),
-  });
+export { app };
 
 await runMigrations().catch((err) => {
   console.error('[ERROR] Migration failed:', err);
@@ -542,77 +341,16 @@ if (process.env.NODE_ENV !== 'test') {
   }
 
   if (env.isProduction && !getPublicAppUrl()) {
-    console.warn(
-      '[boot] GIFTISTRY_PUBLIC_APP_URL is not set in production. Email links, CORS, and WebAuthn may not work correctly.'
+    console.error(
+      '[boot] GIFTISTRY_PUBLIC_APP_URL (or config PublicAppUrl) is required in production. Set it for CORS, email links, and WebAuthn.'
     );
+    process.exit(1);
   }
 
   app.listen(env.PORT);
   wireDirectRealtimePublishers((room, data) => {
     app.server?.publish(room, data);
-  });
-  setCommentPublisher((listId, payload) => {
-    const room = getWishlistWsRoom(listId);
-    if (!room || room.size === 0) {
-      return;
-    }
-
-    const eventType = typeof payload.Type === 'string' ? payload.Type : '';
-    const comment = payload.Comment as
-      | {
-          UserId?: string | null;
-          IsOwnerVisible?: boolean;
-          VisibleToUserIds?: string[] | null;
-        }
-      | undefined;
-    const needsVisibilityFilter =
-      eventType === 'comment.created' && commentCreatedNeedsVisibilityFilter(comment);
-
-    const deliver = (wishlistOwnerId: string, listHasExpired: boolean) => {
-      const json = JSON.stringify(payload);
-      for (const entry of room.values()) {
-        if (
-          !shouldDeliverCommentEventToUser({
-            eventType,
-            comment,
-            commentIsOwnerVisible: comment?.IsOwnerVisible,
-            recipientUserId: entry.userId,
-            wishlistOwnerId,
-            listHasExpired,
-          })
-        ) {
-          continue;
-        }
-        try {
-          entry.send(json);
-        } catch (err) {
-          console.error('[ERROR] Failed to send comment WS event:', err);
-        }
-      }
-    };
-
-    if (!needsVisibilityFilter) {
-      deliver('', false);
-      return;
-    }
-
-    void wishlistRepoForWs
-      .findById(listId)
-      .then((wishlist) => {
-        if (!wishlist) {
-          deliver('', false);
-          return;
-        }
-        const listHasExpired = wishlist.ExpiresAt
-          ? new Date() > new Date(wishlist.ExpiresAt)
-          : false;
-        deliver(wishlist.UserId, listHasExpired);
-      })
-      .catch((err) => {
-        console.error('[ERROR] Failed to resolve wishlist for comment WS filter:', err);
-        // Fail closed for restricted events: do not broadcast to everyone without filter
-      });
-  });
+  }, realtimePublishers);
 
   if (shouldListenRealtimeFanout(processRole)) {
     void startPostgresRealtimeListener({

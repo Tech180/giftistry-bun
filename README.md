@@ -1,132 +1,102 @@
-# Giftistry API (Bun)
+<h1 align="center">Giftistry API</h1>
 
-Backend for [Giftistry](https://github.com/) — a self-hosted wishlist app. This repo is designed for homelab deployment with explicit secrets handling, setup hardening, and production guards.
+<p align="center">
+  <strong>Self-hosted wishlists that stay private, shareable, and actually useful.</strong>
+</p>
 
-## Install
+<p align="center">
+  <a href="#"><img alt="License" src="https://img.shields.io/badge/license-TODO-blue.svg" /></a>
+  <a href="#"><img alt="Status" src="https://img.shields.io/badge/status-early%20access-orange.svg" /></a>
+  <a href="#"><img alt="Bun" src="https://img.shields.io/badge/bun-1.x-f9f1e1.svg" /></a>
+  <a href="#"><img alt="Elysia" src="https://img.shields.io/badge/elysia-1.x-black.svg" /></a>
+</p>
 
-Choose one deployment path:
+<p align="center">
+  <a href="#features">Features</a> ·
+  <a href="#getting-started">Getting started</a> ·
+  <a href="#documentation">Docs</a> ·
+  <a href="#contributing">Contributing</a>
+</p>
+
+---
+
+Giftistry helps people collect gifts, share lists with friends and family, and coordinate claims — without stuffing your data into someone else's SaaS. This repository is the **Bun/Elysia API**; pair it with [giftistry-react](../giftistry-react) for a full stack.
+
+Designed for homelab deployment: explicit secrets handling, setup hardening, and production guards.
+
+## Features
+
+| | |
+| :--- | :--- |
+| **Wishlists** | Create lists, shares, invites, export/PDF, rollover & duplicate |
+| **Items** | Claims, substitutions, linked/related items, metadata scrape + AI enrich |
+| **Jobs** | Background import / enrich / summarize with realtime progress |
+| **Auth** | JWT sessions, passkeys, 2FA, OIDC, themes |
+| **Notifications** | In-app + Web Push / FCM / ntfy |
+| **Privacy-first** | Self-host the stack; you keep the data |
+
+## Getting started
+
+Choose one path:
 
 ### Nix (recommended for homelab)
-
-Use a Nix shell or flake dev environment for Bun, PostgreSQL, Chromium (Playwright scraping), and Mailpit (local SMTP):
 
 ```bash
 nix-shell   # or: nix develop
 bun install
-bun run scripts/ensure-test-database.ts   # optional: local DB bootstrap
+bun run scripts/ensure-test-database.ts   # optional local DB bootstrap
 bun dev
 ```
 
-See `docs/architecture.md` for Playwright/Chromium notes on NixOS.
+See [docs/architecture.md](docs/architecture.md) for Playwright/Chromium on NixOS.
 
-### Docker
-
-Run PostgreSQL and Mailpit via your compose stack, point env vars at those services, and start the API:
+### Local Bun
 
 ```bash
 bun install
 cp .env.example .env   # edit PG*, SMTP*, GIFTISTRY_*
-bun start
+cp config/config.example.json config.json
+bun dev                # hot reload (API + jobs, role=all)
 ```
 
-Mount a volume for `config.json` (or set `GIFTISTRY_CONFIG_PATH`) so server settings persist across restarts.
+OpenAPI: `http://localhost:3001/docs`.
 
-## Development
+For scripts, tests, and process roles, see [docs/development.md](docs/development.md). Full install (NixOS flake, secrets): [docs/INSTALL.md](docs/INSTALL.md).
 
-```bash
-bun install
-bun dev          # hot reload (single process: API + jobs, role=all)
-bun test         # test suite (uses isolated test DB)
-```
+## Documentation
 
-### Split API + worker (optional locally)
+| Doc | What it's for |
+| --- | --- |
+| [Architecture](docs/architecture.md) | DDD layers, ports, scraper, CI rules |
+| [Development](docs/development.md) | Scripts, verify, env, split API/worker |
+| [Install](docs/INSTALL.md) | NixOS flake, local Bun, secrets |
+| [Contributing](CONTRIBUTING.md) | PRs, layer rules, review expectations |
+| [Source map](src/README.md) | Nested folder READMEs under `src/` |
 
-Default `bun dev` uses `GIFTISTRY_PROCESS_ROLE=all` (HTTP and jobs in one process).
+## Stack
 
-To mirror production isolation:
+- **Runtime:** Bun  
+- **HTTP:** Elysia (+ CORS, Swagger)  
+- **DB:** PostgreSQL (`postgres` driver)  
+- **Jobs / realtime:** in-process runner + Postgres LISTEN/NOTIFY + WebSockets  
+- **Language:** TypeScript (strict, `noUncheckedIndexedAccess`)
 
-```bash
-# terminal A — API only (listens for worker fanout via Postgres NOTIFY)
-GIFTISTRY_PROCESS_ROLE=api bun src/index.ts
+## Environment & secrets
 
-# terminal B — background jobs
-bun run dev:worker
-# or: GIFTISTRY_PROCESS_ROLE=worker bun src/worker.ts
-```
+Non-secrets come from `Bun.env`. Secrets go through **SecretSource** (`getEnv()` / `loadRuntimeConfig()`):
 
-Production Docker Compose runs `api` + `worker` services from the same image.
+1. `EnvSecretProvider` — `Bun.env[NAME]`
+2. `FileEnvSecretProvider` — `NAME_FILE`
+3. `CredentialsDirectoryProvider` — `$CREDENTIALS_DIRECTORY/NAME`
 
-### HTTPie collection
+Registered names: `JWT_SECRET`, `GIFTISTRY_SETUP_TOKEN`, `SMTP_PASS`, `OPENROUTER_API_KEY`, `GEMINI_API_KEY`, `OAUTH_CLIENT_SECRET`, `PGPASSWORD`.
 
-The HTTPie Desktop collection under `collections/` is generated from the live OpenAPI document (`GET /docs/json`), with a small curated overlay for example bodies.
+Production boot **fails** if `JWT_SECRET` is weak/missing or no public app URL is configured. Details: [docs/development.md](docs/development.md#environment-variables).
 
-```bash
-bun run collections:generate
-```
+## Contributing
 
-Import both `httpie-collection-giftistry.json` and `httpie-environment-local.json` into the same space, and select the **Local** environment. Requests use `{{baseUrl}}` (default `http://localhost:3001`). Paste a JWT into the secret `{{token}}` variable after login; collection bearer auth inherits it.
-
-Regenerate after adding or changing routes. Coverage tests under `collections/` assert the export stays in sync with OpenAPI.
-
-## Environment variables
-
-| Variable | Secret? | Description |
-|----------|---------|-------------|
-| `NODE_ENV` | no | `development` or `production` |
-| `PORT` | no | HTTP port (default `3001`) |
-| `PGHOST`, `PGPORT`, `PGUSER`, `PGDATABASE` | no | PostgreSQL connection |
-| `PGPASSWORD` | **yes** | Database password |
-| `JWT_SECRET` | **yes** | Session signing key; required in production (≥32 chars) |
-| `GIFTISTRY_PUBLIC_APP_URL` | no | Public browser URL (emails, CORS, WebAuthn). Falls back to `config.json` → `PublicAppUrl` |
-| `GIFTISTRY_ALLOW_SETUP` | no | When `false`, blocks first-run setup even if no users exist (default `true`) |
-| `GIFTISTRY_SETUP_TOKEN` | **yes** | When set, `POST /api/system/setup` requires `X-Giftistry-Setup-Token` header or `Setup.SetupToken` body |
-| `GIFTISTRY_CONFIG_PATH` | no | Override path to `config.json` |
-| `GIFTISTRY_PROCESS_ROLE` | no | Process role: `all` (default, API+jobs), `api` (HTTP/WS only), `worker` (jobs only; use `src/worker.ts`) |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_SECURE`, `SMTP_FROM` | no | Default/local SMTP |
-| `SMTP_PASS` | **yes** | SMTP password |
-| `OPENROUTER_API_KEY` | **yes** | Fallback OpenRouter key when slot key empty |
-| `GEMINI_API_KEY` | **yes** | Fallback Gemini/OpenRouter key |
-| `OAUTH_CLIENT_SECRET` | **yes** | OAuth client secret (issuer/id in config) |
-| `CREDENTIALS_DIRECTORY` / `GIFTISTRY_CREDENTIALS_DIRECTORY` | — | Directory of files named after secret keys |
-| `SCRAPE_PLAYWRIGHT_EXECUTABLE_PATH` | no | Chromium/Chrome binary for Playwright. Required on NixOS unless a system browser is on `PATH`. Also accepts `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`. |
-| `SCRAPE_FETCH_TIMEOUT_MS` | no | Fetch-tier scrape timeout (default `8000`) |
-| `SCRAPE_PLAYWRIGHT_TIMEOUT_MS` | no | Playwright navigation timeout (default `25000`) |
-| `SCRAPE_PLAYWRIGHT_MAX_CONCURRENT` | no | Max concurrent browser contexts (default `3`) |
-| `SCRAPE_PLAYWRIGHT_HEADLESS` | no | Headless Playwright (`true` by default) |
-
-Non-secret values are read from `Bun.env`. Secrets use the **SecretSource** contract below.
-
-## SecretSource contract
-
-Secrets are resolved once at boot via `loadRuntimeConfig()` / `getEnv()`:
-
-1. **`EnvSecretProvider`** — `Bun.env[NAME]` (trimmed)
-2. **`FileEnvSecretProvider`** — contents of `NAME_FILE`
-3. **`CredentialsDirectoryProvider`** — `$CREDENTIALS_DIRECTORY/NAME` or `$GIFTISTRY_CREDENTIALS_DIRECTORY/NAME`
-
-`CompositeSecretSource` tries providers in that order; first non-empty value wins.
-
-Registered secret names (`SECRET_NAMES`):
-
-- `JWT_SECRET`
-- `GIFTISTRY_SETUP_TOKEN`
-- `SMTP_PASS`
-- `OPENROUTER_API_KEY`
-- `GEMINI_API_KEY`
-- `OAUTH_CLIENT_SECRET`
-- `PGPASSWORD`
-
-Production boot **fails** if `JWT_SECRET` is missing, too short, or a known weak default.
-
-## Production hardening
-
-- **CORS**: In production, only origins matching `GIFTISTRY_PUBLIC_APP_URL` (same origin or hostname) are allowed.
-- **Public URL warning**: If production starts without a resolvable public URL, a boot warning is logged.
-- **Setup token**: Optional install token for the setup wizard.
-- **Password policy**: Minimum 8 characters with at least one letter and one number (signup, setup admin, admin user create/reset).
-
-Server-level settings (SMTP remote, AI, OAuth, `PublicAppUrl`) are stored in `config.json` and managed via `/api/system/settings` after the first admin exists.
+Ideas, bugs, and PRs are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), then skim [docs/architecture.md](docs/architecture.md) so new code lands in the right layer.
 
 ## License
 
-See repository license.
+TODO — add your license (e.g. AGPL / MIT / proprietary) and link the full text.

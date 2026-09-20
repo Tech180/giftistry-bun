@@ -1,4 +1,4 @@
-import { computeTokensPerSecond } from '@/modules/item/infrastructure/ai-text-completion-stream.util';
+import { computeTokensPerSecond } from '@/common/domain/compute-tokens-per-second.util';
 
 export type JobProgressRateUnit = 'tok/s' | 'items/s';
 

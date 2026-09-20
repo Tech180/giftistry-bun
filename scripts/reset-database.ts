@@ -1,5 +1,5 @@
 import postgres from 'postgres';
-import { env } from '../src/common/consts/env.consts';
+import { env } from '../src/common/consts/runtime-config';
 
 const args = process.argv.slice(2);
 

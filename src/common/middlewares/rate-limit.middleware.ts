@@ -1,18 +1,18 @@
 import { Elysia } from 'elysia';
 import { AppError } from './error.middleware';
-import { loadConfig } from '@/common/database/connection';
 
 interface RateLimitConfig {
   windowMs: number;
   max: number;
   paths?: string[];
-  /** When true, skipped if AiRateLimitEnabled is false in server config */
+  /** When true, skipped if isAiRateLimitEnabled returns false */
   respectAiRateLimitToggle?: boolean;
+  /** Required when respectAiRateLimitToggle is true */
+  isAiRateLimitEnabled?: () => boolean;
 }
 
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
-// Periodically clean up expired entries in the map to prevent memory leaks
 setInterval(() => {
   const now = Date.now();
   for (const [key, value] of rateLimitStore.entries()) {
@@ -20,7 +20,7 @@ setInterval(() => {
       rateLimitStore.delete(key);
     }
   }
-}, 60000); // Clean up every minute
+}, 60000);
 
 export function checkRateLimit(key: string, config: Pick<RateLimitConfig, 'windowMs' | 'max'>): void {
   const now = Date.now();
@@ -54,8 +54,7 @@ export function rateLimit(config: RateLimitConfig) {
       }
 
       if (config.respectAiRateLimitToggle) {
-        const aiConfig = loadConfig();
-        if (aiConfig.AiRateLimitEnabled === false) {
+        if (config.isAiRateLimitEnabled?.() === false) {
           return;
         }
       }

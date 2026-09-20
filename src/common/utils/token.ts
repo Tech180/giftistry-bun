@@ -1,6 +1,13 @@
-import { env } from '../consts/env.consts';
+import { env } from '../consts/runtime-config';
 
-export async function createToken(payload: Record<string, any>, expiresInMs: number = 24 * 60 * 60 * 1000): Promise<string> {
+export interface JwtPayload {
+  userId: string;
+  sessionVersion?: number;
+  action?: string;
+  exp?: number;
+}
+
+export async function createToken(payload: JwtPayload, expiresInMs: number = 24 * 60 * 60 * 1000): Promise<string> {
   const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const data = btoa(JSON.stringify({ ...payload, exp: Date.now() + expiresInMs }));
   const message = `${header}.${data}`;
@@ -22,10 +29,13 @@ export async function createToken(payload: Record<string, any>, expiresInMs: num
   return `${message}.${signatureBase64}`;
 }
 
-export async function verifyToken(token: string): Promise<Record<string, any> | null> {
+export async function verifyToken(token: string): Promise<JwtPayload | null> {
   try {
     const parts = token.split('.');
-    if (parts.length !== 3) return null;
+    if (parts.length !== 3) {
+      return null;
+    }
+
     const [header, data, signature] = parts as [string, string, string];
     const message = `${header}.${data}`;
     
@@ -43,13 +53,19 @@ export async function verifyToken(token: string): Promise<Record<string, any> | 
     const signatureBytes = new Uint8Array(signatureStr.split('').map(c => c.charCodeAt(0)));
     
     const isValid = await crypto.subtle.verify('HMAC', key, signatureBytes, encoder.encode(message));
-    if (!isValid) return null;
-    
-    const payload = JSON.parse(atob(data));
-    if (payload.exp && Date.now() > payload.exp) {
-      return null; // Expired
+    if (!isValid) {
+      return null;
     }
     
+    const payload = JSON.parse(atob(data)) as JwtPayload;
+    if (typeof payload.userId !== 'string' || !payload.userId) {
+      return null;
+    }
+
+    if (payload.exp && Date.now() > payload.exp) {
+      return null;
+    }
+
     return payload;
   } catch (error) {
     return null;

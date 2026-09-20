@@ -32,7 +32,6 @@ export interface ServerConfig {
   OAuthClientId?: string;
   OAuthClientSecret?: string;
   OAuthScopes?: string;
-  OAuthButtonText?: string;
   OAuthAutoRegister?: boolean;
   OAuthAutoLaunch?: boolean;
   AiEnabled?: boolean;
@@ -119,7 +118,6 @@ export interface SystemSettingsPayload {
   OAuthClientId?: string;
   OAuthClientSecret?: string;
   OAuthScopes?: string;
-  OAuthButtonText?: string;
   OAuthAutoRegister?: boolean;
   OAuthAutoLaunch?: boolean;
   AiEnabled?: boolean;
@@ -141,7 +139,8 @@ export interface SystemSettingsPayload {
   AiImportChunkingEnabled?: boolean;
   AiImportChunkItemLimit?: number;
   AiEnabledPackIds?: string[];
-  AiCustomPacks?: CustomPackSettingsDto[];
+  /** Client payload; sanitized to CustomPackSettingsDto[] on save. */
+  AiCustomPacks?: unknown;
   AiCompletionTimeoutMs?: number;
   AiConnectTimeoutMs?: number;
   ScrapeFetchTimeoutMs?: number;
@@ -179,7 +178,6 @@ export interface SystemSettingsView {
   OAuthClientId: string;
   OAuthClientSecret: string;
   OAuthScopes: string;
-  OAuthButtonText: string;
   OAuthAutoRegister: boolean;
   OAuthAutoLaunch: boolean;
   AiEnabled: boolean;
@@ -391,7 +389,6 @@ export function toSystemSettingsView(config: ServerConfig): SystemSettingsView {
     OAuthClientId: config.OAuthClientId || '',
     OAuthClientSecret: maskSecret(config.OAuthClientSecret),
     OAuthScopes: config.OAuthScopes || 'openid email profile',
-    OAuthButtonText: config.OAuthButtonText || 'Sign in with SSO',
     OAuthAutoRegister: config.OAuthAutoRegister !== false,
     OAuthAutoLaunch: !!config.OAuthAutoLaunch,
     AiEnabled: !!config.AiEnabled,

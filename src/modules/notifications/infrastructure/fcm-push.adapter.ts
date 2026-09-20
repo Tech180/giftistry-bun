@@ -63,24 +63,16 @@ export class FcmPushAdapter implements PushNotificationPort {
       throw new Error('FCM service account missing client_email or private_key');
     }
 
-    // Prefer google-auth-library when installed; otherwise surface a clear error.
-    try {
-      const { JWT } = await import('google-auth-library');
-      const client = new JWT({
-        email: serviceAccount.client_email,
-        key: serviceAccount.private_key,
-        scopes: ['https://www.googleapis.com/auth/firebase.messaging'],
-      });
-      const tokens = await client.authorize();
-      if (!tokens.access_token) throw new Error('FCM authorize returned no access_token');
-      return tokens.access_token;
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException)?.code === 'ERR_MODULE_NOT_FOUND') {
-        throw new Error(
-          'google-auth-library is required for FCM push. Install it or disable FcmEnabled.'
-        );
-      }
-      throw err;
+    const { JWT } = await import('google-auth-library');
+    const client = new JWT({
+      email: serviceAccount.client_email,
+      key: serviceAccount.private_key,
+      scopes: ['https://www.googleapis.com/auth/firebase.messaging'],
+    });
+    const tokens = await client.authorize();
+    if (!tokens.access_token) {
+      throw new Error('FCM authorize returned no access_token');
     }
+    return tokens.access_token;
   }
 }

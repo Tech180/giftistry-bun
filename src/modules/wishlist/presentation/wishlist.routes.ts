@@ -8,7 +8,8 @@ export const wishlistRoutes = (
   useCases: WishlistUseCases,
   inviteUseCases: InvitesUseCases | undefined,
   middleware: RouteMiddleware
-) => new Elysia({ prefix: '/api' })
+) => {
+  const base = new Elysia({ prefix: '/api' })
   .use(middleware.auth)
   // Get all expired active lists (useful for n8n cron job)
   .get('/wishlists/expired', async () => {
@@ -223,7 +224,7 @@ export const wishlistRoutes = (
     await checkListAccess('viewer');
     const user = await getAuthUser();
     const pdfBytes = await useCases.exportWishlistPdf.execute(listId, user.userId);
-    return new Response(pdfBytes, {
+    return new Response(Buffer.from(pdfBytes), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="wishlist-${listId}.pdf"`,
@@ -241,7 +242,8 @@ export const wishlistRoutes = (
     await checkListAccess('viewer');
     const user = await getAuthUser();
     const result = await useCases.exportWishlistData.execute(listId, user.userId, format as 'csv' | 'xlsx' | 'txt' | 'json');
-    return new Response(result.data, {
+    const body = typeof result.data === 'string' ? result.data : Buffer.from(result.data);
+    return new Response(body, {
       headers: {
         'Content-Type': result.contentType,
         'Content-Disposition': `attachment; filename="${result.filename}"`,
@@ -352,8 +354,13 @@ export const wishlistRoutes = (
         'Creates a new wishlist owned by the caller with a “(copy)” title, cloning visible items. Does not copy shares or claims.',
       security: [{ bearerAuth: [] }]
     }
-  })
-  .use(inviteUseCases ? new Elysia()
+  });
+
+  if (!inviteUseCases) {
+    return base;
+  }
+
+  return base
     .post('/wishlists/:listId/link-invites', async ({ params: { listId }, getAuthUser, checkListAccess, body: { Giftistry: { Invites: { Role, ExpiresAt, MaxUses, Password } } } }) => {
       await checkListAccess('owner');
       const user = await getAuthUser();
@@ -408,5 +415,5 @@ export const wishlistRoutes = (
         })
       }),
       detail: { tags: ['Invites'], summary: 'Create email invite', security: [{ bearerAuth: [] }] }
-    })
-  : new Elysia());
+    });
+};

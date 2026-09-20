@@ -1,17 +1,13 @@
 import type { BackgroundJob } from '../domain/background-job.entity';
 import type { CreateNotificationUseCase } from '@/modules/notifications/application/create-notification.use-case';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
-import { isUserPresentOnList } from '@/modules/wishlist/infrastructure/wishlist-ws-registry';
+import type { WishlistPresencePort } from '@/modules/wishlist/domain/ports/wishlist-presence.port';
 import {
   buildItemJobNotificationCopy,
   isAiPopulateFailed,
 } from './build-item-job-notification-copy.util';
 
 const ITEM_JOB_KINDS = new Set(['item-enrich', 'item-summarize']);
-
-export type WishlistPresencePort = {
-  isUserPresentOnList: (listId: string, userId: string) => boolean;
-};
 
 /**
  * Creates a bell notification when an item AI job finishes and the creator
@@ -21,7 +17,7 @@ export class NotifyItemJobCompletionUseCase {
   constructor(
     private createNotification: CreateNotificationUseCase,
     private wishlistRepo: WishlistRepository,
-    private presence: WishlistPresencePort = { isUserPresentOnList }
+    private presence: WishlistPresencePort
   ) {}
 
   async execute(job: BackgroundJob): Promise<boolean> {

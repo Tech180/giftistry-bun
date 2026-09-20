@@ -5,8 +5,8 @@ import type { AuthUseCases } from './auth-use-cases.interface';
 import type { UserRepository } from '../domain/ports/user.repository';
 import { rateLimit } from '@/common/middlewares/rate-limit.middleware';
 import { isAvatarColor } from '@/common/utils/avatar.util';
-import { loadConfig } from '@/common/infrastructure/config.loader';
 import { getPublicAppUrl } from '@/common/utils/public-app-url.util';
+import type { ServerConfigRepository } from '@/modules/system/domain/ports/server-config.repository';
 
 const getCookie = (cookieHeader: string | undefined, name: string): string | null => {
   if (!cookieHeader) return null;
@@ -132,7 +132,11 @@ export function createAuthMiddleware(userRepo: UserRepository) {
     });
 }
 
-export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => new Elysia()
+export const authRoutes = (
+  useCases: AuthUseCases,
+  userRepo: UserRepository,
+  serverConfigRepo: ServerConfigRepository
+) => new Elysia()
   .use(createAuthMiddleware(userRepo))
   .get('/api/users/:userId/preview', async ({ params: { userId }, getOptionalAuthUser }) => {
     let viewerId: string | undefined;
@@ -399,7 +403,7 @@ export const authRoutes = (useCases: AuthUseCases, userRepo: UserRepository) => 
     .get('/me', async ({ getAuthUser }) => {
       const authUser = await getAuthUser();
       const user = await useCases.getCurrentUser.execute(authUser.userId);
-      const config = loadConfig();
+      const config = serverConfigRepo.load();
       const userPolicy = authUser.Policy as { CanUseAiFeatures?: boolean } | undefined;
 
       const canUseAi = Boolean(

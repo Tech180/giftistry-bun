@@ -44,7 +44,7 @@ describe('SyncItemRelatedUseCase', () => {
       replaceRelatedItemIds,
     };
 
-    const useCase = new SyncItemRelatedUseCase(itemRepo as never);
+    const useCase = new SyncItemRelatedUseCase(itemRepo as never, { publish: () => undefined });
     await useCase.execute(itemA, [itemC], 'user-1');
 
     expect(relatedByItem.get(itemA)?.sort()).toEqual([itemC]);
