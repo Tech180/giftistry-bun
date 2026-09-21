@@ -1,13 +1,14 @@
-import { mkdtempSync, writeFileSync, rmSync } from 'fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { describe, expect, test, afterEach } from 'bun:test';
-import { CompositeSecretSource } from '@/common/infrastructure/secrets/composite-secret.source';
-import { CredentialsDirectoryProvider } from '@/common/infrastructure/secrets/credentials-directory.provider';
-import { EnvSecretProvider } from '@/common/infrastructure/secrets/env-secret.provider';
-import { FileEnvSecretProvider } from '@/common/infrastructure/secrets/file-env-secret.provider';
+import { afterEach, describe, expect, test } from 'bun:test';
 import { loadRuntimeConfig } from '@/common/consts/runtime-config';
 import type { SecretSource } from '@/common/domain/ports/secret-source.port';
+import { CompositeSecretSource } from '@/common/infrastructure/secrets/composite-secret.source';
+import { CredentialsDirectoryProvider } from '@/common/infrastructure/secrets/credentials-directory.provider';
+import { ensurePersistedJwtSecret } from '@/common/infrastructure/secrets/ensure-jwt-secret';
+import { EnvSecretProvider } from '@/common/infrastructure/secrets/env-secret.provider';
+import { FileEnvSecretProvider } from '@/common/infrastructure/secrets/file-env-secret.provider';
 
 const saved: Record<string, string | undefined> = {};
 
@@ -104,23 +105,127 @@ describe('SecretSource providers', () => {
   });
 });
 
-describe('loadRuntimeConfig JWT guard', () => {
-  const keys = ['NODE_ENV', 'JWT_SECRET'];
+describe('ensurePersistedJwtSecret', () => {
+  const keys = [
+    'GIFTISTRY_STATE_DIR',
+    'GIFTISTRY_JWT_SECRET_PATH',
+    'GIFTISTRY_AUTO_JWT_SECRET',
+    'JWT_SECRET',
+  ];
 
   afterEach(() => {
     restoreEnv(keys);
   });
 
-  test('production rejects missing JWT', () => {
+  test('returns explicit secret without creating a file', () => {
+    stashEnv(keys);
+    const dir = mkdtempSync(join(tmpdir(), 'giftistry-jwt-explicit-'));
+    Bun.env.GIFTISTRY_STATE_DIR = dir;
+    delete Bun.env.GIFTISTRY_AUTO_JWT_SECRET;
+    try {
+      const value = ensurePersistedJwtSecret('explicit-secret-value-at-least-32-chars!!');
+      expect(value).toBe('explicit-secret-value-at-least-32-chars!!');
+      expect(existsSync(join(dir, 'jwt_secret'))).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('generates and persists when missing', () => {
+    stashEnv(keys);
+    const dir = mkdtempSync(join(tmpdir(), 'giftistry-jwt-gen-'));
+    Bun.env.GIFTISTRY_STATE_DIR = dir;
+    delete Bun.env.GIFTISTRY_AUTO_JWT_SECRET;
+    try {
+      const first = ensurePersistedJwtSecret(undefined);
+      expect(first).toBeDefined();
+      expect(first!.length).toBeGreaterThanOrEqual(32);
+      const path = join(dir, 'jwt_secret');
+      expect(existsSync(path)).toBe(true);
+      expect(readFileSync(path, 'utf-8').trim()).toBe(first);
+      const second = ensurePersistedJwtSecret(undefined);
+      expect(second).toBe(first);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('concurrent wx race ends with identical secret', async () => {
+    stashEnv(keys);
+    const dir = mkdtempSync(join(tmpdir(), 'giftistry-jwt-race-'));
+    Bun.env.GIFTISTRY_STATE_DIR = dir;
+    delete Bun.env.GIFTISTRY_AUTO_JWT_SECRET;
+    try {
+      const results = await Promise.all([
+        Promise.resolve(ensurePersistedJwtSecret(undefined)),
+        Promise.resolve(ensurePersistedJwtSecret(undefined)),
+        Promise.resolve(ensurePersistedJwtSecret(undefined)),
+      ]);
+      expect(results[0]).toBe(results[1]);
+      expect(results[1]).toBe(results[2]);
+      expect(readFileSync(join(dir, 'jwt_secret'), 'utf-8').trim()).toBe(results[0]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('auto disabled returns undefined', () => {
+    stashEnv(keys);
+    const dir = mkdtempSync(join(tmpdir(), 'giftistry-jwt-off-'));
+    Bun.env.GIFTISTRY_STATE_DIR = dir;
+    Bun.env.GIFTISTRY_AUTO_JWT_SECRET = 'false';
+    try {
+      expect(ensurePersistedJwtSecret(undefined)).toBeUndefined();
+      expect(existsSync(join(dir, 'jwt_secret'))).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('loadRuntimeConfig JWT guard', () => {
+  const keys = [
+    'NODE_ENV',
+    'JWT_SECRET',
+    'GIFTISTRY_STATE_DIR',
+    'GIFTISTRY_JWT_SECRET_PATH',
+    'GIFTISTRY_AUTO_JWT_SECRET',
+  ];
+
+  afterEach(() => {
+    restoreEnv(keys);
+  });
+
+  test('production with auto disabled rejects missing JWT', () => {
     stashEnv(keys);
     Bun.env.NODE_ENV = 'production';
+    Bun.env.GIFTISTRY_AUTO_JWT_SECRET = 'false';
+    delete Bun.env.GIFTISTRY_STATE_DIR;
     const secrets: SecretSource = { get: () => undefined };
     expect(() => loadRuntimeConfig(secrets)).toThrow(/JWT_SECRET is required/);
+  });
+
+  test('production auto-generates JWT when unset', () => {
+    stashEnv(keys);
+    const dir = mkdtempSync(join(tmpdir(), 'giftistry-jwt-boot-'));
+    Bun.env.NODE_ENV = 'production';
+    Bun.env.GIFTISTRY_STATE_DIR = dir;
+    delete Bun.env.GIFTISTRY_AUTO_JWT_SECRET;
+    delete Bun.env.JWT_SECRET;
+    const secrets: SecretSource = { get: () => undefined };
+    try {
+      const config = loadRuntimeConfig(secrets);
+      expect(config.JWT_SECRET.length).toBeGreaterThanOrEqual(32);
+      expect(readFileSync(join(dir, 'jwt_secret'), 'utf-8').trim()).toBe(config.JWT_SECRET);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   test('production rejects short JWT', () => {
     stashEnv(keys);
     Bun.env.NODE_ENV = 'production';
+    Bun.env.GIFTISTRY_AUTO_JWT_SECRET = 'false';
     const secrets: SecretSource = { get: () => 'too-short' };
     expect(() => loadRuntimeConfig(secrets)).toThrow(/at least 32 characters/);
   });

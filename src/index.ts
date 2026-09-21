@@ -6,6 +6,7 @@ import { getPublicAppUrl } from './common/utils/public-app-url.util';
 import { handleError } from './common/middlewares/error.middleware';
 import { createAppContainer } from './app.container';
 import { runMigrations } from './common/database/migrations';
+import { initializeSchema } from './common/database/init-schema';
 import { verifyToken } from '@/common/utils/token';
 import { getListAccessContext } from '@/common/middlewares/list-access.middleware';
 import { pascalizeKeys } from '@/common/utils/api-case.util';
@@ -327,7 +328,9 @@ app = (app as any)
 
 export { app };
 
-await runMigrations().catch((err) => {
+await initializeSchema()
+  .then(() => runMigrations())
+  .catch((err) => {
   console.error('[ERROR] Migration failed:', err);
   if (process.env.NODE_ENV !== 'test') {
     process.exit(1);

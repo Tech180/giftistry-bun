@@ -1,5 +1,6 @@
 import type { SecretSource } from '@/common/domain/ports/secret-source.port';
 import { getSecretSource } from '@/common/infrastructure/secrets';
+import { ensurePersistedJwtSecret } from '@/common/infrastructure/secrets/ensure-jwt-secret';
 
 const WEAK_JWT_DEFAULTS = new Set([
   'local_secret_key_for_giftistry',
@@ -51,7 +52,7 @@ function assertProductionJwt(secret: string | undefined, isProduction: boolean):
   }
   if (!trimmed) {
     throw new Error(
-      '[boot] JWT_SECRET is required in production. Set JWT_SECRET, JWT_SECRET_FILE, or a credentials-dir file named JWT_SECRET.'
+      '[boot] JWT_SECRET is required in production. Set JWT_SECRET, JWT_SECRET_FILE, a credentials-dir file named JWT_SECRET, or allow auto-persist (default) under GIFTISTRY_STATE_DIR/jwt_secret. Set GIFTISTRY_AUTO_JWT_SECRET=false to forbid auto-generation.'
     );
   }
   if (WEAK_JWT_DEFAULTS.has(trimmed) || trimmed.length < 32) {
@@ -67,11 +68,15 @@ export function loadRuntimeConfig(secrets: SecretSource = getSecretSource()): Ru
   const NODE_ENV = Bun.env.NODE_ENV || 'development';
   const isProduction = NODE_ENV === 'production';
 
+  const resolvedJwt = isProduction
+    ? ensurePersistedJwtSecret(secrets.get('JWT_SECRET'))
+    : secrets.get('JWT_SECRET');
+
   return {
     PORT: Number(Bun.env.PORT || 3001),
     NODE_ENV,
     isProduction,
-    JWT_SECRET: assertProductionJwt(secrets.get('JWT_SECRET'), isProduction),
+    JWT_SECRET: assertProductionJwt(resolvedJwt, isProduction),
     PGHOST: Bun.env.PGHOST || '127.0.0.1',
     PGPORT: Number(Bun.env.PGPORT || 5432),
     PGUSER: Bun.env.PGUSER || 'postgres',

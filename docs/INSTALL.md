@@ -1,16 +1,17 @@
 # Installing Giftistry
 
-Giftistry ships as two repositories:
+Application source lives in sibling repos; **production packaging** (Docker Compose + NixOS) lives in the **giftistry** meta repo.
 
 | Component | Repository | Role |
 |-----------|------------|------|
+| Packaging | [`giftistry`](../../giftistry) | Compose, NixOS module, operator docs |
 | API | `giftistry-bun` | Bun/Elysia backend, PostgreSQL, background jobs |
 | Web | `giftistry-react` | React SPA |
-
-For themes and CSS compilation, the API also expects a sibling **`theming-engine`** checkout next to `giftistry-bun`.
+| Themes | `theming-engine` | Theme CSS build (API sibling) |
 
 ```text
 projects/
+  giftistry/          # packaging / self-host entry point
   giftistry-bun/
   giftistry-react/
   theming-engine/
@@ -18,33 +19,33 @@ projects/
 
 ---
 
-## Option A — NixOS (recommended for homelab)
+## Option A — Docker or NixOS (self-host)
 
-For NixOS hosts, use the flake at:
+Use the meta repo:
 
-```text
-/etc/nixos/flakes/giftistry
-```
-
-That flake defines systemd services, PostgreSQL, nginx reverse proxy, and secret handling via `CREDENTIALS_DIRECTORY`.
-
-Typical workflow:
+- [Docker Compose](../../giftistry/docs/install/docker.md) — pull GHCR images (`docker compose up -d`, no sibling clones)
+- [NixOS `services.giftistry`](../../giftistry/docs/install/nixos.md)
 
 ```bash
-sudo nix flake update /etc/nixos/flakes/giftistry
-sudo nixos-rebuild switch
+cd ../giftistry/docker
+cp .env.example .env
+cp config/config.example.json config/config.json
+# set PGPASSWORD (JWT_SECRET optional — auto-persisted on first boot)
+docker compose up -d
 ```
 
-Consult the flake README for module options (`services.giftistry.*`), credential paths, and backup notes.
+Do **not** look for `/etc/nixos/flakes/giftistry` — that path was never shipped. The NixOS module is `giftistry/nix` (`nixosModules.giftistry`).
 
 ---
 
 ## Option B — Local Bun + PostgreSQL
 
+For day-to-day API development. Prefer `nix develop` from the packaging flake (or host `.#giftistry`) so local Postgres matches the sandbox — see [giftistry/docs/development.md](../../giftistry/docs/development.md).
+
 ### Prerequisites
 
 - Bun 1.x
-- PostgreSQL 16+
+- PostgreSQL 16+ (or the packaging nix develop shell)
 - Sibling `theming-engine` checkout (for `predev` / `prestart`)
 
 ### API
@@ -77,13 +78,16 @@ cd giftistry-bun && bun run dev:all
 
 **Runtime config** defaults to `./config.json` (override with `GIFTISTRY_CONFIG_PATH`). Start from `config/config.example.json`.
 
-**JWT secret** (production required, ≥ 32 characters). Provide **one** of:
+**JWT secret** (production). Provide **one** of, or omit and let the API auto-persist:
 
 | Method | Example |
 |--------|---------|
-| Environment | `JWT_SECRET=…` in `.env` |
+| Auto-persist (default) | No env set → writes `${GIFTISTRY_STATE_DIR:-/var/lib/giftistry}/jwt_secret` on first production boot |
+| Environment | `JWT_SECRET=…` in `.env` (≥ 32 chars) |
 | File | `JWT_SECRET_FILE=/path/to/jwt_secret` |
 | Credentials directory | `CREDENTIALS_DIRECTORY=/run/credentials/…` with file `JWT_SECRET` |
+
+Set `GIFTISTRY_AUTO_JWT_SECRET=false` to forbid auto-generation (boot fails if no explicit secret).
 
 `CREDENTIALS_DIRECTORY` / `GIFTISTRY_CREDENTIALS_DIRECTORY` also supports `SMTP_PASS`, `PGPASSWORD`, `GIFTISTRY_SETUP_TOKEN`, and other named secrets.
 
@@ -133,7 +137,7 @@ Import the collection and `httpie-environment-local.json` into the same HTTPie s
 ## Troubleshooting
 
 - **Build fails on theming-engine** — confirm `theming-engine/` is a sibling of `giftistry-bun/`.
-- **JWT boot error** — set a strong `JWT_SECRET` (≥ 32 chars) or provide it via `JWT_SECRET_FILE` / credentials directory.
+- **JWT boot error** — set a strong `JWT_SECRET` (≥ 32 chars), provide `JWT_SECRET_FILE` / credentials directory, or ensure the state dir is writable for auto-persist (`GIFTISTRY_STATE_DIR`). `GIFTISTRY_AUTO_JWT_SECRET=false` requires an explicit secret.
 - **WebSocket errors** — reverse proxy must forward `/ws/` with `Upgrade` headers.
 - **Setup blocked** — check `GIFTISTRY_ALLOW_SETUP`, `config.json` → `AllowSetup`, and whether a user already exists. The server owner can re-enable setup under **Settings → Admin → Server** (Danger zone). Env `GIFTISTRY_ALLOW_SETUP=false` still overrides that. For headless recovery: `bun run giftistry-admin -- set-allow-setup true`.
 - **Playwright on NixOS** — see [architecture.md](architecture.md#nixos-note).

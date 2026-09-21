@@ -37,31 +37,23 @@ Designed for homelab deployment: explicit secrets handling, setup hardening, and
 
 ## Getting started
 
-Choose one path:
+**Self-host (Docker / NixOS):** use the packaging repo [`giftistry`](../giftistry) — [Compose](../giftistry/docs/install/docker.md) or [`services.giftistry`](../giftistry/docs/install/nixos.md).
 
-### Nix (recommended for homelab)
-
-```bash
-nix-shell   # or: nix develop
-bun install
-bun run scripts/ensure-test-database.ts   # optional local DB bootstrap
-bun dev
-```
-
-See [docs/architecture.md](docs/architecture.md) for Playwright/Chromium on NixOS.
-
-### Local Bun
+### Local API development
 
 ```bash
+# Prefer the packaging nix develop shell for local Postgres:
+#   cd ../giftistry/nix && nix develop
 bun install
 cp .env.example .env   # edit PG*, SMTP*, GIFTISTRY_*
 cp config/config.example.json config.json
-bun dev                # hot reload (API + jobs, role=all)
+bun run scripts/ensure-test-database.ts   # optional local DB bootstrap
+bun run dev                               # hot reload (API + jobs, role=all)
 ```
 
 OpenAPI: `http://localhost:3001/docs`.
 
-For scripts, tests, and process roles, see [docs/development.md](docs/development.md). Full install (NixOS flake, secrets): [docs/INSTALL.md](docs/INSTALL.md).
+For scripts, tests, and process roles, see [docs/development.md](docs/development.md). Install paths: [docs/INSTALL.md](docs/INSTALL.md).
 
 ## Documentation
 
@@ -69,7 +61,7 @@ For scripts, tests, and process roles, see [docs/development.md](docs/developmen
 | --- | --- |
 | [Architecture](docs/architecture.md) | DDD layers, ports, scraper, CI rules |
 | [Development](docs/development.md) | Scripts, verify, env, split API/worker |
-| [Install](docs/INSTALL.md) | NixOS flake, local Bun, secrets |
+| [Install](docs/INSTALL.md) | Packaging repo, local Bun, secrets |
 | [Contributing](CONTRIBUTING.md) | PRs, layer rules, review expectations |
 | [Source map](src/README.md) | Nested folder READMEs under `src/` |
 
