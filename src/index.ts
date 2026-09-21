@@ -102,7 +102,8 @@ function resolveCorsOrigin(request: Request): boolean {
 
   const publicUrl = getPublicAppUrl();
   if (!publicUrl) {
-    return false;
+    // First-run / unset config: allow browser Origin until PublicAppUrl is set in UI.
+    return true;
   }
 
   const origin = request.headers.get('origin');
@@ -344,10 +345,9 @@ if (process.env.NODE_ENV !== 'test') {
   }
 
   if (env.isProduction && !getPublicAppUrl()) {
-    console.error(
-      '[boot] GIFTISTRY_PUBLIC_APP_URL (or config PublicAppUrl) is required in production. Set it for CORS, email links, and WebAuthn.'
+    console.warn(
+      '[boot] PublicAppUrl is unset — set it in onboarding/admin (config.json). CORS is open until then; email/OAuth links need it.'
     );
-    process.exit(1);
   }
 
   app.listen(env.PORT);

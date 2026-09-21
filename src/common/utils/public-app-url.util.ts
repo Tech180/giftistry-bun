@@ -14,7 +14,8 @@ export function setPublicAppUrlConfigSource(fn: PublicAppUrlConfigSource): void 
 
 /**
  * Resolve the public-facing app URL for emails, WebAuthn, CORS, etc.
- * Precedence: GIFTISTRY_PUBLIC_APP_URL env > config.PublicAppUrl > localhost (dev only).
+ * Precedence: GIFTISTRY_PUBLIC_APP_URL env (optional) > config.PublicAppUrl > localhost (dev only).
+ * Production operators normally set PublicAppUrl via onboarding/admin UI.
  */
 export function getPublicAppUrl(): string {
   const fromEnv = env.GIFTISTRY_PUBLIC_APP_URL?.replace(/\/$/, '');
