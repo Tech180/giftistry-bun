@@ -78,7 +78,7 @@ Import `httpie-collection-giftistry.json` and `httpie-environment-local.json`. S
 | `PGHOST`, `PGPORT`, `PGUSER`, `PGDATABASE` | no | PostgreSQL connection |
 | `PGPASSWORD` | **yes** | Database password |
 | `JWT_SECRET` | **yes** | Session signing key; required in production (≥32 chars) |
-| `GIFTISTRY_PUBLIC_APP_URL` | no | Public browser URL (emails, CORS, WebAuthn). Falls back to `config.json` → `PublicAppUrl` |
+| `GIFTISTRY_PUBLIC_APP_URL` | no | Bootstrap public browser URL (emails, CORS, WebAuthn) when `config.json` → `PublicAppUrl` is unset. Saved admin `PublicAppUrl` wins once set. |
 | `GIFTISTRY_ALLOW_SETUP` | no | When `false`, blocks first-run setup even if no users exist (default `true`) |
 | `GIFTISTRY_SETUP_TOKEN` | **yes** | When set, setup requires matching header/body token |
 | `GIFTISTRY_CONFIG_PATH` | no | Override path to `config.json` |

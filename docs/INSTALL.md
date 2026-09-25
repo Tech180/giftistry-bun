@@ -93,7 +93,7 @@ Set `GIFTISTRY_AUTO_JWT_SECRET=false` to forbid auto-generation (boot fails if n
 
 **Other useful env vars** (see `.env.example` and [development.md](development.md)):
 
-- `GIFTISTRY_PUBLIC_APP_URL` — public SPA URL (emails, WebAuthn, OAuth, CORS)
+- `GIFTISTRY_PUBLIC_APP_URL` — bootstrap public SPA URL (emails, WebAuthn, OAuth, CORS) when config has no `PublicAppUrl`; after the first Admin → Server save, `config.json` overrides this env
 - `GIFTISTRY_ALLOW_SETUP` — allow first-run setup when no users exist
 - `GIFTISTRY_SETUP_TOKEN` — optional token required for `POST /setup`
 - `GIFTISTRY_PROCESS_ROLE` — `all` (default), `api`, or `worker`

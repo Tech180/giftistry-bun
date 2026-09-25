@@ -4,6 +4,7 @@ import {
   cellValueToText,
   DefaultImportFileTextExtractor,
 } from '../src/modules/item/infrastructure/import-file-text-extractor';
+import { workbookBytesToText } from '../src/modules/item/infrastructure/xlsx-workbook-to-text.util';
 
 describe('gemini-item-import-parser helpers', () => {
   test('compileImportPrompt substitutes tokens', () => {
@@ -143,5 +144,61 @@ describe('DefaultImportFileTextExtractor', () => {
     expect(result.text).toContain('Mug');
     expect(result.text).toContain('https://www.amazon.com/dp/B0TEST123');
     expect(result.text).not.toMatch(/\tamazon\.com\t/);
+  });
+
+  test('forwards maxSheets and maxRowsPerSheet to workbook conversion', async () => {
+    const ExcelJS = (await import('exceljs')).default;
+    const workbook = new ExcelJS.Workbook();
+    const first = workbook.addWorksheet('Wishlist');
+    first.addRow(['Category', 'Priority', 'Item', 'Star', 'Price', 'Website', 'Description', 'Audience', 'Suggestion']);
+    first.addRow(['', 1, 'Mug', '', '', '', '', '', '']);
+    first.addRow(['', 2, 'Lamp', '', '', '', '', '', '']);
+    const second = workbook.addWorksheet('Extra');
+    second.addRow(['noise']);
+    second.addRow(['should not appear']);
+    const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
+    const extractor = new DefaultImportFileTextExtractor();
+    const result = await extractor.extract({
+      fileName: 'holiday.xlsx',
+      format: 'xlsx',
+      content: buffer.toString('base64'),
+      contentEncoding: 'base64',
+      maxSheets: 1,
+      maxRowsPerSheet: 2,
+    });
+    expect(result.text).toContain('# Sheet: Wishlist');
+    expect(result.text).toContain('Mug');
+    expect(result.text).not.toContain('Lamp');
+    expect(result.text).not.toContain('# Sheet: Extra');
+    expect(result.text).not.toContain('should not appear');
+  });
+});
+
+describe('workbookBytesToText limits', () => {
+  test('maxSheets omits later worksheets', async () => {
+    const ExcelJS = (await import('exceljs')).default;
+    const workbook = new ExcelJS.Workbook();
+    workbook.addWorksheet('One').addRow(['alpha']);
+    workbook.addWorksheet('Two').addRow(['beta']);
+    const bytes = new Uint8Array(await workbook.xlsx.writeBuffer());
+    const text = await workbookBytesToText(bytes, { maxSheets: 1 });
+    expect(text).toContain('# Sheet: One');
+    expect(text).toContain('alpha');
+    expect(text).not.toContain('# Sheet: Two');
+    expect(text).not.toContain('beta');
+  });
+
+  test('maxRowsPerSheet stops after N sheet rows', async () => {
+    const ExcelJS = (await import('exceljs')).default;
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Wishlist');
+    sheet.addRow(['header']);
+    sheet.addRow(['row-two']);
+    sheet.addRow(['row-three']);
+    const bytes = new Uint8Array(await workbook.xlsx.writeBuffer());
+    const text = await workbookBytesToText(bytes, { maxRowsPerSheet: 2 });
+    expect(text).toContain('header');
+    expect(text).toContain('row-two');
+    expect(text).not.toContain('row-three');
   });
 });

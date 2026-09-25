@@ -1,4 +1,5 @@
 import type { User } from '../user.entity';
+import type { TourState } from '../tour.state';
 import type { UserSearchResult } from '@/modules/friends/domain/friend.entity';
 
 export interface CustomTheme {
@@ -52,6 +53,7 @@ export interface UserRepository {
   }): Promise<User>;
   linkOauthSub(userId: string, oauthSub: string): Promise<User>;
   setOnboarded(id: string, isOnboarded?: boolean): Promise<User>;
+  setTour(id: string, tour: TourState): Promise<User>;
   update(id: string, updates: {
     username?: string;
     firstName?: string;

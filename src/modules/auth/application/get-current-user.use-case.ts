@@ -1,4 +1,5 @@
 import type { UserRepository } from '../domain/ports/user.repository';
+import type { TourState } from '../domain/tour.state';
 import { AppError } from '@/common/middlewares/error.middleware';
 
 export interface CurrentUser {
@@ -23,6 +24,7 @@ export interface CurrentUser {
   AiEnabled?: boolean;
   WebSearchEnabled?: boolean;
   IsOnboarded?: boolean;
+  Tour?: TourState;
 }
 
 export class GetCurrentUserUseCase {
@@ -60,6 +62,7 @@ export class GetCurrentUserUseCase {
       AiEnabled: user.AiEnabled !== false,
       WebSearchEnabled: user.WebSearchEnabled !== false,
       IsOnboarded: user.IsOnboarded === true,
+      Tour: user.Tour,
     };
   }
 }

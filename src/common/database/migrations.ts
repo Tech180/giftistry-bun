@@ -477,5 +477,16 @@ export async function runMigrations(dbSql: typeof sql = sql): Promise<void> {
     ALTER TABLE comments ADD COLUMN IF NOT EXISTS visible_to_user_ids JSONB DEFAULT NULL
   `;
 
+  console.log('[INFO] Applying user tour_json column...');
+  await dbSql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS tour_json JSONB NOT NULL DEFAULT '{}'::jsonb
+  `;
+  await dbSql`
+    UPDATE users
+    SET tour_json = '{"firstRunDismissed":true,"chapters":{"beginner":"completed"}}'::jsonb
+    WHERE is_onboarded = TRUE
+      AND (tour_json = '{}'::jsonb OR tour_json IS NULL)
+  `;
+
   console.log('[INFO] Database migrations completed successfully.');
 }

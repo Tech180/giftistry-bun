@@ -4,9 +4,9 @@ import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
 } from '@simplewebauthn/server';
+import { getWebAuthnRpId } from './webauthn-rp-id.util';
 
 const rpName = 'Giftistry';
-const rpID = 'localhost';
 
 export class RegisterPasskeyUseCase {
   constructor(private passkeyRepo: PasskeyRepository) {}
@@ -16,6 +16,7 @@ export class RegisterPasskeyUseCase {
     challenge: string;
   }> {
     const userPasskeys = await this.passkeyRepo.findByUserId(userId);
+    const rpID = getWebAuthnRpId();
 
     const options = await generateRegistrationOptions({
       rpName,
@@ -50,7 +51,7 @@ export class RegisterPasskeyUseCase {
       response: registrationResponse as Parameters<typeof verifyRegistrationResponse>[0]['response'],
       expectedChallenge: challenge,
       expectedOrigin: origin,
-      expectedRPID: rpID,
+      expectedRPID: getWebAuthnRpId(),
     });
 
     if (!verification.verified || !verification.registrationInfo) {

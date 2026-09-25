@@ -171,20 +171,28 @@ function cellDisplayText(
   return { text: decoded, formulaUrl };
 }
 
+export interface WorkbookBytesToTextOptions {
+  maxSheets?: number;
+  maxRowsPerSheet?: number;
+}
+
 function sheetXmlToRows(
   sheetXml: string,
   sharedStrings: string[],
-  hyperlinks: Map<string, string>
+  hyperlinks: Map<string, string>,
+  maxRowsPerSheet?: number
 ): string[][] {
   const rows = new Map<number, Map<number, string>>();
   const rowRe = /<row\b[^>]*>([\s\S]*?)<\/row>/gi;
   let rowMatch: RegExpExecArray | null;
+  let matchedRows = 0;
 
   while ((rowMatch = rowRe.exec(sheetXml))) {
     const rowXml = rowMatch[1];
     if (rowXml === undefined) {
       continue;
     }
+    matchedRows += 1;
     const cellRe = /<c\b([^>]*)>([\s\S]*?)<\/c>|<c\b([^>]*)\/>/gi;
     let cellMatch: RegExpExecArray | null;
     while ((cellMatch = cellRe.exec(rowXml))) {
@@ -215,6 +223,15 @@ function sheetXmlToRows(
         rows.set(parsed.row, new Map());
       }
       rows.get(parsed.row)!.set(parsed.col, value);
+    }
+
+    if (
+      maxRowsPerSheet !== undefined &&
+      Number.isFinite(maxRowsPerSheet) &&
+      maxRowsPerSheet > 0 &&
+      matchedRows >= maxRowsPerSheet
+    ) {
+      break;
     }
   }
 
@@ -258,7 +275,10 @@ async function readZipText(zip: JSZip, path: string): Promise<string | null> {
  * pipelines (ExcelJS `xlsx.load` uses PassThrough and can throw
  * `state.objectMode` under Bun).
  */
-export async function workbookBytesToText(bytes: Uint8Array): Promise<string> {
+export async function workbookBytesToText(
+  bytes: Uint8Array,
+  options: WorkbookBytesToTextOptions = {}
+): Promise<string> {
   const zip = await JSZip.loadAsync(bytes);
   const workbookXml = await readZipText(zip, 'xl/workbook.xml');
   if (!workbookXml) {
@@ -322,8 +342,15 @@ export async function workbookBytesToText(bytes: Uint8Array): Promise<string> {
     });
   }
 
+  const limitedTargets =
+    options.maxSheets !== undefined &&
+    Number.isFinite(options.maxSheets) &&
+    options.maxSheets > 0
+      ? sheetTargets.slice(0, options.maxSheets)
+      : sheetTargets;
+
   const lines: string[] = [];
-  for (const sheet of sheetTargets) {
+  for (const sheet of limitedTargets) {
     const sheetXml = await readZipText(zip, sheet.target);
     if (!sheetXml) {
       continue;
@@ -333,7 +360,12 @@ export async function workbookBytesToText(bytes: Uint8Array): Promise<string> {
     const relsPath = `xl/worksheets/_rels/${sheetFileName}.rels`;
     const relsXml = await readZipText(zip, relsPath);
     const hyperlinks = parseHyperlinkTargets(sheetXml, relsXml);
-    const rows = sheetXmlToRows(sheetXml, sharedStrings, hyperlinks);
+    const rows = sheetXmlToRows(
+      sheetXml,
+      sharedStrings,
+      hyperlinks,
+      options.maxRowsPerSheet
+    );
 
     lines.push(`# Sheet: ${sheet.name}`);
     for (const row of rows) {

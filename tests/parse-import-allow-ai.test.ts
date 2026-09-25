@@ -1,11 +1,13 @@
 import { describe, expect, mock, test } from 'bun:test';
 import { AppError } from '../src/common/middlewares/error.middleware';
 import { ParseImportPreviewUseCase } from '../src/modules/item/application/parse-import-preview.use-case';
+import type { ImportFileTextExtractorInput } from '../src/modules/item/domain/ports/import-file-text-extractor.port';
 
 function buildUseCase(overrides: {
   extractText?: string;
   extractFormat?: 'txt' | 'json' | 'csv' | 'xlsx';
   parse?: ReturnType<typeof mock>;
+  extract?: ReturnType<typeof mock>;
 } = {}) {
   const parse =
     overrides.parse ??
@@ -13,14 +15,17 @@ function buildUseCase(overrides: {
       throw new Error('AI parse should not run');
     });
 
+  const extract =
+    overrides.extract ??
+    mock(async (_input: ImportFileTextExtractorInput) => ({
+      text: overrides.extractText ?? 'not a giftistry export — just freeform notes',
+      format: overrides.extractFormat ?? 'txt',
+      warnings: [],
+      truncated: false,
+    }));
+
   const useCase = new ParseImportPreviewUseCase(
-    {
-      extract: async () => ({
-        text: overrides.extractText ?? 'not a giftistry export — just freeform notes',
-        format: overrides.extractFormat ?? 'txt',
-        warnings: [],
-      }),
-    } as never,
+    { extract } as never,
     { parse } as never,
     { findById: async () => null } as never,
     { findByListId: async () => [] } as never,
@@ -34,7 +39,7 @@ function buildUseCase(overrides: {
     } as never
   );
 
-  return { useCase, parse };
+  return { useCase, parse, extract };
 }
 
 describe('ParseImportPreviewUseCase allowAi', () => {
@@ -102,7 +107,7 @@ describe('ParseImportPreviewUseCase allowAi', () => {
       '\t1\tMug\t\t\t\tCeramic\t\t',
     ].join('\n');
 
-    const { useCase, parse } = buildUseCase({
+    const { useCase, parse, extract } = buildUseCase({
       extractText: tabular,
       extractFormat: 'xlsx',
     });
@@ -120,6 +125,136 @@ describe('ParseImportPreviewUseCase allowAi', () => {
     expect(result.items).toHaveLength(1);
     expect(result.items[0].name).toBe('Mug');
     expect(parse).not.toHaveBeenCalled();
+    expect(extract).toHaveBeenCalledTimes(2);
+    expect(extract.mock.calls[0]?.[0]).toMatchObject({
+      maxSheets: 1,
+      maxRowsPerSheet: 16,
+    });
+    expect(extract.mock.calls[1]?.[0]).toMatchObject({ maxSheets: 1 });
+    expect(extract.mock.calls[1]?.[0].maxRowsPerSheet).toBeUndefined();
+  });
+
+  test('rejects unstructured XLSX after probe only when allowAi is false', async () => {
+    const extract = mock(async (input: ImportFileTextExtractorInput) => ({
+      text: '# Sheet: Noise\nfoo\tbar\nbaz\tqux',
+      format: 'xlsx' as const,
+      warnings: [],
+      truncated: false,
+      _opts: input,
+    }));
+    const { useCase, parse } = buildUseCase({ extract });
+
+    try {
+      await useCase.execute('user-1', {
+        fileName: 'random.xlsx',
+        format: 'xlsx',
+        content: 'data-url',
+        contentEncoding: 'data-url',
+        allowAi: false,
+      });
+      throw new Error('expected failure');
+    } catch (err) {
+      expect(err).toBeInstanceOf(AppError);
+      expect((err as AppError).errorCode).toBe('IMPORT_FORMAT_UNSUPPORTED');
+    }
+
+    expect(parse).not.toHaveBeenCalled();
+    expect(extract).toHaveBeenCalledTimes(1);
+    expect(extract.mock.calls[0]?.[0]).toMatchObject({
+      maxSheets: 1,
+      maxRowsPerSheet: 16,
+    });
+  });
+
+  test('parses Giftistry XLSX with second full-sheet extract when allowAi is false', async () => {
+    const probe = [
+      '# Sheet: Wishlist',
+      'Category\tPriority\tItem\tStar\tPrice\tWebsite\tDescription\tAudience\tSuggestion',
+    ].join('\n');
+    const full = [
+      probe,
+      'Home:\t\t\t\t\t\t\t\t',
+      '\t1\tMug\t\t\t\tCeramic\t\t',
+      '\t2\tLamp\t\t\t\tDesk\t\t',
+    ].join('\n');
+
+    const extract = mock(async (input: ImportFileTextExtractorInput) => ({
+      text: input.maxRowsPerSheet !== undefined ? probe : full,
+      format: 'xlsx' as const,
+      warnings: [],
+      truncated: false,
+    }));
+    const { useCase, parse } = buildUseCase({ extract });
+
+    const result = await useCase.execute('user-1', {
+      fileName: 'holiday.xlsx',
+      format: 'xlsx',
+      content: 'data-url',
+      contentEncoding: 'data-url',
+      allowAi: false,
+    });
+
+    expect(result.parseMode).toBe('deterministic');
+    expect(result.items).toHaveLength(2);
+    expect(result.items.map((item) => item.name)).toEqual(['Mug', 'Lamp']);
+    expect(parse).not.toHaveBeenCalled();
+    expect(extract).toHaveBeenCalledTimes(2);
+    expect(extract.mock.calls[1]?.[0]).toMatchObject({ maxSheets: 1 });
+    expect(extract.mock.calls[1]?.[0].maxRowsPerSheet).toBeUndefined();
+  });
+
+  test('falls through to AI for unstructured XLSX when allowAi is true', async () => {
+    const parse = mock(async () => ({
+      items: [
+        {
+          name: 'Lamp',
+          category: 'Home',
+          priority: 1,
+          isFavorite: false,
+        },
+      ],
+      warnings: [],
+    }));
+    const extract = mock(async () => ({
+      text: '# Sheet: Noise\nfoo\tbar',
+      format: 'xlsx' as const,
+      warnings: [],
+      truncated: false,
+    }));
+
+    const useCase = new ParseImportPreviewUseCase(
+      { extract } as never,
+      { parse } as never,
+      { findById: async () => null } as never,
+      { findByListId: async () => [] } as never,
+      { findById: async () => ({ Id: 'u1', AiEnabled: true }) } as never,
+      { execute: async () => undefined } as never,
+      {
+        load: () => ({
+          AiEnabled: true,
+          AiImportPrompt: '',
+          AiFastProvider: 'local',
+          AiFastEndpoint: 'http://127.0.0.1:11434/v1',
+          AiFastModel: 'llama3',
+          AiFastApiKey: '',
+        }),
+      } as never
+    );
+
+    const result = await useCase.execute('user-1', {
+      fileName: 'random.xlsx',
+      format: 'xlsx',
+      content: 'data-url',
+      contentEncoding: 'data-url',
+      allowAi: true,
+    });
+
+    expect(result.parseMode).toBe('ai');
+    expect(result.items[0]?.name).toBe('Lamp');
+    expect(parse).toHaveBeenCalled();
+    expect(extract).toHaveBeenCalledTimes(1);
+    expect(extract.mock.calls[0]?.[0].maxSheets).toBeUndefined();
+    expect(extract.mock.calls[0]?.[0].maxRowsPerSheet).toBeUndefined();
   });
 
   test('parses Giftistry TXT without AI when allowAi is false', async () => {

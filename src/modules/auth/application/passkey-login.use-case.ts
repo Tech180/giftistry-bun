@@ -7,8 +7,7 @@ import {
   generateAuthenticationOptions,
   verifyAuthenticationResponse,
 } from '@simplewebauthn/server';
-
-const rpID = 'localhost';
+import { getWebAuthnRpId } from './webauthn-rp-id.util';
 
 export class PasskeyLoginUseCase {
   constructor(
@@ -18,7 +17,7 @@ export class PasskeyLoginUseCase {
 
   async generateOptions(): Promise<{ options: Awaited<ReturnType<typeof generateAuthenticationOptions>>; challenge: string }> {
     const options = await generateAuthenticationOptions({
-      rpID,
+      rpID: getWebAuthnRpId(),
       allowCredentials: [],
       userVerification: 'preferred',
     });
@@ -43,7 +42,7 @@ export class PasskeyLoginUseCase {
       response: authenticationResponse as Parameters<typeof verifyAuthenticationResponse>[0]['response'],
       expectedChallenge: challenge,
       expectedOrigin: origin,
-      expectedRPID: rpID,
+      expectedRPID: getWebAuthnRpId(),
       credential: {
         id: passkey.CredentialId,
         publicKey: new Uint8Array(Buffer.from(passkey.PublicKey, 'base64')),

@@ -19,6 +19,7 @@ import type { GetCurrentUserUseCase } from '../application/get-current-user.use-
 import type { GetOnboardingStateUseCase } from '../application/get-onboarding-state.use-case';
 import type { CompleteUserOnboardingUseCase } from '../application/complete-user-onboarding.use-case';
 import type { CompleteOwnerOnboardingUseCase } from '../application/complete-owner-onboarding.use-case';
+import type { PatchTutorialUseCase } from '../application/patch-tutorial.use-case';
 import type { BeginOidcLoginUseCase } from '../application/begin-oidc-login.use-case';
 import type { HandleOidcCallbackUseCase } from '../application/handle-oidc-callback.use-case';
 import type { ChangePasswordUseCase } from '../application/change-password.use-case';
@@ -46,6 +47,7 @@ export interface AuthUseCases {
   getOnboardingState: GetOnboardingStateUseCase;
   completeUserOnboarding: CompleteUserOnboardingUseCase;
   completeOwnerOnboarding: CompleteOwnerOnboardingUseCase;
+  patchTutorial: PatchTutorialUseCase;
   beginOidcLogin: BeginOidcLoginUseCase;
   handleOidcCallback: HandleOidcCallbackUseCase;
 }

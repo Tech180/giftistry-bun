@@ -8,6 +8,8 @@ import type {
   DeleteAccountStatus,
 } from '../domain/ports/user.repository';
 import type { User } from '../domain/user.entity';
+import type { TourState } from '../domain/tour.state';
+import { normalizeTourState, tourStateToDbJson } from '../domain/tour.state';
 import type { UserSearchResult } from '@/modules/friends/domain/friend.entity';
 import { generateAvatarColor } from '@/common/utils/avatar.util';
 import { mergeUserPolicy } from '@/common/types/user-policy';
@@ -23,7 +25,7 @@ const USER_SELECT = `
   failed_login_count as "FailedLoginCount", force_password_change as "ForcePasswordChange",
   login_attempts_before_lockout as "LoginAttemptsBeforeLockout", session_version as "SessionVersion",
   policy_json as "PolicyJson", ai_enabled as "AiEnabled", web_search_enabled as "WebSearchEnabled",
-  is_onboarded as "IsOnboarded", oauth_sub as "OauthSub"
+  is_onboarded as "IsOnboarded", oauth_sub as "OauthSub", tour_json as "TourJson"
 `;
 
 interface UserRow {
@@ -56,6 +58,7 @@ interface UserRow {
   WebSearchEnabled: boolean;
   IsOnboarded: boolean;
   OauthSub: string | null;
+  TourJson: unknown;
 }
 
 interface UserUpdateFieldsRow {
@@ -146,6 +149,7 @@ function mapUserRow(row: UserRow): User {
     WebSearchEnabled: row.WebSearchEnabled !== false,
     IsOnboarded: row.IsOnboarded === true,
     OauthSub: row.OauthSub ?? null,
+    Tour: normalizeTourState(row.TourJson),
   };
 }
 
@@ -275,6 +279,20 @@ export class PostgresUserRepository implements UserRepository {
     `;
     if (!row) {
       throw new Error('Failed to update onboarding state');
+    }
+
+    return mapUserRow(row);
+  }
+
+  async setTour(id: string, tour: TourState): Promise<User> {
+    const payload = tourStateToDbJson(tour);
+    const [row] = await sql<UserRow[]>`
+      UPDATE users SET tour_json = ${payload}::jsonb
+      WHERE id = ${id}
+      RETURNING ${sql.unsafe(USER_SELECT)}
+    `;
+    if (!row) {
+      throw new Error('Failed to update tour state');
     }
 
     return mapUserRow(row);

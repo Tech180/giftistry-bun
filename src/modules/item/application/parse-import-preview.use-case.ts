@@ -15,6 +15,7 @@ import type {
   ImportFileFormat,
   ImportPreviewResult,
 } from '../domain/imported-item-preview';
+import { isGiftistryExportCsv } from '../domain/giftistry-export-detect';
 import { tryParseGiftistryExportDeterministic } from '../domain/try-parse-giftistry-export';
 import { resolveItemCategory } from '../domain/resolve-item-category.util';
 import { resolveDesiredQuantity } from '../domain/parse-pack-quantity.util';
@@ -32,6 +33,12 @@ import {
   tokensPerSecondRate,
   type JobProgressRate,
 } from '@/modules/jobs/domain/job-progress-rate.util';
+
+/** Rows scanned on the AI-off XLSX header probe (header + spacers/category rows). */
+const XLSX_HEADER_PROBE_ROWS = 16;
+
+const IMPORT_FORMAT_UNSUPPORTED_MESSAGE =
+  'This file is not a Giftistry export. Enable AI import or upload a Giftistry JSON, CSV, XLSX, or TXT export.';
 
 export interface ParseImportPreviewInput {
   listId?: string;
@@ -56,6 +63,13 @@ export interface ParseImportPreviewProgress {
 
 function formatFoundMessage(count: number): string {
   return `Found ${count} item${count === 1 ? '' : 's'}`;
+}
+
+function isXlsxInput(format: ImportFileFormat | undefined, fileName: string): boolean {
+  if (format === 'xlsx') {
+    return true;
+  }
+  return fileName.split('.').pop()?.toLowerCase() === 'xlsx';
 }
 
 export class ParseImportPreviewUseCase {
@@ -103,14 +117,67 @@ export class ParseImportPreviewUseCase {
 
     await onProgress?.({ message: 'Reading file…', progressDone: 5 });
 
+    const allowAi = input.allowAi !== false;
+    const probeXlsx = !allowAi && isXlsxInput(input.format, input.fileName);
+
     const extracted = await this.textExtractor.extract({
       fileName: input.fileName,
       format: input.format,
       content: input.content,
       contentEncoding: input.contentEncoding,
+      ...(probeXlsx
+        ? { maxSheets: 1, maxRowsPerSheet: XLSX_HEADER_PROBE_ROWS }
+        : {}),
     });
 
     await onProgress?.({ message: 'Checking Giftistry format…', progressDone: 20 });
+
+    if (probeXlsx && extracted.format === 'xlsx') {
+      if (!isGiftistryExportCsv(extracted.text)) {
+        throw new AppError(
+          IMPORT_FORMAT_UNSUPPORTED_MESSAGE,
+          422,
+          'IMPORT_FORMAT_UNSUPPORTED'
+        );
+      }
+
+      const fullSheet = await this.textExtractor.extract({
+        fileName: input.fileName,
+        format: input.format,
+        content: input.content,
+        contentEncoding: input.contentEncoding,
+        maxSheets: 1,
+      });
+
+      const deterministic = tryParseGiftistryExportDeterministic(
+        fullSheet.text,
+        fullSheet.format
+      );
+      if (!deterministic) {
+        throw new AppError(
+          IMPORT_FORMAT_UNSUPPORTED_MESSAGE,
+          422,
+          'IMPORT_FORMAT_UNSUPPORTED'
+        );
+      }
+
+      const items = canonicalizePreviewItems(deterministic.items, existingCategoryList);
+      await onProgress?.({
+        message: formatFoundMessage(items.length),
+        progressDone: 40,
+        ProgressRate: null,
+      });
+      return {
+        ...deterministic,
+        items,
+        warnings: [...fullSheet.warnings, ...deterministic.warnings],
+        suggestedWishlistTitle:
+          deterministic.suggestedWishlistTitle ||
+          filenameStemAsTitle(input.fileName),
+        inputTruncated: fullSheet.truncated,
+        estimatedRowCount: estimateImportRowCount(fullSheet.text),
+      };
+    }
 
     const deterministic = tryParseGiftistryExportDeterministic(
       extracted.text,
@@ -135,9 +202,9 @@ export class ParseImportPreviewUseCase {
       };
     }
 
-    if (input.allowAi === false) {
+    if (!allowAi) {
       throw new AppError(
-        'This file is not a Giftistry export. Enable AI import or upload a Giftistry JSON, CSV, XLSX, or TXT export.',
+        IMPORT_FORMAT_UNSUPPORTED_MESSAGE,
         422,
         'IMPORT_FORMAT_UNSUPPORTED'
       );

@@ -8,6 +8,7 @@
   "SmtpPass": "",
   "SmtpSecure": false,
   "SmtpFrom": "noreply@giftistry.local",
+  "PublicAppUrl": "http://dwadwad.com",
   "AllowSetup": false,
   "OwnerOnboardingCompleted": true,
   "OAuthEnabled": false,

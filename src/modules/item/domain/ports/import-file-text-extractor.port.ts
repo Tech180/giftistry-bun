@@ -7,6 +7,10 @@ export interface ImportFileTextExtractorInput {
   format?: ImportFileFormat;
   content: string;
   contentEncoding: ImportContentEncoding;
+  /** When set, only the first N worksheets are converted (XLSX only). */
+  maxSheets?: number;
+  /** When set, stop after N `<row>` elements per sheet (XLSX only). */
+  maxRowsPerSheet?: number;
 }
 
 export interface ImportFileTextExtractorResult {

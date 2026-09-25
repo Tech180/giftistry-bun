@@ -1,5 +1,6 @@
 import type { GiftistryUserPolicy, SitePolicy } from '@/common/types/user-policy';
 import { AppError } from '@/common/middlewares/error.middleware';
+import type { TourState } from './tour.state';
 
 export interface User {
   Id: string;
@@ -33,6 +34,7 @@ export interface User {
   HasPasskey?: boolean;
   IsOnboarded?: boolean;
   OauthSub?: string | null;
+  Tour?: TourState;
 }
 
 export type SafeUser = Omit<User, 'AuthHash'>;
@@ -71,6 +73,7 @@ export class UserEntity implements User {
   PolicyJson?: GiftistryUserPolicy | Record<string, unknown> | null;
   IsOnboarded?: boolean;
   OauthSub?: string | null;
+  Tour?: TourState;
 
   constructor(data: User) {
     Object.assign(this, data);

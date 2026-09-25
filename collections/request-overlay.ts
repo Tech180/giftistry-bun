@@ -88,6 +88,18 @@ export const REQUEST_OVERLAY: Record<string, RequestOverlay> = {
       },
     },
   },
+  [overlayKey('PATCH', '/api/auth/tutorial')]: {
+    name: 'Patch Tutorial',
+    group: 'Auth',
+    body: {
+      Giftistry: {
+        Tutorial: {
+          CompleteChapter: 'demo',
+          FirstRunDismissed: false,
+        },
+      },
+    },
+  },
   [overlayKey('DELETE', '/api/auth/account')]: {
     name: 'Delete Account',
     body: { Giftistry: { Auth: { Password: 'securepassword123' } } },

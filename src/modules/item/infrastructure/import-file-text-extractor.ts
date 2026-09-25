@@ -85,7 +85,10 @@ export class DefaultImportFileTextExtractor implements ImportFileTextExtractor {
         throw new AppError('XLSX imports require base64 or data-url encoding', 400, 'BAD_REQUEST');
       }
       try {
-        text = await workbookBytesToText(decoded.bytes);
+        text = await workbookBytesToText(decoded.bytes, {
+          maxSheets: input.maxSheets,
+          maxRowsPerSheet: input.maxRowsPerSheet,
+        });
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Invalid XLSX file';
         throw new AppError(`Failed to read XLSX: ${message}`, 400, 'BAD_REQUEST');

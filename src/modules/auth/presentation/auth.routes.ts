@@ -89,6 +89,7 @@ export function createAuthMiddleware(userRepo: UserRepository) {
             ForcePasswordChange: user.ForcePasswordChange,
             Policy: user.PolicyJson,
             IsOnboarded: user.IsOnboarded === true,
+            Tour: user.Tour,
           };
         },
         getOptionalAuthUser: async () => {
@@ -518,6 +519,40 @@ export const authRoutes = (
           }),
         }),
       }),
+    })
+    .patch('/tutorial', async ({ getAuthUser, body: { Giftistry: { Tutorial } } }) => {
+      const authUser = await getAuthUser();
+      const payload = Tutorial ?? {};
+      const result = await useCases.patchTutorial.execute(authUser.userId, {
+        FirstRunDismissed: payload.FirstRunDismissed,
+        CompleteChapter: payload.CompleteChapter,
+        SkipChapter: payload.SkipChapter,
+        ResetChapter: payload.ResetChapter,
+        ResetAll: payload.ResetAll,
+      });
+      return {
+        success: true,
+        Tour: result.Tour,
+        User: result.User,
+      };
+    }, {
+      body: t.Object({
+        Giftistry: t.Object({
+          Tutorial: t.Object({
+            FirstRunDismissed: t.Optional(t.Boolean()),
+            CompleteChapter: t.Optional(t.String()),
+            SkipChapter: t.Optional(t.String()),
+            ResetChapter: t.Optional(t.String()),
+            ResetAll: t.Optional(t.Boolean()),
+          }),
+        }),
+      }),
+      detail: {
+        tags: ['Authentication'],
+        summary: 'Update product tour progress',
+        description: 'Merge-patches tutorial chapter completion, skip, reset, and first-run dismissal.',
+        security: [{ bearerAuth: [] }],
+      },
     })
     .get('/passkeys', async ({ getAuthUser }) => {
       const authUser = await getAuthUser();

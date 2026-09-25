@@ -25,7 +25,7 @@ export interface RuntimeConfig {
   SMTP_PASS: string;
   SMTP_SECURE: boolean;
   SMTP_FROM: string;
-  /** Non-secret env override for public app URL (config also has PublicAppUrl). */
+  /** Bootstrap public app URL when config.PublicAppUrl is unset (config wins once saved). */
   GIFTISTRY_PUBLIC_APP_URL: string | undefined;
   /** When false, setup is refused even if no users exist. Default true. */
   GIFTISTRY_ALLOW_SETUP: boolean;

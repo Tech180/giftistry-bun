@@ -27,6 +27,7 @@ describe('collection coverage from OpenAPI', () => {
 
     expect(defKeys.has(overlayKey('GET', '/api/auth/onboarding'))).toBe(true);
     expect(defKeys.has(overlayKey('PATCH', '/api/auth/onboarding'))).toBe(true);
+    expect(defKeys.has(overlayKey('PATCH', '/api/auth/tutorial'))).toBe(true);
     expect(defKeys.has(overlayKey('POST', '/api/auth/password'))).toBe(true);
     expect([...defKeys].some((k) => k.includes('/api/jobs/'))).toBe(true);
 

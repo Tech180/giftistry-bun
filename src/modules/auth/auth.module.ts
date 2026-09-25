@@ -32,6 +32,7 @@ import { GetCurrentUserUseCase } from './application/get-current-user.use-case';
 import { GetOnboardingStateUseCase } from './application/get-onboarding-state.use-case';
 import { CompleteUserOnboardingUseCase } from './application/complete-user-onboarding.use-case';
 import { CompleteOwnerOnboardingUseCase } from './application/complete-owner-onboarding.use-case';
+import { PatchTutorialUseCase } from './application/patch-tutorial.use-case';
 import { BeginOidcLoginUseCase } from './application/begin-oidc-login.use-case';
 import { HandleOidcCallbackUseCase } from './application/handle-oidc-callback.use-case';
 import { OpenIdClientAdapter } from './infrastructure/openid-client.adapter';
@@ -92,6 +93,7 @@ export function createAuthModule(deps: AuthModuleDeps) {
       deps.saveSitePolicyUseCase,
       deps.saveSystemSettingsUseCase
     ),
+    patchTutorial: new PatchTutorialUseCase(deps.userRepo),
     beginOidcLogin: new BeginOidcLoginUseCase(oidcClient, deps.serverConfigRepo),
     handleOidcCallback: new HandleOidcCallbackUseCase(
       oidcClient,
