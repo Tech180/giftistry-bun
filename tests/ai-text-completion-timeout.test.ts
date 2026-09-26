@@ -1,11 +1,11 @@
 import { describe, expect, test, beforeEach, afterEach } from 'bun:test';
+import { DEFAULT_AI_COMPLETION_TIMEOUT_MS } from '../src/modules/system';
 import {
-  DEFAULT_AI_COMPLETION_TIMEOUT_MS,
   formatAiTimeoutMessage,
+  formatAiConnectErrorMessage,
   isTimeoutError,
-  completeTextPrompt,
-} from '../src/modules/item/infrastructure/ai-text-completion';
-import { formatAiConnectErrorMessage } from '../src/common/utils/ai-fetch.util';
+} from '../src/common/utils/ai-fetch.util';
+import { completeTextPrompt } from '../src/modules/item/infrastructure/utils/ai-text-completion.util';
 
 describe('formatAiTimeoutMessage', () => {
   test('formats minutes for long timeouts', () => {

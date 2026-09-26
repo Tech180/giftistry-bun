@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { assertSafeRemoteImageUrl } from '../src/modules/item/infrastructure/fetch-remote-image-as-data-url';
+import { assertSafeRemoteImageUrl } from '../src/modules/item/infrastructure/utils/remote-image.util';
 
 describe('assertSafeRemoteImageUrl', () => {
   test('accepts https public URLs', () => {

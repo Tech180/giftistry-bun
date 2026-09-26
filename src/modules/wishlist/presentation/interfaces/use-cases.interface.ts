@@ -1,0 +1,41 @@
+import type { CreateWishlistUseCase } from '../../slices/lists/use-cases/create-wishlist.use-case';
+import type { ListWishlistsUseCase } from '../../slices/lists/use-cases/list-wishlists.use-case';
+import type { CreatePriorityUseCase } from '../../slices/priorities/use-cases/create-priority.use-case';
+import type { ListPrioritiesUseCase } from '../../slices/priorities/use-cases/list-priorities.use-case';
+import type { DeletePriorityUseCase } from '../../slices/priorities/use-cases/delete-priority.use-case';
+import type { ListExpiredWishlistsUseCase } from '../../slices/lists/use-cases/list-expired-wishlists.use-case';
+import type { DeactivateWishlistUseCase } from '../../slices/lists/use-cases/deactivate-wishlist.use-case';
+import type { ActivateWishlistUseCase } from '../../slices/lists/use-cases/activate-wishlist.use-case';
+import type { GetWishlistUseCase } from '../../slices/lists/use-cases/get-wishlist.use-case';
+import type { RolloverWishlistUseCase } from '../../slices/rollover/use-cases/rollover-wishlist.use-case';
+import type { DuplicateWishlistUseCase } from '../../slices/rollover/use-cases/duplicate-wishlist.use-case';
+import type { UpdateWishlistUseCase } from '../../slices/lists/use-cases/update-wishlist.use-case';
+import type { DeleteWishlistUseCase } from '../../slices/lists/use-cases/delete-wishlist.use-case';
+import type { ListListSharesUseCase } from '../../slices/shares/use-cases/list-list-shares.use-case';
+import type { UpdateListShareUseCase } from '../../slices/shares/use-cases/update-list-share.use-case';
+import type { RemoveListShareUseCase } from '../../slices/shares/use-cases/remove-list-share.use-case';
+import type { BulkShareWishlistUseCase } from '../../slices/shares/use-cases/bulk-share-wishlist.use-case';
+import type { ExportWishlistPdfUseCase } from '../../slices/export/use-cases/export-wishlist-pdf.use-case';
+import type { ExportWishlistDataUseCase } from '../../slices/export/use-cases/export-wishlist-data.use-case';
+
+export interface UseCases {
+  createWishlist: CreateWishlistUseCase;
+  listWishlists: ListWishlistsUseCase;
+  createPriority: CreatePriorityUseCase;
+  listPriorities: ListPrioritiesUseCase;
+  deletePriority: DeletePriorityUseCase;
+  listExpiredWishlists: ListExpiredWishlistsUseCase;
+  deactivateWishlist: DeactivateWishlistUseCase;
+  activateWishlist: ActivateWishlistUseCase;
+  getWishlist: GetWishlistUseCase;
+  rolloverWishlist: RolloverWishlistUseCase;
+  duplicateWishlist: DuplicateWishlistUseCase;
+  updateWishlist: UpdateWishlistUseCase;
+  deleteWishlist: DeleteWishlistUseCase;
+  listListShares: ListListSharesUseCase;
+  updateListShare: UpdateListShareUseCase;
+  removeListShare: RemoveListShareUseCase;
+  bulkShareWishlist: BulkShareWishlistUseCase;
+  exportWishlistPdf: ExportWishlistPdfUseCase;
+  exportWishlistData: ExportWishlistDataUseCase;
+}

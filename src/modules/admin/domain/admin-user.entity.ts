@@ -1,172 +1,15 @@
-import { AppError } from '@/common/middlewares/error.middleware';
-import { mergeUserPolicy, type GiftistryUserPolicy } from '@/common/types/user-policy';
-
-export interface AdminAuthUser {
-  Id: string;
-  IsAdmin?: boolean;
-}
-
-export interface AdminUserRow {
-  Id: string;
-  Username: string;
-  Email: string;
-  FirstName: string;
-  LastName: string;
-  Bio?: string | null;
-  Avatar?: string | null;
-  CreatedAt: Date | string;
-  LastOnline?: Date | string | null;
-  LastLoginAt?: Date | string | null;
-  EmailVerified?: boolean;
-  TwoFactorEnabled?: boolean;
-  IsAdmin?: boolean;
-  IsOwner?: boolean;
-  IsDisabled?: boolean;
-  IsHidden?: boolean;
-  LockedUntil?: Date | string | null;
-  FailedLoginCount?: number;
-  ForcePasswordChange?: boolean;
-  LoginAttemptsBeforeLockout?: number;
-  SessionVersion?: number;
-  PolicyJson?: unknown;
-  WishlistCount?: number;
-  ActiveListsCount?: number;
-  FriendsCount?: number;
-  CommentsCount?: number;
-  PasskeyCount?: number;
-}
-
-export interface AdminUserDto {
-  Id: string;
-  Username: string;
-  Email: string;
-  FirstName: string;
-  LastName: string;
-  Bio: string;
-  Avatar?: string | null;
-  CreatedAt: Date | string;
-  LastOnline?: Date | string | null;
-  LastLoginAt?: Date | string | null;
-  EmailVerified?: boolean;
-  TwoFactorEnabled?: boolean;
-  IsAdmin?: boolean;
-  IsOwner?: boolean;
-  IsDisabled?: boolean;
-  IsHidden?: boolean;
-  LockedUntil?: Date | string | null;
-  FailedLoginCount?: number;
-  ForcePasswordChange?: boolean;
-  LoginAttemptsBeforeLockout?: number;
-  SessionVersion?: number;
-  WishlistCount: number;
-  ActiveListsCount: number;
-  Policy: GiftistryUserPolicy;
-}
-
-/** Fields needed by the admin users table — not a full AdminUserDto. */
-export interface AdminUserListItemDto {
-  Id: string;
-  Username: string;
-  Email: string;
-  IsOwner: boolean;
-  IsAdmin: boolean;
-  IsDisabled: boolean;
-  LockedUntil: Date | string | null;
-  ActiveListsCount: number;
-  LastLoginAt: Date | string | null;
-  LastOnline: Date | string | null;
-}
-
-export interface AdminUserListRow {
-  Id: string;
-  Username: string;
-  Email: string;
-  IsOwner?: boolean;
-  IsAdmin?: boolean;
-  IsDisabled?: boolean;
-  LockedUntil?: Date | string | null;
-  ActiveListsCount?: number;
-  LastLoginAt?: Date | string | null;
-  LastOnline?: Date | string | null;
-}
-
-export interface UserPolicyState {
-  id: string;
-  isAdmin: boolean;
-  isOwner: boolean;
-  isDisabled: boolean;
-  isHidden: boolean;
-  loginAttemptsBeforeLockout: number;
-  forcePasswordChange: boolean;
-  policyJson: unknown;
-}
-
-export interface UserPolicyUpdatePayload {
-  isAdmin?: boolean;
-  isDisabled?: boolean;
-  isHidden?: boolean;
-  forcePasswordChange?: boolean;
-  loginAttemptsBeforeLockout?: number;
-  policy?: Partial<GiftistryUserPolicy>;
-}
-
-export interface UserDeleteTarget {
-  id: string;
-  isAdmin: boolean;
-  isDisabled: boolean;
-  isOwner: boolean;
-}
-
-export function mapAdminUser(row: AdminUserRow): AdminUserDto {
-  return {
-    Id: row.Id,
-    Username: row.Username,
-    Email: row.Email,
-    FirstName: row.FirstName,
-    LastName: row.LastName,
-    Bio: row.Bio ?? '',
-    Avatar: row.Avatar,
-    CreatedAt: row.CreatedAt,
-    LastOnline: row.LastOnline,
-    LastLoginAt: row.LastLoginAt,
-    EmailVerified: row.EmailVerified,
-    TwoFactorEnabled: row.TwoFactorEnabled,
-    IsAdmin: row.IsAdmin,
-    IsOwner: row.IsOwner,
-    IsDisabled: row.IsDisabled,
-    IsHidden: row.IsHidden,
-    LockedUntil: row.LockedUntil,
-    FailedLoginCount: row.FailedLoginCount,
-    ForcePasswordChange: row.ForcePasswordChange,
-    LoginAttemptsBeforeLockout: row.LoginAttemptsBeforeLockout,
-    SessionVersion: row.SessionVersion,
-    WishlistCount: row.WishlistCount ?? 0,
-    ActiveListsCount: row.ActiveListsCount ?? 0,
-    Policy: mergeUserPolicy(
-      typeof row.PolicyJson === 'string' ? JSON.parse(row.PolicyJson) : row.PolicyJson
-    ),
-  };
-}
-
-export function mapAdminUserListItem(row: AdminUserListRow): AdminUserListItemDto {
-  return {
-    Id: row.Id,
-    Username: row.Username,
-    Email: row.Email,
-    IsOwner: !!row.IsOwner,
-    IsAdmin: !!row.IsAdmin,
-    IsDisabled: !!row.IsDisabled,
-    LockedUntil: row.LockedUntil ?? null,
-    ActiveListsCount: row.ActiveListsCount ?? 0,
-    LastLoginAt: row.LastLoginAt ?? null,
-    LastOnline: row.LastOnline ?? null,
-  };
-}
+import { DomainError } from '@/common/domain/errors/domain-error';
+import type { GiftistryUserPolicy } from '@/common/domain/interfaces/giftistry-user-policy.interface';
+import { mergeUserPolicy } from '@/common/domain/utils/merge-user-policy.util';
+import type { AuthUser } from './interfaces/auth-user.interface';
+import type { UserDeleteTarget } from './interfaces/user-delete-target.interface';
+import type { UserPolicyState } from './interfaces/user-policy-state.interface';
+import type { UserPolicyUpdatePayload } from './interfaces/user-policy-update-payload.interface';
 
 export class AdminUser {
-  static assertAdmin(user: AdminAuthUser): void {
+  static assertAdmin(user: AuthUser): void {
     if (!user.IsAdmin) {
-      throw new AppError('Forbidden: Admin access required', 403, 'FORBIDDEN');
+      throw new DomainError('Forbidden: Admin access required', 'FORBIDDEN');
     }
   }
 
@@ -195,18 +38,18 @@ export class AdminUser {
       : target.forcePasswordChange;
 
     if (isSelf && payload.isAdmin === false) {
-      throw new AppError('You cannot remove your own administrator privileges', 400, 'BAD_REQUEST');
+      throw new DomainError('You cannot remove your own administrator privileges', 'BAD_REQUEST');
     }
     if (isSelf && payload.isDisabled === true) {
-      throw new AppError('You cannot disable your own account', 400, 'BAD_REQUEST');
+      throw new DomainError('You cannot disable your own account', 'BAD_REQUEST');
     }
 
     if (target.isAdmin && !nextIsAdmin && otherEnabledAdmins === 0) {
-      throw new AppError('Cannot remove the last administrator', 400, 'BAD_REQUEST');
+      throw new DomainError('Cannot remove the last administrator', 'BAD_REQUEST');
     }
 
     if (target.isAdmin && nextIsDisabled && otherEnabledAdmins === 0) {
-      throw new AppError('Cannot disable the last administrator', 400, 'BAD_REQUEST');
+      throw new DomainError('Cannot disable the last administrator', 'BAD_REQUEST');
     }
 
     const mergedPolicy = mergeUserPolicy({
@@ -224,17 +67,24 @@ export class AdminUser {
     };
   }
 
+  /** Non-owners cannot mutate the server owner's account. Owner may still act on self. */
+  static assertCanMutate(actorId: string, targetId: string, targetIsOwner: boolean): void {
+    if (targetIsOwner && actorId !== targetId) {
+      throw new DomainError('Cannot modify the server owner', 'FORBIDDEN');
+    }
+  }
+
   static assertCanDelete(actorId: string, target: UserDeleteTarget, otherEnabledAdmins: number): void {
     if (actorId === target.id) {
-      throw new AppError('You cannot delete your own account from admin panel', 400, 'BAD_REQUEST');
+      throw new DomainError('You cannot delete your own account from admin panel', 'BAD_REQUEST');
     }
 
     if (target.isOwner) {
-      throw new AppError('Cannot delete the server owner. Transfer ownership or delete the server.', 400, 'BAD_REQUEST');
+      throw new DomainError('Cannot delete the server owner. Transfer ownership or delete the server.', 'BAD_REQUEST');
     }
 
     if (target.isAdmin && !target.isDisabled && otherEnabledAdmins === 0) {
-      throw new AppError('Cannot delete the last administrator', 400, 'BAD_REQUEST');
+      throw new DomainError('Cannot delete the last administrator', 'BAD_REQUEST');
     }
   }
 }

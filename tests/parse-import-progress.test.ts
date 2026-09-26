@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from 'bun:test';
-import { ParseImportPreviewUseCase } from '../src/modules/item/application/parse-import-preview.use-case';
+import { ParseImportPreviewUseCase } from '../src/modules/item/slices/import/use-cases/parse-import-preview.use-case';
 
 describe('ParseImportPreviewUseCase progress', () => {
   test('emits reading → checking → found for deterministic Giftistry JSON', async () => {

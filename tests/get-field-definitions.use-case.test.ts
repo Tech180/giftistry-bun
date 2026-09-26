@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { GetFieldDefinitionsUseCase } from '../src/modules/item/application/get-field-definitions.use-case';
-import type { FieldDefinition } from '../src/modules/item/domain/item-field.entity';
+import { GetFieldDefinitionsUseCase } from '../src/modules/item/slices/catalog/use-cases/get-field-definitions.use-case';
+import type { FieldDefinition } from '../src/modules/item/domain/interfaces/field-definition.interface';
 import type { ItemFieldRepository } from '../src/modules/item/domain/ports/item-field.repository';
 import type { ServerConfigRepository } from '../src/modules/system/domain/ports/server-config.repository';
 

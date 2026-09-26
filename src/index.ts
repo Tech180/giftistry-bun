@@ -1,57 +1,17 @@
-import { Elysia, StatusMap, t, type AnyElysia } from 'elysia';
-import { cors } from '@elysiajs/cors';
-import { swagger } from '@elysiajs/swagger';
-import { env } from './common/consts/runtime-config';
+import type { AnyElysia } from 'elysia';
+import { getEnv } from './common/config/utils/get-env.util';
 import { getPublicAppUrl } from './common/utils/public-app-url.util';
-import { handleError } from './common/middlewares/error.middleware';
 import { createAppContainer } from './app.container';
-import { runMigrations } from './common/database/migrations';
-import { initializeSchema } from './common/database/init-schema';
-import { verifyToken } from '@/common/utils/token';
-import { getListAccessContext } from '@/common/middlewares/list-access.middleware';
-import { pascalizeKeys } from '@/common/utils/api-case.util';
-import {
-  addWishlistWsConnection,
-  getOnlineUsers,
-  removeWishlistWsConnection,
-} from '@/modules/wishlist/infrastructure/wishlist-ws-registry';
-import {
-  addUserWsConnection,
-  removeUserWsConnection,
-} from '@/modules/notifications/infrastructure/user-ws-registry';
 import {
   resolveProcessRole,
   shouldListenRealtimeFanout,
   shouldRunJobs,
   shouldServeHttp,
-} from '@/common/utils/process-role.util';
-import {
-  wireDirectRealtimePublishers,
-} from '@/boot/runtime-publishers';
-import { startPostgresRealtimeListener } from '@/modules/jobs/infrastructure/postgres-realtime-listener';
-
-function getNumericStatus(status: any, defaultStatus = 200): number {
-  if (typeof status === 'number') return status;
-  if (typeof status === 'string') {
-    const code = (StatusMap as any)[status];
-    if (code !== undefined) return code;
-    const parsed = parseInt(status, 10);
-    if (!isNaN(parsed)) return parsed;
-  }
-  return defaultStatus;
-}
-
-function cleanHeaders(headers: any): Record<string, string> {
-  const result: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (headers && typeof headers === 'object') {
-    for (const [key, value] of Object.entries(headers)) {
-      if (value !== undefined && value !== null) {
-        result[key] = String(value);
-      }
-    }
-  }
-  return result;
-}
+} from './common/utils/process-role.util';
+import { wireDirectRealtimePublishers } from '@/boot/runtime-publishers';
+import { createHttpApp } from '@/boot/create-http-app';
+import { ensureDatabaseSchema } from '@/boot/utils/ensure-database-schema.util';
+import { startPostgresRealtimeListener } from '@/modules/jobs/infrastructure/adapters/postgres-realtime-listener';
 
 const processRole = resolveProcessRole();
 if (processRole === 'worker') {
@@ -79,264 +39,28 @@ const {
   registrationInviteModule,
   systemModule,
   adminModule,
-  userRepo: userRepoForWs,
+  userRepo,
   realtimePublishers,
+  linkTokenRepo,
 } = container;
 
-function publishPresence(listId: string, ws?: { publish: (topic: string, data: string) => void; send?: (data: string) => void }) {
-  const users = getOnlineUsers(listId);
-  const payload = JSON.stringify({ Type: 'presence', Users: users });
-
-  if (ws?.publish) {
-    ws.publish(listId, payload);
-  }
-  if (ws?.send) {
-    ws.send(payload);
-  }
-}
-
-function resolveCorsOrigin(request: Request): boolean {
-  if (!env.isProduction) {
-    return true;
-  }
-
-  const publicUrl = getPublicAppUrl();
-  if (!publicUrl) {
-    // First-run / unset config: allow browser Origin until PublicAppUrl is set in UI.
-    return true;
-  }
-
-  const origin = request.headers.get('origin');
-  if (!origin) {
-    return true;
-  }
-
-  try {
-    const allowedOrigin = new URL(publicUrl).origin;
-    if (origin === allowedOrigin) {
-      return true;
-    }
-    return new URL(origin).hostname === new URL(publicUrl).hostname;
-  } catch {
-    return false;
-  }
-}
-
-let app: AnyElysia = new Elysia()
-  .use(cors({
-    credentials: true,
-    origin: resolveCorsOrigin,
-  }))
-  .use(swagger({
-    path: '/docs',
-    documentation: {
-      info: {
-        title: 'Giftistry API Documentation',
-        version: '0.0.1',
-        description: 'Interactive OpenAPI specification for the Giftistry application'
-      },
-      components: {
-        securitySchemes: {
-          bearerAuth: {
-            type: 'http',
-            scheme: 'bearer',
-            bearerFormat: 'JWT'
-          }
-        }
-      }
-    }
-  }))
-  .derive({ as: 'global' }, () => ({
-    correlationId: crypto.randomUUID()
-  }))
-  .onError(handleError)
-  .mapResponse(({ responseValue, set, correlationId, request }) => {
-    const url = new URL(request.url);
-    const numericStatus = getNumericStatus(set.status, 200);
-    console.log(`[INFO] [CorrelationId: ${correlationId}] ${request.method} ${url.pathname} - Status: ${numericStatus}`);
-
-    if (responseValue === undefined || responseValue === null) {
-      const code = getNumericStatus(set.status, 204);
-      return new Response(JSON.stringify({
-        Meta: {
-          Status: 'Success',
-          Code: code,
-          CorrelationId: correlationId
-        },
-        Result: {}
-      }), {
-        status: code,
-        headers: cleanHeaders(set.headers)
-      });
-    }
-
-    if (responseValue instanceof Response) {
-      return responseValue;
-    }
-
-    const isError = responseValue && typeof responseValue === 'object' &&
-      (('status' in responseValue && responseValue.status === 'error') ||
-        ('Status' in responseValue && responseValue.Status === 'error'));
-    const status = isError ? 'Error' : 'Success';
-    const code = numericStatus;
-    let payload = responseValue;
-
-    if (isError) {
-      // If error payload is returned by handleRoute or middleware, convert its message property to Message
-      const { Status, status, Code, code, Message, message, ...rest } = responseValue as any;
-      payload = {
-        Message: Message ?? message,
-        ...rest
-      };
-    } else if (responseValue && typeof responseValue === 'object') {
-      const { success, data, ...rest } = responseValue as any;
-      if (data !== undefined) {
-        payload = data;
-      } else {
-        payload = rest;
-      }
-    }
-
-    return new Response(JSON.stringify({
-      Meta: {
-        Status: status,
-        Code: code,
-        CorrelationId: correlationId
-      },
-      Result: isError ? payload : pascalizeKeys(payload)
-    }), {
-      status: numericStatus,
-      headers: cleanHeaders(set.headers)
-    });
-  });
-
-app = app
-  .use(authModule as AnyElysia)
-  .use(notificationsModule as AnyElysia)
-  .use(wishlistModule as AnyElysia)
-  .use(itemModule as AnyElysia)
-  .use(jobsModule as AnyElysia)
-  .use(commentModule as AnyElysia)
-  .use(friendsModule as AnyElysia)
-  .use(invitesModule as AnyElysia)
-  .use(registrationInviteModule as AnyElysia)
-  .use(systemModule as AnyElysia)
-  .use(adminModule as AnyElysia);
-
-app = (app as any)
-  .ws('/ws/wishlist/:listId', {
-    query: t.Object({
-      token: t.String()
-    }),
-    async open(ws: any) {
-      const { listId } = ws.data.params;
-      const { token } = ws.data.query;
-      
-      const payload = await verifyToken(token);
-      if (!payload) {
-        ws.close();
-        return;
-      }
-      
-      const user = await userRepoForWs.findById(payload.userId);
-      if (!user) {
-        ws.close();
-        return;
-      }
-      
-      try {
-        await getListAccessContext(user.Id, { listId });
-      } catch (err) {
-        ws.close();
-        return;
-      }
-      
-      const wsId = crypto.randomUUID();
-      ws.data.wsId = wsId;
-      ws.data.user = user;
-      
-      ws.subscribe(listId);
-
-      addWishlistWsConnection(listId, wsId, {
-        username: user.Username,
-        userId: user.Id,
-        send: (data: string) => ws.send(data),
-      });
-
-      publishPresence(listId, ws);
-    },
-    message(ws: any, message: any) {
-      const { listId } = ws.data.params;
-      try {
-        const data = typeof message === 'string' ? JSON.parse(message) : message;
-        if (data && data.Type === 'typing') {
-          const user = ws.data.user;
-          if (user) {
-            ws.publish(listId, JSON.stringify({
-              Type: 'typing',
-              UserId: user.Id,
-              Username: user.Username,
-              IsTyping: !!data.IsTyping,
-            }));
-          }
-        }
-      } catch (err) {
-        console.error('Error handling ws message:', err);
-      }
-    },
-    close(ws: any) {
-      const { listId } = ws.data.params;
-      const wsId = ws.data.wsId;
-      if (wsId && removeWishlistWsConnection(listId, wsId)) {
-        publishPresence(listId, ws);
-      }
-    }
-  })
-  .ws('/ws/user', {
-    query: t.Object({
-      token: t.String()
-    }),
-    async open(ws: any) {
-      const { token } = ws.data.query;
-      const payload = await verifyToken(token);
-      if (!payload) {
-        ws.close();
-        return;
-      }
-      
-      const user = await userRepoForWs.findById(payload.userId);
-      if (!user) {
-        ws.close();
-        return;
-      }
-      
-      const wsId = crypto.randomUUID();
-      ws.data.wsId = wsId;
-      ws.data.user = user;
-      
-      ws.subscribe(user.Id);
-      addUserWsConnection(user.Id, wsId);
-    },
-    close(ws: any) {
-      const user = ws.data.user;
-      const wsId = ws.data.wsId;
-      if (user?.Id && wsId) {
-        removeUserWsConnection(user.Id, wsId);
-      }
-    }
-  })
-  .get('/health', () => ({ Status: 'ok', Database: 'connected', Version: '0.1.0' })) as AnyElysia;
-
-export { app };
-
-await initializeSchema()
-  .then(() => runMigrations())
-  .catch((err) => {
-  console.error('[ERROR] Migration failed:', err);
-  if (process.env.NODE_ENV !== 'test') {
-    process.exit(1);
-  }
+export const app: AnyElysia = createHttpApp({
+  authModule: authModule as AnyElysia,
+  notificationsModule: notificationsModule as AnyElysia,
+  wishlistModule: wishlistModule as AnyElysia,
+  itemModule: itemModule as AnyElysia,
+  jobsModule: jobsModule as AnyElysia,
+  commentModule: commentModule as AnyElysia,
+  friendsModule: friendsModule as AnyElysia,
+  invitesModule: invitesModule as AnyElysia,
+  registrationInviteModule: registrationInviteModule as AnyElysia,
+  systemModule: systemModule as AnyElysia,
+  adminModule: adminModule as AnyElysia,
+  userRepo,
+  linkTokenRepo,
 });
+
+const databaseReady = await ensureDatabaseSchema();
 
 if (process.env.NODE_ENV !== 'test') {
   if (!shouldServeHttp(processRole)) {
@@ -344,18 +68,19 @@ if (process.env.NODE_ENV !== 'test') {
     process.exit(1);
   }
 
-  if (env.isProduction && !getPublicAppUrl()) {
+  const runtime = getEnv();
+  if (runtime.isProduction && !getPublicAppUrl()) {
     console.warn(
       '[boot] PublicAppUrl is unset — set it in onboarding/admin (config.json). CORS is open until then; email/OAuth links need it.'
     );
   }
 
-  app.listen(env.PORT);
+  app.listen(runtime.PORT);
   wireDirectRealtimePublishers((room, data) => {
     app.server?.publish(room, data);
   }, realtimePublishers);
 
-  if (shouldListenRealtimeFanout(processRole)) {
+  if (databaseReady && shouldListenRealtimeFanout(processRole)) {
     void startPostgresRealtimeListener({
       jobRepo,
       publishToWs: (room, payloadJson) => {
@@ -368,7 +93,13 @@ if (process.env.NODE_ENV !== 'test') {
   }
 
   if (shouldRunJobs(processRole)) {
-    jobRunner.start();
+    if (databaseReady) {
+      jobRunner.start();
+    } else {
+      console.warn(
+        '[boot] Job runner deferred — database unavailable; restart after Postgres is up'
+      );
+    }
   } else {
     console.log(
       `[boot] Job runner disabled (GIFTISTRY_PROCESS_ROLE=${processRole}); use the worker process for jobs`

@@ -1,8 +1,9 @@
 import { expect, test, describe, beforeAll, afterAll, beforeEach, afterEach } from "bun:test";
 import { app } from '../src/index';
-import { sql } from '../src/common/database/connection';
+import { sql } from '../src/common/database';
 import { testPassword } from './helper';
-import { getEnv, loadRuntimeConfig, setEnvForTests } from '../src/common/consts/runtime-config';
+import { loadRuntimeConfig } from '../src/common/config/runtime-config';
+import { getEnv, setEnvForTests } from '../src/common/config/utils/get-env.util';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -322,7 +323,7 @@ describe("Owner AllowSetup control", () => {
         updated_at = CURRENT_TIMESTAMP
     `;
     const { PostgresSitePolicyRepository } = await import(
-      '@/common/infrastructure/postgres-site-policy.repository'
+      '@/common/infrastructure/repositories/postgres-site-policy.repository'
     );
     new PostgresSitePolicyRepository().invalidateCache();
 

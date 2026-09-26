@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-import { tryParseGiftistryExportDeterministic } from '../src/modules/item/domain/try-parse-giftistry-export';
+import { tryParseGiftistryExportDeterministic } from '../src/modules/item/domain/utils/try-parse-giftistry-export.util';
 import {
   isGiftistryExportCsv,
   isGiftistryExportJson,
   isGiftistryExportMarkdown,
   isGiftistryExportTxt,
-} from '../src/modules/item/domain/giftistry-export-detect';
+} from '../src/modules/item/domain/utils/giftistry-export-detect.util';
 
 const sampleJson = JSON.stringify(
   {

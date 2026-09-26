@@ -1,40 +1,14 @@
-import type { User } from '../user.entity';
-import type { TourState } from '../tour.state';
-import type { UserSearchResult } from '@/modules/friends/domain/friend.entity';
-
-export interface CustomTheme {
-  Id: string;
-  Name: string;
-  Colors: Record<string, string>;
-  Advanced: Record<string, unknown>;
-}
-
-export interface CustomThemeInput {
-  id: string;
-  name: string;
-  colors: Record<string, string>;
-  advanced?: Record<string, unknown>;
-}
-
-export interface EmailVerificationLookup {
-  id: string;
-  emailVerificationExpires: Date;
-}
-
-export interface TwoFactorSecrets {
-  twoFactorSecret: string | null;
-  twoFactorRecoveryCodes: string | null;
-}
-
-export interface AdminAccountStatus {
-  id: string;
-  isAdmin: boolean;
-  isDisabled: boolean;
-}
-
-export interface DeleteAccountStatus extends AdminAccountStatus {
-  authHash: string;
-}
+import type { User } from '../interfaces/user.interface';
+import type { TourState } from '../interfaces/tour-state.interface';
+import type { UserSearchResult } from '@/modules/friends';
+import type { AdminAccountStatus } from '../interfaces/admin-account-status.interface';
+import type { CreateOauthUserInput } from '../interfaces/create-oauth-user-input.interface';
+import type { CustomTheme } from '../interfaces/custom-theme.interface';
+import type { CustomThemeInput } from '../interfaces/custom-theme-input.interface';
+import type { DeleteAccountStatus } from '../interfaces/delete-account-status.interface';
+import type { EmailVerificationLookup } from '../interfaces/email-verification-lookup.interface';
+import type { TwoFactorSecrets } from '../interfaces/two-factor-secrets.interface';
+import type { UserUpdateInput } from '../interfaces/user-update-input.interface';
 
 export interface UserRepository {
   findByEmail(email: string): Promise<User | null>;
@@ -42,37 +16,11 @@ export interface UserRepository {
   findById(id: string): Promise<User | null>;
   findByOauthSub(oauthSub: string): Promise<User | null>;
   create(username: string, email: string | null, firstName: string, lastName: string, authHash: string, isAdmin?: boolean, isOwner?: boolean): Promise<User>;
-  createOauthUser(params: {
-    username: string;
-    email: string | null;
-    firstName: string;
-    lastName: string;
-    oauthSub: string;
-    isAdmin?: boolean;
-    isOwner?: boolean;
-  }): Promise<User>;
+  createOauthUser(params: CreateOauthUserInput): Promise<User>;
   linkOauthSub(userId: string, oauthSub: string): Promise<User>;
   setOnboarded(id: string, isOnboarded?: boolean): Promise<User>;
   setTour(id: string, tour: TourState): Promise<User>;
-  update(id: string, updates: {
-    username?: string;
-    firstName?: string;
-    lastName?: string;
-    bio?: string;
-    theme?: string;
-    avatar?: string | null;
-    birthday?: string | null;
-    emailVerified?: boolean;
-    emailVerificationToken?: string | null;
-    emailVerificationExpires?: Date | null;
-    twoFactorEnabled?: boolean;
-    twoFactorSecret?: string | null;
-    twoFactorRecoveryCodes?: string | null;
-    isAdmin?: boolean;
-    aiEnabled?: boolean;
-    webSearchEnabled?: boolean;
-    isOnboarded?: boolean;
-  }): Promise<User>;
+  update(id: string, updates: UserUpdateInput): Promise<User>;
   count(): Promise<number>;
   updateLastOnline(id: string): Promise<void>;
   updateLockout(id: string, failedLoginCount: number, lockedUntil: Date | null): Promise<void>;

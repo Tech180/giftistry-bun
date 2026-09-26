@@ -1,9 +1,7 @@
 import { describe, expect, test, vi } from 'bun:test';
 import type { BackgroundJobRepository } from '../src/modules/jobs/domain/ports/background-job.repository';
-import {
-  JOB_HEARTBEAT_INTERVAL_MS,
-  withJobHeartbeat,
-} from '../src/modules/jobs/application/with-job-heartbeat.util';
+import { JOB_HEARTBEAT_INTERVAL_MS } from '../src/modules/jobs/application/constants/job-heartbeat.constant';
+import { withJobHeartbeat } from '../src/modules/jobs/application/utils/with-job-heartbeat.util';
 
 describe('withJobHeartbeat', () => {
   test('bumps progress while work is in flight and clears on settle', async () => {

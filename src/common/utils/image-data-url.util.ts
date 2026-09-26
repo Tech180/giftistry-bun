@@ -1,22 +1,9 @@
-import { AppError } from '@/common/middlewares/error.middleware';
-
-export const IMAGE_DATA_URL_ALLOWED_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-] as const;
-
-export type ImageDataUrlMime = (typeof IMAGE_DATA_URL_ALLOWED_TYPES)[number];
-
-export const COMMENT_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
-export const ITEM_PHOTO_MAX_BYTES = 20 * 1024 * 1024;
-export const ITEM_PHOTOS_MAX_COUNT = 10;
-
-export interface AssertImageDataUrlOptions {
-  maxBytes?: number;
-  allowedTypes?: readonly string[];
-}
+import { AppError } from '@/common/domain/errors/app-error';
+import {
+  COMMENT_IMAGE_MAX_BYTES,
+  IMAGE_DATA_URL_ALLOWED_TYPES,
+} from './constants/image-data-url.constant';
+import type { AssertImageDataUrlOptions } from './interfaces/assert-image-data-url-options.interface';
 
 export function assertImageDataUrl(
   value: string,

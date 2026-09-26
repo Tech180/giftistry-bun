@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { app } from '../src/index';
-import { sql } from '../src/common/database/connection';
+import { sql } from '../src/common/database';
 
 describe('Server ownership transfer', () => {
   const timestamp = Date.now();

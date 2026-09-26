@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import type { MetadataPack } from '../src/modules/system/domain/packs/metadata-pack.interface';
-import { collectEnabledPackFieldsForCategory } from '../src/modules/system/domain/packs/pack-field-definitions.util';
+import type { MetadataPack } from '../src/modules/system/domain/packs';
+import { collectEnabledPackFieldsForCategory } from '../src/modules/system/domain/packs/utils/pack-field-definitions.util';
 
 describe('collectEnabledPackFieldsForCategory', () => {
   test('includes CPU fields when technology and CPU packs are installed', () => {

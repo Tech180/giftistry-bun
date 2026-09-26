@@ -3,9 +3,9 @@ import {
   canUserMutateItem,
   canUserViewItem,
   isItemSuggestion,
-} from '../src/modules/item/domain/item-visibility.service';
-import type { Item } from '../src/modules/item/domain/item.entity';
-import type { Wishlist } from '../src/modules/wishlist/domain/wishlist.entity';
+} from '../src/modules/item/domain/utils/item-visibility.util';
+import type { Item } from '../src/modules/item/domain/interfaces/item.interface';
+import type { Wishlist } from '../src/modules/wishlist/domain/interfaces/wishlist.interface';
 
 function baseWishlist(overrides: Partial<Wishlist> = {}): Wishlist {
   return {

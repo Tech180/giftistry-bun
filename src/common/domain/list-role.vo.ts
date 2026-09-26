@@ -1,12 +1,6 @@
 import { DomainError } from './errors/domain-error';
-
-export type ListRoleLevel = 'viewer' | 'collaborator' | 'owner';
-
-const ROLE_HIERARCHY: Record<ListRoleLevel, number> = {
-  viewer: 1,
-  collaborator: 2,
-  owner: 3,
-};
+import { ROLE_HIERARCHY } from './constants/list-role-hierarchy.constant';
+import type { ListRoleLevel } from './types/list-role-level.type';
 
 export class ListRole {
   private constructor(readonly level: ListRoleLevel) {}

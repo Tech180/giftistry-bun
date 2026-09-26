@@ -1,4 +1,6 @@
-import type { FriendRequest, FriendRequestStatus, FriendRequestWithUser } from '../friend.entity';
+import type { FriendRequest } from '../interfaces/friend-request.interface';
+import type { FriendRequestWithUser } from '../interfaces/friend-request-with-user.interface';
+import type { FriendRequestStatus } from '../types/friend-request-status.type';
 
 export interface FriendRequestRepository {
   create(senderId: string, receiverId: string): Promise<FriendRequest>;

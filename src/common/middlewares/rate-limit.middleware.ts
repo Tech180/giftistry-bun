@@ -1,47 +1,7 @@
 import { Elysia } from 'elysia';
-import { AppError } from './error.middleware';
-
-interface RateLimitConfig {
-  windowMs: number;
-  max: number;
-  paths?: string[];
-  /** When true, skipped if isAiRateLimitEnabled returns false */
-  respectAiRateLimitToggle?: boolean;
-  /** Required when respectAiRateLimitToggle is true */
-  isAiRateLimitEnabled?: () => boolean;
-}
-
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of rateLimitStore.entries()) {
-    if (now > value.resetTime) {
-      rateLimitStore.delete(key);
-    }
-  }
-}, 60000);
-
-export function checkRateLimit(key: string, config: Pick<RateLimitConfig, 'windowMs' | 'max'>): void {
-  const now = Date.now();
-  const record = rateLimitStore.get(key);
-
-  if (!record || now > record.resetTime) {
-    rateLimitStore.set(key, {
-      count: 1,
-      resetTime: now + config.windowMs,
-    });
-    return;
-  }
-
-  if (record.count >= config.max) {
-    throw new AppError('Too many requests. Please try again later.', 429, 'TOO_MANY_REQUESTS', {
-      Timeframe: '60s',
-    });
-  }
-
-  record.count++;
-}
+import { AppError } from '@/common/domain/errors/app-error';
+import type { RateLimitConfig } from './interfaces/rate-limit-config.interface';
+import { checkRateLimit } from './utils/check-rate-limit.util';
 
 export function rateLimit(config: RateLimitConfig) {
   const paths = config.paths ?? ['/signup', '/login'];
@@ -71,24 +31,13 @@ export function rateLimit(config: RateLimitConfig) {
         '127.0.0.1';
 
       const key = `${ip}:${path}`;
-      const now = Date.now();
-
-      const record = rateLimitStore.get(key);
-      if (!record || now > record.resetTime) {
-        rateLimitStore.set(key, {
-          count: 1,
-          resetTime: now + config.windowMs,
-        });
-        return;
+      try {
+        checkRateLimit(key, config);
+      } catch (err) {
+        if (err instanceof AppError) {
+          set.status = err.statusCode;
+        }
+        throw err;
       }
-
-      if (record.count >= config.max) {
-        set.status = 429;
-        throw new AppError('Too many requests. Please try again later.', 429, 'TOO_MANY_REQUESTS', {
-          Timeframe: '60s',
-        });
-      }
-
-      record.count++;
     });
 }

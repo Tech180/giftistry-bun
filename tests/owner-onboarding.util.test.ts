@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { isOwnerOnboardingCompleted } from '@/modules/system/domain/owner-onboarding.util';
+import { isOwnerOnboardingCompleted } from '@/modules/system/domain/utils/owner-onboarding.util';
 
 describe('isOwnerOnboardingCompleted', () => {
   test('true when OwnerOnboardingCompleted is set', () => {

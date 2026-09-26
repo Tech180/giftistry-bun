@@ -1,65 +1,44 @@
 import { Elysia } from 'elysia';
-import type { UserRepository } from './domain/ports/user.repository';
-import type { PasskeyRepository } from './domain/ports/passkey.repository';
-import type { EmailSender } from './domain/ports/email-sender.port';
-import type { GetSitePolicyUseCase } from '@/common/application/get-site-policy.use-case';
-import type { SaveSitePolicyUseCase } from '@/common/application/save-site-policy.use-case';
-import type { WriteAuditLogUseCase } from '@/common/application/write-audit-log.use-case';
-import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
-import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
-import type { ServerConfigRepository } from '@/modules/system/domain/ports/server-config.repository';
-import type { SaveSystemSettingsUseCase } from '@/modules/system/application/save-system-settings.use-case';
-import type { RegistrationInviteRepository } from '@/modules/registration-invite/domain/ports/registration-invite.repository';
-import { SignupUseCase } from './application/signup.use-case';
-import { LoginUseCase } from './application/login.use-case';
-import { ChangePasswordUseCase } from './application/change-password.use-case';
-import { UpdateProfileUseCase } from './application/update-profile.use-case';
-import { UserPreviewUseCase } from './application/user-preview.use-case';
-import { ListCustomThemesUseCase } from './application/list-custom-themes.use-case';
-import { SaveCustomThemeUseCase } from './application/save-custom-theme.use-case';
-import { DeleteCustomThemeUseCase } from './application/delete-custom-theme.use-case';
-import { PasskeyLoginUseCase } from './application/passkey-login.use-case';
-import { RegisterPasskeyUseCase } from './application/register-passkey.use-case';
-import { ListPasskeysUseCase } from './application/list-passkeys.use-case';
-import { DeletePasskeyUseCase } from './application/delete-passkey.use-case';
-import { TwoFactorLoginUseCase } from './application/two-factor-login.use-case';
-import { Setup2faUseCase } from './application/setup-2fa.use-case';
-import { Enable2faUseCase } from './application/enable-2fa.use-case';
-import { Disable2faUseCase } from './application/disable-2fa.use-case';
-import { DisableAccountUseCase } from './application/disable-account.use-case';
-import { DeleteAccountUseCase } from './application/delete-account.use-case';
-import { GetCurrentUserUseCase } from './application/get-current-user.use-case';
-import { GetOnboardingStateUseCase } from './application/get-onboarding-state.use-case';
-import { CompleteUserOnboardingUseCase } from './application/complete-user-onboarding.use-case';
-import { CompleteOwnerOnboardingUseCase } from './application/complete-owner-onboarding.use-case';
-import { PatchTutorialUseCase } from './application/patch-tutorial.use-case';
-import { BeginOidcLoginUseCase } from './application/begin-oidc-login.use-case';
-import { HandleOidcCallbackUseCase } from './application/handle-oidc-callback.use-case';
-import { OpenIdClientAdapter } from './infrastructure/openid-client.adapter';
-import { authRoutes, createAuthMiddleware } from './presentation/auth.routes';
-import { themeRoutes } from './presentation/theme.routes';
-import { GetThemeCssUseCase } from './application/get-theme-css.use-case';
+import { SignupUseCase } from './slices/session/use-cases/signup.use-case';
+import { LoginUseCase } from './slices/session/use-cases/login.use-case';
+import { ChangePasswordUseCase } from './slices/session/use-cases/change-password.use-case';
+import { UpdateProfileUseCase } from './slices/profile/use-cases/update-profile.use-case';
+import { UserPreviewUseCase } from './slices/profile/use-cases/user-preview.use-case';
+import { ListCustomThemesUseCase } from './slices/themes/use-cases/list-custom-themes.use-case';
+import { SaveCustomThemeUseCase } from './slices/themes/use-cases/save-custom-theme.use-case';
+import { DeleteCustomThemeUseCase } from './slices/themes/use-cases/delete-custom-theme.use-case';
+import { PasskeyLoginUseCase } from './slices/passkeys/use-cases/passkey-login.use-case';
+import { RegisterPasskeyUseCase } from './slices/passkeys/use-cases/register-passkey.use-case';
+import { ListPasskeysUseCase } from './slices/passkeys/use-cases/list-passkeys.use-case';
+import { DeletePasskeyUseCase } from './slices/passkeys/use-cases/delete-passkey.use-case';
+import { TwoFactorLoginUseCase } from './slices/session/use-cases/two-factor-login.use-case';
+import { Enable2faUseCase } from './slices/two-factor/use-cases/enable-2fa.use-case';
+import { Disable2faUseCase } from './slices/two-factor/use-cases/disable-2fa.use-case';
+import { DisableAccountUseCase } from './slices/session/use-cases/disable-account.use-case';
+import { DeleteAccountUseCase } from './slices/session/use-cases/delete-account.use-case';
+import { GetCurrentUserUseCase } from './slices/session/use-cases/get-current-user.use-case';
+import { GetOnboardingStateUseCase } from './slices/profile/use-cases/get-onboarding-state.use-case';
+import { CompleteUserOnboardingUseCase } from './slices/profile/use-cases/complete-user-onboarding.use-case';
+import { CompleteOwnerOnboardingUseCase } from './slices/profile/use-cases/complete-owner-onboarding.use-case';
+import { PatchTutorialUseCase } from './slices/profile/use-cases/patch-tutorial.use-case';
+import { BeginOidcLoginUseCase } from './slices/oidc/use-cases/begin-oidc-login.use-case';
+import { HandleOidcCallbackUseCase } from './slices/oidc/use-cases/handle-oidc-callback.use-case';
+import { authRoutes } from './presentation/auth.routes';
+import { createAuthMiddleware } from './presentation/middlewares/auth.middleware';
+import { createOwnerAuthMiddleware } from './presentation/middlewares/owner-auth.middleware';
+import { themeCatalogRoutes } from './presentation/routes/theme-catalog.routes';
+import { GetThemeCssUseCase } from './slices/themes/use-cases/get-theme-css.use-case';
+import type { AuthModuleDeps } from './interfaces/auth-module-deps.interface';
 
-export interface AuthModuleDeps {
-  userRepo: UserRepository;
-  passkeyRepo: PasskeyRepository;
-  emailSender: EmailSender;
-  getSitePolicyUseCase: GetSitePolicyUseCase;
-  saveSitePolicyUseCase: SaveSitePolicyUseCase;
-  writeAuditLogUseCase: WriteAuditLogUseCase;
-  assertUserCanUseCase: AssertUserCanUseCase;
-  wishlistRepo: WishlistRepository;
-  serverConfigRepo: ServerConfigRepository;
-  saveSystemSettingsUseCase: SaveSystemSettingsUseCase;
-  registrationInviteRepo: RegistrationInviteRepository;
-}
+export type { AuthModuleDeps };
 
 export let authMiddleware: ReturnType<typeof createAuthMiddleware>;
+export let ownerAuthMiddleware: ReturnType<typeof createOwnerAuthMiddleware>;
 
 export function createAuthModule(deps: AuthModuleDeps) {
   authMiddleware = createAuthMiddleware(deps.userRepo);
-  const oidcClient = new OpenIdClientAdapter(deps.serverConfigRepo);
-
+  ownerAuthMiddleware = createOwnerAuthMiddleware(deps.userRepo);
+  const oidcClient = deps.oidcClient;
   const authUseCases = {
     signup: new SignupUseCase(
       deps.userRepo,
@@ -78,7 +57,6 @@ export function createAuthModule(deps: AuthModuleDeps) {
     listPasskeys: new ListPasskeysUseCase(deps.passkeyRepo),
     deletePasskey: new DeletePasskeyUseCase(deps.passkeyRepo),
     twoFactorLogin: new TwoFactorLoginUseCase(deps.userRepo),
-    setup2fa: new Setup2faUseCase(),
     enable2fa: new Enable2faUseCase(deps.userRepo),
     disable2fa: new Disable2faUseCase(deps.userRepo),
     disableAccount: new DisableAccountUseCase(deps.userRepo, deps.writeAuditLogUseCase),
@@ -105,8 +83,6 @@ export function createAuthModule(deps: AuthModuleDeps) {
   };
 
   return new Elysia()
-    .use(themeRoutes({ getThemeCss: new GetThemeCssUseCase(deps.userRepo) }))
-    .use(authRoutes(authUseCases, deps.userRepo, deps.serverConfigRepo));
+    .use(themeCatalogRoutes({ getThemeCss: new GetThemeCssUseCase(deps.userRepo) }))
+    .use(authRoutes({ useCases: authUseCases, userRepo: deps.userRepo, serverConfigRepo: deps.serverConfigRepo }));
 }
-
-export { createAuthMiddleware } from './presentation/auth.routes';

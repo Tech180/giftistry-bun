@@ -1,13 +1,12 @@
 import { describe, expect, test } from 'bun:test';
+import { compilePopulatePrompt } from '../src/modules/item/infrastructure/utils/compile-populate-prompt.util';
 import {
-  compilePopulatePrompt,
-  isVerboseMarketingDescription,
   isVerboseProductTitle,
   mergeExtractedMetadata,
   mergeFieldMaps,
   shouldAiPopulate,
   shouldRunAiPopulate,
-} from '../src/modules/item/infrastructure/gemini-metadata-populator';
+} from '../src/modules/item/domain/utils/merge-extracted-metadata.util';
 
 const OURA_MARKETING_DESCRIPTION =
   "Introducing the world's smallest smart ring: Oura Ring 5, built with even more sensing power than previous generations. 40% smaller and ultra lightweight, Oura Ring 5 fits seamlessly in with your life and your style. The updated all-titanium design is more scratch-resistant and comfortable than ever, Oura Ring 5 delivers 50+ health metrics with research-grade accuracy. With 1 week of battery life you can even forget it's on. No more compromises when it comes to tracking your health. Oura Ring 5 is FSA/HSA Eligible: we can accept FSA or HSA funds for the following: Oura Ring, additional chargers, and shipping. IMPORTANT: Size yourself with the Oura Ring 5 Sizing Kit before you buy.";
@@ -84,25 +83,6 @@ describe('compilePopulatePrompt', () => {
     expect(prompt).not.toContain('{itemName}');
     expect(prompt).not.toContain('{websiteName}');
     expect(prompt).not.toContain('{pageContext}');
-  });
-});
-
-describe('isVerboseMarketingDescription', () => {
-  test('flags long marketplace marketing copy', () => {
-    expect(isVerboseMarketingDescription(OURA_MARKETING_DESCRIPTION)).toBe(true);
-  });
-
-  test('flags short copy with store fluff keywords', () => {
-    expect(isVerboseMarketingDescription('FSA/HSA eligible at checkout')).toBe(true);
-    expect(isVerboseMarketingDescription('NOTICE: Final payment does not include taxes and duty fees.')).toBe(true);
-  });
-
-  test('allows brief product-focused descriptions', () => {
-    expect(
-      isVerboseMarketingDescription(
-        'Smart ring that tracks sleep, activity, and health metrics. Titanium build with about one week of battery life.'
-      )
-    ).toBe(false);
   });
 });
 

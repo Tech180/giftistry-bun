@@ -1,4 +1,3 @@
-export { TECH_CATEGORIES } from './tech-categories.constant';
 export { TECHNOLOGY_CPU_PACK } from './technology.cpu.pack';
 export { TECHNOLOGY_COMPUTER_PARTS_PACK } from './technology.computer-parts.pack';
 export { TECHNOLOGY_PACK } from './technology.pack';

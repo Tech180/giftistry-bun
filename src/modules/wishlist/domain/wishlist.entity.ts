@@ -1,33 +1,6 @@
-import type { ListShareWithUser } from './list-share.entity';
-
-export interface Priority {
-  Id: string;
-  UserId: string;
-  Label: string;
-  Weight: number;
-}
-
-export interface Wishlist {
-  Id: string;
-  UserId: string;
-  Title: string;
-  ExpiresAt: Date | null;
-  AllowGroupFunds: boolean;
-  IsActive: boolean;
-  CreatedAt?: Date;
-  Category?: string;
-  RevealSuggestions?: boolean;
-  AiEnabled?: boolean;
-  WebSearchEnabled?: boolean;
-  ManualJobBackground?: boolean;
-  AutoRollover?: boolean;
-  OwnerUsername?: string;
-  OwnerFirstName?: string;
-  OwnerLastName?: string;
-  OwnerAvatar?: string | null;
-  Role?: 'owner' | 'collaborator' | 'viewer';
-  Shares?: ListShareWithUser[];
-}
+import type { ListShareWithUser } from './interfaces/list-share-with-user.interface';
+import type { ListRole } from './types/list-role.type';
+import type { Wishlist } from './interfaces/wishlist.interface';
 
 export class WishlistEntity implements Wishlist {
   Id!: string;
@@ -47,7 +20,7 @@ export class WishlistEntity implements Wishlist {
   OwnerFirstName?: string;
   OwnerLastName?: string;
   OwnerAvatar?: string | null;
-  Role?: 'owner' | 'collaborator' | 'viewer';
+  Role?: ListRole;
   Shares?: ListShareWithUser[];
 
   constructor(data: Wishlist) {

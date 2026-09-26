@@ -1,0 +1,32 @@
+export interface UserRow {
+  Id: string;
+  Username: string;
+  Email: string | null;
+  FirstName: string;
+  LastName: string;
+  AuthHash: string;
+  CreatedAt: Date | string | null;
+  Bio: string | null;
+  Theme: string | null;
+  Avatar: string | null;
+  Birthday: Date | string | null;
+  EmailVerified: boolean;
+  TwoFactorEnabled: boolean;
+  IsAdmin: boolean;
+  IsOwner: boolean;
+  LastOnline: Date | string | null;
+  LastLoginAt: Date | string | null;
+  IsDisabled: boolean;
+  IsHidden: boolean;
+  LockedUntil: Date | string | null;
+  FailedLoginCount: number;
+  ForcePasswordChange: boolean;
+  LoginAttemptsBeforeLockout: number | null;
+  SessionVersion: number;
+  PolicyJson: unknown;
+  AiEnabled: boolean;
+  WebSearchEnabled: boolean;
+  IsOnboarded: boolean;
+  OauthSub: string | null;
+  TourJson: unknown;
+}

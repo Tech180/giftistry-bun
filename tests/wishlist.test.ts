@@ -1,6 +1,6 @@
 import { expect, test, describe, beforeAll, afterAll } from "bun:test";
 import { app } from '../src/index';
-import { sql } from '../src/common/database/connection';
+import { sql } from '../src/common/database';
 import { createTestUser, createTestWishlist, shareTestWishlist, cleanUpUser, cleanUpWishlist } from './helper';
 
 describe("Wishlist Lifecycle & Shares", () => {
@@ -260,7 +260,8 @@ describe("Wishlist Lifecycle & Shares", () => {
       "Sub Claimed List 2026",
       new Date(Date.now() + 86400000).toISOString()
     );
-    await shareTestWishlist(owner, oldListId, collaborator, "collaborator");
+    // Claimers must be viewers — list editors cannot claim.
+    await shareTestWishlist(owner, oldListId, collaborator, "viewer");
 
     const itemRes = await app.handle(
       new Request(`http://localhost/api/wishlists/${oldListId}/items`, {

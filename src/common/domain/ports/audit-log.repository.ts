@@ -2,7 +2,7 @@ export interface AuditLogEntry {
   actorId?: string | null;
   targetId?: string | null;
   action: string;
-  metadata?: Record<string, unknown>;
+  metadata?: unknown;
   ip?: string | null;
 }
 

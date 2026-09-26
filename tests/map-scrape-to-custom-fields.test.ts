@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { mapScrapeToCustomFields } from '../src/modules/item/domain/map-scrape-to-custom-fields';
+import { mapScrapeToCustomFields } from '../src/modules/item/domain/utils/map-scrape-to-custom-fields.util';
 
 describe('mapScrapeToCustomFields', () => {
   test('maps color to single Color key', () => {

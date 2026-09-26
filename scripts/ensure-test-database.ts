@@ -1,6 +1,5 @@
 import postgres from 'postgres';
-import { initializeSchema } from '../src/common/database/init-schema';
-import { runMigrations } from '../src/common/database/migrations';
+import { initializeSchema, runMigrations } from '../src/common/database';
 
 const testDatabase = process.env.PGDATABASE || 'giftistry_test';
 
@@ -40,6 +39,25 @@ if (!row?.exists) {
 }
 
 await runMigrations(testSql);
+
+// Keep the suite idempotent: setup tests seal registration to invite_only.
+const [policyRow] = await testSql<{ policy: unknown }[]>`
+  SELECT policy FROM site_policy WHERE id = 1
+`;
+const currentPolicy =
+  policyRow?.policy &&
+  typeof policyRow.policy === 'object' &&
+  !Array.isArray(policyRow.policy)
+    ? (policyRow.policy as Record<string, unknown>)
+    : {};
+const nextPolicy = { ...currentPolicy, RegistrationMode: 'open' };
+await testSql`
+  INSERT INTO site_policy (id, policy)
+  VALUES (1, ${testSql.json(nextPolicy)})
+  ON CONFLICT (id) DO UPDATE
+  SET policy = ${testSql.json(nextPolicy)}
+`;
+
 await testSql.end();
 
 console.log(`[INFO] Test database "${testDatabase}" is ready.`);

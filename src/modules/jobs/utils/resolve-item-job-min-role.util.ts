@@ -1,6 +1,5 @@
-export type ListMinRole = 'viewer' | 'collaborator' | 'owner';
-
-export type ItemEnrichIntent = 'create-from-url' | 'update-item' | 'draft-populate';
+import type { ListMinRole } from './interfaces/list-min-role.type';
+import type { ItemEnrichIntent } from './interfaces/item-enrich-intent.type';
 
 /**
  * Min list role for item-enrich by intent.

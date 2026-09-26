@@ -1,0 +1,5 @@
+/** Defaults / clamps for AI wishlist import chunking (keep aligned with system settings). */
+export const DEFAULT_AI_IMPORT_CHUNKING_ENABLED = true;
+export const DEFAULT_AI_IMPORT_CHUNK_ITEM_LIMIT = 20;
+export const AI_IMPORT_CHUNK_ITEM_LIMIT_MIN = 1;
+export const AI_IMPORT_CHUNK_ITEM_LIMIT_MAX = 100;

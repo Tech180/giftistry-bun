@@ -1,11 +1,7 @@
 import * as cheerio from 'cheerio';
-import { decodeHtmlEntities } from '../html-utils';
-import type { MetadataExtractor } from './types';
-
-function parsePriceText(text: string): number | null {
-  const parsed = Number(text.replace(/[^0-9.]/g, ''));
-  return Number.isFinite(parsed) ? parsed : null;
-}
+import { decodeHtmlEntities } from '../utils/html.util';
+import type { MetadataExtractor } from './interfaces/metadata-extractor.interface';
+import { parseScrapePrice } from './utils/parse-scrape-price.util';
 
 export const domFallbackExtractor: MetadataExtractor = {
   name: 'dom-fallback',
@@ -28,7 +24,7 @@ export const domFallbackExtractor: MetadataExtractor = {
       $('[itemprop="price"]').first().text().trim() ||
       $('[itemprop="price"]').first().attr('content')?.trim() ||
       '';
-    const price = priceText ? parsePriceText(priceText) : null;
+    const price = priceText ? parseScrapePrice(priceText) : null;
 
     const imageUrl =
       $('[itemprop="image"]').first().attr('src') ||

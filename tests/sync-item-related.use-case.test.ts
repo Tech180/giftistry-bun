@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, mock } from 'bun:test';
-import { SyncItemRelatedUseCase } from '@/modules/item/application/sync-item-related.use-case';
-import type { Item } from '@/modules/item/domain/item.entity';
+import { SyncItemRelatedUseCase } from '@/modules/item/slices/links/use-cases/sync-item-related.use-case';
+import type { Item } from '@/modules/item/domain/interfaces/item.interface';
 
 const OWNER_ID = 'owner-1';
 const LIST_ID = 'list-1';

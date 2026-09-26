@@ -1,12 +1,13 @@
 import { describe, expect, test } from 'bun:test';
-import { mapAiImportItems, compileImportPrompt } from '../src/modules/item/infrastructure/gemini-item-import-parser';
+import { compileImportPrompt } from '../src/modules/item/infrastructure/utils/compile-import-prompt.util';
+import { mapAiImportItems } from '../src/modules/item/infrastructure/utils/map-ai-import-items.util';
+import { DefaultImportFileTextExtractor } from '../src/modules/item/infrastructure/adapters/import-file-text-extractor';
 import {
   cellValueToText,
-  DefaultImportFileTextExtractor,
-} from '../src/modules/item/infrastructure/import-file-text-extractor';
-import { workbookBytesToText } from '../src/modules/item/infrastructure/xlsx-workbook-to-text.util';
+  workbookBytesToText,
+} from '../src/modules/item/infrastructure/utils/xlsx-workbook-to-text.util';
 
-describe('gemini-item-import-parser helpers', () => {
+describe('ai-item-import-parser helpers', () => {
   test('compileImportPrompt substitutes tokens', () => {
     const prompt = compileImportPrompt(
       'File {fileName} format {format} title {wishlistTitle} cats {existingCategories}\n{fileContent}',

@@ -1,9 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-import {
-  compileCategoryPrompt,
-  normalizeCategoryLabel,
-  parseCategoryJson,
-} from '../src/modules/item/infrastructure/gemini-category-classifier';
+import { normalizeCategoryLabel } from '../src/modules/item/domain/utils/normalize-category-label.util';
+import { compileCategoryPrompt } from '../src/modules/item/infrastructure/utils/compile-category-prompt.util';
+import { parseCategoryJson } from '../src/modules/item/infrastructure/utils/parse-category-json.util';
 
 describe('compileCategoryPrompt', () => {
   test('replaces category prompt tokens', () => {

@@ -1,4 +1,4 @@
-import type { SitePolicy } from '@/common/types/user-policy';
+import type { SitePolicy } from '../interfaces/site-policy.interface';
 
 export interface SitePolicyRepository {
   get(): Promise<SitePolicy>;

@@ -3,10 +3,10 @@ import {
   buildSearchQuery,
   formatSearchContext,
   parseSearchResults,
-} from '../src/modules/item/infrastructure/playwright-product-researcher';
-import { sanitizeProductDescription } from '../src/modules/item/domain/sanitize-product-description.util';
+} from '../src/modules/item/infrastructure/utils/product-research.util';
+import { sanitizeProductDescription } from '../src/modules/item/domain/utils/sanitize-product-description.util';
 import { getDefaultAiPrompt } from '../src/modules/system/domain/prompts';
-import { compilePopulatePrompt } from '../src/modules/item/infrastructure/gemini-metadata-populator';
+import { compilePopulatePrompt } from '../src/modules/item/infrastructure/utils/compile-populate-prompt.util';
 
 const fixture = await Bun.file(`${import.meta.dir}/fixtures/duckduckgo-search-results.html`).text();
 

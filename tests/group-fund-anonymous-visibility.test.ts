@@ -38,8 +38,8 @@ describe('Group fund anonymous contributor visibility', () => {
       new Date(Date.now() + 86400000).toISOString()
     );
 
-    await shareTestWishlist(owner, listId, contributorA, 'collaborator');
-    await shareTestWishlist(owner, listId, contributorB, 'collaborator');
+    await shareTestWishlist(owner, listId, contributorA, 'viewer');
+    await shareTestWishlist(owner, listId, contributorB, 'viewer');
     await shareTestWishlist(owner, listId, viewerC, 'viewer');
 
     const itemRes = await app.handle(

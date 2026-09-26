@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { mergeSitePolicy, mergeUserPolicy } from '@/common/types/user-policy';
+import { mergeSitePolicy } from '@/common/domain/utils/merge-site-policy.util';
+import { mergeUserPolicy } from '@/common/domain/utils/merge-user-policy.util';
 
 describe('mergeUserPolicy', () => {
   test('reads PascalCase keys', () => {

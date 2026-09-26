@@ -1,8 +1,6 @@
 import { describe, expect, test, mock } from 'bun:test';
-import {
-  BulkAddItemsUseCase,
-  MAX_BULK_ADD_BATCH,
-} from '../src/modules/item/application/bulk-add-items.use-case';
+import { BulkAddItemsUseCase } from '../src/modules/item/slices/import/use-cases/bulk-add-items.use-case';
+import { MAX_BULK_ADD_BATCH } from '../src/modules/item/slices/import/constants/max-bulk-add-batch.constant';
 
 describe('BulkAddItemsUseCase batch limit', () => {
   test('exports MAX_BULK_ADD_BATCH of 500', () => {

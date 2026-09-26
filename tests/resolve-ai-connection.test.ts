@@ -1,8 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import {
-  normalizeAiProvider,
-  toSystemSettingsView,
-} from '../src/modules/system/domain/server-config.entity';
+import { normalizeAiProvider } from '../src/modules/system/domain/utils/normalize-ai-provider.util';
+import { toSystemSettingsView } from '../src/modules/system/domain/utils/to-system-settings-view.util';
 import {
   isAiSlotConfigured,
   resolveAiConnection,

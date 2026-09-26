@@ -1,6 +1,6 @@
 import { mock } from 'bun:test';
 
-mock.module('@/common/infrastructure/config.loader', () => ({
+mock.module('@/common/config/utils/server-config-file.util', () => ({
   loadConfig: () => ({
     DbType: 'local',
     SmtpType: 'local',
@@ -14,23 +14,25 @@ mock.module('@/common/infrastructure/config.loader', () => ({
 
 mock.module('@/common/utils/probe-ai-reachability.util', () => ({
   probeAiReachability: async () => true,
-  LOCAL_MODELS_TIMEOUT_MS: 10_000,
-  OPENROUTER_PROBE_TIMEOUT_MS: 15_000,
 }));
 
 import { describe, expect, test, beforeAll } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { parseMetadata, extractTitleFromSlug, extractMetadata } from '@/modules/item/infrastructure/scraping/parser';
-import { validateScrapeResult } from '@/modules/item/infrastructure/scraping/validators';
-import { extractFromCapturedJson } from '@/modules/item/infrastructure/scraping/extractors/embedded-json.extractor';
-import { computeConfidence, computeFieldsFound } from '@/modules/item/infrastructure/scraping/extractors/merge';
+import { parseMetadata, extractMetadata } from '@/modules/item/infrastructure/scraping/extractors/extraction-pipeline';
+import { extractTitleFromSlug } from '@/modules/item/infrastructure/scraping/extractors/utils/extract-title-from-slug.util';
+import { validateScrapeResult } from '@/modules/item/infrastructure/scraping/utils/validate-scrape-result.util';
+import { extractFromCapturedJson } from '@/modules/item/infrastructure/scraping/extractors/utils/embedded-json.util';
+import {
+  computeConfidence,
+  computeFieldsFound,
+} from '@/modules/item/infrastructure/scraping/utils/compute-scrape-confidence.util';
 import { dicksExtractor } from '@/modules/item/infrastructure/scraping/retailers/dicks.extractor';
 import { amazonExtractor } from '@/modules/item/infrastructure/scraping/retailers/amazon.extractor';
 import type { MetadataScraper } from '@/modules/item/domain/ports/metadata-scraper.port';
 import type { ItemRepository } from '@/modules/item/domain/ports/item.repository';
 import type { UserRepository } from '@/modules/auth/domain/ports/user.repository';
-import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
+import type { AssertUserCanUseCase } from '@/common/application/use-cases/user-policy.use-cases';
 import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
 
 const FIXTURES = join(import.meta.dir, 'fixtures/scraping');
@@ -309,8 +311,8 @@ describe('metadata scraper use cases', () => {
   let EnrichLinkMetadataUseCase: any;
 
   beforeAll(async () => {
-    const extractMod = await import('@/modules/item/application/extract-metadata.use-case');
-    const enrichMod = await import('@/modules/item/application/enrich-link-metadata.use-case');
+    const extractMod = await import('@/modules/item/slices/metadata/use-cases/extract-metadata.use-case');
+    const enrichMod = await import('@/modules/item/slices/metadata/use-cases/enrich-link-metadata.use-case');
     ExtractMetadataUseCase = extractMod.ExtractMetadataUseCase;
     EnrichLinkMetadataUseCase = enrichMod.EnrichLinkMetadataUseCase;
   });
@@ -553,7 +555,7 @@ describe('MetadataScraperOrchestrator failover', () => {
     let playwrightCalled = false;
 
     const { MetadataScraperOrchestrator } = await import(
-      '@/modules/item/infrastructure/metadata-scraper.orchestrator'
+      '@/modules/item/infrastructure/adapters/metadata-scraper.orchestrator'
     );
 
     const scraper = new MetadataScraperOrchestrator(
@@ -576,8 +578,11 @@ describe('MetadataScraperOrchestrator failover', () => {
   });
 
   test('throws ScrapeError when both tiers fail on block page', async () => {
-    const { MetadataScraperOrchestrator, ScrapeError } = await import(
-      '@/modules/item/infrastructure/metadata-scraper.orchestrator'
+    const { MetadataScraperOrchestrator } = await import(
+      '@/modules/item/infrastructure/adapters/metadata-scraper.orchestrator'
+    );
+    const { ScrapeError } = await import(
+      '@/modules/item/infrastructure/scraping/errors/scrape-error'
     );
 
     const scraper = new MetadataScraperOrchestrator(
@@ -600,7 +605,7 @@ describe('MetadataScraperOrchestrator failover', () => {
 
   test('uses captured JSON during playwright tier', async () => {
     const { MetadataScraperOrchestrator } = await import(
-      '@/modules/item/infrastructure/metadata-scraper.orchestrator'
+      '@/modules/item/infrastructure/adapters/metadata-scraper.orchestrator'
     );
 
     const scraper = new MetadataScraperOrchestrator(
@@ -623,7 +628,7 @@ describe('MetadataScraperOrchestrator failover', () => {
 describe('scraping config', () => {
   test('loads default timeout values', async () => {
     const { scrapingConfig } = await import(
-      '@/modules/item/infrastructure/scraping/scraping-config'
+      '@/modules/item/infrastructure/scraping/utils/scraping-config.util'
     );
     expect(scrapingConfig.fetchTimeoutMs).toBeGreaterThan(0);
     expect(scrapingConfig.playwrightTimeoutMs).toBeGreaterThan(0);
@@ -634,7 +639,7 @@ describe('scraping config', () => {
 describe('browser headers', () => {
   test('buildFetchHeaders includes sec-fetch and referer', async () => {
     const { buildFetchHeaders } = await import(
-      '@/modules/item/infrastructure/scraping/browser-headers'
+      '@/modules/item/infrastructure/scraping/utils/browser-headers.util'
     );
     const headers = buildFetchHeaders('https://shop.example.com/product/1');
     expect(headers['Sec-Fetch-Mode']).toBe('navigate');

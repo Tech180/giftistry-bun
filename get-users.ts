@@ -1,4 +1,4 @@
-import { sql } from './src/common/database/connection';
+import { sql } from './src/common/database';
 import fs from 'fs';
 try {
   const users = await sql`SELECT id, username, first_name, last_name, avatar FROM users`;

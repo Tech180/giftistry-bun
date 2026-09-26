@@ -1,4 +1,4 @@
-import type { UserPolicyContext } from '../user-policy.vo';
+import type { UserPolicyContext } from '../interfaces/user-policy-context.interface';
 
 export interface UserPolicyRepository {
   getContext(userId: string): Promise<UserPolicyContext | null>;

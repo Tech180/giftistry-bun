@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test';
-import { parseAiImportChunks } from '../src/modules/item/domain/parse-ai-import-chunks.util';
+import { parseAiImportChunks } from '../src/modules/item/domain/utils/parse-ai-import-chunks.util';
 import {
   formatAiImportAllChunksFailedError,
   formatAiImportChunkFailureWarning,
-} from '../src/modules/item/domain/chunk-ai-import-content.util';
-import type { ImportedItemPreview } from '../src/modules/item/domain/imported-item-preview';
+} from '../src/modules/item/domain/utils/chunk-ai-import-content.util';
+import type { ImportedItemPreview } from '../src/modules/item/domain/interfaces/imported-item-preview.interface';
 
 function buildSheetContent(itemCount: number): string {
   const lines = ['# Sheet: Main', 'Name\tLink'];

@@ -1,6 +1,6 @@
 import { expect, test, describe, beforeAll, afterAll } from 'bun:test';
 import { app } from '../src/index';
-import { sql } from '../src/common/database/connection';
+import { sql } from '../src/common/database';
 import {
   createTestUser,
   createTestWishlist,

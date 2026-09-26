@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from 'bun:test';
-import { AppError } from '../src/common/middlewares/error.middleware';
-import { ParseImportPreviewUseCase } from '../src/modules/item/application/parse-import-preview.use-case';
-import type { ImportFileTextExtractorInput } from '../src/modules/item/domain/ports/import-file-text-extractor.port';
+import { AppError } from '../src/common/domain/errors/app-error';
+import { ParseImportPreviewUseCase } from '../src/modules/item/slices/import/use-cases/parse-import-preview.use-case';
+import type { ImportFileTextExtractorInput } from '@/modules/item/domain/interfaces/import-file-text-extractor-input.interface';
 
 function buildUseCase(overrides: {
   extractText?: string;

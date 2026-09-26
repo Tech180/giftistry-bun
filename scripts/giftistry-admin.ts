@@ -13,19 +13,21 @@
  */
 
 import { createAppContainer } from '../src/app.container';
-import { env } from '../src/common/consts/runtime-config';
-import { loadConfig, saveConfig, sql } from '../src/common/database/connection';
-import { validatePasswordPolicy } from '../src/common/domain/password-policy';
-import { GetSitePolicyUseCase } from '../src/common/application/get-site-policy.use-case';
-import { SaveSitePolicyUseCase } from '../src/common/application/save-site-policy.use-case';
-import { PostgresSitePolicyRepository } from '../src/common/infrastructure/postgres-site-policy.repository';
-import { PostgresAdminUserRepository } from '../src/modules/admin/infrastructure/postgres-admin-user.repository';
-import { PostgresServerConfigRepository } from '../src/modules/system/infrastructure/postgres-server-config.repository';
-import { SaveSystemSettingsUseCase } from '../src/modules/system/application/save-system-settings.use-case';
-import { TestAiConnectionUseCase } from '../src/modules/system/application/test-ai-connection.use-case';
-import { CompleteOwnerOnboardingUseCase } from '../src/modules/auth/application/complete-owner-onboarding.use-case';
-import { CompleteUserOnboardingUseCase } from '../src/modules/auth/application/complete-user-onboarding.use-case';
-import { PostgresUserRepository } from '../src/modules/auth/infrastructure/postgres-user.repository';
+import { getEnv } from '../src/common/config/utils/get-env.util';
+import { loadConfig, saveConfig, sql } from '../src/common/database';
+import { validatePasswordPolicy } from '../src/common/domain/utils/validate-password-policy.util';
+import { GetSitePolicyUseCase } from '../src/common/application/use-cases/get-site-policy.use-case';
+import { SaveSitePolicyUseCase } from '../src/common/application/use-cases/save-site-policy.use-case';
+import { PostgresSitePolicyRepository } from '../src/common/infrastructure/repositories/postgres-site-policy.repository';
+import { PostgresAdminUserRepository } from '../src/modules/admin/infrastructure/repositories/postgres-admin-user.repository';
+import { PostgresServerConfigRepository } from '../src/modules/system/infrastructure/repositories/postgres-server-config.repository';
+import {
+  SaveSystemSettingsUseCase,
+  TestAiConnectionUseCase,
+} from '../src/modules/system';
+import { CompleteOwnerOnboardingUseCase } from '../src/modules/auth/slices/profile/use-cases/complete-owner-onboarding.use-case';
+import { CompleteUserOnboardingUseCase } from '../src/modules/auth/slices/profile/use-cases/complete-user-onboarding.use-case';
+import { PostgresUserRepository } from '../src/modules/auth/infrastructure/repositories/postgres-user.repository';
 
 const USAGE = `Giftistry admin CLI
 
@@ -57,7 +59,7 @@ function hasFlag(args: string[], name: string): boolean {
 }
 
 function refuseTestDbUnlessForced(args: string[]): void {
-  if (env.PGDATABASE === 'giftistry_test' && !hasFlag(args, '--force')) {
+  if (getEnv().PGDATABASE === 'giftistry_test' && !hasFlag(args, '--force')) {
     console.error(
       'Refusing to run against the test database (giftistry_test). Pass --force to override.'
     );
@@ -187,7 +189,7 @@ async function setAllowSetup(valueRaw: string | undefined, args: string[]): Prom
   saveConfig({ ...config, AllowSetup: allowSetup });
   console.log(`config.json AllowSetup set to ${allowSetup}.`);
   console.log(
-    `Effective setup availability also depends on GIFTISTRY_ALLOW_SETUP=${env.GIFTISTRY_ALLOW_SETUP}.`
+    `Effective setup availability also depends on GIFTISTRY_ALLOW_SETUP=${getEnv().GIFTISTRY_ALLOW_SETUP}.`
   );
 }
 

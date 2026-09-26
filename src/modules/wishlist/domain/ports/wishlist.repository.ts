@@ -1,4 +1,5 @@
-import type { Wishlist, Priority } from '../wishlist.entity';
+import type { Wishlist } from '../interfaces/wishlist.interface';
+import type { Priority } from '../interfaces/priority.interface';
 
 export interface WishlistRepository {
   findById(id: string): Promise<Wishlist | null>;

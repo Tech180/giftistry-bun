@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { nextDuplicateTitle } from '../src/modules/wishlist/domain/next-duplicate-title.util';
+import { nextDuplicateTitle } from '../src/modules/wishlist/domain/utils/next-duplicate-title.util';
 
 describe('nextDuplicateTitle', () => {
   test('appends (copy) when free', () => {

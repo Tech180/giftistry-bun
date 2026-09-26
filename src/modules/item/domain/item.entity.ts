@@ -1,86 +1,14 @@
-import type { ItemAudienceUser } from './item-audience.entity';
-import type { Wishlist } from '@/modules/wishlist/domain/wishlist.entity';
+import type { Wishlist } from '@/modules/wishlist';
+import type { Item } from './interfaces/item.interface';
+import type { ItemAudienceUser } from './interfaces/item-audience-user.interface';
+import type { ItemCustomFieldsColumns } from './interfaces/item-custom-fields-columns.interface';
+import type { ItemPhoto } from './interfaces/item-photo.interface';
+import type { ItemVariationColumn } from './interfaces/item-variation-column.interface';
 import {
-  canUserMutateItem,
   canUserViewItem,
   isItemSuggestion,
   parseOtherUsersCanSee,
-  type ItemVisibilityContext,
-} from './item-visibility.service';
-
-export type { ItemVisibilityContext };
-export { canUserMutateItem, canUserViewItem, isItemSuggestion, parseOtherUsersCanSee };
-
-export interface ItemLink {
-  Id: string;
-  ItemId: string;
-  Url: string;
-  RetailerName: string | null;
-  ExtractedPrice: number | null;
-  ExtractedImageUrl: string | null;
-}
-
-export interface Claim {
-  Id: string;
-  ItemId: string;
-  UserId: string | null;
-  Amount: number | null;
-  ClaimedByName: string | null;
-  Anonymous?: boolean;
-  ClaimedAt?: Date;
-  Quantity?: number;
-  Selection?: string | null;
-}
-
-export interface ItemCustomFieldsColumns {
-  Predefined?: Record<string, string | null>;
-  UserDefined?: Record<string, string>;
-}
-
-export interface ItemVariationColumn {
-  Name: string;
-  Quantity: number;
-}
-
-/** User-attached item photos (base64 data URLs). Primary display = SortOrder 0. */
-export interface ItemPhoto {
-  Id: string;
-  Url: string;
-  SortOrder: number;
-}
-
-export interface Item {
-  Id: string;
-  ListId: string;
-  PriorityId: string | null;
-  SuggestedByUserId: string | null;
-  SuggestedByUsername?: string | null;
-  SuggestedByFirstName?: string | null;
-  SuggestedByLastName?: string | null;
-  Name: string;
-  Description: string | null;
-  IsHiddenIdea: boolean;
-  IsSuggestion?: boolean;
-  Category: string;
-  Priority?: number | null;
-  CreatedAt?: Date;
-  SharedWith?: ItemAudienceUser[];
-  Links?: ItemLink[];
-  Photos?: ItemPhoto[];
-  /** First-class metadata columns (preferred over Description JSON). */
-  IsFavorite?: boolean;
-  IsPinned?: boolean;
-  DesiredQuantity?: number | null;
-  MultiCount?: boolean;
-  OtherUsersCanSee?: boolean | null;
-  CustomFields?: ItemCustomFieldsColumns | null;
-  Variations?: ItemVariationColumn[] | null;
-  LinkedItemIds?: string[];
-  RelatedItemIds?: string[];
-  AllowSubstitutions?: boolean;
-  IsSubstitution?: boolean;
-  SubstitutionForItemId?: string | null;
-}
+} from './utils/item-visibility.util';
 
 export class ItemEntity implements Item {
   Id!: string;

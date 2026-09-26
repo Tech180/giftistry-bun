@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { WebsocketListChangedPublisher } from '../src/modules/wishlist/infrastructure/websocket-list-changed-publisher';
-import { DeleteItemUseCase } from '../src/modules/item/application/delete-item.use-case';
+import { WebsocketListChangedPublisher } from '../src/modules/wishlist/infrastructure/adapters/websocket-list-changed-publisher';
+import { DeleteItemUseCase } from '../src/modules/item/slices/catalog/use-cases/delete-item.use-case';
 
 describe('WebsocketListChangedPublisher', () => {
   test('no-ops when transport is unset', () => {

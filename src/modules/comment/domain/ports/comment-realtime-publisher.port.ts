@@ -1,7 +1,4 @@
-export type CommentRealtimeEventType =
-  | 'comment.created'
-  | 'comment.deleted'
-  | 'reaction.toggled';
+import type { CommentRealtimeEventType } from '../types/comment-realtime-event-type.type';
 
 export interface CommentRealtimePublisher {
   publish(

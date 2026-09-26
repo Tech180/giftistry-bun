@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { GetMetadataPacksUseCase } from '../src/modules/system/application/get-metadata-packs.use-case';
+import { GetMetadataPacksUseCase } from '../src/modules/system/slices/packs/use-cases/get-metadata-packs.use-case';
 import type { ServerConfigRepository } from '../src/modules/system/domain/ports/server-config.repository';
 
 describe('GetMetadataPacksUseCase', () => {

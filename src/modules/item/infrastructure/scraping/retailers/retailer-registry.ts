@@ -1,10 +1,4 @@
-import type { MetadataExtractor } from '../extractors/types';
-
-export interface RetailerExtractor {
-  hostnames: string[];
-  priority: number;
-  extract: MetadataExtractor['extract'];
-}
+import type { RetailerExtractor } from './interfaces/retailer-extractor.interface';
 
 export function matchRetailer(hostname: string, retailers: RetailerExtractor[]): RetailerExtractor | null {
   const host = hostname.toLowerCase().replace(/^www\./, '');

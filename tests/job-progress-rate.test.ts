@@ -1,13 +1,20 @@
-import { describe, expect, test } from 'bun:test';
-import {
+import { describe, expect, mock, test } from 'bun:test';
+
+mock.module('@/modules/system', () => ({
+  clampGrabInfoActiveStreamLimit: (n?: number) => (n == null || n < 1 ? 3 : Math.min(n, 50)),
+}));
+
+const {
   computeItemsPerSecond,
   formatProgressRate,
   mergeResultProgressRate,
   readResultProgressRate,
   tokensPerSecondRate,
-} from '../src/modules/jobs/domain/job-progress-rate.util';
-import { toJobPublicView } from '../src/modules/jobs/domain/background-job.entity';
-import type { BackgroundJob } from '../src/modules/jobs/domain/background-job.entity';
+} = await import('../src/modules/jobs/domain/utils/job-progress-rate.util');
+const { toJobPublicView } = await import(
+  '../src/modules/jobs/domain/utils/to-job-public-view.util'
+);
+import type { BackgroundJob } from '../src/modules/jobs/domain/interfaces/background-job.interface';
 
 describe('job progress rate helpers', () => {
   test('computeItemsPerSecond uses one decimal under 10', () => {

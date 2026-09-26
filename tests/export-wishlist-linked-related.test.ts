@@ -1,5 +1,5 @@
 import { describe, expect, test, mock } from 'bun:test';
-import { ExportWishlistDataUseCase } from '../src/modules/wishlist/application/export-wishlist-data.use-case';
+import { ExportWishlistDataUseCase } from '../src/modules/wishlist/slices/export/use-cases/export-wishlist-data.use-case';
 
 describe('ExportWishlistDataUseCase linked/related columns', () => {
   const wishlist = {

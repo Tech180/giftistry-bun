@@ -1,17 +1,17 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import {
-  clampAiConnectTimeoutMs,
-  DEFAULT_AI_CONNECT_TIMEOUT_MS,
   AI_CONNECT_TIMEOUT_MAX_MS,
   AI_CONNECT_TIMEOUT_MIN_MS,
-  toSystemSettingsView,
-} from '../src/modules/system/domain/server-config.entity';
+  DEFAULT_AI_CONNECT_TIMEOUT_MS,
+} from '../src/modules/system/domain/constants/ai-timeout.constant';
+import { clampAiConnectTimeoutMs } from '../src/modules/system/domain/utils/clamp-server-config-limits.util';
+import { toSystemSettingsView } from '../src/modules/system/domain/utils/to-system-settings-view.util';
 
 let configState: {
   AiConnectTimeoutMs?: number;
 } = {};
 
-mock.module('../src/common/infrastructure/config.loader', () => ({
+mock.module('../src/common/config/utils/server-config-file.util', () => ({
   loadConfig: () => configState,
 }));
 

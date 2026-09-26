@@ -1,6 +1,5 @@
 import { DomainError } from './errors/domain-error';
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { EMAIL_REGEX } from './constants/email.constant';
 
 export class Email {
   private constructor(readonly value: string) {}

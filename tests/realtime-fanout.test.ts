@@ -3,9 +3,9 @@ import {
   encodeRealtimeFanoutMessage,
   isCompactJobFanoutPayload,
   parseRealtimeFanoutMessage,
-  REALTIME_FANOUT_MAX_BYTES,
-} from '../src/modules/jobs/domain/realtime-fanout.util';
-import { handleFanoutNotify } from '../src/modules/jobs/infrastructure/postgres-realtime-listener';
+} from '../src/modules/jobs/domain/utils/realtime-fanout.util';
+import { REALTIME_FANOUT_MAX_BYTES } from '../src/modules/jobs/domain/constants/realtime-fanout.constant';
+import { handleFanoutNotify } from '../src/modules/jobs/infrastructure/adapters/postgres-realtime-listener';
 
 describe('realtime-fanout encode/parse', () => {
   test('keeps small payloads intact', () => {

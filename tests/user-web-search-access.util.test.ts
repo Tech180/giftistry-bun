@@ -3,7 +3,7 @@ import {
   serverAllowsWebSearch,
   userAllowsWebSearchProfile,
   wishlistAllowsWebSearch,
-} from '../src/common/application/user-web-search-access.util';
+} from '../src/common/application/utils/user-web-search-access.util';
 
 describe('user-web-search-access.util', () => {
   test('serverAllowsWebSearch requires AI and web search flags', () => {

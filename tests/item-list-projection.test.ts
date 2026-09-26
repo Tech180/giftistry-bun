@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-import { sortWishlistItemsByExportOrder } from '../src/modules/item/domain/sort-wishlist-items.util';
-import { computeItemClaimSummary } from '../src/modules/item/domain/compute-item-claim-summary.util';
-import { resolveCategoryPresentation } from '../src/modules/item/domain/format-category-label.util';
+import { sortWishlistItemsByExportOrder } from '../src/modules/item/domain/utils/sort-wishlist-items.util';
+import { computeItemClaimSummary } from '../src/modules/item/domain/utils/compute-item-claim-summary.util';
+import { resolveCategoryPresentation } from '../src/modules/item/domain/utils/format-category-label.util';
 
 describe('sortWishlistItemsByExportOrder', () => {
   test('orders by category, favorite, then priority', () => {

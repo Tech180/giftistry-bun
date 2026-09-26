@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { resolveItemCategory, resolveCategoryAlternatives } from '../src/modules/item/domain/resolve-item-category.util';
+import { resolveItemCategory, resolveCategoryAlternatives } from '../src/modules/item/domain/utils/resolve-item-category.util';
 
 describe('resolveItemCategory', () => {
   test('reuses existing list string when normalized forms match', () => {

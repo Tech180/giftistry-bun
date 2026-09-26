@@ -1,5 +1,5 @@
 import { DomainEvent } from '@/common/domain/events/domain-event';
-import type { ShareRole } from '../list-share.entity';
+import type { ShareRole } from '../types/share-role.type';
 
 export class WishlistSharedEvent extends DomainEvent {
   readonly eventName = 'wishlist.shared';

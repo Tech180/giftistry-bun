@@ -1,12 +1,5 @@
-import type { RegistrationInvite } from '../registration-invite.entity';
-
-export interface CreateRegistrationInviteInput {
-  tokenHash: string;
-  token: string;
-  expiresAt: Date;
-  maxUses: number | null;
-  createdBy: string | null;
-}
+import type { CreateRegistrationInviteInput } from '../interfaces/create-registration-invite-input.interface';
+import type { RegistrationInvite } from '../interfaces/registration-invite.interface';
 
 export interface RegistrationInviteRepository {
   findActive(): Promise<RegistrationInvite | null>;

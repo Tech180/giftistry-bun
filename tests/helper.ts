@@ -1,10 +1,32 @@
-import { sql } from '../src/common/database/connection';
+import { sql } from '../src/common/database';
 import { app } from '../src/index';
+import { PostgresSitePolicyRepository } from '@/common/infrastructure/repositories/postgres-site-policy.repository';
 
 export const testPassword = "securepassword123";
 
+/** Ensure signup works even if a prior setup test sealed invite_only mode. */
+export async function ensureOpenRegistration() {
+  const [row] = await sql<{ policy: unknown }[]>`
+    SELECT policy FROM site_policy WHERE id = 1
+  `;
+  const current =
+    row?.policy && typeof row.policy === 'object' && !Array.isArray(row.policy)
+      ? (row.policy as Record<string, unknown>)
+      : {};
+  const next = { ...current, RegistrationMode: 'open' };
+  await sql`
+    INSERT INTO site_policy (id, policy)
+    VALUES (1, ${sql.json(next)})
+    ON CONFLICT (id) DO UPDATE
+    SET policy = ${sql.json(next)}
+  `;
+  new PostgresSitePolicyRepository().invalidateCache();
+}
+
 export async function createTestUser(username: string, email: string) {
+  await ensureOpenRegistration();
   const signupRes = await app.handle(
+
     new Request("http://localhost/api/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'bun:test';
-import { AppError } from '@/common/middlewares/error.middleware';
+import { DomainError } from '@/common/domain/errors/domain-error';
 import {
   PASSWORD_MIN_LENGTH_BASIC,
   PASSWORD_MIN_LENGTH_STRONG,
   PASSWORD_POLICY_MESSAGE_BASIC,
   PASSWORD_POLICY_MESSAGE_STRONG,
-  validatePasswordPolicy,
-} from '@/common/domain/password-policy';
+} from '@/common/domain/constants/password-policy.constant';
+import { validatePasswordPolicy } from '@/common/domain/utils/validate-password-policy.util';
 
 describe('validatePasswordPolicy', () => {
   it('accepts a strong password by default', () => {
@@ -14,7 +14,7 @@ describe('validatePasswordPolicy', () => {
   });
 
   it('rejects empty passwords', () => {
-    expect(() => validatePasswordPolicy('')).toThrow(AppError);
+    expect(() => validatePasswordPolicy('')).toThrow(DomainError);
     expect(() => validatePasswordPolicy('   ')).toThrow(PASSWORD_POLICY_MESSAGE_STRONG);
   });
 

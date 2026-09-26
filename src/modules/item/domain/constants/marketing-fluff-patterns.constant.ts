@@ -1,0 +1,18 @@
+export const MARKETING_FLUFF_PATTERNS = [
+  /fsa\s*\/\s*hsa/i,
+  /sizing kit/i,
+  /before you buy/i,
+  /at checkout/i,
+  /\beligible\b/i,
+  /free shipping/i,
+  /important\s*:/i,
+  /^notice\s*:/i,
+  /customs office/i,
+  /taxes and duty/i,
+  /duty fees/i,
+  /final payment does not include/i,
+  /shipping calculated at checkout/i,
+  /shipping policy/i,
+  /return policy/i,
+  /terms and conditions/i,
+];

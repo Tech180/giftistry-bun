@@ -5,9 +5,9 @@ import {
   buildJsonLdPageContext,
   extractJsonLdProductDetails,
   parseSizeFromVariantName,
-} from '@/modules/item/infrastructure/scraping/extractors/json-ld-product.util';
-import { parseMetadata } from '@/modules/item/infrastructure/scraping/parser';
-import { mapScrapeToCustomFields } from '@/modules/item/domain/map-scrape-to-custom-fields';
+} from '@/modules/item/infrastructure/scraping/extractors/utils/json-ld-product.util';
+import { parseMetadata } from '@/modules/item/infrastructure/scraping/extractors/extraction-pipeline';
+import { mapScrapeToCustomFields } from '@/modules/item/domain/utils/map-scrape-to-custom-fields.util';
 
 const FIXTURES = join(import.meta.dir, 'fixtures/scraping');
 const LTT_URL = 'https://www.lttstore.com/products/netnoodz-t-shirt?variant=42151262453863';

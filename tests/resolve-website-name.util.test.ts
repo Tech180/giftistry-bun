@@ -3,7 +3,7 @@ import {
   extractOgSiteName,
   resolveWebsiteName,
   resolveWebsiteNameFromUrl,
-} from '../src/modules/item/infrastructure/scraping/extractors/resolve-website-name.util';
+} from '../src/modules/item/infrastructure/scraping/extractors/utils/resolve-website-name.util';
 
 describe('resolve-website-name.util', () => {
   test('skips generic shop subdomain and uses brand domain', () => {

@@ -3,26 +3,24 @@ import {
   mergeExtractedMetadata,
   shouldAiPopulate,
   shouldRunAiPopulate,
-} from '../src/modules/item/domain/merge-extracted-metadata';
+} from '../src/modules/item/domain/utils/merge-extracted-metadata.util';
 import type { MetadataScraper } from '../src/modules/item/domain/ports/metadata-scraper.port';
 import type { MetadataPopulator } from '../src/modules/item/domain/ports/metadata-populator.port';
 import type { CategoryClassifier } from '../src/modules/item/domain/ports/category-classifier.port';
 import type { PageContextFetcher } from '../src/modules/item/domain/ports/page-context.port';
 import type { ServerConfigRepository } from '../src/modules/system/domain/ports/server-config.repository';
 import type { UserRepository } from '../src/modules/auth/domain/ports/user.repository';
-import type { AssertUserCanUseCase } from '../src/common/application/user-policy.use-cases';
+import type { AssertUserCanUseCase } from '../src/common/application/use-cases/user-policy.use-cases';
 import type { WishlistRepository } from '../src/modules/wishlist/domain/ports/wishlist.repository';
 
 let probeReachable = true;
 
 mock.module('../src/common/utils/probe-ai-reachability.util', () => ({
   probeAiReachability: async () => probeReachable,
-  LOCAL_MODELS_TIMEOUT_MS: 10_000,
-  OPENROUTER_PROBE_TIMEOUT_MS: 15_000,
 }));
 
 const { ExtractMetadataUseCase } = await import(
-  '../src/modules/item/application/extract-metadata.use-case'
+  '../src/modules/item/slices/metadata/use-cases/extract-metadata.use-case'
 );
 
 let aiEnabled = true;

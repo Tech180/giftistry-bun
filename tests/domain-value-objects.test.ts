@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 import { Email } from '@/common/domain/email.vo';
 import { Money } from '@/common/domain/money.vo';
-import { Username, USERNAME_EMAIL_MESSAGE } from '@/common/domain/username.vo';
-import { validateUsernamePolicy, isUsernamePolicySatisfied } from '@/common/domain/username-policy';
+import { Username } from '@/common/domain/username.vo';
+import { USERNAME_EMAIL_MESSAGE } from '@/common/domain/constants/username.constant';
+import { validateUsernamePolicy, isUsernamePolicySatisfied } from '@/common/domain/utils/validate-username-policy.util';
 import { ListRole } from '@/common/domain/list-role.vo';
 import { DomainError } from '@/common/domain/errors/domain-error';
-import { AppError } from '@/common/middlewares/error.middleware';
 
 describe('domain value objects', () => {
   test('Email.create validates format', () => {
@@ -36,16 +36,17 @@ describe('domain value objects', () => {
     expect(() => Username.create('foo@bar')).toThrow(DomainError);
   });
 
-  test('validateUsernamePolicy maps DomainError to AppError', () => {
+  test('validateUsernamePolicy throws DomainError for invalid usernames', () => {
     expect(validateUsernamePolicy('good_user')).toBe('good_user');
     expect(isUsernamePolicySatisfied('user@example.com')).toBe(false);
     try {
       validateUsernamePolicy('user@example.com');
       throw new Error('expected throw');
     } catch (err) {
-      expect(err).toBeInstanceOf(AppError);
-      expect((err as AppError).message).toBe(USERNAME_EMAIL_MESSAGE);
-      expect((err as AppError).statusCode).toBe(400);
+      expect(err).toBeInstanceOf(DomainError);
+      expect((err as DomainError).message).toBe(USERNAME_EMAIL_MESSAGE);
+      expect((err as DomainError).errorCode).toBe('BAD_REQUEST');
+      expect((err as DomainError).statusCode).toBe(400);
     }
   });
 

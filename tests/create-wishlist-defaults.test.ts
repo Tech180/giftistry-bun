@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { CreateWishlistUseCase } from '../src/modules/wishlist/application/create-wishlist.use-case';
+import { CreateWishlistUseCase } from '../src/modules/wishlist/slices/lists/use-cases/create-wishlist.use-case';
 import type { ServerConfigRepository } from '../src/modules/system/domain/ports/server-config.repository';
 
 let config = { AiEnabled: true, AiWebSearchEnabled: true };

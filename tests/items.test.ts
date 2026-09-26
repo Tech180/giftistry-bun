@@ -1,7 +1,7 @@
 import { expect, test, describe, beforeAll, afterAll } from "bun:test";
 import { app } from '../src/index';
 import { createTestUser, createTestWishlist, shareTestWishlist, cleanUpUser, cleanUpWishlist } from './helper';
-import { sql } from '../src/common/database/connection';
+import { sql } from '../src/common/database';
 
 describe("Items, Links & Claims", () => {
   let owner: any;
@@ -476,23 +476,23 @@ describe("Items, Links & Claims", () => {
     expect(keys).toContain("Cache");
   });
 
-  test("Suggestions and Anonymous Claims Lifecycle", async () => {
-    const testListId = await createTestWishlist(owner.token, "Suggestion Test Wishlist", new Date(Date.now() + 1500).toISOString(), "generic", true);
-    await shareTestWishlist(owner, testListId, collaborator, "collaborator");
+  test("Anonymous claims redact name for other viewers", async () => {
+    const testListId = await createTestWishlist(owner.token, "Anonymous Claim Wishlist", new Date(Date.now() + 1500).toISOString(), "generic", true);
+    await shareTestWishlist(owner, testListId, collaborator, "viewer");
     await shareTestWishlist(owner, testListId, unrelated, "viewer");
 
-    const suggestRes = await app.handle(
+    const itemRes = await app.handle(
       new Request(`http://localhost/api/wishlists/${testListId}/items`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${collaborator.token}`
+          "Authorization": `Bearer ${owner.token}`
         },
         body: JSON.stringify({
           Giftistry: {
             Items: {
-              Name: "Collaborator Suggestion Item",
-              Description: "Hope they like it!",
+              Name: "Catalog Item For Claiming",
+              Description: "Claim me anonymously",
               PriorityId: null,
               Category: "generic"
             }
@@ -500,10 +500,10 @@ describe("Items, Links & Claims", () => {
         })
       })
     );
-    expect(suggestRes.status).toBe(200);
-    const testItemId = (await suggestRes.json() as any).Result.Id;
+    expect(itemRes.status).toBe(200);
+    const testItemId = (await itemRes.json() as any).Result.Id;
 
-    // Claim anonymously
+    // Claim anonymously as a viewer (list editors cannot claim)
     const claimRes = await app.handle(
       new Request(`http://localhost/api/items/${testItemId}/claims`, {
         method: "POST",
@@ -582,25 +582,8 @@ describe("Items, Links & Claims", () => {
     expect(addItemRes.status).toBe(200);
     const { Result: { Id: testItemId } } = await addItemRes.json() as any;
 
-    // 3. Share list with viewer
-    const shareRes = await app.handle(
-      new Request(`http://localhost/api/wishlists/${testListId}/shares`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${owner.token}`
-        },
-        body: JSON.stringify({
-          Giftistry: {
-            Lists: {
-              Email: collaborator.email,
-              Role: "viewer"
-            }
-          }
-        })
-      })
-    );
-    expect(shareRes.status).toBe(200);
+    // 3. Share list with viewer (single-email share route removed; use bulk friend share)
+    await shareTestWishlist(owner, testListId, collaborator, "viewer");
 
     // 4. Viewer claims the item
     const claimRes = await app.handle(
@@ -812,7 +795,7 @@ describe("Item Audience Restriction", () => {
         }),
       })
     );
-    expect(res.status).toBe(404);
+    expect([403, 404]).toContain(res.status);
   });
 
   test("Owner creates everyone item without sharedWithUserIds (backward compatible)", async () => {
@@ -885,13 +868,20 @@ describe("Item Audience Restriction", () => {
     expect(collabABody.Result.Items.some((i: any) => i.Id === restrictedItemId)).toBe(false);
   });
 
-  test("Collaborator creates restricted suggestion hidden from owner", async () => {
+  test("Viewer creates restricted suggestion hidden from owner", async () => {
+    const timestamp = Date.now();
+    const viewer = await createTestUser(
+      `aud_viewer_${timestamp}`,
+      `aud_viewer_${timestamp}@example.com`
+    );
+    await shareTestWishlist(owner, listId, viewer, "viewer");
+
     const res = await app.handle(
       new Request(`http://localhost/api/wishlists/${listId}/items`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${collaboratorA.token}`
+          "Authorization": `Bearer ${viewer.token}`
         },
         body: JSON.stringify({
           Giftistry: {

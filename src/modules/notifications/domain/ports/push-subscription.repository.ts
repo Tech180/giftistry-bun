@@ -1,18 +1,5 @@
-import type {
-  PushPlatform,
-  PushSubscription,
-  PushTransport,
-} from '../push-subscription.entity';
-
-export interface CreatePushSubscriptionInput {
-  userId: string;
-  platform: PushPlatform;
-  transport: PushTransport;
-  endpoint: string;
-  endpointAuth?: string | null;
-  p256dh?: string | null;
-  isPrimary?: boolean;
-}
+import type { CreatePushSubscriptionInput } from '../interfaces/create-push-subscription-input.interface';
+import type { PushSubscription } from '../interfaces/push-subscription.interface';
 
 export interface PushSubscriptionRepository {
   create(input: CreatePushSubscriptionInput): Promise<PushSubscription>;

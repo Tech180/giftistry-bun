@@ -1,4 +1,4 @@
-import type { MetadataPack } from '../metadata-pack.interface';
+import type { MetadataPack } from '../interfaces/metadata-pack.interface';
 
 export const KITCHEN_PACK: MetadataPack = {
   id: 'kitchen',

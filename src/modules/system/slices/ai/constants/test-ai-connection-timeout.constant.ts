@@ -1,0 +1,2 @@
+export const OLLAMA_SHOW_TIMEOUT_MS = 10_000;
+export const COMPLETION_TIMEOUT_MS = 30_000;

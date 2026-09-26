@@ -1,12 +1,4 @@
-export const SECRET_NAMES = [
-  'JWT_SECRET',
-  'GIFTISTRY_SETUP_TOKEN',
-  'SMTP_PASS',
-  'OPENROUTER_API_KEY',
-  'GEMINI_API_KEY',
-  'OAUTH_CLIENT_SECRET',
-  'PGPASSWORD',
-] as const;
+import { SECRET_NAMES } from '../constants/secret-names.constant';
 
 export type SecretName = (typeof SECRET_NAMES)[number];
 
@@ -14,3 +6,5 @@ export interface SecretSource {
   /** Returns trimmed secret or undefined if unset. */
   get(name: SecretName): string | undefined;
 }
+
+export { SECRET_NAMES };

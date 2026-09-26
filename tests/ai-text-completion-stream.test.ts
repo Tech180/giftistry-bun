@@ -1,12 +1,12 @@
 import { describe, expect, test } from 'bun:test';
+import { computeTokensPerSecond } from '../src/common/domain/utils/compute-tokens-per-second.util';
 import {
-  computeTokensPerSecond,
   consumeSseBuffer,
   estimateTokensFromText,
   extractAnthropicStreamDelta,
   extractGeminiStreamDelta,
   extractOpenAiStreamDelta,
-} from '../src/modules/item/infrastructure/ai-text-completion-stream.util';
+} from '../src/modules/item/infrastructure/utils/ai-text-completion-stream.util';
 
 describe('ai-text-completion-stream helpers', () => {
   test('estimateTokensFromText uses ~4 chars per token', () => {

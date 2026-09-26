@@ -1,18 +1,20 @@
 import { describe, expect, test } from 'bun:test';
 import {
-  clampGrabInfoActiveStreamLimit,
-  clampGrabInfoConcurrency,
   DEFAULT_GRAB_INFO_ACTIVE_STREAM_LIMIT,
   DEFAULT_GRAB_INFO_CONCURRENCY,
   GRAB_INFO_ACTIVE_STREAM_LIMIT_MAX,
   GRAB_INFO_CONCURRENCY_MAX,
   GRAB_INFO_CONCURRENCY_MIN,
-  normalizeGrabInfoConcurrencyUnlimited,
-  resolveGrabInfoConcurrency,
-  toSystemSettingsView,
-} from '../src/modules/system/domain/server-config.entity';
-import { toActiveStreams } from '../src/modules/jobs/domain/background-job.entity';
-import type { BackgroundJobItem } from '../src/modules/jobs/domain/background-job.entity';
+} from '../src/modules/system/domain/constants/grab-info.constant';
+import {
+  clampGrabInfoActiveStreamLimit,
+  clampGrabInfoConcurrency,
+} from '../src/modules/system/domain/utils/clamp-server-config-limits.util';
+import { normalizeGrabInfoConcurrencyUnlimited } from '../src/modules/system/domain/utils/normalize-grab-info-concurrency-unlimited.util';
+import { resolveGrabInfoConcurrency } from '../src/modules/system/domain/utils/resolve-grab-info-concurrency.util';
+import { toSystemSettingsView } from '../src/modules/system/domain/utils/to-system-settings-view.util';
+import { toActiveStreams } from '../src/modules/jobs/domain/utils/to-active-streams.util';
+import type { BackgroundJobItem } from '../src/modules/jobs/domain/interfaces/background-job-item.interface';
 
 describe('grab info concurrency clamps', () => {
   test('clamps concurrency to 1–1000', () => {

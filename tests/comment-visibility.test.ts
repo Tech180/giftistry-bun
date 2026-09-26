@@ -1,12 +1,10 @@
 import { describe, expect, test } from 'bun:test';
-import {
-  canUserViewComment,
-  resolveVisibilityMode,
-  validateMentionsInAudience,
-  validateVisibilityPayload,
-} from '../src/modules/comment/domain/comment-visibility.service';
+import { canUserViewComment } from '../src/modules/comment/domain/utils/can-user-view-comment.util';
+import { resolveVisibilityMode } from '../src/modules/comment/domain/utils/resolve-visibility-mode.util';
+import { validateMentionsInAudience } from '../src/modules/comment/domain/utils/validate-mentions-in-audience.util';
+import { validateVisibilityPayload } from '../src/modules/comment/domain/utils/validate-visibility-payload.util';
 
-describe('comment-visibility.service', () => {
+describe('comment visibility', () => {
   test('resolveVisibilityMode maps legacy and selected payloads', () => {
     expect(
       resolveVisibilityMode({ IsOwnerVisible: false, VisibleToUserIds: null })
@@ -77,7 +75,6 @@ describe('comment-visibility.service', () => {
         isOwner: false,
         isOwnerVisible: true,
         visibleToUserIds: ['outsider'],
-        authorUserId: 'author',
         allowedParticipantIds: new Set(['owner', 'author']),
       })
     ).toThrow();

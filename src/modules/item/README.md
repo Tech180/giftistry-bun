@@ -1,31 +1,36 @@
 # `modules/item`
 
-Wishlist items: CRUD, claims, substitutions, links/related, metadata scrape, AI enrich/summarize hooks.
+Wishlist items: CRUD, claims, substitutions, links/related, metadata scrape, AI enrich/summarize, import, group funding.
 
 ## Layers
 
 | Folder | Role |
 |--------|------|
-| `domain/` | Item entity, visibility, claim summaries, export parsers, scraper/AI ports |
-| `application/` | Add/update/delete, claims, substitutions, sync links/related, extract metadata |
-| `infrastructure/` | Postgres item repos, scraping pipeline, Gemini/AI adapters, image fetch |
-| `presentation/` | `item.routes.ts` |
+| `domain/` | Item entity + interfaces/types/utils/constants/ports; visibility, claim summaries, scraper/AI ports, `ItemRemovedEvent` |
+| `slices/` | Vertical behavior use cases |
+| `application/` | Published ports + `UseCases` facade |
+| `infrastructure/` | Postgres repos, scraping pipeline, AI adapters, image fetch |
+| `presentation/` | Thin route composer + `routes/` / `schemas/` / `utils/` |
+| `index.ts` | Public barrel |
+
+## Slices
+
+| Slice | Owns |
+|-------|------|
+| `catalog` | add/update/delete/list, field definitions, audience visibility |
+| `claims` | claim/unclaim (+ linked), projections, item-removed notify |
+| `substitutions` | owner/claimer substitution CRUD and reorder |
+| `links` | add link, sync links/related |
+| `metadata` | extract/enrich/summarize/reviews/backfill/promote image |
+| `import` | parse preview, bulk add |
+| `funding` | group-fund comment + contributor notify |
 
 ## Public surface
 
 - **Module:** `createItemModule`
 - **Routes:** `/api/wishlists/:listId/items`, `/api/items/:itemId/*`
-- **Ports:** `MetadataScraper`, `MetadataPopulator`, `DescriptionSummarizer`, etc.
-
-## Hotspots
-
-| Area | Role |
-|------|------|
-| `infrastructure/scraping/` | Tiered fetch → Playwright scrape; retailer extractors |
-| `application/*-substitution*` | Owner-approved vs claimer-custom substitutions |
-| `domain/parse-giftistry-export-*` | Import parsers (csv/md/txt/json) |
-
-Scraping architecture and env vars: [docs/architecture.md](../../../docs/architecture.md#metadata-scraper).
+- **Ports:** `ListItemsPort`, `ItemEnricherPort`, `ItemSummarizerPort`, `ItemImporterPort`, `ItemJobSupportPort`, `ListReviewBackfillPort`
+- **Events:** `ItemRemovedEvent` (`item.removed`) — claimers notified via event bus
 
 ## Related
 

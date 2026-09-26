@@ -3,7 +3,7 @@ import {
   isSoftImportCategory,
   isLockedImportCategory,
   resolveImportCategoryWithOptimize,
-} from '../src/modules/item/domain/is-soft-import-category.util';
+} from '../src/modules/item/domain/utils/is-soft-import-category.util';
 
 describe('isSoftImportCategory', () => {
   test('treats empty and generic labels as soft', () => {

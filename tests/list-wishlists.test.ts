@@ -1,6 +1,6 @@
 import { describe, expect, test, mock } from 'bun:test';
-import { ListWishlistsUseCase } from '../src/modules/wishlist/application/list-wishlists.use-case';
-import type { Wishlist } from '../src/modules/wishlist/domain/wishlist.entity';
+import { ListWishlistsUseCase } from '../src/modules/wishlist/slices/lists/use-cases/list-wishlists.use-case';
+import type { Wishlist } from '../src/modules/wishlist/domain/interfaces/wishlist.interface';
 
 function list(partial: Partial<Wishlist> & Pick<Wishlist, 'Id' | 'Title' | 'Role'>): Wishlist {
   return {

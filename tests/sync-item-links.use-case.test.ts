@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, mock } from 'bun:test';
-import { SyncItemLinksUseCase } from '@/modules/item/application/sync-item-links.use-case';
-import type { Item } from '@/modules/item/domain/item.entity';
-import type { Wishlist } from '@/modules/wishlist/domain/wishlist.entity';
+import { SyncItemLinksUseCase } from '@/modules/item/slices/links/use-cases/sync-item-links.use-case';
+import type { Item } from '@/modules/item/domain/interfaces/item.interface';
+import type { Wishlist } from '@/modules/wishlist/domain/interfaces/wishlist.interface';
 
 const OWNER_ID = 'owner-1';
 const LIST_ID = 'list-1';

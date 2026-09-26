@@ -1,19 +1,5 @@
-export interface Comment {
-  Id: string;
-  ListId: string;
-  UserId: string | null;
-  CommenterName: string;
-  Content: string;
-  IsOwnerVisible: boolean;
-  /** When set, only these users (plus author) can see the comment. */
-  VisibleToUserIds?: string[] | null;
-  IsRollover: boolean;
-  IsDeleted?: boolean;
-  ParentId?: string | null;
-  ImageUrl?: string | null;
-  Reactions?: { userId: string; username: string; reaction: string }[];
-  CreatedAt?: Date;
-}
+import type { Comment } from './interfaces/comment.interface';
+import type { CommentReaction } from './interfaces/comment-reaction.interface';
 
 export class CommentEntity implements Comment {
   Id!: string;
@@ -27,7 +13,7 @@ export class CommentEntity implements Comment {
   IsDeleted?: boolean;
   ParentId?: string | null;
   ImageUrl?: string | null;
-  Reactions?: { userId: string; username: string; reaction: string }[];
+  Reactions?: CommentReaction[];
   CreatedAt?: Date;
 
   constructor(data: Comment) {

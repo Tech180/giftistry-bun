@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-import type { MetadataPack } from '../src/modules/system/domain/packs/metadata-pack.interface';
+import type { MetadataPack } from '../src/modules/system/domain/packs';
 import {
   listCatalogPackIds,
   METADATA_PACKS_CATALOG,
-} from '../src/modules/system/domain/packs/metadata-packs.catalog';
-import { resolveMetadataPacks } from '../src/modules/system/domain/packs/resolve-metadata-packs.util';
-import { sanitizeEnabledPackIds } from '../src/modules/system/domain/packs/sanitize-enabled-pack-ids.util';
+} from '../src/modules/system/domain/packs';
+import { resolveMetadataPacks } from '../src/modules/system/domain/packs/utils/resolve-metadata-packs.util';
+import { sanitizeEnabledPackIds } from '../src/modules/system/domain/packs/utils/sanitize-enabled-pack-ids.util';
 
 const CPU_TITLE = 'AMD Ryzen 5 5600X 6-core Processor';
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import type { Item } from '@/modules/item/domain/item.entity';
-import { resolveItemMetadata } from '@/modules/item/domain/resolve-item-metadata.util';
+import type { Item } from '@/modules/item/domain/interfaces/item.interface';
+import { resolveItemMetadata } from '@/modules/item/domain/utils/resolve-item-metadata.util';
 
 function baseItem(overrides: Partial<Item> = {}): Item {
   return {

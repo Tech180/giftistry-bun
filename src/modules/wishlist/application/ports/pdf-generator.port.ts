@@ -1,12 +1,13 @@
-import type { Wishlist } from '../../domain/wishlist.entity';
-import type { ThemeColors } from './theme-resolver.port';
+import type { Wishlist } from '../../domain/interfaces/wishlist.interface';
+import type { ThemeColors } from '../interfaces/theme-colors.interface';
+import type { PdfOwnerInfo } from '../interfaces/pdf-owner-info.interface';
 
 export interface PdfGenerator {
   generateWishlistPdf(
     wishlist: Wishlist,
     items: any[],
     themeColors: ThemeColors,
-    ownerInfo: { name: string; username: string; avatarUrl?: string },
+    ownerInfo: PdfOwnerInfo,
     viewerUserId?: string | null
   ): Promise<Uint8Array>;
 }

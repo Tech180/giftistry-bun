@@ -1,5 +1,5 @@
 import { describe, expect, test, mock } from 'bun:test';
-import { SyncItemRelatedUseCase } from '../src/modules/item/application/sync-item-related.use-case';
+import { SyncItemRelatedUseCase } from '../src/modules/item/slices/links/use-cases/sync-item-related.use-case';
 
 describe('SyncItemRelatedUseCase', () => {
   test('makes related ids a bidirectional clique and clears removed peers', async () => {

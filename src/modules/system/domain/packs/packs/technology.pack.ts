@@ -1,5 +1,5 @@
-import type { MetadataPack } from '../metadata-pack.interface';
-import { TECH_CATEGORIES } from './tech-categories.constant';
+import type { MetadataPack } from '../interfaces/metadata-pack.interface';
+import { TECH_CATEGORIES } from '../constants/tech-categories.constant';
 import { TECHNOLOGY_COMPUTER_PARTS_PACK } from './technology.computer-parts.pack';
 import { TECHNOLOGY_CPU_PACK } from './technology.cpu.pack';
 

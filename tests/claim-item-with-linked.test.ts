@@ -1,7 +1,7 @@
 import { describe, expect, test, mock } from 'bun:test';
-import { ClaimItemWithLinkedUseCase } from '../src/modules/item/application/claim-item-with-linked.use-case';
-import type { CreateClaimInput } from '../src/modules/item/domain/ports/item.repository';
-import { AppError } from '../src/common/middlewares/error.middleware';
+import { ClaimItemWithLinkedUseCase } from '../src/modules/item/slices/claims/use-cases/claim-item-with-linked.use-case';
+import type { CreateClaimInput } from '@/modules/item/domain/interfaces/create-claim-input.interface';
+import { AppError } from '../src/common/domain/errors/app-error';
 
 describe('ClaimItemWithLinkedUseCase atomicity', () => {
   test('writes all prepared claims in one createClaimsAtomic call', async () => {
@@ -107,10 +107,14 @@ describe('ClaimItemWithLinkedUseCase atomicity', () => {
       execute: mock(async () => undefined),
     };
 
+    const listChanged = { publish: mock(() => undefined) };
+
     const useCase = new ClaimItemWithLinkedUseCase(
       itemRepo as any,
       claimItem as any,
-      assertItemVisible as any
+      assertItemVisible as any,
+      undefined,
+      listChanged as any
     );
 
     const claims = await useCase.execute(primaryId, userId, {
@@ -199,7 +203,9 @@ describe('ClaimItemWithLinkedUseCase atomicity', () => {
     const useCase = new ClaimItemWithLinkedUseCase(
       itemRepo as any,
       claimItem as any,
-      { execute: mock(async () => undefined) } as any
+      { execute: mock(async () => undefined) } as any,
+      undefined,
+      { publish: mock(() => undefined) } as any
     );
 
     await expect(

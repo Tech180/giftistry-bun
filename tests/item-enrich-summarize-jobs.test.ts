@@ -5,22 +5,23 @@ mock.module('../src/common/middlewares/list-access.middleware', () => ({
 }));
 
 const { StartItemEnrichJobUseCase } = await import(
-  '@/modules/jobs/application/start-item-enrich-job.use-case'
+  '@/modules/jobs/slices/enrich/use-cases/start-item-enrich-job.use-case'
 );
 const { RunItemEnrichJobUseCase } = await import(
-  '@/modules/jobs/application/run-item-enrich-job.use-case'
+  '@/modules/jobs/slices/enrich/use-cases/run-item-enrich-job.use-case'
 );
 const { StartItemSummarizeJobUseCase } = await import(
-  '@/modules/jobs/application/start-item-summarize-job.use-case'
+  '@/modules/jobs/slices/summarize/use-cases/start-item-summarize-job.use-case'
 );
 const { RunItemSummarizeJobUseCase } = await import(
-  '@/modules/jobs/application/run-item-summarize-job.use-case'
+  '@/modules/jobs/slices/summarize/use-cases/run-item-summarize-job.use-case'
 );
 
-import type { BackgroundJob, BackgroundJobItem } from '@/modules/jobs/domain/background-job.entity';
+import type { BackgroundJob } from '@/modules/jobs/domain/interfaces/background-job.interface';
+import type { BackgroundJobItem } from '@/modules/jobs/domain/interfaces/background-job-item.interface';
 import type { BackgroundJobRepository } from '@/modules/jobs/domain/ports/background-job.repository';
 import type { JobProgressPublisher } from '@/modules/jobs/domain/ports/job-progress-publisher.port';
-import { AppError } from '@/common/middlewares/error.middleware';
+import { AppError } from '@/common/domain/errors/app-error';
 
 const stubServerConfig = { load: () => ({}), save: () => {} } as never;
 

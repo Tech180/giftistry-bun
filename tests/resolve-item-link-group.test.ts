@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test';
-import type { Item } from '@/modules/item/domain/item.entity';
+import type { Item } from '@/modules/item/domain/interfaces/item.interface';
 import {
   getForwardLinkedIds,
   getLinkNeighbors,
   resolveLinkGroupMemberIds,
   resolveRelatedGroupMemberIds,
-} from '@/modules/item/domain/resolve-item-link-group.util';
+} from '@/modules/item/domain/utils/resolve-item-link-group.util';
 
 function baseItem(overrides: Partial<Item> & { Id: string }): Item {
   return {

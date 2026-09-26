@@ -21,7 +21,18 @@ export function pascalizeKeys(value: unknown): unknown {
 
   const result: Record<string, unknown> = {};
   for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
-    result[toPascalCaseKey(key)] = pascalizeKeys(nested);
+    const pascalKey = toPascalCaseKey(key);
+    // Tour chapter ids (demo, importAi, …) are map keys, not field names — leave them alone.
+    if (
+      pascalKey === 'Chapters' &&
+      nested &&
+      typeof nested === 'object' &&
+      !Array.isArray(nested)
+    ) {
+      result[pascalKey] = nested;
+      continue;
+    }
+    result[pascalKey] = pascalizeKeys(nested);
   }
   return result;
 }

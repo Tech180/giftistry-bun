@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'bun:test';
-import { catalogForConfig } from '../src/modules/system/domain/packs/catalog-for-config.util';
-import { mergeMetadataPackCatalog } from '../src/modules/system/domain/packs/merge-metadata-pack-catalog.util';
-import { METADATA_PACKS_CATALOG } from '../src/modules/system/domain/packs/metadata-packs.catalog';
-import { sanitizeCustomPacks } from '../src/modules/system/domain/packs/sanitize-custom-packs.util';
-import { sanitizeEnabledPackIds } from '../src/modules/system/domain/packs/sanitize-enabled-pack-ids.util';
+import { catalogForConfig } from '../src/modules/system/domain/packs/utils/catalog-for-config.util';
+import { mergeMetadataPackCatalog } from '../src/modules/system/domain/packs/utils/merge-metadata-pack-catalog.util';
+import { METADATA_PACKS_CATALOG } from '../src/modules/system/domain/packs';
+import { sanitizeCustomPacks } from '../src/modules/system/domain/packs/utils/sanitize-custom-packs.util';
+import { sanitizeEnabledPackIds } from '../src/modules/system/domain/packs/utils/sanitize-enabled-pack-ids.util';
 
 const validCustom = {
   Id: 'custom.books',

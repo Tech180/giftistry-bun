@@ -1,5 +1,5 @@
 import { expect, test, describe, beforeEach, afterEach } from 'bun:test';
-import { TestAiConnectionUseCase } from '@/modules/system/application/test-ai-connection.use-case';
+import { TestAiConnectionUseCase } from '@/modules/system/slices/ai/use-cases/test-ai-connection.use-case';
 
 describe('TestAiConnectionUseCase', () => {
   const originalFetch = globalThis.fetch;

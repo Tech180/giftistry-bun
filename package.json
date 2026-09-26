@@ -1,6 +1,6 @@
 {
   "name": "giftistry-api",
-  "version": "0.0.27"
+  "version": "0.0.28",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,8 +13,9 @@
     "pretest": "bun run scripts/ensure-test-database.ts",
     "test": "bun test --parallel=1",
     "check:sql": "bun run scripts/check-sql-imports.ts",
-    "check:layers": "bun run scripts/check-layers.ts",
-    "verify": "bun run check:sql && bun run check:layers && bun test --parallel=1",
+    "check:layers": "STRICT_MODULES=1 bun run scripts/check-layers.ts",
+    "check:contracts": "STRICT=1 bun run scripts/check-contracts.ts",
+    "verify": "bun run check:sql && bun run check:layers && bun run check:contracts && bun test --parallel=1",
     "reset-database": "bun run scripts/reset-database.ts",
     "giftistry-admin": "bun run scripts/giftistry-admin.ts",
     "collections:generate": "NODE_ENV=test bun collections/generate-httpie-collection.ts",

@@ -1,12 +1,13 @@
-import type { ResolvedAiConnection } from '@/common/utils/resolve-ai-connection.util';
+import type { ResolvedAiConnection } from './interfaces/resolved-ai-connection.interface';
+import {
+  LOCAL_MODELS_TIMEOUT_MS,
+  OPENROUTER_PROBE_TIMEOUT_MS,
+} from './constants/probe-ai-reachability.constant';
 import {
   fetchWithAiTimeouts,
   resolveAiConnectTimeoutMs,
 } from '@/common/utils/ai-fetch.util';
-import { buildLocalAiUrl, normalizeLocalAiEndpoint } from '@/modules/system/domain/normalize-local-ai-endpoint';
-
-export const LOCAL_MODELS_TIMEOUT_MS = 10_000;
-export const OPENROUTER_PROBE_TIMEOUT_MS = 15_000;
+import { buildLocalAiUrl, normalizeLocalAiEndpoint } from '@/modules/system';
 
 export async function probeAiReachability(
   connection: ResolvedAiConnection,

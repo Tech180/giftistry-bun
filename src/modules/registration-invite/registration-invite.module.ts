@@ -1,18 +1,11 @@
 import { Elysia } from 'elysia';
-import type { RegistrationInviteRepository } from './domain/ports/registration-invite.repository';
-import type { GetSitePolicyUseCase } from '@/common/application/get-site-policy.use-case';
-import type { WriteAuditLogUseCase } from '@/common/application/write-audit-log.use-case';
-import { GetRegistrationInviteStatusUseCase } from './application/get-registration-invite-status.use-case';
-import { RegenerateRegistrationInviteUseCase } from './application/regenerate-registration-invite.use-case';
-import { DeleteRegistrationInviteUseCase } from './application/delete-registration-invite.use-case';
-import { ValidateRegistrationInviteUseCase } from './application/validate-registration-invite.use-case';
+import { createAdminAuthMiddleware } from '@/modules/admin';
+import { DeleteRegistrationInviteUseCase } from './application/use-cases/delete-registration-invite.use-case';
+import { GetRegistrationInviteStatusUseCase } from './application/use-cases/get-registration-invite-status.use-case';
+import { RegenerateRegistrationInviteUseCase } from './application/use-cases/regenerate-registration-invite.use-case';
+import { ValidateRegistrationInviteUseCase } from './application/use-cases/validate-registration-invite.use-case';
+import type { RegistrationInviteModuleDeps } from './interfaces/registration-invite-module-deps.interface';
 import { registrationInviteRoutes } from './presentation/registration-invite.routes';
-
-export interface RegistrationInviteModuleDeps {
-  inviteRepo: RegistrationInviteRepository;
-  getSitePolicyUseCase: GetSitePolicyUseCase;
-  writeAuditLogUseCase: WriteAuditLogUseCase;
-}
 
 export function createRegistrationInviteModule(deps: RegistrationInviteModuleDeps) {
   const getStatus = new GetRegistrationInviteStatusUseCase(deps.inviteRepo);
@@ -29,14 +22,13 @@ export function createRegistrationInviteModule(deps: RegistrationInviteModuleDep
     deps.inviteRepo,
     deps.getSitePolicyUseCase
   );
+  const adminAuth = createAdminAuthMiddleware(deps.authMiddleware);
 
   return {
     module: new Elysia().use(
       registrationInviteRoutes({
-        getStatus,
-        regenerate,
-        deleteInvite,
-        validate,
+        useCases: { getStatus, regenerate, deleteInvite, validate },
+        adminAuth,
       })
     ),
     inviteRepo: deps.inviteRepo,

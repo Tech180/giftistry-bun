@@ -1,32 +1,9 @@
-import type { AiProvider } from '@/modules/system/domain/server-config.entity';
-import { normalizeAiProvider } from '@/modules/system/domain/server-config.entity';
-import { env } from '@/common/consts/runtime-config';
-import { resolveAiModel, type AiModelSlot } from './resolve-ai-model.util';
-
-export type { AiModelSlot };
-
-export interface AiConnectionConfig {
-  AiFastProvider?: string;
-  AiFastEndpoint?: string;
-  AiFastApiKey?: string;
-  AiFastModel?: string;
-  AiIntelligentProvider?: string;
-  AiIntelligentEndpoint?: string;
-  AiIntelligentApiKey?: string;
-  AiIntelligentModel?: string;
-  /** @deprecated migration only — prefer slot fields */
-  AiProvider?: string;
-  AiEndpoint?: string;
-  AiApiKey?: string;
-  AiModel?: string;
-}
-
-export interface ResolvedAiConnection {
-  provider: AiProvider;
-  endpoint: string;
-  apiKey: string;
-  model: string;
-}
+import { normalizeAiProvider } from '@/modules/system';
+import { getEnv } from '@/common/config/utils/get-env.util';
+import type { AiConnectionConfig } from './interfaces/ai-connection-config.interface';
+import type { ResolvedAiConnection } from './interfaces/resolved-ai-connection.interface';
+import type { AiModelSlot } from './types/ai-model-slot.type';
+import { resolveAiModel } from './resolve-ai-model.util';
 
 export function resolveAiConnection(
   config: AiConnectionConfig,
@@ -52,7 +29,8 @@ export function resolveAiConnection(
         };
 
   if (resolved.provider === 'openrouter' && !resolved.apiKey) {
-    resolved.apiKey = (env.OPENROUTER_API_KEY || env.GEMINI_API_KEY || '').trim();
+    const runtime = getEnv();
+    resolved.apiKey = (runtime.OPENROUTER_API_KEY || runtime.GEMINI_API_KEY || '').trim();
   }
 
   return resolved;
@@ -62,5 +40,6 @@ export function isAiSlotConfigured(connection: ResolvedAiConnection): boolean {
   if (connection.provider === 'local') {
     return !!connection.endpoint;
   }
-  return !!connection.apiKey || !!env.OPENROUTER_API_KEY || !!env.GEMINI_API_KEY;
+  const runtime = getEnv();
+  return !!connection.apiKey || !!runtime.OPENROUTER_API_KEY || !!runtime.GEMINI_API_KEY;
 }

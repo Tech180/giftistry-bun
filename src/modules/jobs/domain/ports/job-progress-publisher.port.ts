@@ -1,6 +1,6 @@
-import type { BackgroundJob, BackgroundJobItem } from '../background-job.entity';
-
-export type JobProgressEventType = 'job.progress' | 'job.completed' | 'job.failed';
+import type { BackgroundJob } from '../interfaces/background-job.interface';
+import type { BackgroundJobItem } from '../interfaces/background-job-item.interface';
+import type { JobProgressEventType } from '../interfaces/job-progress-event-type.type';
 
 export interface JobProgressPublisher {
   publish(

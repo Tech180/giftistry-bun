@@ -2,9 +2,9 @@ import { describe, expect, test } from 'bun:test';
 import {
   extractAmazonDomPageContextLines,
   isAmazonProductHost,
-} from '@/modules/item/infrastructure/scraping/extractors/amazon-dom-page-context.util';
-import { buildJsonLdPageContext } from '@/modules/item/infrastructure/scraping/extractors/json-ld-product.util';
-import { isEmptyAiPopulateResult } from '@/modules/item/domain/merge-extracted-metadata';
+} from '@/modules/item/infrastructure/scraping/extractors/utils/amazon-dom-page-context.util';
+import { buildJsonLdPageContext } from '@/modules/item/infrastructure/scraping/extractors/utils/json-ld-product.util';
+import { isEmptyAiPopulateResult } from '@/modules/item/domain/utils/merge-extracted-metadata.util';
 
 const AMAZON_HTML = `
 <!DOCTYPE html>

@@ -1,15 +1,10 @@
-import type { WebsocketJobProgressPublisher } from '@/modules/jobs/infrastructure/websocket-job-progress-publisher';
-import type { WebsocketListChangedPublisher } from '@/modules/wishlist/infrastructure/websocket-list-changed-publisher';
-import type { WebsocketNotificationRealtimePublisher } from '@/modules/notifications/infrastructure/websocket-notification-realtime-publisher';
-import { publishRealtimeFanout } from '@/modules/jobs/infrastructure/postgres-realtime-fanout';
+import type { DirectWsPublish } from '@/boot/interfaces/direct-ws-publish.type';
+import type { RealtimePublisherAdapters } from '@/boot/interfaces/realtime-publisher-adapters.interface';
+import { guestListWsRoom } from '@/modules/invites/infrastructure/utils/guest-list-ws-room.util';
+import { publishRealtimeFanout } from '@/modules/jobs/infrastructure/adapters/postgres-realtime-fanout';
 
-export type DirectWsPublish = (room: string, data: string) => void;
-
-export type RealtimePublisherAdapters = {
-  jobProgress: WebsocketJobProgressPublisher;
-  listChanged: WebsocketListChangedPublisher;
-  notification: WebsocketNotificationRealtimePublisher;
-};
+export type { DirectWsPublish } from '@/boot/interfaces/direct-ws-publish.type';
+export type { RealtimePublisherAdapters } from '@/boot/interfaces/realtime-publisher-adapters.interface';
 
 /** In-process Bun WebSocket publishers (api / all roles). */
 export function wireDirectRealtimePublishers(
@@ -26,7 +21,9 @@ export function wireDirectRealtimePublishers(
     }
   });
   adapters.listChanged.setTransport((listId, payload) => {
-    publish(listId, JSON.stringify(payload));
+    const json = JSON.stringify(payload);
+    publish(listId, json);
+    publish(guestListWsRoom(listId), json);
   });
   adapters.notification.setTransport((userId, payload) => {
     publish(userId, JSON.stringify(payload));
@@ -39,7 +36,7 @@ export function wirePostgresRealtimePublishers(adapters: RealtimePublisherAdapte
     void publishRealtimeFanout([listId, userId], payload);
   });
   adapters.listChanged.setTransport((listId, payload) => {
-    void publishRealtimeFanout([listId], payload);
+    void publishRealtimeFanout([listId, guestListWsRoom(listId)], payload);
   });
   adapters.notification.setTransport((userId, payload) => {
     void publishRealtimeFanout([userId], payload);

@@ -88,7 +88,7 @@ Import `httpie-collection-giftistry.json` and `httpie-environment-local.json`. S
 | `CREDENTIALS_DIRECTORY` / `GIFTISTRY_CREDENTIALS_DIRECTORY` | — | Directory of files named after secret keys |
 | `SCRAPE_*` | no | Playwright/fetch scrape timeouts and concurrency — see [architecture.md](architecture.md) |
 
-Prefer `getEnv()` from `src/common/consts/runtime-config.ts` over the deprecated `env` Proxy.
+Use `getEnv()` from `src/common/config/utils/get-env.util.ts` for typed runtime config.
 
 ## Production hardening (quick)
 

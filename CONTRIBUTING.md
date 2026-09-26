@@ -25,7 +25,7 @@ Thanks for helping with Giftistry. This guide is for **people changing code** â€
 
 - TypeScript strict (`noUncheckedIndexedAccess`); prefer clear, compact expressions.
 - Prefer declarative/immutable approaches where they fit.
-- Use `getEnv()` for runtime config; do not add new `env.` Proxy usages.
+- Use `getEnv()` for runtime config.
 - Never invent or commit secrets.
 
 ### Layers (enforced)

@@ -1,39 +1,20 @@
 import { Elysia } from 'elysia';
-import type { ListLinkTokenRepository } from './domain/ports/list-link-token.repository';
-import type { ListEmailInviteRepository } from './domain/ports/list-email-invite.repository';
-import type { ListShareRepository } from '@/modules/wishlist/domain/ports/list-share.repository';
-import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
-import type { UserRepository } from '@/modules/auth/domain/ports/user.repository';
-import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
-import type { EventBus } from '@/common/domain/events/event-bus.port';
-import type { ListItemsUseCase } from '@/modules/item/application/list-items.use-case';
-import {
-  CreateLinkInviteUseCase,
-  ListLinkInvitesUseCase,
-  RevokeLinkInviteUseCase,
-  GetLinkInviteDetailsUseCase,
-} from './application/link-invite.use-cases';
-import { CreateEmailInviteUseCase } from './application/create-email-invite.use-case';
-import { AcceptLinkInviteUseCase, AcceptEmailInviteUseCase } from './application/accept-invite.use-cases';
-import { GetPublicLinkPreviewUseCase } from './application/get-public-link-preview.use-case';
-import { inviteAcceptRoutes } from './presentation/invites.routes';
-
-export interface InvitesModuleDeps {
-  linkTokenRepo: ListLinkTokenRepository;
-  emailInviteRepo: ListEmailInviteRepository;
-  listShareRepo: ListShareRepository;
-  userRepo: UserRepository;
-  wishlistRepo: WishlistRepository;
-  assertUserCanUseCase: AssertUserCanUseCase;
-  eventBus: EventBus;
-  listItems: ListItemsUseCase;
-}
+import { AcceptEmailInviteUseCase } from './application/use-cases/accept-email-invite.use-case';
+import { AcceptLinkInviteUseCase } from './application/use-cases/accept-link-invite.use-case';
+import { CreateEmailInviteUseCase } from './application/use-cases/create-email-invite.use-case';
+import { CreateLinkInviteUseCase } from './application/use-cases/create-link-invite.use-case';
+import { GetLinkInviteDetailsUseCase } from './application/use-cases/get-link-invite-details.use-case';
+import { GetPublicLinkPreviewUseCase } from './application/use-cases/get-public-link-preview.use-case';
+import { ListLinkInvitesUseCase } from './application/use-cases/list-link-invites.use-case';
+import { RevokeLinkInviteUseCase } from './application/use-cases/revoke-link-invite.use-case';
+import type { InvitesModuleDeps } from './interfaces/invites-module-deps.interface';
+import { invitesRoutes } from './presentation/invites.routes';
 
 export function createInvitesModule(deps: InvitesModuleDeps) {
-  const invitesUseCases = {
+  const useCases = {
     createLinkInvite: new CreateLinkInviteUseCase(deps.linkTokenRepo, deps.assertUserCanUseCase),
     listLinkInvites: new ListLinkInvitesUseCase(deps.linkTokenRepo),
-    revokeLinkInvite: new RevokeLinkInviteUseCase(deps.linkTokenRepo),
+    revokeLinkInvite: new RevokeLinkInviteUseCase(deps.linkTokenRepo, deps.guestRealtime ?? null),
     getLinkInviteDetails: new GetLinkInviteDetailsUseCase(deps.linkTokenRepo),
     getPublicLinkPreview: new GetPublicLinkPreviewUseCase(
       deps.linkTokenRepo,
@@ -57,7 +38,7 @@ export function createInvitesModule(deps: InvitesModuleDeps) {
   };
 
   return {
-    module: new Elysia().use(inviteAcceptRoutes(invitesUseCases)),
-    invitesUseCases,
+    module: new Elysia().use(invitesRoutes({ useCases })),
+    invitesUseCases: useCases,
   };
 }

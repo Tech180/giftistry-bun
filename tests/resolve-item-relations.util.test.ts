@@ -1,11 +1,5 @@
-import {
-  buildRelatedGroupSymbolByItemId,
-  getLinkedItemIdsFromExportItem,
-  getRelatedItemIdsFromExportItem,
-  resolveRelationGroupItemIds,
-  resolveRelationPeerNames,
-  type RelationExportItem,
-} from '../src/modules/item/domain/resolve-item-relations.util';
+import { buildRelatedGroupSymbolByItemId, getLinkedItemIdsFromExportItem, getRelatedItemIdsFromExportItem, resolveRelationGroupItemIds, resolveRelationPeerNames } from '../src/modules/item/domain/utils/resolve-item-relations.util';
+import type { RelationExportItem } from '@/modules/item/domain/interfaces/relation-export-item.interface';
 
 function item(
   id: string,

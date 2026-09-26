@@ -1,10 +1,8 @@
 import { describe, expect, mock, test } from 'bun:test';
-import {
-  compileDescriptionPrompt,
-  formatItemContextBlock,
-} from '../src/modules/item/infrastructure/gemini-description-summarizer';
-import { SummarizeItemDescriptionUseCase } from '../src/modules/item/application/summarize-item-description.use-case';
-import { AppError } from '../src/common/middlewares/error.middleware';
+import { compileDescriptionPrompt } from '../src/modules/item/infrastructure/utils/compile-description-prompt.util';
+import { formatItemContextBlock } from '../src/modules/item/domain/utils/format-item-context-block.util';
+import { SummarizeItemDescriptionUseCase } from '../src/modules/item/slices/metadata/use-cases/summarize-item-description.use-case';
+import { AppError } from '../src/common/domain/errors/app-error';
 import type { ServerConfigRepository } from '../src/modules/system/domain/ports/server-config.repository';
 
 const configRepo = {

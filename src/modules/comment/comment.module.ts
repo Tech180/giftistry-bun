@@ -1,29 +1,17 @@
 import { Elysia } from 'elysia';
-import type { RouteMiddleware } from '@/common/types/route-middleware';
-import type { CommentRepository } from './domain/ports/comment.repository';
-import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
-import type { ListShareRepository } from '@/modules/wishlist/domain/ports/list-share.repository';
-import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
-import type { CommentRealtimePublisher } from './domain/ports/comment-realtime-publisher.port';
-import { AddCommentUseCase } from './application/add-comment.use-case';
-import { ListCommentsUseCase } from './application/list-comments.use-case';
-import { DeleteCommentUseCase } from './application/delete-comment.use-case';
-import { ToggleReactionUseCase } from './application/toggle-reaction.use-case';
+import { AddCommentUseCase } from './application/use-cases/add-comment.use-case';
+import { ListCommentsUseCase } from './application/use-cases/list-comments.use-case';
+import { DeleteCommentUseCase } from './application/use-cases/delete-comment.use-case';
+import { ToggleReactionUseCase } from './application/use-cases/toggle-reaction.use-case';
+import type { CommentModuleDeps } from './interfaces/comment-module-deps.interface';
 import { commentRoutes } from './presentation/comment.routes';
 
-export interface CommentModuleDeps {
-  commentRepo: CommentRepository;
-  wishlistRepo: WishlistRepository;
-  listShareRepo: ListShareRepository;
-  assertUserCanUseCase: AssertUserCanUseCase;
-  commentRealtime: CommentRealtimePublisher;
-  middleware: RouteMiddleware;
-}
+export type { CommentModuleDeps };
 
 export function createCommentModule(deps: CommentModuleDeps) {
   return new Elysia().use(
-    commentRoutes(
-      {
+    commentRoutes({
+      useCases: {
         addComment: new AddCommentUseCase(
           deps.commentRepo,
           deps.wishlistRepo,
@@ -35,7 +23,7 @@ export function createCommentModule(deps: CommentModuleDeps) {
         deleteComment: new DeleteCommentUseCase(deps.commentRepo, deps.commentRealtime),
         toggleReaction: new ToggleReactionUseCase(deps.commentRepo, deps.commentRealtime),
       },
-      deps.middleware
-    )
+      middleware: deps.middleware,
+    })
   );
 }

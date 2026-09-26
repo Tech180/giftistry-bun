@@ -1,10 +1,6 @@
 import * as cheerio from 'cheerio';
-import type { RetailerExtractor } from './retailer-registry';
-
-function parsePrice(text: string): number | null {
-  const parsed = Number(text.replace(/[^0-9.]/g, ''));
-  return Number.isFinite(parsed) ? parsed : null;
-}
+import type { RetailerExtractor } from './interfaces/retailer-extractor.interface';
+import { parseScrapePrice } from '../extractors/utils/parse-scrape-price.util';
 
 export const shopifyExtractor: RetailerExtractor = {
   hostnames: ['myshopify.com'],
@@ -32,7 +28,7 @@ export const shopifyExtractor: RetailerExtractor = {
 
     return {
       title: title || metaTitle || null,
-      price: price ?? (metaPrice ? parsePrice(metaPrice) : null),
+      price: price ?? (metaPrice ? parseScrapePrice(metaPrice) : null),
       description: $('meta[property="og:description"]').attr('content')?.trim() || null,
       imageUrl,
       color: mode === 'full' ? $('meta[property="product:color"]').attr('content')?.trim() || null : undefined,

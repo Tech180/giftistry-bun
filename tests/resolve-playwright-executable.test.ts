@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test';
+import { NIXOS_PLAYWRIGHT_HINT } from '../src/modules/item/infrastructure/scraping/constants/playwright-executable.constant';
 import {
   isLikelyNixOs,
-  NIXOS_PLAYWRIGHT_HINT,
   playwrightLaunchHint,
   requirePlaywrightExecutableForLaunch,
   resolvePlaywrightExecutablePath,
-} from '../src/modules/item/infrastructure/scraping/resolve-playwright-executable';
+} from '../src/modules/item/infrastructure/scraping/utils/resolve-playwright-executable.util';
 
 describe('resolvePlaywrightExecutablePath', () => {
   test('prefers SCRAPE_PLAYWRIGHT_EXECUTABLE_PATH when the file exists', () => {

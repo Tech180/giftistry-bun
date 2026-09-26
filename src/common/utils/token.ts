@@ -1,4 +1,4 @@
-import { env } from '../consts/runtime-config';
+import { getEnv } from '../config/utils/get-env.util';
 
 export interface JwtPayload {
   userId: string;
@@ -15,7 +15,7 @@ export async function createToken(payload: JwtPayload, expiresInMs: number = 24 
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     'raw',
-    encoder.encode(env.JWT_SECRET),
+    encoder.encode(getEnv().JWT_SECRET),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign']
@@ -42,7 +42,7 @@ export async function verifyToken(token: string): Promise<JwtPayload | null> {
     const encoder = new TextEncoder();
     const key = await crypto.subtle.importKey(
       'raw',
-      encoder.encode(env.JWT_SECRET),
+      encoder.encode(getEnv().JWT_SECRET),
       { name: 'HMAC', hash: 'SHA-256' },
       false,
       ['verify']

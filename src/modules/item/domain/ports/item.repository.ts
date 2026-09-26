@@ -1,50 +1,11 @@
-import type { Item, ItemLink, Claim, ItemPhoto } from '../item.entity';
-import type { ItemDescriptionMetadata } from '../item-description.util';
-import type {
-  ItemSubstitutionKind,
-  ItemSubstitutionRow,
-} from '../item-substitution.entity';
-
-export interface CreateClaimInput {
-  itemId: string;
-  userId: string;
-  amount: number | null;
-  claimedByName: string | null;
-  anonymous: boolean;
-  quantity: number;
-  selection: string | null;
-}
-
-export interface ItemMetadataWrite {
-  IsFavorite?: boolean;
-  IsPinned?: boolean;
-  DesiredQuantity?: number | null;
-  MultiCount?: boolean;
-  OtherUsersCanSee?: boolean | null;
-  AllowSubstitutions?: boolean;
-  CustomFields?: ItemDescriptionMetadata['CustomFields'] | null;
-  Variations?: ItemDescriptionMetadata['Variations'] | null;
-  /**
-   * Ordered photos. On create: default []. On update: `undefined` leaves existing
-   * photos unchanged; `[]` or values replaces the full set.
-   */
-  Photos?: ItemPhoto[] | null;
-}
-
-export interface CreateSubstitutionItemInput {
-  listId: string;
-  parentItemId: string;
-  name: string;
-  description: string | null;
-  createdByUserId: string;
-  kind: ItemSubstitutionKind;
-  sortOrder: number;
-  category?: string;
-  priorityId?: string | null;
-  priority?: number | null;
-  isHiddenIdea?: boolean;
-  metadata?: ItemMetadataWrite | null;
-}
+import type { Item } from '../interfaces/item.interface';
+import type { ItemLink } from '../interfaces/item-link.interface';
+import type { Claim } from '../interfaces/claim.interface';
+import type { ItemPhoto } from '../interfaces/item-photo.interface';
+import type { ItemSubstitutionRow } from '../interfaces/item-substitution-row.interface';
+import type { CreateClaimInput } from '../interfaces/create-claim-input.interface';
+import type { ItemMetadataWrite } from '../interfaces/item-metadata-write.interface';
+import type { CreateSubstitutionItemInput } from '../interfaces/create-substitution-item-input.interface';
 
 export interface ItemRepository {
   findById(id: string): Promise<Item | null>;

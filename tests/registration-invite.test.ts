@@ -1,6 +1,7 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { app } from '../src/index';
-import { sql } from '../src/common/database/connection';
+import { sql } from '../src/common/database';
+import { ensureOpenRegistration } from './helper';
 
 describe('Registration invite links', () => {
   const timestamp = Date.now();
@@ -51,11 +52,7 @@ describe('Registration invite links', () => {
   }
 
   beforeAll(async () => {
-    await sql`
-      INSERT INTO site_policy (id, policy)
-      VALUES (1, ${JSON.stringify({ RegistrationMode: 'open' })}::jsonb)
-      ON CONFLICT (id) DO UPDATE SET policy = site_policy.policy || ${JSON.stringify({ RegistrationMode: 'open' })}::jsonb
-    `;
+    await ensureOpenRegistration();
 
     const signupRes = await app.handle(
       new Request('http://localhost/api/auth/signup', {

@@ -1,17 +1,6 @@
-import type { ReviewData } from './review-extractor.port';
-
-export interface ItemReview {
-  ItemId: string;
-  Summary: string;
-  Pros: string[];
-  Cons: string[];
-  Reviews: ReviewData['reviews'];
-}
-
-export interface ItemBackfillCandidate {
-  itemId: string;
-  url: string;
-}
+import type { ReviewData } from '../interfaces/review-data.interface';
+import type { ItemReview } from '../interfaces/item-review.interface';
+import type { ItemBackfillCandidate } from '../interfaces/item-backfill-candidate.interface';
 
 export interface ItemReviewRepository {
   findByItemId(itemId: string): Promise<ItemReview | null>;

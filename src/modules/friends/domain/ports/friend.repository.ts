@@ -1,4 +1,5 @@
-import type { Friend, FriendWithUser } from '../friend.entity';
+import type { Friend } from '../interfaces/friend.interface';
+import type { FriendWithUser } from '../interfaces/friend-with-user.interface';
 
 export interface FriendRepository {
   areFriends(userA: string, userB: string): Promise<boolean>;

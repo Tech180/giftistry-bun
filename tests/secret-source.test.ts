@@ -2,13 +2,13 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { afterEach, describe, expect, test } from 'bun:test';
-import { loadRuntimeConfig } from '@/common/consts/runtime-config';
+import { loadRuntimeConfig } from '@/common/config/runtime-config';
 import type { SecretSource } from '@/common/domain/ports/secret-source.port';
-import { CompositeSecretSource } from '@/common/infrastructure/secrets/composite-secret.source';
-import { CredentialsDirectoryProvider } from '@/common/infrastructure/secrets/credentials-directory.provider';
+import { CompositeSecretSource } from '@/common/infrastructure/secrets/sources/composite-secret.source';
+import { CredentialsDirectoryProvider } from '@/common/infrastructure/secrets/providers/credentials-directory.provider';
 import { ensurePersistedJwtSecret } from '@/common/infrastructure/secrets/ensure-jwt-secret';
-import { EnvSecretProvider } from '@/common/infrastructure/secrets/env-secret.provider';
-import { FileEnvSecretProvider } from '@/common/infrastructure/secrets/file-env-secret.provider';
+import { EnvSecretProvider } from '@/common/infrastructure/secrets/providers/env-secret.provider';
+import { FileEnvSecretProvider } from '@/common/infrastructure/secrets/providers/file-env-secret.provider';
 
 const saved: Record<string, string | undefined> = {};
 

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   mergeGrabInfoDescription,
   mergeGrabInfoMetadata,
-} from '@/modules/jobs/application/merge-grab-info-description.util';
+} from '@/modules/jobs/application/utils/merge-grab-info-description.util';
 
 describe('mergeGrabInfoMetadata', () => {
   test('returns structured metadata without serializing', () => {

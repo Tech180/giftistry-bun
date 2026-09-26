@@ -1,17 +1,17 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import {
-  clampAiCompletionTimeoutMs,
-  DEFAULT_AI_COMPLETION_TIMEOUT_MS,
   AI_COMPLETION_TIMEOUT_MAX_MS,
   AI_COMPLETION_TIMEOUT_MIN_MS,
-  toSystemSettingsView,
-} from '../src/modules/system/domain/server-config.entity';
+  DEFAULT_AI_COMPLETION_TIMEOUT_MS,
+} from '../src/modules/system/domain/constants/ai-timeout.constant';
+import { clampAiCompletionTimeoutMs } from '../src/modules/system/domain/utils/clamp-server-config-limits.util';
+import { toSystemSettingsView } from '../src/modules/system/domain/utils/to-system-settings-view.util';
 
 let configState: {
   AiCompletionTimeoutMs?: number;
 } = {};
 
-mock.module('../src/common/infrastructure/config.loader', () => ({
+mock.module('../src/common/config/utils/server-config-file.util', () => ({
   loadConfig: () => configState,
 }));
 
@@ -61,7 +61,7 @@ describe('resolveCompletionTimeoutMs prefers config over env', () => {
     process.env.AI_COMPLETION_TIMEOUT_MS = '60000';
 
     const { resolveCompletionTimeoutMs } = await import(
-      '../src/modules/item/infrastructure/ai-text-completion'
+      '../src/modules/item/infrastructure/utils/resolve-completion-timeout-ms.util'
     );
 
     expect(resolveCompletionTimeoutMs()).toBe(180_000);
@@ -72,7 +72,7 @@ describe('resolveCompletionTimeoutMs prefers config over env', () => {
     process.env.AI_COMPLETION_TIMEOUT_MS = '90000';
 
     const { resolveCompletionTimeoutMs } = await import(
-      '../src/modules/item/infrastructure/ai-text-completion'
+      '../src/modules/item/infrastructure/utils/resolve-completion-timeout-ms.util'
     );
 
     expect(resolveCompletionTimeoutMs()).toBe(90_000);

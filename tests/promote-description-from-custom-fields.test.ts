@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test';
-import { promoteProseCustomFieldsToDescription } from '@/modules/item/domain/promote-prose-custom-fields-to-description.util';
+import { promoteProseCustomFieldsToDescription } from '@/modules/item/domain/utils/promote-prose-custom-fields-to-description.util';
 import {
   collectSpecValues,
   sanitizeProductDescription,
-} from '@/modules/item/domain/sanitize-product-description.util';
-import { parsePopulateJsonForTests } from '@/modules/item/infrastructure/gemini-metadata-populator';
+} from '@/modules/item/domain/utils/sanitize-product-description.util';
+import { parsePopulateJsonForTests } from '@/modules/item/infrastructure/utils/parse-populate-json.util';
 
 describe('promoteProseCustomFieldsToDescription', () => {
   test('promotes Note into Description when Description is empty', () => {

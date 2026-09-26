@@ -1,29 +1,6 @@
-export type ReportStatus = 'open' | 'resolved' | 'dismissed';
-
-export type ReportTargetType = 'comment' | 'wishlist' | 'user';
-
-export interface ContentReport {
-  Id: string;
-  TargetType: string;
-  TargetId: string;
-  Reason: string;
-  Status: ReportStatus;
-  CreatedAt: Date | string;
-  ReporterUsername: string | null;
-}
-
-export interface CreateReportInput {
-  reporterId: string;
-  targetType: ReportTargetType;
-  targetId: string;
-  reason: string;
-}
-
-export interface ReportListResult {
-  reports: ContentReport[];
-  page: number;
-  total: number;
-}
+import type { CreateReportInput } from '../interfaces/create-report-input.interface';
+import type { ReportListResult } from '../interfaces/report-list-result.interface';
+import type { ReportStatus } from '../types/report-status.type';
 
 export interface ReportRepository {
   create(input: CreateReportInput): Promise<void>;

@@ -1,5 +1,5 @@
 import type { DomainEvent } from '@/common/domain/events/domain-event';
-import type { EventBus, EventHandler } from '@/common/domain/events/event-bus.port';
+import type { EventBus, EventHandler } from '@/common/domain/ports/event-bus.port';
 
 export class InProcessEventBus implements EventBus {
   private readonly handlers = new Map<string, EventHandler[]>();

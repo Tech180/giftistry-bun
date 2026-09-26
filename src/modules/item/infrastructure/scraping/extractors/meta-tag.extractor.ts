@@ -1,31 +1,9 @@
 import * as cheerio from 'cheerio';
-import { decodeHtmlEntities } from '../html-utils';
-import { sanitizeProductDescription } from '../../../domain/product-description.util';
-import type { MetadataExtractor } from './types';
-
-function getMetaContent($: cheerio.CheerioAPI, selectors: string[]): string {
-  for (const selector of selectors) {
-    const el = $(selector).first();
-    const content = el.attr('content')?.trim();
-    if (content) return decodeHtmlEntities(content);
-  }
-  return '';
-}
-
-export function isGenericTitle(title: string): boolean {
-  const lowerTitle = title.toLowerCase();
-  return (
-    !title ||
-    lowerTitle === 'amazon' ||
-    lowerTitle === 'amazon.com' ||
-    lowerTitle === 'robot check' ||
-    lowerTitle.includes('captcha') ||
-    lowerTitle === 'walmart' ||
-    lowerTitle === 'target' ||
-    lowerTitle === 'site maintenance' ||
-    lowerTitle.includes('something went wrong')
-  );
-}
+import { sanitizeProductDescription } from '../../../domain/utils/product-description.util';
+import { decodeHtmlEntities } from '../utils/html.util';
+import type { MetadataExtractor } from './interfaces/metadata-extractor.interface';
+import { getMetaContent } from './utils/get-meta-content.util';
+import { parseScrapePrice } from './utils/parse-scrape-price.util';
 
 export const metaTagExtractor: MetadataExtractor = {
   name: 'meta-tag',
@@ -48,8 +26,7 @@ export const metaTagExtractor: MetadataExtractor = {
         'meta[property="og:price:amount"]',
         '[itemprop="price"]',
       ]) || $('[itemprop="price"]').first().text().trim();
-    const priceVal = priceStr ? Number(priceStr.replace(/[^0-9.]/g, '')) : null;
-    const price = priceVal !== null && !Number.isNaN(priceVal) ? priceVal : null;
+    const price = parseScrapePrice(priceStr);
 
     const description = sanitizeProductDescription(
       getMetaContent($, [

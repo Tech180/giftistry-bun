@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { polishGiftFacingMetadata } from '@/modules/item/domain/polish-gift-facing-metadata.util';
+import { polishGiftFacingMetadata } from '@/modules/item/domain/utils/polish-gift-facing-metadata.util';
 
 describe('polishGiftFacingMetadata', () => {
   test('compacts verbose amazon titles and drops amazon.com meta descriptions', () => {

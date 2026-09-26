@@ -14,22 +14,21 @@ Shared kernel and cross-cutting infrastructure used by every module.
 | Path | Role |
 |------|------|
 | `application/` | Cross-module use cases (site policy, audit log, user policy helpers) |
-| `consts/` | `runtime-config.ts` — `getEnv()` / `loadRuntimeConfig()` |
+| `config/` | `loadRuntimeConfig()` + `utils/get-env.util.ts` (`getEnv()`) |
 | `database/` | Pool, migrations, schema bootstrap |
-| `domain/` | Shared VOs (`Email`, `Money`, `ListRole`, …), ports, events |
-| `infrastructure/` | SecretSource, config loader, shared Postgres repos, event bus |
+| `domain/` | Shared VOs, ports, events; policy interfaces/constants/utils |
+| `infrastructure/` | Shared Postgres repos, secrets providers/sources, event bus |
 | `middlewares/` | Error handler, rate limit, list-access |
-| `types/` | Route middleware types, shared DTOs |
-| `utils/` | Tokens, public URL, AI connection helpers, case transforms |
+| `utils/` | Cross-cutting helpers; `constants/`, `interfaces/`, `types/` for shared shapes |
 
 ## Hotspots
 
 | Area | Notes |
 |------|-------|
-| `consts/runtime-config.ts` | Prefer `getEnv()`; `env` Proxy is deprecated |
-| `infrastructure/secrets/` | Env / `*_FILE` / credentials-dir providers |
+| `config/utils/get-env.util.ts` | Use `getEnv()` for typed runtime config |
+| `infrastructure/secrets/` | `providers/`, `sources/`, JWT ensure helpers |
 | `middlewares/list-access.middleware.ts` | Derives `checkListAccess` for list-scoped routes |
-| `database/connection.ts` | Active SQL pool; only infrastructure should import `sql` |
+| `database/` | Pool, migrations, schema bootstrap (`@/common/database`) |
 
 ## Related
 

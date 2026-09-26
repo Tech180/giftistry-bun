@@ -1,6 +1,6 @@
 import { describe, expect, it, mock } from 'bun:test';
 import { ListAccessService } from './list-access.service';
-import { AppError } from '@/common/middlewares/error.middleware';
+import { AppError } from '@/common/domain/errors/app-error';
 
 describe('ListAccessService', () => {
   it('resolves access when itemId is a substitution join-row id', async () => {

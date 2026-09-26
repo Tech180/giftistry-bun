@@ -1,5 +1,5 @@
-import type { MetadataPack } from '../metadata-pack.interface';
-import { TECH_CATEGORIES } from './tech-categories.constant';
+import type { MetadataPack } from '../interfaces/metadata-pack.interface';
+import { TECH_CATEGORIES } from '../constants/tech-categories.constant';
 
 export const TECHNOLOGY_COMPUTER_PARTS_PACK: MetadataPack = {
   id: 'technology.computer-parts',

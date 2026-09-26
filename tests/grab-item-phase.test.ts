@@ -5,9 +5,9 @@ import {
   grabPhasePayloadPatch,
   readGrabPhase,
   streamProgressRateFromPayload,
-} from '../src/modules/jobs/domain/grab-item-phase.util';
-import { toActiveStreams } from '../src/modules/jobs/domain/background-job.entity';
-import type { BackgroundJobItem } from '../src/modules/jobs/domain/background-job.entity';
+} from '../src/modules/jobs/domain/utils/grab-item-phase.util';
+import { toActiveStreams } from '../src/modules/jobs/domain/utils/to-active-streams.util';
+import type { BackgroundJobItem } from '../src/modules/jobs/domain/interfaces/background-job-item.interface';
 
 describe('grab-item-phase.util', () => {
   test('formats phase details', () => {

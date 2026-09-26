@@ -1,0 +1,1 @@
+export const LIST_NOTIFICATIONS_LIMIT = 100;

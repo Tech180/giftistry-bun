@@ -1,16 +1,5 @@
-export interface OidcUserInfo {
-  sub: string;
-  email?: string | null;
-  givenName?: string | null;
-  familyName?: string | null;
-  preferredUsername?: string | null;
-}
-
-export interface OidcAuthorizationRequest {
-  authorizationUrl: string;
-  state: string;
-  nonce: string;
-}
+import type { OidcAuthorizationRequest } from '../interfaces/oidc-authorization-request.interface';
+import type { OidcUserInfo } from '../interfaces/oidc-user-info.interface';
 
 export interface OidcClientPort {
   buildAuthorizationRequest(

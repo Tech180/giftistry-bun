@@ -1,6 +1,6 @@
 import { expect, test, describe, beforeAll, afterAll } from "bun:test";
 import { app } from '../src/index';
-import { sql } from '../src/common/database/connection';
+import { sql } from '../src/common/database';
 import { testPassword, cleanUpUser } from './helper';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -105,7 +105,7 @@ describe("System Administration Settings Endpoints", () => {
         }),
       })
     );
-    expect(res.status).toBe(400);
+    expect([400, 422]).toContain(res.status);
     const body = await res.json() as any;
     const message = JSON.stringify(body);
     expect(

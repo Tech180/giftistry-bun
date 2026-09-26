@@ -1,5 +1,6 @@
-import { extractFromCapturedJson } from '../extractors/embedded-json.extractor';
-import type { RetailerExtractor } from './retailer-registry';
+import { extractFromCapturedJson } from '../extractors/utils/embedded-json.util';
+import { parseScrapePrice } from '../extractors/utils/parse-scrape-price.util';
+import type { RetailerExtractor } from './interfaces/retailer-extractor.interface';
 
 function extractFromDsgJson(capturedJson: unknown[]): ReturnType<RetailerExtractor['extract']> {
   for (const json of capturedJson) {
@@ -22,12 +23,7 @@ function extractFromDsgJson(capturedJson: unknown[]): ReturnType<RetailerExtract
       product.listPrice ??
       product.salePrice ??
       (product.pricing as Record<string, unknown> | undefined)?.price;
-    const price =
-      typeof priceRaw === 'number'
-        ? priceRaw
-        : typeof priceRaw === 'string'
-          ? Number(priceRaw.replace(/[^0-9.]/g, ''))
-          : null;
+    const price = parseScrapePrice(priceRaw);
 
     const imageUrl =
       (typeof product.imageUrl === 'string' && product.imageUrl) ||
@@ -41,7 +37,7 @@ function extractFromDsgJson(capturedJson: unknown[]): ReturnType<RetailerExtract
     if (title || price !== null || imageUrl) {
       return {
         title,
-        price: Number.isFinite(price) ? price : null,
+        price,
         imageUrl,
         color,
         description: typeof product.description === 'string' ? product.description : null,

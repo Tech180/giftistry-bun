@@ -1,12 +1,12 @@
 import type { BackgroundJobRepository } from '../domain/ports/background-job.repository';
-import type { RunWishlistImportJobUseCase } from './run-wishlist-import-job.use-case';
-import type { RunItemEnrichJobUseCase } from './run-item-enrich-job.use-case';
-import type { RunItemSummarizeJobUseCase } from './run-item-summarize-job.use-case';
-
-const BOOT_RECLAIM_MS = 0;
-/** Above max configurable AI completion timeout (30m) so live grabs are not re-queued mid-flight. */
-export const PERIODIC_RECLAIM_MS = 35 * 60 * 1000;
-const PERIODIC_RECLAIM_INTERVAL_MS = 2 * 60 * 1000;
+import type { RunWishlistImportJobUseCase } from '../slices/import/use-cases/run-wishlist-import-job.use-case';
+import type { RunItemEnrichJobUseCase } from '../slices/enrich/use-cases/run-item-enrich-job.use-case';
+import type { RunItemSummarizeJobUseCase } from '../slices/summarize/use-cases/run-item-summarize-job.use-case';
+import {
+  BOOT_RECLAIM_MS,
+  PERIODIC_RECLAIM_INTERVAL_MS,
+  PERIODIC_RECLAIM_MS,
+} from './constants/job-reclaim.constant';
 
 export class BackgroundJobRunner {
   private timer: ReturnType<typeof setInterval> | null = null;

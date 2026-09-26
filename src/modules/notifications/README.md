@@ -2,17 +2,21 @@
 
 In-app notifications, preferences, and push delivery (Web Push / FCM / ntfy).
 
+Compact module — use cases live under `application/` (no behavior slices). Cross-module imports should use the public barrel `@/modules/notifications`.
+
 ## Layers
 
 | Folder | Role |
 |--------|------|
-| `domain/` | Notification entity, prefs, push subscription, publisher / push ports |
-| `application/` | Create/list/read/delete notifications, prefs, push registration, delivery service |
-| `infrastructure/` | Postgres repos, WS realtime publisher, FCM / web-push / ntfy adapters |
-| `presentation/` | `notifications.routes.ts` |
+| `index.ts` | Public barrel (ports, create/delivery use cases, WS helpers, module factory) |
+| `domain/` | Entity, interfaces, types, constants, utils, ports |
+| `application/` | Use cases, register-push helpers, push delivery |
+| `infrastructure/` | Repositories, adapters, registries, event handlers, row mappers |
+| `presentation/` | Route composer + inbox / preferences / push route groups |
 
 ## Public surface
 
+- **Barrel:** `@/modules/notifications`
 - **Module:** `createNotificationsModule`
 - **Routes:** `/api/notifications`, preferences, push register
 - **Realtime:** `notification.received` over user WebSocket

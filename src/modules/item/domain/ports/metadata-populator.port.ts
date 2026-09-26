@@ -1,29 +1,6 @@
-import type { ExtractedMetadata } from '../extracted-metadata';
-
-export interface MetadataPopulatorInput {
-  url: string;
-  websiteName?: string;
-  pageContext?: string;
-  searchContext?: string;
-  itemName?: string;
-  category?: string;
-  reconcileSources?: boolean;
-}
-
-export type MetadataPopulatorDeltaHandler = (delta: {
-  tokensPerSecond: number | null;
-}) => void | Promise<void>;
-
-export interface MetadataPopulatorConfig {
-  provider: string;
-  apiKey: string;
-  model: string;
-  customPrompt: string;
-  endpoint: string;
-  linkedDescriptionPrompt?: string;
-  linkedCategoryPrompt?: string;
-  onDelta?: MetadataPopulatorDeltaHandler;
-}
+import type { ExtractedMetadata } from '../interfaces/extracted-metadata.interface';
+import type { MetadataPopulatorInput } from '../interfaces/metadata-populator-input.interface';
+import type { MetadataPopulatorConfig } from '../interfaces/metadata-populator-config.interface';
 
 export interface MetadataPopulator {
   populate(

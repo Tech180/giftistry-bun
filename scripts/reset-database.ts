@@ -1,15 +1,16 @@
 import postgres from 'postgres';
-import { env } from '../src/common/consts/runtime-config';
+import { getEnv } from '../src/common/config/utils/get-env.util';
 
 const args = process.argv.slice(2);
+const runtime = getEnv();
 
 if (!args.includes('--confirm')) {
-  console.error(`This will delete ALL user data in database "${env.PGDATABASE}".`);
+  console.error(`This will delete ALL user data in database "${runtime.PGDATABASE}".`);
   console.error('Run: bun run reset-database -- --confirm');
   process.exit(1);
 }
 
-if (env.PGDATABASE === 'giftistry_test') {
+if (runtime.PGDATABASE === 'giftistry_test') {
   console.error(
     'Refusing to reset the test database. Use PGDATABASE=giftistry bun run reset-database -- --confirm'
   );
@@ -17,14 +18,14 @@ if (env.PGDATABASE === 'giftistry_test') {
 }
 
 const config = postgres({
-  host: env.PGHOST,
-  port: env.PGPORT,
-  username: env.PGUSER,
-  password: env.PGPASSWORD,
-  database: env.PGDATABASE,
+  host: runtime.PGHOST,
+  port: runtime.PGPORT,
+  username: runtime.PGUSER,
+  password: runtime.PGPASSWORD,
+  database: runtime.PGDATABASE,
 });
 
-console.log(`[INFO] Resetting database "${env.PGDATABASE}"...`);
+console.log(`[INFO] Resetting database "${runtime.PGDATABASE}"...`);
 
 await config`DELETE FROM user_passkeys`;
 await config`DELETE FROM users`;

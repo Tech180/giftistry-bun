@@ -8,15 +8,14 @@ import {
   mergeAiImportItems,
   shouldChunkAiImportContent,
   splitAiImportFileContent,
-} from '../src/modules/item/domain/chunk-ai-import-content.util';
+} from '../src/modules/item/domain/utils/chunk-ai-import-content.util';
 import {
-  clampAiImportChunkItemLimit,
-  DEFAULT_AI_IMPORT_CHUNK_ITEM_LIMIT,
   AI_IMPORT_CHUNK_ITEM_LIMIT_MAX,
   AI_IMPORT_CHUNK_ITEM_LIMIT_MIN,
-  normalizeAiImportChunkingEnabled,
-  toSystemSettingsView,
-} from '../src/modules/system/domain/server-config.entity';
+  DEFAULT_AI_IMPORT_CHUNK_ITEM_LIMIT,
+} from '../src/modules/system/domain/constants/ai-import-chunk.constant';
+import { clampAiImportChunkItemLimit } from '../src/modules/system/domain/utils/clamp-server-config-limits.util';
+import { toSystemSettingsView } from '../src/modules/system/domain/utils/to-system-settings-view.util';
 
 describe('chunk-ai-import-content', () => {
   test('small file stays single-shot at default item limit', () => {
@@ -104,12 +103,6 @@ describe('AiImportChunk settings clamps', () => {
     expect(clampAiImportChunkItemLimit(999)).toBe(AI_IMPORT_CHUNK_ITEM_LIMIT_MAX);
     expect(clampAiImportChunkItemLimit(20)).toBe(20);
     expect(clampAiImportChunkItemLimit('nope')).toBe(DEFAULT_AI_IMPORT_CHUNK_ITEM_LIMIT);
-  });
-
-  test('normalizeAiImportChunkingEnabled defaults true', () => {
-    expect(normalizeAiImportChunkingEnabled(undefined)).toBe(true);
-    expect(normalizeAiImportChunkingEnabled(false)).toBe(false);
-    expect(normalizeAiImportChunkingEnabled(true)).toBe(true);
   });
 
   test('toSystemSettingsView exposes import chunk fields', () => {

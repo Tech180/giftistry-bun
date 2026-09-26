@@ -1,0 +1,42 @@
+import type { UserRepository } from '../../../domain/ports/user.repository';
+import { UserEntity } from '../../../domain/user.entity';
+import type { SafeUser } from '../../../domain/types/safe-user.type';
+import { toSafeUser } from '../../../domain/utils/to-safe-user.util';
+import { AppError } from '@/common/domain/errors/app-error';
+import type { GetSitePolicyUseCase } from '@/common/application/use-cases/get-site-policy.use-case';
+
+export class LoginUseCase {
+  constructor(
+    private userRepo: UserRepository,
+    private getSitePolicy: GetSitePolicyUseCase
+  ) {}
+
+  async execute(username: string, password: string): Promise<SafeUser> {
+    if (!username || !password) {
+      throw new AppError('Username and password are required', 400, 'BAD_REQUEST');
+    }
+
+    const sitePolicy = await this.getSitePolicy.execute();
+    if (!sitePolicy.AllowPasswordLogin) {
+      throw new AppError('Password login is disabled on this server', 403, 'FORBIDDEN');
+    }
+
+    const userRow = await this.userRepo.findByUsername(username);
+    if (!userRow) {
+      throw new AppError('Invalid username or password', 401, 'UNAUTHORIZED');
+    }
+
+    const user = UserEntity.from(userRow);
+    user.assertCanLogin(sitePolicy);
+
+    const isMatch = await Bun.password.verify(password, user.AuthHash);
+    if (!isMatch) {
+      const { failedLoginCount, lockedUntil } = user.recordFailedLogin(sitePolicy);
+      await this.userRepo.updateLockout(user.Id, failedLoginCount, lockedUntil);
+      throw new AppError('Invalid username or password', 401, 'UNAUTHORIZED');
+    }
+
+    await this.userRepo.resetLockoutAndRecordLogin(user.Id);
+    return toSafeUser(user.toPlain());
+  }
+}

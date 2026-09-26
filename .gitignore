@@ -117,6 +117,7 @@ dist
 
 .local
 
-config.json
-collections/httpie-collection-gifitstry.json
-collections/httpie-environment-local.json
+./config.json
+./collections/httpie-collection-gifitstry.json
+./collections/httpie-environment-local.json
+.pgdata/

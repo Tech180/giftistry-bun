@@ -1,10 +1,7 @@
-import { loadConfig } from '@/common/infrastructure/config.loader';
-import {
-  clampAiConnectTimeoutMs,
-  DEFAULT_AI_CONNECT_TIMEOUT_MS,
-} from '@/modules/system/domain/server-config.entity';
-
-export { DEFAULT_AI_CONNECT_TIMEOUT_MS };
+import { loadConfig } from '@/common/config/utils/server-config-file.util';
+import { DEFAULT_AI_CONNECT_TIMEOUT_MS } from '@/modules/system/domain/constants/ai-timeout.constant';
+import { clampAiConnectTimeoutMs } from '@/modules/system/domain/utils/clamp-server-config-limits.util';
+import type { AiFetchTimeoutOptions } from './interfaces/ai-fetch-timeout-options.interface';
 
 export function resolveAiConnectTimeoutMs(override?: number): number {
   if (override !== undefined && Number.isFinite(override) && override > 0) {
@@ -86,11 +83,6 @@ export function isConnectError(err: unknown): boolean {
 type BunFetchInit = RequestInit & {
   timeout?: false | number | { connect?: number; idle?: number };
 };
-
-export interface AiFetchTimeoutOptions {
-  connectTimeoutMs: number;
-  completionTimeoutMs: number;
-}
 
 export async function fetchWithAiTimeouts(
   url: string,

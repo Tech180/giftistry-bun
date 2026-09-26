@@ -1,17 +1,15 @@
 import { describe, expect, test } from 'bun:test';
 import { resolveAiModel } from '../src/common/utils/resolve-ai-model.util';
-import { toSystemSettingsView } from '../src/modules/system/domain/server-config.entity';
-import {
-  summarizeJobItems,
-  toActiveStreams,
-  toJobPublicView,
-  type BackgroundJob,
-  type BackgroundJobItem,
-} from '../src/modules/jobs/domain/background-job.entity';
-import { StartWishlistImportJobUseCase } from '../src/modules/jobs/application/start-wishlist-import-job.use-case';
-import { DeleteWishlistUseCase } from '../src/modules/wishlist/application/delete-wishlist.use-case';
+import { toSystemSettingsView } from '../src/modules/system/domain/utils/to-system-settings-view.util';
+import { summarizeJobItems } from '../src/modules/jobs/domain/utils/summarize-job-items.util';
+import { toActiveStreams } from '../src/modules/jobs/domain/utils/to-active-streams.util';
+import { toJobPublicView } from '../src/modules/jobs/domain/utils/to-job-public-view.util';
+import type { BackgroundJob } from '../src/modules/jobs/domain/interfaces/background-job.interface';
+import type { BackgroundJobItem } from '../src/modules/jobs/domain/interfaces/background-job-item.interface';
+import { StartWishlistImportJobUseCase } from '../src/modules/jobs/slices/import/use-cases/start-wishlist-import-job.use-case';
+import { DeleteWishlistUseCase } from '../src/modules/wishlist/slices/lists/use-cases/delete-wishlist.use-case';
 import type { BackgroundJobRepository } from '../src/modules/jobs/domain/ports/background-job.repository';
-import { AppError } from '../src/common/middlewares/error.middleware';
+import { AppError } from '../src/common/domain/errors/app-error';
 
 const stubServerConfig = { load: () => ({}), save: () => {} } as never;
 

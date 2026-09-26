@@ -1,10 +1,6 @@
 import * as cheerio from 'cheerio';
-import type { RetailerExtractor } from './retailer-registry';
-
-function parsePrice(text: string): number | null {
-  const parsed = Number(text.replace(/[^0-9.]/g, ''));
-  return Number.isFinite(parsed) ? parsed : null;
-}
+import type { RetailerExtractor } from './interfaces/retailer-extractor.interface';
+import { parseScrapePrice } from '../extractors/utils/parse-scrape-price.util';
 
 export const amazonExtractor: RetailerExtractor = {
   hostnames: ['amazon.com', 'amazon.ca', 'amazon.co.uk', 'a.co', 'amzn.to', 'amzn.com'],
@@ -17,7 +13,7 @@ export const amazonExtractor: RetailerExtractor = {
       $('#priceblock_ourprice').first().text().trim() ||
       $('#priceblock_dealprice').first().text().trim() ||
       '';
-    const price = priceText ? parsePrice(priceText) : null;
+    const price = priceText ? parseScrapePrice(priceText) : null;
     const imageUrl = $('#landingImage').attr('src') || $('#imgBlkFront').attr('src') || null;
     const description = $('#productDescription').first().text().trim() || null;
 

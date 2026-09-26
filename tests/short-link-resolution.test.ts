@@ -3,9 +3,9 @@ import {
   isPrivateScrapeHostname,
   resolveScrapeFinalUrl,
   htmlLooksLikeContinueShoppingShell,
-} from '../src/modules/item/infrastructure/scraping/resolve-scrape-final-url.util';
-import { validateScrapeResult } from '../src/modules/item/infrastructure/scraping/validators';
-import { MetadataScraperOrchestrator } from '../src/modules/item/infrastructure/metadata-scraper.orchestrator';
+} from '../src/modules/item/infrastructure/scraping/utils/resolve-scrape-final-url.util';
+import { validateScrapeResult } from '../src/modules/item/infrastructure/scraping/utils/validate-scrape-result.util';
+import { MetadataScraperOrchestrator } from '../src/modules/item/infrastructure/adapters/metadata-scraper.orchestrator';
 
 describe('resolveScrapeFinalUrl', () => {
   test('accepts public https product URLs', () => {

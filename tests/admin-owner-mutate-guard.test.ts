@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { app } from '../src/index';
-import { sql } from '../src/common/database/connection';
+import { sql } from '../src/common/database';
 import { createTestUser, cleanUpUser } from './helper';
 
 describe('Admin mutations against server owner', () => {
@@ -30,7 +30,7 @@ describe('Admin mutations against server owner', () => {
         updated_at = NOW()
     `;
     const { PostgresSitePolicyRepository } = await import(
-      '@/common/infrastructure/postgres-site-policy.repository'
+      '@/common/infrastructure/repositories/postgres-site-policy.repository'
     );
     new PostgresSitePolicyRepository().invalidateCache();
 
@@ -55,7 +55,7 @@ describe('Admin mutations against server owner', () => {
         WHERE id = 1
       `;
       const { PostgresSitePolicyRepository } = await import(
-        '@/common/infrastructure/postgres-site-policy.repository'
+        '@/common/infrastructure/repositories/postgres-site-policy.repository'
       );
       new PostgresSitePolicyRepository().invalidateCache();
     }

@@ -1,9 +1,7 @@
 import { timingSafeEqual } from 'crypto';
-import { env } from '@/common/consts/runtime-config';
-
-const DEV_FALLBACK = 'http://localhost:3000';
-
-type PublicAppUrlConfigSource = () => string | undefined;
+import { getEnv } from '@/common/config/utils/get-env.util';
+import { PUBLIC_APP_URL_DEV_FALLBACK } from './constants/public-app-url.constant';
+import type { PublicAppUrlConfigSource } from './interfaces/public-app-url-config-source.interface';
 
 let getConfigPublicAppUrl: PublicAppUrlConfigSource = () => undefined;
 
@@ -23,13 +21,14 @@ export function getPublicAppUrl(): string {
     return fromConfig;
   }
 
-  const fromEnv = env.GIFTISTRY_PUBLIC_APP_URL?.replace(/\/$/, '');
+  const runtime = getEnv();
+  const fromEnv = runtime.GIFTISTRY_PUBLIC_APP_URL?.replace(/\/$/, '');
   if (fromEnv) {
     return fromEnv;
   }
 
-  if (!env.isProduction) {
-    return DEV_FALLBACK;
+  if (!runtime.isProduction) {
+    return PUBLIC_APP_URL_DEV_FALLBACK;
   }
 
   return '';

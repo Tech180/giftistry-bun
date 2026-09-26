@@ -1,4 +1,4 @@
-export type GiftistryProcessRole = 'api' | 'worker' | 'all';
+import type { GiftistryProcessRole } from './types/giftistry-process-role.type';
 
 export function resolveProcessRole(
   env: NodeJS.ProcessEnv = process.env

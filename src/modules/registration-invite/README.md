@@ -2,17 +2,21 @@
 
 First-run / gated registration invite tokens (admin-managed).
 
+Compact module — use cases live under `application/` (no behavior slices). Cross-module imports should use the public barrel `@/modules/registration-invite`.
+
 ## Layers
 
 | Folder | Role |
 |--------|------|
-| `domain/` | Registration invite entity + repo port |
-| `application/` | Status, regenerate, delete, validate |
-| `infrastructure/` | Postgres registration-invite repo |
-| `presentation/` | Admin + public validate routes |
+| `index.ts` | Public barrel (ports, types, signup helpers, module factory) |
+| `domain/` | Invite interface, list-status type/constants, usability utils, repo port |
+| `application/` | Status, regenerate, delete, validate, signup assert helpers |
+| `infrastructure/` | Postgres repo, invite select/row mapper |
+| `presentation/` | Admin + public route groups, schemas |
 
 ## Public surface
 
+- **Barrel:** `@/modules/registration-invite`
 - **Module:** `createRegistrationInviteModule`
 - **Admin:** `/api/admin/registration-invite`
 - **Public:** `/api/auth/registration-invite/:token`

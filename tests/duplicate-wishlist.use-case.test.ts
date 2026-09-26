@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from 'bun:test';
-import { DuplicateWishlistUseCase } from '../src/modules/wishlist/application/duplicate-wishlist.use-case';
+import { DuplicateWishlistUseCase } from '../src/modules/wishlist/slices/rollover/use-cases/duplicate-wishlist.use-case';
 
 function wishlist(overrides: Record<string, unknown> = {}) {
   return {

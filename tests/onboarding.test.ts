@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { app } from '../src/index';
-import { loadConfig, saveConfig, sql } from '../src/common/database/connection';
+import { loadConfig, saveConfig, sql } from '../src/common/database';
 
 describe('Owner onboarding', () => {
   const timestamp = Date.now();
@@ -79,7 +79,7 @@ describe('Owner onboarding', () => {
         updated_at = CURRENT_TIMESTAMP
     `;
     const { PostgresSitePolicyRepository } = await import(
-      '@/common/infrastructure/postgres-site-policy.repository'
+      '@/common/infrastructure/repositories/postgres-site-policy.repository'
     );
     new PostgresSitePolicyRepository().invalidateCache();
 

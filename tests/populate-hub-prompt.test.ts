@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test';
+import { POPULATE_HUB_HEADERS } from '../src/modules/item/infrastructure/constants/populate-hub-headers.constant';
 import {
   assemblePopulateHubPrompt,
   extractPopulateBodyFromCombined,
   parsePopulateHubPrompt,
-  POPULATE_HUB_HEADERS,
-} from '../src/modules/item/infrastructure/populate-hub-prompt.util';
+} from '../src/modules/item/infrastructure/utils/populate-hub-prompt.util';
 
 describe('populate-hub-prompt.util', () => {
   test('assemblePopulateHubPrompt joins three sections with headers', () => {

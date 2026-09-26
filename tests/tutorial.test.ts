@@ -1,6 +1,6 @@
 import { describe, test, expect, afterAll, beforeAll } from 'bun:test';
 import { app } from '../src/index';
-import { sql } from '../src/common/database/connection';
+import { sql } from '../src/common/database';
 import { cleanUpUser, testPassword } from './helper';
 
 describe('Product tutorial', () => {

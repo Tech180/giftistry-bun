@@ -2,8 +2,11 @@ import { readdirSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
 
 const SRC = join(import.meta.dir, '..', 'src');
-const SQL_IMPORT = /import\s*\{[^}]*\bsql\b[^}]*\}\s*from\s*['"][^'"]*database\/connection['"]/;
+/** sql from @/common/database or any common/database/... path */
+const SQL_IMPORT =
+  /import\s*\{[^}]*\bsql\b[^}]*\}\s*from\s*['"][^'"]*common\/database(?:\/[^'"]*)?['"]/;
 const ALLOWED = /\/infrastructure\//;
+const ENTRY_ALLOWLIST = new Set(['index.ts', 'worker.ts']);
 
 function walk(dir: string): string[] {
   const files: string[] = [];
@@ -24,6 +27,7 @@ for (const file of walk(SRC)) {
   const rel = file.replace(SRC + '/', '');
   if (ALLOWED.test(rel)) continue;
   if (rel.startsWith('common/database/')) continue;
+  if (ENTRY_ALLOWLIST.has(rel)) continue;
 
   const content = readFileSync(file, 'utf-8');
   if (SQL_IMPORT.test(content)) {

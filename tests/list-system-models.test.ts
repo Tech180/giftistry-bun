@@ -2,11 +2,9 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import {
   mapLocalModelIdsToModels,
   mapOpenRouterCatalogToModels,
-} from '@/modules/system/application/map-system-models.util';
-import {
-  clearOpenRouterModelsCache,
-  ListSystemModelsUseCase,
-} from '@/modules/system/application/list-system-models.use-case';
+} from '@/modules/system/slices/ai/utils/map-system-models.util';
+import { ListSystemModelsUseCase } from '@/modules/system/slices/ai/use-cases/list-system-models.use-case';
+import { clearOpenRouterModelsCache } from '@/modules/system/slices/ai/stores/open-router-models.store';
 
 describe('mapOpenRouterCatalogToModels', () => {
   test('maps colon-split company and drops image-output models', () => {

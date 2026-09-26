@@ -1,41 +1,43 @@
 # `modules/`
 
-Bounded contexts. Each folder is a DDD module with a public `*.module.ts` factory.
+Bounded contexts. Each folder is a hexagonal module with a public `index.ts` barrel and a `createXModule` factory.
 
 ## Allowed / forbidden
 
-- **May import:** `common/`, other modules' **domain ports/entities** (sparingly), same-module layers per the rule below
-- **Must not:** import `sql` / postgres client outside `infrastructure/`
-- **Must not:** call infrastructure adapters from `application/` or `domain/` — use ports
-- Prefer wiring through `createXModule` + `app.container.ts`
+- **May import:** `common/`, other modules via **`@/modules/<context>`** barrels, same-module layers per the rule below
+- **Must not:** import `sql` / `common/database` outside `infrastructure/`
+- **Must not:** import `*/infrastructure/*` from `application/`, `slices/`, or `domain/`
+- Wire adapters only through `app.container.ts` + `boot/wire-adapters.ts`
 
-## Layers (every module)
+## Layers
 
 ```
 modules/<context>/
-  domain/            # entities, VOs, ports
-  application/       # *UseCase
-  infrastructure/    # Postgres*, SMTP, AI, WS, scrapers
-  presentation/      # *.routes.ts — thin
+  index.ts             # Public barrel
+  domain/              # entities, VOs, ports, events
+  slices/<behavior>/   # use cases (large modules)
+  application/         # use cases (compact) and/or published ports
+  infrastructure/      # Postgres*, SMTP, AI, WS, scrapers
+  presentation/        # *.routes.ts — thin
 ```
 
-`presentation → application → domain ← infrastructure`
+`presentation → application|slices → domain ← infrastructure`
 
-## Domains
+## Modules
 
-| Domain | README |
-|--------|--------|
-| [admin](admin/README.md) | Users, moderation, audit, site policy, reports |
-| [auth](auth/README.md) | Signup/login, sessions, passkeys, 2FA, OIDC, themes |
-| [comment](comment/README.md) | Wishlist comments + reactions + realtime |
-| [friends](friends/README.md) | Friends, requests, user search |
-| [invites](invites/README.md) | Link/email list invites + accept routes |
-| [item](item/README.md) | Items, claims, substitutions, scrape, AI |
-| [jobs](jobs/README.md) | Background jobs + progress fanout |
-| [notifications](notifications/README.md) | In-app notifications + push |
-| [registration-invite](registration-invite/README.md) | Install/registration invite tokens |
-| [system](system/README.md) | Setup, settings, AI probes, metadata packs |
-| [wishlist](wishlist/README.md) | Lists, shares, export/PDF, presence |
+| Module | Use-case home | Notes |
+|--------|---------------|-------|
+| [admin](admin/README.md) | **slices:** users, moderation, reports, policy, audit | Admin console |
+| [auth](auth/README.md) | **slices:** session, passkeys, two-factor, oidc, profile, themes | Auth + themes |
+| [comment](comment/README.md) | **application/** | Comments + reactions |
+| [friends](friends/README.md) | **application/** | Friends + search |
+| [invites](invites/README.md) | **application/** | List link/email invites |
+| [item](item/README.md) | **slices:** catalog, claims, substitutions, links, metadata, import, funding; **application/ports** | Items, scrape, AI |
+| [jobs](jobs/README.md) | **slices:** import, enrich, summarize; **application/** runner | Background jobs |
+| [notifications](notifications/README.md) | **application/** | In-app + push |
+| [registration-invite](registration-invite/README.md) | **application/** | Install/signup invites |
+| [system](system/README.md) | **slices:** settings, ai, packs | Setup + settings |
+| [wishlist](wishlist/README.md) | **slices:** lists, shares, priorities, export, rollover, access; **application/ports** | Lists + PDF |
 
 ## Related
 

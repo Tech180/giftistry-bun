@@ -1,5 +1,7 @@
 import { expect, test, describe } from 'bun:test';
-import { buildLocalAiUrl, getLocalAiRootUrl, normalizeLocalAiEndpoint } from '@/modules/system/domain/normalize-local-ai-endpoint';
+import { buildLocalAiUrl } from '@/modules/system/domain/utils/build-local-ai-url.util';
+import { getLocalAiRootUrl } from '@/modules/system/domain/utils/get-local-ai-root-url.util';
+import { normalizeLocalAiEndpoint } from '@/modules/system/domain/utils/normalize-local-ai-endpoint.util';
 
 describe('normalizeLocalAiEndpoint', () => {
   test('returns null when endpoint is missing or blank', () => {

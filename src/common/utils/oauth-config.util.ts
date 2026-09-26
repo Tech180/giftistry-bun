@@ -1,5 +1,5 @@
-import { getEnv } from '@/common/consts/runtime-config';
-import type { ServerConfig } from '@/modules/system/domain/server-config.entity';
+import { getEnv } from '@/common/config/utils/get-env.util';
+import type { ServerConfig } from '@/modules/system';
 
 export function resolveOAuthClientSecret(config: ServerConfig): string {
   return getEnv().OAUTH_CLIENT_SECRET?.trim() || config.OAuthClientSecret?.trim() || '';

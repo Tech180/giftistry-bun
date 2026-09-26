@@ -1,20 +1,9 @@
-import type {
-  BackgroundJob,
-  BackgroundJobItem,
-  BackgroundJobItemStatus,
-  BackgroundJobKind,
-  BackgroundJobPayload,
-  BackgroundJobPhase,
-  BackgroundJobStatus,
-} from '../background-job.entity';
-import type { JobProgressRate } from '../job-progress-rate.util';
-
-export interface CreateBackgroundJobInput {
-  kind: BackgroundJobKind;
-  userId: string;
-  listId?: string | null;
-  payload: BackgroundJobPayload;
-}
+import type { BackgroundJob } from '../interfaces/background-job.interface';
+import type { BackgroundJobItem } from '../interfaces/background-job-item.interface';
+import type { BackgroundJobItemStatus } from '../interfaces/background-job-item-status.type';
+import type { CreateBackgroundJobInput } from '../interfaces/create-background-job-input.interface';
+import type { InsertBackgroundJobItemInput } from '../interfaces/insert-background-job-item-input.interface';
+import type { UpdateBackgroundJobProgressPatch } from '../interfaces/update-background-job-progress-patch.interface';
 
 export interface BackgroundJobRepository {
   create(input: CreateBackgroundJobInput): Promise<BackgroundJob>;
@@ -23,20 +12,7 @@ export interface BackgroundJobRepository {
   claimNextQueued(): Promise<BackgroundJob | null>;
   updateProgress(
     id: string,
-    patch: {
-      listId?: string | null;
-      status?: BackgroundJobStatus;
-      phase?: BackgroundJobPhase;
-      progressDone?: number;
-      progressTotal?: number;
-      message?: string;
-      error?: string | null;
-      result?: Record<string, unknown>;
-      /** Live rate stored in Result.ProgressRate; null clears it. */
-      progressRate?: JobProgressRate | null;
-      startedAt?: Date | null;
-      finishedAt?: Date | null;
-    }
+    patch: UpdateBackgroundJobProgressPatch
   ): Promise<BackgroundJob | null>;
   requestCancel(id: string, userId: string): Promise<BackgroundJob | null>;
   requestCancelAny(id: string): Promise<BackgroundJob | null>;
@@ -53,12 +29,7 @@ export interface BackgroundJobRepository {
   isCancelled(id: string): Promise<boolean>;
   insertItems(
     jobId: string,
-    rows: Array<{
-      itemId: string | null;
-      linkUrl: string | null;
-      payload: Record<string, unknown>;
-      status?: BackgroundJobItemStatus;
-    }>
+    rows: InsertBackgroundJobItemInput[]
   ): Promise<BackgroundJobItem[]>;
   listItems(jobId: string): Promise<BackgroundJobItem[]>;
   updateItemStatus(

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { toSystemSettingsView } from '../src/modules/system/domain/server-config.entity';
+import { toSystemSettingsView } from '../src/modules/system/domain/utils/to-system-settings-view.util';
 import { AI_DEFAULT_PROMPTS } from '../src/modules/system/domain/prompts';
 
 describe('toSystemSettingsView aiDefaultPrompts', () => {

@@ -1,14 +1,13 @@
 import { Elysia } from 'elysia';
-import type { CheckListAccessUseCase } from '@/modules/wishlist/application/check-list-access.use-case';
-import type { createAuthMiddleware } from '@/modules/auth/presentation/auth.routes';
-
-let checkListAccessUseCaseRef: CheckListAccessUseCase;
+import type { CheckListAccessUseCase } from '@/modules/wishlist';
+import type { createAuthMiddleware } from '@/modules/auth';
+import { LIST_ACCESS_USE_CASE } from './constants/list-access-use-case.constant';
 
 export function createListAccessMiddleware(
   checkListAccessUseCase: CheckListAccessUseCase,
   authMiddleware: ReturnType<typeof createAuthMiddleware>
 ) {
-  checkListAccessUseCaseRef = checkListAccessUseCase;
+  LIST_ACCESS_USE_CASE.current = checkListAccessUseCase;
 
   return new Elysia()
     .use(authMiddleware)
@@ -34,5 +33,8 @@ export async function getListAccessContext(
   target: { listId?: string; itemId?: string },
   minRole?: 'viewer' | 'collaborator' | 'owner'
 ) {
-  return checkListAccessUseCaseRef.execute(userId, target, minRole);
+  if (!LIST_ACCESS_USE_CASE.current) {
+    throw new Error('[list-access] CheckListAccessUseCase is not initialized');
+  }
+  return LIST_ACCESS_USE_CASE.current.execute(userId, target, minRole);
 }

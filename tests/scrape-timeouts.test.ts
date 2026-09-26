@@ -1,22 +1,24 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import {
-  clampScrapeFetchTimeoutMs,
-  clampScrapePlaywrightTimeoutMs,
   DEFAULT_SCRAPE_FETCH_TIMEOUT_MS,
   DEFAULT_SCRAPE_PLAYWRIGHT_TIMEOUT_MS,
   SCRAPE_FETCH_TIMEOUT_MAX_MS,
   SCRAPE_FETCH_TIMEOUT_MIN_MS,
   SCRAPE_PLAYWRIGHT_TIMEOUT_MAX_MS,
   SCRAPE_PLAYWRIGHT_TIMEOUT_MIN_MS,
-  toSystemSettingsView,
-} from '../src/modules/system/domain/server-config.entity';
+} from '../src/modules/system/domain/constants/scrape-timeout.constant';
+import {
+  clampScrapeFetchTimeoutMs,
+  clampScrapePlaywrightTimeoutMs,
+} from '../src/modules/system/domain/utils/clamp-server-config-limits.util';
+import { toSystemSettingsView } from '../src/modules/system/domain/utils/to-system-settings-view.util';
 
 let configState: {
   ScrapeFetchTimeoutMs?: number;
   ScrapePlaywrightTimeoutMs?: number;
 } = {};
 
-mock.module('../src/common/infrastructure/config.loader', () => ({
+mock.module('../src/common/config/utils/server-config-file.util', () => ({
   loadConfig: () => configState,
 }));
 
@@ -88,7 +90,9 @@ describe('getScrape timeouts prefer config over env', () => {
     const {
       getScrapeFetchTimeoutMs,
       getScrapePlaywrightTimeoutMs,
-    } = await import('../src/modules/item/infrastructure/scraping/scraping-config');
+    } = await import(
+      '../src/modules/item/infrastructure/scraping/utils/resolve-scrape-timeout-ms.util'
+    );
 
     expect(getScrapeFetchTimeoutMs()).toBe(12000);
     expect(getScrapePlaywrightTimeoutMs()).toBe(40000);
@@ -102,7 +106,9 @@ describe('getScrape timeouts prefer config over env', () => {
     const {
       getScrapeFetchTimeoutMs,
       getScrapePlaywrightTimeoutMs,
-    } = await import('../src/modules/item/infrastructure/scraping/scraping-config');
+    } = await import(
+      '../src/modules/item/infrastructure/scraping/utils/resolve-scrape-timeout-ms.util'
+    );
 
     expect(getScrapeFetchTimeoutMs()).toBe(9000);
     expect(getScrapePlaywrightTimeoutMs()).toBe(DEFAULT_SCRAPE_PLAYWRIGHT_TIMEOUT_MS);

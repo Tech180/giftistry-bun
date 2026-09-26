@@ -1,14 +1,7 @@
-import type { GiftistryUserPolicy } from '@/common/types/user-policy';
-import { mergeUserPolicy } from '@/common/types/user-policy';
-
-export interface UserPolicyContext {
-  Id: string;
-  IsAdmin?: boolean;
-  IsDisabled?: boolean;
-  IsHidden?: boolean;
-  LockedUntil?: Date | null;
-  Policy: GiftistryUserPolicy;
-}
+import type { GiftistryUserPolicy } from './interfaces/giftistry-user-policy.interface';
+import { parseJsonValue } from '@/common/utils/parse-json-field.util';
+import { mergeUserPolicy } from './utils/merge-user-policy.util';
+import type { UserPolicyContext } from './interfaces/user-policy-context.interface';
 
 export class UserPolicyVO {
   constructor(readonly context: UserPolicyContext) {}
@@ -26,15 +19,21 @@ export class UserPolicyVO {
   }
 
   can(permission: keyof GiftistryUserPolicy): boolean {
-    if (this.isAdmin()) return true;
+    if (this.isAdmin()) {
+      return true;
+    }
     const value = this.context.Policy[permission];
     return typeof value !== 'boolean' || value;
   }
 
   canCreateWishlist(currentCount: number): boolean {
-    if (this.isAdmin()) return true;
+    if (this.isAdmin()) {
+      return true;
+    }
     const max = this.context.Policy.MaxActiveWishlists;
-    if (!max) return true;
+    if (!max) {
+      return true;
+    }
     return currentCount < max;
   }
 
@@ -46,9 +45,7 @@ export class UserPolicyVO {
     LockedUntil?: Date | null;
     PolicyJson?: unknown;
   }): UserPolicyVO {
-    const policy = mergeUserPolicy(
-      typeof row.PolicyJson === 'string' ? JSON.parse(row.PolicyJson) : row.PolicyJson
-    );
+    const policy = mergeUserPolicy(parseJsonValue(row.PolicyJson));
     return new UserPolicyVO({
       Id: row.Id,
       IsAdmin: row.IsAdmin,

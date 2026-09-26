@@ -1,40 +1,4 @@
-export interface Notification {
-  Id: string;
-  UserId: string;
-  Type: string;
-  Title: string;
-  Message: string;
-  Metadata: Record<string, unknown>;
-  ReadAt: Date | null;
-  CreatedAt: Date;
-}
-
-export interface NotificationPrefs {
-  UserId: string;
-  EmailAlerts: boolean;
-  Marketing: boolean;
-  FriendRequests: boolean;
-  ListShares: boolean;
-  ItemClaims: boolean;
-  Comments: boolean;
-  JobCompletions: boolean;
-  PushAlerts: boolean;
-  UpdatedAt: Date;
-}
-
-export type NotificationPrefsUpdate = Partial<
-  Pick<
-    NotificationPrefs,
-    | 'EmailAlerts'
-    | 'Marketing'
-    | 'FriendRequests'
-    | 'ListShares'
-    | 'ItemClaims'
-    | 'Comments'
-    | 'JobCompletions'
-    | 'PushAlerts'
-  >
->;
+import type { Notification } from './interfaces/notification.interface';
 
 export class NotificationEntity implements Notification {
   Id!: string;
@@ -75,13 +39,5 @@ export class NotificationEntity implements Notification {
 
   toPlain(): Notification {
     return { ...this };
-  }
-
-  markRead(): void {
-    this.ReadAt = new Date();
-  }
-
-  isRead(): boolean {
-    return this.ReadAt !== null;
   }
 }

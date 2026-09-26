@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { parsePackQuantity, resolveDesiredQuantity } from '../src/modules/item/domain/parse-pack-quantity.util';
+import { parsePackQuantity, resolveDesiredQuantity } from '../src/modules/item/domain/utils/parse-pack-quantity.util';
 
 describe('parsePackQuantity', () => {
   test('parses xN pack cues', () => {

@@ -1,4 +1,4 @@
-import type { ItemAudienceUser } from '../item-audience.entity';
+import type { ItemAudienceUser } from '../interfaces/item-audience-user.interface';
 
 export interface ItemAudienceRepository {
   findByListId(listId: string): Promise<Map<string, ItemAudienceUser[]>>;

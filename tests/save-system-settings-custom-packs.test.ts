@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test';
-import { SaveSystemSettingsUseCase } from '../src/modules/system/application/save-system-settings.use-case';
-import type { ServerConfig } from '../src/modules/system/domain/server-config.entity';
+import { SaveSystemSettingsUseCase } from '../src/modules/system/slices/settings/use-cases/save-system-settings.use-case';
+import type { ServerConfig } from '../src/modules/system/domain/interfaces/server-config.interface';
 import type { ServerConfigRepository } from '../src/modules/system/domain/ports/server-config.repository';
-import type { TestAiConnectionUseCase } from '../src/modules/system/application/test-ai-connection.use-case';
+import type { TestAiConnectionUseCase } from '../src/modules/system/slices/ai/use-cases/test-ai-connection.use-case';
 
 const booksPack = {
   Id: 'custom.books',

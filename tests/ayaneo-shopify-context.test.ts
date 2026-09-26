@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
   buildJsonLdPageContext,
-} from '../src/modules/item/infrastructure/scraping/extractors/json-ld-product.util';
+} from '../src/modules/item/infrastructure/scraping/extractors/utils/json-ld-product.util';
 
 const AYANEO_HTML = `<!DOCTYPE html>
 <html>

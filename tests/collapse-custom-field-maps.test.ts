@@ -4,7 +4,7 @@ import {
   dedupePredefinedVsUserDefined,
   mergeFieldMapsByNormalizedKey,
   normalizeCustomFieldKey,
-} from '@/modules/item/domain/collapse-custom-field-maps.util';
+} from '@/modules/item/domain/utils/collapse-custom-field-maps.util';
 
 describe('normalizeCustomFieldKey', () => {
   test('collapses spaces and case', () => {

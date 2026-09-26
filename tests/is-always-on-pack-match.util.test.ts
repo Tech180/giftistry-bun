@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { isAlwaysOnPackMatch } from '../src/modules/system/domain/packs/is-always-on-pack-match.util';
+import { isAlwaysOnPackMatch } from '../src/modules/system/domain/packs/utils/is-always-on-pack-match.util';
 
 describe('isAlwaysOnPackMatch', () => {
   test('empty categories and keywords always apply', () => {

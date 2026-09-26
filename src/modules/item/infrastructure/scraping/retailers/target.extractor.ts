@@ -1,5 +1,5 @@
-import { extractFromCapturedJson } from '../extractors/embedded-json.extractor';
-import type { RetailerExtractor } from './retailer-registry';
+import { extractFromCapturedJson } from '../extractors/utils/embedded-json.util';
+import type { RetailerExtractor } from './interfaces/retailer-extractor.interface';
 
 export const targetExtractor: RetailerExtractor = {
   hostnames: ['target.com'],

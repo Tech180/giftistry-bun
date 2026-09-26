@@ -1,122 +1,90 @@
-import { PostgresUserRepository } from '@/modules/auth/infrastructure/postgres-user.repository';
-import { PostgresPasskeyRepository } from '@/modules/auth/infrastructure/postgres-passkey.repository';
-import { SmtpEmailAdapter } from '@/modules/auth/infrastructure/smtp-email.adapter';
-import { PostgresSitePolicyRepository } from '@/common/infrastructure/postgres-site-policy.repository';
-import { PostgresAuditLogRepository } from '@/common/infrastructure/postgres-audit-log.repository';
-import { PostgresUserPolicyRepository } from '@/common/infrastructure/postgres-user-policy.repository';
-import { PostgresWishlistRepository } from '@/modules/wishlist/infrastructure/postgres-wishlist.repository';
-import { PostgresListShareRepository } from '@/modules/wishlist/infrastructure/postgres-list-share.repository';
-import { PostgresItemRepository } from '@/modules/item/infrastructure/postgres-item.repository';
-import { PostgresItemAudienceRepository } from '@/modules/item/infrastructure/postgres-item-audience.repository';
-import { PostgresItemFieldRepository } from '@/modules/item/infrastructure/postgres-item-field.repository';
-import { PostgresCommentRepository } from '@/modules/comment/infrastructure/postgres-comment.repository';
-import { PostgresFriendRepository } from '@/modules/friends/infrastructure/postgres-friend.repository';
-import { PostgresFriendRequestRepository } from '@/modules/friends/infrastructure/postgres-friend-request.repository';
-import { PostgresNotificationRepository } from '@/modules/notifications/infrastructure/postgres-notification.repository';
-import { PostgresPushSubscriptionRepository } from '@/modules/notifications/infrastructure/postgres-push-subscription.repository';
-import { NtfyPushAdapter } from '@/modules/notifications/infrastructure/ntfy-push.adapter';
-import { WebPushAdapter } from '@/modules/notifications/infrastructure/webpush-push.adapter';
-import { FcmPushAdapter } from '@/modules/notifications/infrastructure/fcm-push.adapter';
-import { NotificationDeliveryService } from '@/modules/notifications/application/notification-delivery.service';
-import { PostgresListLinkTokenRepository } from '@/modules/invites/infrastructure/postgres-list-link-token.repository';
-import { PostgresListEmailInviteRepository } from '@/modules/invites/infrastructure/postgres-list-email-invite.repository';
-import { PostgresAdminUserRepository } from '@/modules/admin/infrastructure/postgres-admin-user.repository';
-import { PostgresModerationRepository } from '@/modules/admin/infrastructure/postgres-moderation.repository';
-import { PostgresReportRepository } from '@/modules/admin/infrastructure/postgres-report.repository';
-import { PostgresServerConfigRepository } from '@/modules/system/infrastructure/postgres-server-config.repository';
-import { GetSitePolicyUseCase } from '@/common/application/get-site-policy.use-case';
-import { SaveSitePolicyUseCase } from '@/common/application/save-site-policy.use-case';
-import { AssertUserCanUseCase, AssertCanCreateWishlistUseCase } from '@/common/application/user-policy.use-cases';
-import { WriteAuditLogUseCase } from '@/common/application/write-audit-log.use-case';
-import { InProcessEventBus } from '@/common/infrastructure/in-process-event-bus';
-import { CreateNotificationUseCase } from '@/modules/notifications/application/create-notification.use-case';
+import { createInfrastructureAdapters } from '@/boot/wire-adapters';
+import type { AppContainer } from '@/boot/interfaces/app-container.interface';
+import type { CreateAppContainerOptions } from '@/boot/interfaces/create-app-container-options.interface';
+import type { RouteMiddleware } from '@/boot/interfaces/route-middleware.interface';
+import type { RealtimePublisherAdapters } from '@/boot/interfaces/realtime-publisher-adapters.interface';
+import { GetSitePolicyUseCase } from '@/common/application/use-cases/get-site-policy.use-case';
+import { SaveSitePolicyUseCase } from '@/common/application/use-cases/save-site-policy.use-case';
+import { AssertUserCanUseCase, AssertCanCreateWishlistUseCase } from '@/common/application/use-cases/user-policy.use-cases';
+import { WriteAuditLogUseCase } from '@/common/application/use-cases/write-audit-log.use-case';
+import { DeliverPushNotificationUseCase } from '@/modules/notifications/application/use-cases/deliver-push-notification.use-case';
+import { CreateNotificationUseCase } from '@/modules/notifications/application/use-cases/create-notification.use-case';
 import { registerCreateNotificationHandlers } from '@/modules/notifications/infrastructure/event-handlers/create-notification.handler';
-import { WebsocketNotificationRealtimePublisher } from '@/modules/notifications/infrastructure/websocket-notification-realtime-publisher';
-import { isUserForegroundConnected } from '@/modules/notifications/infrastructure/user-ws-registry';
-import { CheerioPlaywrightMetadataScraper } from '@/modules/item/infrastructure/cheerio-playwright-metadata-scraper';
+import { isUserForegroundConnected } from '@/modules/notifications/infrastructure/stores/user-ws.store';
 import { createAuthModule, authMiddleware } from '@/modules/auth/auth.module';
-import type { createAuthMiddleware } from '@/modules/auth/presentation/auth.routes';
 import { createWishlistModule, createCheckListAccessUseCase } from '@/modules/wishlist/wishlist.module';
-import { WishlistWsPresenceAdapter } from '@/modules/wishlist/infrastructure/wishlist-ws-presence.adapter';
-import { WebsocketListChangedPublisher } from '@/modules/wishlist/infrastructure/websocket-list-changed-publisher';
 import { createItemModule } from '@/modules/item/item.module';
 import { createCommentModule } from '@/modules/comment/comment.module';
-import { WebsocketCommentRealtimePublisher } from '@/modules/comment/infrastructure/websocket-comment-realtime-publisher';
-import { getWishlistWsRoom } from '@/modules/wishlist/infrastructure/wishlist-ws-registry';
 import { createFriendsModule } from '@/modules/friends/friends.module';
 import { createInvitesModule } from '@/modules/invites/invites.module';
 import { createNotificationsModule } from '@/modules/notifications/notifications.module';
 import { createAdminModule } from '@/modules/admin/admin.module';
 import { createSystemModule } from '@/modules/system/system.module';
 import { createRegistrationInviteModule } from '@/modules/registration-invite/registration-invite.module';
-import { PostgresRegistrationInviteRepository } from '@/modules/registration-invite/infrastructure/postgres-registration-invite.repository';
-import { SaveSystemSettingsUseCase } from '@/modules/system/application/save-system-settings.use-case';
-import { TestAiConnectionUseCase } from '@/modules/system/application/test-ai-connection.use-case';
+import {
+  SaveSystemSettingsUseCase,
+  TestAiConnectionUseCase,
+} from '@/modules/system';
 import { createJobsModule } from '@/modules/jobs/jobs.module';
-import { NotifyItemJobCompletionUseCase } from '@/modules/jobs/application/notify-item-job-completion.use-case';
-import { PostgresBackgroundJobRepository } from '@/modules/jobs/infrastructure/postgres-background-job.repository';
-import { WebsocketJobProgressPublisher } from '@/modules/jobs/infrastructure/websocket-job-progress-publisher';
-import type { BackgroundJobRunner } from '@/modules/jobs/application/background-job-runner';
-import type { RealtimePublisherAdapters } from '@/boot/runtime-publishers';
+import { NotifyItemJobCompletionUseCase } from '@/modules/jobs';
 import { createListAccessMiddleware } from '@/common/middlewares/list-access.middleware';
 import { setPublicAppUrlConfigSource } from '@/common/utils/public-app-url.util';
-import type { UserRepository } from '@/modules/auth/domain/ports/user.repository';
-import type { RouteMiddleware } from '@/common/types/route-middleware';
-
-export interface CreateAppContainerOptions {
-  /**
-   * When true, job runners do not call NotifyItemJobCompletion (worker role).
-   * The API process handles notify after LISTEN fanout with real WS presence.
-   */
-  skipItemJobCompletionNotify?: boolean;
-}
-
-export interface AppContainer {
-  authModule: ReturnType<typeof createAuthModule>;
-  wishlistModule: ReturnType<typeof createWishlistModule>['module'];
-  itemModule: ReturnType<typeof createItemModule>['module'];
-  jobsModule: ReturnType<typeof createJobsModule>['module'];
-  jobRunner: BackgroundJobRunner;
-  jobRepo: PostgresBackgroundJobRepository;
-  notifyItemJobCompletion: NotifyItemJobCompletionUseCase;
-  commentModule: ReturnType<typeof createCommentModule>;
-  friendsModule: ReturnType<typeof createFriendsModule>;
-  notificationsModule: ReturnType<typeof createNotificationsModule>;
-  invitesModule: ReturnType<typeof createInvitesModule>['module'];
-  registrationInviteModule: ReturnType<typeof createRegistrationInviteModule>['module'];
-  systemModule: ReturnType<typeof createSystemModule>['module'];
-  adminModule: ReturnType<typeof createAdminModule>;
-  authMiddleware: ReturnType<typeof createAuthMiddleware>;
-  userRepo: UserRepository;
-  realtimePublishers: RealtimePublisherAdapters;
-}
 
 export function createAppContainer(options: CreateAppContainerOptions = {}): AppContainer {
-  const userRepo = new PostgresUserRepository();
-  const passkeyRepo = new PostgresPasskeyRepository();
-  const emailSender = new SmtpEmailAdapter();
-  const sitePolicyRepo = new PostgresSitePolicyRepository();
-  const auditLogRepo = new PostgresAuditLogRepository();
-  const userPolicyRepo = new PostgresUserPolicyRepository();
-  const wishlistRepo = new PostgresWishlistRepository();
-  const listShareRepo = new PostgresListShareRepository();
-  const itemRepo = new PostgresItemRepository();
-  const itemAudienceRepo = new PostgresItemAudienceRepository();
-  const itemFieldRepo = new PostgresItemFieldRepository();
-  const commentRepo = new PostgresCommentRepository();
-  const friendRepo = new PostgresFriendRepository();
-  const friendRequestRepo = new PostgresFriendRequestRepository();
-  const notificationRepo = new PostgresNotificationRepository();
-  const pushSubscriptionRepo = new PostgresPushSubscriptionRepository();
-  const linkTokenRepo = new PostgresListLinkTokenRepository();
-  const emailInviteRepo = new PostgresListEmailInviteRepository();
-  const registrationInviteRepo = new PostgresRegistrationInviteRepository();
-  const adminUserRepo = new PostgresAdminUserRepository();
-  const moderationRepo = new PostgresModerationRepository();
-  const reportRepo = new PostgresReportRepository();
-  const serverConfigRepo = new PostgresServerConfigRepository();
+  const adapters = createInfrastructureAdapters();
+  const {
+    userRepo,
+    passkeyRepo,
+    emailSender,
+    sitePolicyRepo,
+    auditLogRepo,
+    userPolicyRepo,
+    wishlistRepo,
+    listShareRepo,
+    listAccessRepo,
+    themeResolver,
+    pdfGenerator,
+    wishlistPresence,
+    listChanged,
+    itemRepo,
+    itemAudienceRepo,
+    itemFieldRepo,
+    itemReviewRepo,
+    metadataScraper,
+    reviewExtractor,
+    metadataPopulator,
+    categoryClassifier,
+    descriptionSummarizer,
+    itemImportParser,
+    importFileTextExtractor,
+    pageContextFetcher,
+    productResearcher,
+    remoteImageFetcher,
+    commentRepo,
+    commentRealtime,
+    friendRepo,
+    friendRequestRepo,
+    notificationRepo,
+    pushSubscriptionRepo,
+    serverConfigRepo,
+    oidcClient,
+    ntfyPushAdapter,
+    webPushAdapter,
+    fcmPushAdapter,
+    notificationRealtime,
+    linkTokenRepo,
+    emailInviteRepo,
+    inviteGuestRealtime,
+    adminUserRepo,
+    moderationRepo,
+    reportRepo,
+    registrationInviteRepo,
+    jobRepo,
+    jobProgressPublisher,
+    eventBus,
+  } = adapters;
+
   setPublicAppUrlConfigSource(() => serverConfigRepo.load().PublicAppUrl);
-  const metadataScraper = new CheerioPlaywrightMetadataScraper();
 
   const getSitePolicyUseCase = new GetSitePolicyUseCase(sitePolicyRepo);
   const saveSitePolicyUseCase = new SaveSitePolicyUseCase(sitePolicyRepo);
@@ -124,10 +92,7 @@ export function createAppContainer(options: CreateAppContainerOptions = {}): App
   const assertUserCanUseCase = new AssertUserCanUseCase(userPolicyRepo);
   const assertCanCreateWishlistUseCase = new AssertCanCreateWishlistUseCase(userPolicyRepo);
 
-  const ntfyPushAdapter = new NtfyPushAdapter(serverConfigRepo);
-  const webPushAdapter = new WebPushAdapter(serverConfigRepo);
-  const fcmPushAdapter = new FcmPushAdapter(serverConfigRepo);
-  const notificationDelivery = new NotificationDeliveryService(
+  const deliverPushNotification = new DeliverPushNotificationUseCase(
     pushSubscriptionRepo,
     {
       ntfy: ntfyPushAdapter,
@@ -138,15 +103,6 @@ export function createAppContainer(options: CreateAppContainerOptions = {}): App
     { isUserForegroundConnected }
   );
 
-  const eventBus = new InProcessEventBus();
-  const notificationRealtime = new WebsocketNotificationRealtimePublisher();
-  const listChanged = new WebsocketListChangedPublisher();
-  const jobProgressPublisher = new WebsocketJobProgressPublisher();
-  const commentRealtime = new WebsocketCommentRealtimePublisher(
-    getWishlistWsRoom,
-    (listId) => wishlistRepo.findById(listId)
-  );
-  const wishlistPresence = new WishlistWsPresenceAdapter();
   const realtimePublishers: RealtimePublisherAdapters = {
     jobProgress: jobProgressPublisher,
     listChanged,
@@ -155,7 +111,7 @@ export function createAppContainer(options: CreateAppContainerOptions = {}): App
   const createNotificationUseCase = new CreateNotificationUseCase(
     notificationRepo,
     notificationRealtime,
-    notificationDelivery
+    deliverPushNotification
   );
   registerCreateNotificationHandlers(eventBus, createNotificationUseCase);
   const notifyItemJobCompletion = new NotifyItemJobCompletionUseCase(
@@ -179,24 +135,38 @@ export function createAppContainer(options: CreateAppContainerOptions = {}): App
     serverConfigRepo,
     saveSystemSettingsUseCase,
     registrationInviteRepo,
+    oidcClient,
   });
 
   const { module: registrationInviteModule } = createRegistrationInviteModule({
     inviteRepo: registrationInviteRepo,
     getSitePolicyUseCase,
     writeAuditLogUseCase,
+    authMiddleware,
   });
 
-  const checkListAccessUseCase = createCheckListAccessUseCase(listShareRepo);
+  const checkListAccessUseCase = createCheckListAccessUseCase(listShareRepo, listAccessRepo);
   const listAccessMiddleware = createListAccessMiddleware(checkListAccessUseCase, authMiddleware);
   const routeMiddleware: RouteMiddleware = { auth: authMiddleware, listAccess: listAccessMiddleware };
 
-  const jobRepo = new PostgresBackgroundJobRepository();
-
-  const { module: itemModule, useCases: itemUseCases } = createItemModule({
+  const {
+    module: itemModule,
+    useCases: itemUseCases,
+    backfillListReviews,
+  } = createItemModule({
     itemRepo,
     audienceRepo: itemAudienceRepo,
     fieldRepo: itemFieldRepo,
+    itemReviewRepo,
+    reviewExtractor,
+    metadataPopulator,
+    categoryClassifier,
+    descriptionSummarizer,
+    itemImportParser,
+    importFileTextExtractor,
+    pageContextFetcher,
+    productResearcher,
+    remoteImageFetcher,
     wishlistRepo,
     listShareRepo,
     userRepo,
@@ -208,6 +178,7 @@ export function createAppContainer(options: CreateAppContainerOptions = {}): App
     commentRepo,
     commentRealtime,
     listChanged,
+    eventBus,
   });
 
   const { module: invitesModule, invitesUseCases } = createInvitesModule({
@@ -219,6 +190,7 @@ export function createAppContainer(options: CreateAppContainerOptions = {}): App
     assertUserCanUseCase,
     eventBus,
     listItems: itemUseCases.listItems,
+    guestRealtime: inviteGuestRealtime,
   });
 
   const { module: wishlistModule, useCases: wishlistUseCases } = createWishlistModule({
@@ -237,10 +209,14 @@ export function createAppContainer(options: CreateAppContainerOptions = {}): App
     serverConfigRepo,
     middleware: routeMiddleware,
     listChanged,
+    themeResolver,
+    pdfGenerator,
+    listItems: itemUseCases.listItems,
+    backfillListReviews,
   });
 
   const { module: jobsModule, runner: jobRunner } = createJobsModule({
-    itemUseCases,
+    itemJobs: itemUseCases,
     createWishlist: wishlistUseCases.createWishlist,
     middleware: routeMiddleware,
     jobRepo,
@@ -282,13 +258,14 @@ export function createAppContainer(options: CreateAppContainerOptions = {}): App
   });
 
   const adminModule = createAdminModule({
-    adminUserRepo,
+    userRepo: adminUserRepo,
     moderationRepo,
     reportRepo,
     auditLogRepo,
     getSitePolicyUseCase,
     saveSitePolicyUseCase,
     writeAuditLogUseCase,
+    authMiddleware,
   });
 
   return {
@@ -308,6 +285,7 @@ export function createAppContainer(options: CreateAppContainerOptions = {}): App
     adminModule,
     authMiddleware,
     userRepo,
+    linkTokenRepo,
     realtimePublishers,
   };
 }

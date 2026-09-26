@@ -1,48 +1,38 @@
 import { Elysia } from 'elysia';
-import type { FriendRepository } from './domain/ports/friend.repository';
-import type { FriendRequestRepository } from './domain/ports/friend-request.repository';
-import type { UserRepository } from '@/modules/auth/domain/ports/user.repository';
-import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
-import type { EventBus } from '@/common/domain/events/event-bus.port';
-import { ListFriendsUseCase } from './application/list-friends.use-case';
-import { ListFriendRequestsUseCase } from './application/list-friend-requests.use-case';
-import { SendFriendRequestUseCase } from './application/send-friend-request.use-case';
-import { AcceptFriendRequestUseCase } from './application/accept-friend-request.use-case';
-import { DeclineFriendRequestUseCase } from './application/decline-friend-request.use-case';
-import { CancelFriendRequestUseCase } from './application/cancel-friend-request.use-case';
-import { UnfriendUseCase } from './application/unfriend.use-case';
-import { SearchUsersUseCase } from './application/search-users.use-case';
+import { AcceptFriendRequestUseCase } from './application/use-cases/accept-friend-request.use-case';
+import { CancelFriendRequestUseCase } from './application/use-cases/cancel-friend-request.use-case';
+import { DeclineFriendRequestUseCase } from './application/use-cases/decline-friend-request.use-case';
+import { ListFriendRequestsUseCase } from './application/use-cases/list-friend-requests.use-case';
+import { ListFriendsUseCase } from './application/use-cases/list-friends.use-case';
+import { SearchUsersUseCase } from './application/use-cases/search-users.use-case';
+import { SendFriendRequestUseCase } from './application/use-cases/send-friend-request.use-case';
+import { UnfriendUseCase } from './application/use-cases/unfriend.use-case';
+import type { FriendsModuleDeps } from './interfaces/friends-module-deps.interface';
 import { friendsRoutes } from './presentation/friends.routes';
-
-export interface FriendsModuleDeps {
-  friendRepo: FriendRepository;
-  friendRequestRepo: FriendRequestRepository;
-  userRepo: UserRepository;
-  assertUserCanUseCase: AssertUserCanUseCase;
-  eventBus: EventBus;
-}
 
 export function createFriendsModule(deps: FriendsModuleDeps) {
   return new Elysia().use(
     friendsRoutes({
-      listFriends: new ListFriendsUseCase(deps.friendRepo),
-      listFriendRequests: new ListFriendRequestsUseCase(deps.friendRequestRepo),
-      sendFriendRequest: new SendFriendRequestUseCase(
-        deps.friendRequestRepo,
-        deps.friendRepo,
-        deps.userRepo,
-        deps.eventBus,
-        deps.assertUserCanUseCase
-      ),
-      acceptFriendRequest: new AcceptFriendRequestUseCase(
-        deps.friendRequestRepo,
-        deps.friendRepo,
-        deps.eventBus
-      ),
-      declineFriendRequest: new DeclineFriendRequestUseCase(deps.friendRequestRepo),
-      cancelFriendRequest: new CancelFriendRequestUseCase(deps.friendRequestRepo),
-      unfriend: new UnfriendUseCase(deps.friendRepo),
-      searchUsers: new SearchUsersUseCase(deps.userRepo, deps.friendRepo),
+      useCases: {
+        listFriends: new ListFriendsUseCase(deps.friendRepo),
+        listFriendRequests: new ListFriendRequestsUseCase(deps.friendRequestRepo),
+        sendFriendRequest: new SendFriendRequestUseCase(
+          deps.friendRequestRepo,
+          deps.friendRepo,
+          deps.userRepo,
+          deps.eventBus,
+          deps.assertUserCanUseCase
+        ),
+        acceptFriendRequest: new AcceptFriendRequestUseCase(
+          deps.friendRequestRepo,
+          deps.friendRepo,
+          deps.eventBus
+        ),
+        declineFriendRequest: new DeclineFriendRequestUseCase(deps.friendRequestRepo),
+        cancelFriendRequest: new CancelFriendRequestUseCase(deps.friendRequestRepo),
+        unfriend: new UnfriendUseCase(deps.friendRepo),
+        searchUsers: new SearchUsersUseCase(deps.userRepo, deps.friendRepo),
+      },
     })
   );
 }

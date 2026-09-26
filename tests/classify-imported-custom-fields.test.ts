@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-import { classifyImportedCustomFields } from '../src/modules/item/domain/classify-imported-custom-fields.util';
-import { buildImportedItemCreatePayload } from '../src/modules/item/domain/build-imported-item-metadata.util';
-import type { ImportedItemPreview } from '../src/modules/item/domain/imported-item-preview';
+import { classifyImportedCustomFields } from '../src/modules/item/domain/utils/classify-imported-custom-fields.util';
+import { buildImportedItemCreatePayload } from '../src/modules/item/domain/utils/build-imported-item-metadata.util';
+import type { ImportedItemPreview } from '../src/modules/item/domain/interfaces/imported-item-preview.interface';
 
 describe('classifyImportedCustomFields', () => {
   test('maps Color casing to Predefined.Color', () => {

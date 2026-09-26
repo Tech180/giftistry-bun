@@ -1,7 +1,15 @@
-import type { Notification, NotificationPrefs, NotificationPrefsUpdate } from '../notification.entity';
+import type { Notification } from '../interfaces/notification.interface';
+import type { NotificationPrefs } from '../interfaces/notification-prefs.interface';
+import type { NotificationPrefsUpdate } from '../types/notification-prefs-update.type';
 
 export interface NotificationRepository {
-  create(userId: string, type: string, title: string, body: string, metadata?: Record<string, unknown>): Promise<Notification>;
+  create(
+    userId: string,
+    type: string,
+    title: string,
+    body: string,
+    metadata?: Record<string, unknown>
+  ): Promise<Notification>;
   findByUserId(userId: string): Promise<Notification[]>;
   findById(id: string): Promise<Notification | null>;
   markRead(id: string, userId: string): Promise<Notification>;

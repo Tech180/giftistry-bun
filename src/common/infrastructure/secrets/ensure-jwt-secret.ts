@@ -1,26 +1,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { dirname, join } from 'path';
-import { randomBytes } from 'crypto';
-
-const AUTO_DISABLED = new Set(['0', 'false', 'no', 'off']);
-
-function isAutoJwtEnabled(): boolean {
-  const raw = Bun.env.GIFTISTRY_AUTO_JWT_SECRET;
-  if (raw === undefined || raw.trim() === '') return true;
-  return !AUTO_DISABLED.has(raw.trim().toLowerCase());
-}
-
-/** Path for auto-persisted JWT: GIFTISTRY_JWT_SECRET_PATH or ${GIFTISTRY_STATE_DIR}/jwt_secret. */
-export function resolveJwtSecretPath(): string {
-  const explicit = Bun.env.GIFTISTRY_JWT_SECRET_PATH?.trim();
-  if (explicit) return explicit;
-  const stateDir = Bun.env.GIFTISTRY_STATE_DIR?.trim() || '/var/lib/giftistry';
-  return join(stateDir, 'jwt_secret');
-}
-
-export function generateJwtSecretValue(): string {
-  return randomBytes(48).toString('base64url');
-}
+import { dirname } from 'path';
+import { isAutoJwtEnabled } from './utils/is-auto-jwt-enabled.util';
+import { resolveJwtSecretPath } from './utils/resolve-jwt-secret-path.util';
+import { generateJwtSecretValue } from './utils/generate-jwt-secret-value.util';
 
 /**
  * If `explicit` is set, return it. Otherwise in auto mode read or create a
@@ -29,7 +11,9 @@ export function generateJwtSecretValue(): string {
  */
 export function ensurePersistedJwtSecret(explicit: string | undefined): string | undefined {
   const trimmed = explicit?.trim();
-  if (trimmed) return trimmed;
+  if (trimmed) {
+    return trimmed;
+  }
 
   if (!isAutoJwtEnabled()) {
     return undefined;
@@ -39,7 +23,9 @@ export function ensurePersistedJwtSecret(explicit: string | undefined): string |
 
   try {
     const existing = readFileSync(path, 'utf-8').trim();
-    if (existing.length > 0) return existing;
+    if (existing.length > 0) {
+      return existing;
+    }
   } catch {
     // File missing or unreadable — try create.
   }
@@ -52,10 +38,13 @@ export function ensurePersistedJwtSecret(explicit: string | undefined): string |
     console.info(`[boot] Generated JWT_SECRET at ${path} (persisted; include in backups)`);
     return secret;
   } catch (err) {
-    const code = err && typeof err === 'object' && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined;
+    const code =
+      err && typeof err === 'object' && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined;
     if (code === 'EEXIST') {
       const existing = readFileSync(path, 'utf-8').trim();
-      if (existing.length > 0) return existing;
+      if (existing.length > 0) {
+        return existing;
+      }
     }
     throw err;
   }

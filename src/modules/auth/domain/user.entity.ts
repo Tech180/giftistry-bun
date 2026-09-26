@@ -1,48 +1,8 @@
-import type { GiftistryUserPolicy, SitePolicy } from '@/common/types/user-policy';
-import { AppError } from '@/common/middlewares/error.middleware';
-import type { TourState } from './tour.state';
-
-export interface User {
-  Id: string;
-  Username: string;
-  Email: string | null;
-  FirstName: string;
-  LastName: string;
-  AuthHash: string;
-  CreatedAt?: Date;
-  Bio?: string;
-  Theme?: string;
-  Avatar?: string | null;
-  Birthday?: string | null;
-  EmailVerified?: boolean;
-  TwoFactorEnabled?: boolean;
-  TwoFactorRecoveryCodes?: string | null;
-  IsAdmin?: boolean;
-  IsOwner?: boolean;
-  LastOnline?: Date | string | null;
-  LastLoginAt?: Date | null;
-  IsDisabled?: boolean;
-  IsHidden?: boolean;
-  LockedUntil?: Date | null;
-  FailedLoginCount?: number;
-  ForcePasswordChange?: boolean;
-  LoginAttemptsBeforeLockout?: number;
-  SessionVersion?: number;
-  PolicyJson?: GiftistryUserPolicy | Record<string, unknown> | null;
-  AiEnabled?: boolean;
-  WebSearchEnabled?: boolean;
-  HasPasskey?: boolean;
-  IsOnboarded?: boolean;
-  OauthSub?: string | null;
-  Tour?: TourState;
-}
-
-export type SafeUser = Omit<User, 'AuthHash'>;
-
-export function toSafeUser(user: User): SafeUser {
-  const { AuthHash: _authHash, ...safeUser } = user;
-  return safeUser;
-}
+import type { GiftistryUserPolicy } from '@/common/domain/interfaces/giftistry-user-policy.interface';
+import type { SitePolicy } from '@/common/domain/interfaces/site-policy.interface';
+import { DomainError } from '@/common/domain/errors/domain-error';
+import type { TourState } from './interfaces/tour-state.interface';
+import type { User } from './interfaces/user.interface';
 
 export class UserEntity implements User {
   Id!: string;
@@ -71,6 +31,9 @@ export class UserEntity implements User {
   LoginAttemptsBeforeLockout?: number;
   SessionVersion?: number;
   PolicyJson?: GiftistryUserPolicy | Record<string, unknown> | null;
+  AiEnabled?: boolean;
+  WebSearchEnabled?: boolean;
+  HasPasskey?: boolean;
   IsOnboarded?: boolean;
   OauthSub?: string | null;
   Tour?: TourState;
@@ -93,15 +56,15 @@ export class UserEntity implements User {
 
   assertCanLogin(sitePolicy: SitePolicy): void {
     if (this.IsDisabled) {
-      throw new AppError('This account has been disabled', 403, 'FORBIDDEN');
+      throw new DomainError('This account has been disabled', 'FORBIDDEN');
     }
 
     if (this.isLocked()) {
-      throw new AppError('This account is temporarily locked. Please try again later.', 403, 'FORBIDDEN');
+      throw new DomainError('This account is temporarily locked. Please try again later.', 'FORBIDDEN');
     }
 
     if (sitePolicy.MaintenanceMode && !this.IsAdmin) {
-      throw new AppError(sitePolicy.MaintenanceMessage || 'Server is in maintenance mode', 503, 'MAINTENANCE');
+      throw new DomainError(sitePolicy.MaintenanceMessage || 'Server is in maintenance mode', 'MAINTENANCE');
     }
   }
 

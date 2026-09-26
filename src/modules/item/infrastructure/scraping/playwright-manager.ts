@@ -1,11 +1,16 @@
 import type { Browser, BrowserContext, LaunchOptions } from 'playwright';
 import { chromium } from 'playwright';
-import { CHROME_USER_AGENT } from './browser-headers';
+import { CHROME_USER_AGENT } from './constants/chrome-user-agent.constant';
+import {
+  PLAYWRIGHT_CONTEXT_EXTRA_HEADERS,
+  PLAYWRIGHT_CONTEXT_VIEWPORT,
+  PLAYWRIGHT_LAUNCH_ARGS,
+} from './constants/playwright-launch.constant';
+import { scrapingConfig } from './utils/scraping-config.util';
 import {
   playwrightLaunchHint,
   requirePlaywrightExecutableForLaunch,
-} from './resolve-playwright-executable';
-import { scrapingConfig } from './scraping-config';
+} from './utils/resolve-playwright-executable.util';
 
 class PlaywrightManager {
   private browser: Browser | null = null;
@@ -33,11 +38,7 @@ class PlaywrightManager {
     return {
       headless: scrapingConfig.playwrightHeadless,
       executablePath,
-      args: [
-        '--disable-blink-features=AutomationControlled',
-        '--no-sandbox',
-        '--disable-dev-shm-usage',
-      ],
+      args: [...PLAYWRIGHT_LAUNCH_ARGS],
     };
   }
 
@@ -68,11 +69,8 @@ class PlaywrightManager {
     const context = await browser.newContext({
       userAgent: CHROME_USER_AGENT,
       locale: 'en-US',
-      viewport: { width: 1366, height: 768 },
-      extraHTTPHeaders: {
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-      },
+      viewport: { ...PLAYWRIGHT_CONTEXT_VIEWPORT },
+      extraHTTPHeaders: { ...PLAYWRIGHT_CONTEXT_EXTRA_HEADERS },
     });
 
     await context.addInitScript(() => {

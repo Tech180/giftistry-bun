@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from 'bun:test';
-import { EnrichLinkMetadataUseCase } from '../src/modules/item/application/enrich-link-metadata.use-case';
+import { EnrichLinkMetadataUseCase } from '../src/modules/item/slices/metadata/use-cases/enrich-link-metadata.use-case';
 
 describe('EnrichLinkMetadataUseCase', () => {
   test('persists canonical URL and promotes when Photos path is available', async () => {

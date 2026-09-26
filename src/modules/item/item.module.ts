@@ -1,102 +1,58 @@
 import { Elysia } from 'elysia';
-import type { RouteMiddleware } from '@/common/types/route-middleware';
-import type { ItemRepository } from './domain/ports/item.repository';
-import type { ItemAudienceRepository } from './domain/ports/item-audience.repository';
-import type { ItemFieldRepository } from './domain/ports/item-field.repository';
-import type { WishlistRepository } from '@/modules/wishlist/domain/ports/wishlist.repository';
-import type { ListShareRepository } from '@/modules/wishlist/domain/ports/list-share.repository';
-import type { UserRepository } from '@/modules/auth/domain/ports/user.repository';
-import type { AssertUserCanUseCase } from '@/common/application/user-policy.use-cases';
-import type { MetadataScraper } from './domain/ports/metadata-scraper.port';
-import type { ServerConfigRepository } from '@/modules/system/domain/ports/server-config.repository';
-import { PostgresItemReviewRepository } from './infrastructure/postgres-item-review.repository';
-import { GeminiReviewExtractor } from './infrastructure/gemini-review-extractor';
-import { AddItemUseCase } from './application/add-item.use-case';
-import { ListItemsUseCase } from './application/list-items.use-case';
-import { ClaimItemUseCase } from './application/claim-item.use-case';
-import { ClaimItemWithLinkedUseCase } from './application/claim-item-with-linked.use-case';
-import { AddItemLinkUseCase } from './application/add-item-link.use-case';
-import { DeleteItemUseCase } from './application/delete-item.use-case';
-import { UpdateItemUseCase } from './application/update-item.use-case';
-import { GetFieldDefinitionsUseCase } from './application/get-field-definitions.use-case';
-import { UnclaimItemUseCase } from './application/unclaim-item.use-case';
-import { UnclaimItemWithLinkedUseCase } from './application/unclaim-item-with-linked.use-case';
-import { BuildItemClaimProjectionsUseCase } from './application/build-item-claim-projections.use-case';
-import { ValidateItemAudienceUseCase } from './application/validate-item-audience.use-case';
-import { AssertItemVisibleUseCase } from './application/assert-item-visible.use-case';
-import { ExtractMetadataUseCase } from './application/extract-metadata.use-case';
-import { EnrichLinkMetadataUseCase } from './application/enrich-link-metadata.use-case';
-import { ExtractItemReviewsUseCase } from './application/extract-item-reviews.use-case';
-import { GetItemReviewsUseCase } from './application/get-item-reviews.use-case';
-import { SummarizeItemDescriptionUseCase } from './application/summarize-item-description.use-case';
-import { ParseImportPreviewUseCase } from './application/parse-import-preview.use-case';
-import { BulkAddItemsUseCase } from './application/bulk-add-items.use-case';
-import { SyncItemLinksUseCase } from './application/sync-item-links.use-case';
-import { SyncItemRelatedUseCase } from './application/sync-item-related.use-case';
-import { ListItemSubstitutionsUseCase } from './application/list-item-substitutions.use-case';
-import { CreateOwnerSubstitutionUseCase } from './application/create-owner-substitution.use-case';
-import { CreateClaimerSubstitutionUseCase } from './application/create-claimer-substitution.use-case';
-import { UpdateItemSubstitutionUseCase } from './application/update-item-substitution.use-case';
-import { DeleteItemSubstitutionUseCase } from './application/delete-item-substitution.use-case';
-import { ReorderOwnerSubstitutionsUseCase } from './application/reorder-owner-substitutions.use-case';
-import { NotifyClaimersItemRemovedUseCase } from './application/notify-claimers-item-removed.use-case';
-import { NotifyGroupFundContributorsUseCase } from './application/notify-group-fund-contributors.use-case';
-import { PostGroupFundCommentUseCase } from './application/post-group-fund-comment.use-case';
-import { GeminiDescriptionSummarizer } from './infrastructure/gemini-description-summarizer';
-import type { CreateNotificationUseCase } from '@/modules/notifications/application/create-notification.use-case';
-import type { CommentRepository } from '@/modules/comment/domain/ports/comment.repository';
-import type { CommentRealtimePublisher } from '@/modules/comment/domain/ports/comment-realtime-publisher.port';
-import type { ListChangedPublisher } from '@/modules/wishlist/domain/ports/list-changed-publisher.port';
-import { WebsocketListChangedPublisher } from '@/modules/wishlist/infrastructure/websocket-list-changed-publisher';
-import { GeminiMetadataPopulator } from './infrastructure/gemini-metadata-populator';
-import { GeminiCategoryClassifier } from './infrastructure/gemini-category-classifier';
-import { GeminiItemImportParser } from './infrastructure/gemini-item-import-parser';
-import { DefaultImportFileTextExtractor } from './infrastructure/import-file-text-extractor';
-import { HttpPageContextFetcher } from './infrastructure/http-page-context-fetcher';
-import { PlaywrightProductResearcher } from './infrastructure/playwright-product-researcher';
-import { FetchRemoteImageAsDataUrl } from './infrastructure/fetch-remote-image-as-data-url';
-import { PromoteScrapedImageToPhotosUseCase } from './application/promote-scraped-image-to-photos.use-case';
+import { AddItemUseCase } from './slices/catalog/use-cases/add-item.use-case';
+import { ListItemsUseCase } from './slices/catalog/use-cases/list-items.use-case';
+import { ClaimItemUseCase } from './slices/claims/use-cases/claim-item.use-case';
+import { ClaimItemWithLinkedUseCase } from './slices/claims/use-cases/claim-item-with-linked.use-case';
+import { AddItemLinkUseCase } from './slices/links/use-cases/add-item-link.use-case';
+import { DeleteItemUseCase } from './slices/catalog/use-cases/delete-item.use-case';
+import { UpdateItemUseCase } from './slices/catalog/use-cases/update-item.use-case';
+import { GetFieldDefinitionsUseCase } from './slices/catalog/use-cases/get-field-definitions.use-case';
+import { UnclaimItemUseCase } from './slices/claims/use-cases/unclaim-item.use-case';
+import { UnclaimItemWithLinkedUseCase } from './slices/claims/use-cases/unclaim-item-with-linked.use-case';
+import { BuildItemClaimProjectionsUseCase } from './slices/claims/use-cases/build-item-claim-projections.use-case';
+import { ValidateItemAudienceUseCase } from './slices/catalog/use-cases/validate-item-audience.use-case';
+import { AssertItemVisibleUseCase } from './slices/catalog/use-cases/assert-item-visible.use-case';
+import { ExtractMetadataUseCase } from './slices/metadata/use-cases/extract-metadata.use-case';
+import { EnrichLinkMetadataUseCase } from './slices/metadata/use-cases/enrich-link-metadata.use-case';
+import { ExtractItemReviewsUseCase } from './slices/metadata/use-cases/extract-item-reviews.use-case';
+import { GetItemReviewsUseCase } from './slices/metadata/use-cases/get-item-reviews.use-case';
+import { SummarizeItemDescriptionUseCase } from './slices/metadata/use-cases/summarize-item-description.use-case';
+import { ParseImportPreviewUseCase } from './slices/import/use-cases/parse-import-preview.use-case';
+import { BulkAddItemsUseCase } from './slices/import/use-cases/bulk-add-items.use-case';
+import { SyncItemLinksUseCase } from './slices/links/use-cases/sync-item-links.use-case';
+import { SyncItemRelatedUseCase } from './slices/links/use-cases/sync-item-related.use-case';
+import { ListItemSubstitutionsUseCase } from './slices/substitutions/use-cases/list-item-substitutions.use-case';
+import { CreateOwnerSubstitutionUseCase } from './slices/substitutions/use-cases/create-owner-substitution.use-case';
+import { CreateClaimerSubstitutionUseCase } from './slices/substitutions/use-cases/create-claimer-substitution.use-case';
+import { UpdateItemSubstitutionUseCase } from './slices/substitutions/use-cases/update-item-substitution.use-case';
+import { DeleteItemSubstitutionUseCase } from './slices/substitutions/use-cases/delete-item-substitution.use-case';
+import { ReorderOwnerSubstitutionsUseCase } from './slices/substitutions/use-cases/reorder-owner-substitutions.use-case';
+import { NotifyClaimersItemRemovedUseCase } from './slices/claims/use-cases/notify-claimers-item-removed.use-case';
+import { NotifyGroupFundContributorsUseCase } from './slices/funding/use-cases/notify-group-fund-contributors.use-case';
+import { PostGroupFundCommentUseCase } from './slices/funding/use-cases/post-group-fund-comment.use-case';
+import { BackfillListReviewsUseCase } from './slices/metadata/use-cases/backfill-list-reviews.use-case';
+import { PromoteScrapedImageToPhotosUseCase } from './slices/metadata/use-cases/promote-scraped-image-to-photos.use-case';
+import type { ItemModuleDeps } from './interfaces/item-module-deps.interface';
 import { itemRoutes } from './presentation/item.routes';
 
-export interface ItemModuleDeps {
-  itemRepo: ItemRepository;
-  audienceRepo: ItemAudienceRepository;
-  fieldRepo: ItemFieldRepository;
-  wishlistRepo: WishlistRepository;
-  listShareRepo: ListShareRepository;
-  userRepo: UserRepository;
-  assertUserCanUseCase: AssertUserCanUseCase;
-  metadataScraper: MetadataScraper;
-  serverConfigRepo: ServerConfigRepository;
-  middleware: RouteMiddleware;
-  createNotification?: CreateNotificationUseCase;
-  commentRepo?: CommentRepository;
-  commentRealtime?: CommentRealtimePublisher;
-  listChanged?: ListChangedPublisher;
-}
-
 export function createItemModule(deps: ItemModuleDeps) {
-  const listChanged = deps.listChanged ?? new WebsocketListChangedPublisher();
-  const itemReviewRepo = new PostgresItemReviewRepository();
-  const reviewExtractor = new GeminiReviewExtractor();
-  const pageContextFetcher = new HttpPageContextFetcher();
-  const productResearcher = new PlaywrightProductResearcher();
+  const listChanged = deps.listChanged;
 
   const extractMetadataUseCase = new ExtractMetadataUseCase(
     deps.metadataScraper,
-    new GeminiMetadataPopulator(),
-    new GeminiCategoryClassifier(),
+    deps.metadataPopulator,
+    deps.categoryClassifier,
     deps.userRepo,
     deps.assertUserCanUseCase,
     deps.wishlistRepo,
     deps.itemRepo,
     deps.serverConfigRepo,
-    pageContextFetcher,
-    productResearcher
+    deps.pageContextFetcher,
+    deps.productResearcher
   );
   const promoteScrapedImageToPhotosUseCase = new PromoteScrapedImageToPhotosUseCase(
     deps.itemRepo,
-    new FetchRemoteImageAsDataUrl()
+    deps.remoteImageFetcher
   );
   const enrichLinkMetadataUseCase = new EnrichLinkMetadataUseCase(
     deps.metadataScraper,
@@ -104,29 +60,34 @@ export function createItemModule(deps: ItemModuleDeps) {
     promoteScrapedImageToPhotosUseCase
   );
   const extractItemReviewsUseCase = new ExtractItemReviewsUseCase(
-    itemReviewRepo,
-    reviewExtractor,
+    deps.itemReviewRepo,
+    deps.reviewExtractor,
     deps.itemRepo,
     deps.wishlistRepo,
     deps.userRepo,
     deps.assertUserCanUseCase,
     deps.serverConfigRepo
   );
-  const getItemReviewsUseCase = new GetItemReviewsUseCase(itemReviewRepo);
+  const getItemReviewsUseCase = new GetItemReviewsUseCase(deps.itemReviewRepo);
   const summarizeItemDescriptionUseCase = new SummarizeItemDescriptionUseCase(
     deps.wishlistRepo,
     deps.userRepo,
     deps.assertUserCanUseCase,
-    new GeminiDescriptionSummarizer(),
+    deps.descriptionSummarizer,
     deps.serverConfigRepo
   );
   const parseImportPreviewUseCase = new ParseImportPreviewUseCase(
-    new DefaultImportFileTextExtractor(),
-    new GeminiItemImportParser(),
+    deps.importFileTextExtractor,
+    deps.itemImportParser,
     deps.wishlistRepo,
     deps.itemRepo,
     deps.userRepo,
     deps.assertUserCanUseCase,
+    deps.serverConfigRepo
+  );
+  const backfillListReviewsUseCase = new BackfillListReviewsUseCase(
+    deps.itemReviewRepo,
+    extractItemReviewsUseCase,
     deps.serverConfigRepo
   );
 
@@ -167,9 +128,7 @@ export function createItemModule(deps: ItemModuleDeps) {
     listChanged
   );
 
-  const notifyClaimersItemRemoved = deps.createNotification
-    ? new NotifyClaimersItemRemovedUseCase(deps.createNotification)
-    : undefined;
+  const notifyClaimersItemRemoved = new NotifyClaimersItemRemovedUseCase(deps.eventBus);
 
   const useCases = {
     addItem: addItemUseCase,
@@ -269,11 +228,13 @@ export function createItemModule(deps: ItemModuleDeps) {
   };
 
   const module = new Elysia().use(
-    itemRoutes(
-      useCases,
-      deps.middleware
-    )
+    itemRoutes({ useCases, middleware: deps.middleware })
   );
 
-  return { module, useCases };
+  return {
+    module,
+    useCases,
+    backfillListReviews: backfillListReviewsUseCase,
+    extractItemReviews: extractItemReviewsUseCase,
+  };
 }

@@ -1,7 +1,7 @@
-import { expect, test, describe, afterAll } from "bun:test";
+import { expect, test, describe, afterAll, beforeAll } from "bun:test";
 import { app } from '../src/index';
-import { sql } from '../src/common/database/connection';
-import { testPassword, cleanUpUser } from './helper';
+import { sql } from '../src/common/database';
+import { testPassword, cleanUpUser, ensureOpenRegistration } from './helper';
 
 describe("Authentication & Global Endpoints", () => {
   const timestamp = Date.now();
@@ -9,6 +9,10 @@ describe("Authentication & Global Endpoints", () => {
   const testUsername = `auth_user_${timestamp}`;
   let userId: string;
   let token: string;
+
+  beforeAll(async () => {
+    await ensureOpenRegistration();
+  });
 
   afterAll(async () => {
     await cleanUpUser(userId);
@@ -516,7 +520,10 @@ describe("Authentication & Global Endpoints", () => {
     const setupBody = await setupRes.json() as any;
     const secret = setupBody.Result.Secret;
     expect(secret).toBeDefined();
-    expect(setupBody.Result.QrCodeUrl).toBeDefined();
+    expect(setupBody.Result.OtpAuthUri).toBeDefined();
+    expect(setupBody.Result.OtpAuthUri).toMatch(/^otpauth:\/\//);
+    expect(setupBody.Result.OtpAuthUri).toContain('Giftistry');
+    expect(setupBody.Result.QrCodeUrl).toBeUndefined();
 
     // 2. Generate code and enable 2FA
     const { generateSync } = require("otplib");

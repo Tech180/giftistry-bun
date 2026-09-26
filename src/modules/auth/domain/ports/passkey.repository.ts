@@ -1,4 +1,4 @@
-import type { UserPasskey } from '../passkey.entity';
+import type { UserPasskey } from '../interfaces/user-passkey.interface';
 
 export interface PasskeyRepository {
   findById(id: string): Promise<UserPasskey | null>;

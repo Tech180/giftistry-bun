@@ -4,14 +4,17 @@ mock.module('@/common/middlewares/list-access.middleware', () => ({
   getListAccessContext: async () => ({ role: 'owner' }),
 }));
 
-const {
-  importItemDedupeKey,
-  RunWishlistImportJobUseCase,
-} = await import('@/modules/jobs/application/run-wishlist-import-job.use-case');
-const { PERIODIC_RECLAIM_MS } = await import(
-  '@/modules/jobs/application/background-job-runner'
+const { importItemDedupeKey } = await import(
+  '@/modules/jobs/slices/import/utils/import-item-dedupe-key.util'
 );
-import type { BackgroundJob, BackgroundJobItem } from '@/modules/jobs/domain/background-job.entity';
+const { RunWishlistImportJobUseCase } = await import(
+  '@/modules/jobs/slices/import/use-cases/run-wishlist-import-job.use-case'
+);
+const { PERIODIC_RECLAIM_MS } = await import(
+  '@/modules/jobs/application/constants/job-reclaim.constant'
+);
+import type { BackgroundJob } from '@/modules/jobs/domain/interfaces/background-job.interface';
+import type { BackgroundJobItem } from '@/modules/jobs/domain/interfaces/background-job-item.interface';
 import type { BackgroundJobRepository } from '@/modules/jobs/domain/ports/background-job.repository';
 import type { JobProgressPublisher } from '@/modules/jobs/domain/ports/job-progress-publisher.port';
 

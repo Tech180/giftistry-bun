@@ -1,20 +1,5 @@
-export interface DescriptionSummarizerInput {
-  itemName: string;
-  category?: string;
-  url?: string;
-  price?: number | null;
-  websiteName?: string;
-  existingNotes?: string;
-  itemContext: string;
-}
-
-export interface DescriptionSummarizerConfig {
-  provider: string;
-  apiKey: string;
-  model: string;
-  customPrompt: string;
-  endpoint: string;
-}
+import type { DescriptionSummarizerInput } from '../interfaces/description-summarizer-input.interface';
+import type { DescriptionSummarizerConfig } from '../interfaces/description-summarizer-config.interface';
 
 export interface DescriptionSummarizer {
   summarize(

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { coerceApparelSizeFields } from '../src/modules/item/domain/coerce-apparel-size-fields.util';
+import { coerceApparelSizeFields } from '../src/modules/item/domain/utils/coerce-apparel-size-fields.util';
 
 describe('coerceApparelSizeFields', () => {
   test('keeps ShirtSize only for a shirt when AI filled both', () => {

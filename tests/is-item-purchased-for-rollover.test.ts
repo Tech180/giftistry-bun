@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { isItemPurchasedForRollover } from '../src/modules/wishlist/domain/is-item-purchased-for-rollover.util';
+import { isItemPurchasedForRollover } from '../src/modules/wishlist/domain/utils/is-item-purchased-for-rollover.util';
 
 describe('isItemPurchasedForRollover', () => {
   test('returns false when there are no claims', () => {

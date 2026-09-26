@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { shouldDeliverCommentEventToUser } from '../src/modules/comment/domain/should-deliver-comment-event.util';
+import { shouldDeliverCommentEventToUser } from '../src/modules/comment/domain/utils/should-deliver-comment-event.util';
 
 describe('shouldDeliverCommentEventToUser', () => {
   test('skips surprise comment.created for the list owner while active', () => {

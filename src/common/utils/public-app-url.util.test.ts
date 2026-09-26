@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { getEnv, loadRuntimeConfig, setEnvForTests } from '@/common/consts/runtime-config';
+import { loadRuntimeConfig } from '@/common/config/runtime-config';
+import { getEnv, setEnvForTests } from '@/common/config/utils/get-env.util';
 import {
   getPublicAppUrl,
   setPublicAppUrlConfigSource,

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { nextRolloverTitle } from '../src/modules/wishlist/domain/next-rollover-title.util';
+import { nextRolloverTitle } from '../src/modules/wishlist/domain/utils/next-rollover-title.util';
 
 describe('nextRolloverTitle', () => {
   test('appends 1 when there is no trailing number', () => {

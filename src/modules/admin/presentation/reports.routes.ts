@@ -1,14 +1,10 @@
-import { Elysia, t } from 'elysia';
-import { authMiddleware } from '@/modules/auth/auth.module';
-import type { CreateReportUseCase } from '../application/create-report.use-case';
-
-export interface ReportsRoutesDeps {
-  createReport: CreateReportUseCase;
-}
+import { Elysia } from 'elysia';
+import type { ReportsRoutesDeps } from './interfaces/reports-routes-deps.interface';
+import { createReportBodySchema } from './schemas/create-report-body.schema';
 
 export const reportsRoutes = (deps: ReportsRoutesDeps) =>
   new Elysia({ prefix: '/api' })
-    .use(authMiddleware)
+    .use(deps.authMiddleware)
     .post(
       '/reports',
       async ({ getAuthUser, body: { Giftistry: { Report } } }) => {
@@ -21,19 +17,7 @@ export const reportsRoutes = (deps: ReportsRoutesDeps) =>
         return { success: true };
       },
       {
-        body: t.Object({
-          Giftistry: t.Object({
-            Report: t.Object({
-              TargetType: t.Union([
-                t.Literal('comment'),
-                t.Literal('wishlist'),
-                t.Literal('user'),
-              ]),
-              TargetId: t.String(),
-              Reason: t.Optional(t.String()),
-            }),
-          }),
-        }),
+        body: createReportBodySchema,
         detail: {
           tags: ['Reports'],
           summary: 'Submit a content report',

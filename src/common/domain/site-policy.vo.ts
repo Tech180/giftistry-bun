@@ -1,10 +1,6 @@
-import {
-  DEFAULT_SITE_POLICY,
-  mergeSitePolicy,
-  type SitePolicy,
-} from '@/common/types/user-policy';
-
-export { type SitePolicy };
+import { DEFAULT_SITE_POLICY } from './constants/default-site-policy.constant';
+import type { SitePolicy } from './interfaces/site-policy.interface';
+import { mergeSitePolicy } from './utils/merge-site-policy.util';
 
 export class SitePolicyVO {
   private constructor(readonly data: SitePolicy) {}

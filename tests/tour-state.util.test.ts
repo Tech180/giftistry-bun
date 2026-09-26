@@ -1,17 +1,15 @@
 import { describe, expect, test } from 'bun:test';
-import {
-  EMPTY_TOUR_STATE,
-  normalizeTourState,
-  tourStateToDbJson,
-} from '../src/modules/auth/domain/tour.state';
+import { EMPTY_TOUR_STATE } from '../src/modules/auth/domain/constants/empty-tour-state.constant';
+import { normalizeTourState } from '../src/modules/auth/domain/utils/normalize-tour-state.util';
+import { tourStateToDbJson } from '../src/modules/auth/domain/utils/tour-state-to-db-json.util';
 
-describe('tour.state', () => {
-  test('normalizeTourState returns empty for invalid input', () => {
+describe('normalizeTourState', () => {
+  test('returns empty for invalid input', () => {
     expect(normalizeTourState(null)).toEqual({ ...EMPTY_TOUR_STATE, Chapters: {} });
     expect(normalizeTourState('nope')).toEqual({ ...EMPTY_TOUR_STATE, Chapters: {} });
   });
 
-  test('normalizeTourState accepts snake and Pascal keys', () => {
+  test('accepts snake and Pascal keys', () => {
     expect(
       normalizeTourState({
         firstRunDismissed: true,
@@ -32,8 +30,10 @@ describe('tour.state', () => {
       Chapters: { theming: 'pending' },
     });
   });
+});
 
-  test('tourStateToDbJson round-trips via normalize', () => {
+describe('tourStateToDbJson', () => {
+  test('round-trips via normalize', () => {
     const json = tourStateToDbJson({
       FirstRunDismissed: true,
       Chapters: { beginner: 'completed' },

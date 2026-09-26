@@ -1,12 +1,7 @@
-import type {
-  CreateAdminUserParams,
-  ServerConfig,
-  TransferTargetUser,
-} from '../server-config.entity';
-
-export interface CreateAdminUserWithLockParams extends CreateAdminUserParams {
-  lockKey: number;
-}
+import type { CreateAdminUserParams } from '../interfaces/create-admin-user-params.interface';
+import type { CreateAdminUserWithLockParams } from '../interfaces/create-admin-user-with-lock-params.interface';
+import type { ServerConfig } from '../interfaces/server-config.interface';
+import type { TransferTargetUser } from '../interfaces/transfer-target-user.interface';
 
 export interface ServerConfigRepository {
   load(): ServerConfig;

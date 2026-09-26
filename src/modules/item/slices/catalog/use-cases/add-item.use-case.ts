@@ -1,0 +1,178 @@
+import type { ItemRepository } from '../../../domain/ports/item.repository';
+import type { ItemAudienceRepository } from '../../../domain/ports/item-audience.repository';
+import type { WishlistRepository } from '@/modules/wishlist';
+import type { Item } from '../../../domain/interfaces/item.interface';
+import { AppError } from '@/common/domain/errors/app-error';
+import type { EnrichLinkMetadataUseCase } from '../../metadata/use-cases/enrich-link-metadata.use-case';
+import type { ExtractItemReviewsUseCase } from '../../metadata/use-cases/extract-item-reviews.use-case';
+import type { ItemDescriptionMetadata } from '../../../domain/interfaces/item-description-metadata.interface';
+import {
+  resolvePlainDescriptionText,
+} from '../../../domain/utils/resolve-item-metadata.util';
+import type { ItemMetadataWrite } from '../../../domain/interfaces/item-metadata-write.interface';
+import type { AssertUserCanUseCase } from '@/common/application/use-cases/user-policy.use-cases';
+import { assertWishlistMutable } from '@/modules/wishlist';
+import type { ListChangedPublisher } from '@/modules/wishlist';
+import { assertLinkGroupSupportsLinkedItems } from '../../../domain/utils/item-supports-linked-items.util';
+import { toMetadataWrite } from '../utils/to-metadata-write.util';
+
+
+export class AddItemUseCase {
+  constructor(
+    private itemRepo: ItemRepository,
+    private audienceRepo: ItemAudienceRepository,
+    private enrichLinkMetadata: EnrichLinkMetadataUseCase,
+    private extractItemReviews: ExtractItemReviewsUseCase,
+    private assertUserCan: AssertUserCanUseCase,
+    private wishlistRepo: WishlistRepository,
+    private listChanged: ListChangedPublisher
+  ) {}
+
+  async execute(
+    listId: string,
+    name: string,
+    description: string | null = null,
+    priorityId: string | null = null,
+    isHiddenIdea: boolean = false,
+    suggestedByUserId: string | null = null,
+    linkUrl: string | null = null,
+    price: number | null = null,
+    websiteName: string | null = null,
+    category: string = 'uncategorized',
+    isSuggestion: boolean = false,
+    priority: number | null = null,
+    sharedWithUserIds: string[] = [],
+    metadata: ItemDescriptionMetadata | null = null,
+    options?: { skipListChanged?: boolean }
+  ): Promise<Item> {
+    if (!listId) {
+      throw new AppError('List ID is required', 400, 'BAD_REQUEST');
+    }
+    if (!name) {
+      throw new AppError('Item name is required', 400, 'BAD_REQUEST');
+    }
+
+    const wishlist = await this.wishlistRepo.findById(listId);
+    if (!wishlist) {
+      throw new AppError('Wishlist not found', 404, 'NOT_FOUND');
+    }
+    assertWishlistMutable(wishlist);
+
+    const linkedIds = metadata?.LinkedItemIds ?? [];
+    if (linkedIds.length > 0) {
+      const draftItem: Item = {
+        Id: 'draft',
+        ListId: listId,
+        PriorityId: priorityId,
+        SuggestedByUserId: suggestedByUserId,
+        Name: name,
+        Description: description,
+        IsHiddenIdea: isHiddenIdea,
+        IsSuggestion: isSuggestion,
+        Category: category,
+        DesiredQuantity: metadata?.DesiredQuantity ?? null,
+        MultiCount: metadata?.MultiCount === true,
+      };
+      const wishlistItems = await this.itemRepo.findByListId(listId);
+      const peers = linkedIds
+        .map((id) => wishlistItems.find((i) => i.Id === id))
+        .filter((peer): peer is Item => !!peer);
+      assertLinkGroupSupportsLinkedItems([draftItem, ...peers], wishlist.UserId);
+    }
+
+    let retailerName: string | null = websiteName || null;
+    if (linkUrl && !retailerName) {
+      try {
+        const urlObj = new URL(linkUrl);
+        const hostname = urlObj.hostname;
+        const retailerNameRaw = hostname.replace('www.', '').split('.')[0] || '';
+        retailerName = retailerNameRaw ? retailerNameRaw.charAt(0).toUpperCase() + retailerNameRaw.slice(1) : null;
+      } catch (e) {
+        throw new AppError('Invalid URL format', 400, 'BAD_REQUEST');
+      }
+    }
+
+    let resolvedDescription = description;
+    let metadataWrite: ItemMetadataWrite | null = null;
+    if (metadata) {
+      resolvedDescription = resolvePlainDescriptionText(description, metadata);
+      metadataWrite = toMetadataWrite(metadata);
+      if (metadataWrite?.Photos && metadataWrite.Photos.length > 0) {
+        if (!suggestedByUserId) {
+          throw new AppError('User is required to upload photos', 400, 'BAD_REQUEST');
+        }
+        await this.assertUserCan.execute(suggestedByUserId, 'CanUploadImages');
+      }
+    }
+
+    const item = await this.itemRepo.create(
+      listId,
+      priorityId,
+      suggestedByUserId,
+      name,
+      resolvedDescription,
+      isHiddenIdea,
+      category,
+      isSuggestion,
+      priority,
+      metadataWrite
+    );
+
+    if (metadata?.LinkedItemIds?.length) {
+      await this.itemRepo.replaceLinkedItemIds(item.Id, metadata.LinkedItemIds);
+      item.LinkedItemIds = metadata.LinkedItemIds;
+    }
+
+    if (metadata?.RelatedItemIds?.length) {
+      await this.itemRepo.replaceRelatedItemIds(item.Id, metadata.RelatedItemIds);
+      item.RelatedItemIds = metadata.RelatedItemIds;
+    }
+
+    const sharedWith = await this.audienceRepo.setAudience(item.Id, sharedWithUserIds);
+
+    if (linkUrl) {
+      const link = await this.itemRepo.createLink(
+        item.Id,
+        linkUrl,
+        retailerName,
+        price,
+        null
+      );
+
+      this.enrichLinkMetadata.execute(link.Id, linkUrl, price).catch((err) => {
+        console.error('Background metadata enrichment failed:', err);
+      });
+
+      this.extractItemReviews.execute(item.Id, listId, linkUrl).catch((err) => {
+        console.error('Background AI review extraction trigger failed:', err);
+      });
+
+      if (!options?.skipListChanged) {
+        this.listChanged.publish(listId, {
+          reason: 'item.created',
+          itemId: item.Id,
+          actorUserId: suggestedByUserId ?? undefined,
+        });
+      }
+
+      return {
+        ...item,
+        Links: [link],
+        SharedWith: sharedWith.length > 0 ? sharedWith : undefined,
+      };
+    }
+
+    if (!options?.skipListChanged) {
+      this.listChanged.publish(listId, {
+        reason: 'item.created',
+        itemId: item.Id,
+        actorUserId: suggestedByUserId ?? undefined,
+      });
+    }
+
+    return {
+      ...item,
+      SharedWith: sharedWith.length > 0 ? sharedWith : undefined,
+    };
+  }
+}

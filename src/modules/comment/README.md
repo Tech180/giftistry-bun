@@ -2,17 +2,21 @@
 
 Wishlist comments, reactions, visibility, and realtime comment events.
 
+Compact module — use cases live under `application/` (no behavior slices). Cross-module imports should use the public barrel `@/modules/comment`.
+
 ## Layers
 
 | Folder | Role |
 |--------|------|
-| `domain/` | Comment entity, visibility service, comment repo + realtime publisher ports |
+| `index.ts` | Public barrel (ports, entities, use-case facade, module factory) |
+| `domain/` | Comment entity, visibility utils, comment repo + realtime publisher ports |
 | `application/` | List/add/delete comments, toggle reaction |
-| `infrastructure/` | Postgres comment repo, websocket realtime publisher |
-| `presentation/` | `comment.routes.ts` |
+| `infrastructure/` | Repositories, realtime adapter, row mappers |
+| `presentation/` | Routes, schemas, mappers (`comment.routes.ts` composer) |
 
 ## Public surface
 
+- **Barrel:** `@/modules/comment`
 - **Module:** `createCommentModule`
 - **Routes:** `/api/wishlists/:listId/comments`, react, delete
 

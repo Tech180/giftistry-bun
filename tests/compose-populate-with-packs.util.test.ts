@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { composePopulateWithPacks } from '../src/modules/system/domain/packs/compose-populate-with-packs.util';
-import { METADATA_PACKS_CATALOG, findPackById } from '../src/modules/system/domain/packs/metadata-packs.catalog';
+import { composePopulateWithPacks } from '../src/modules/system/domain/packs/utils/compose-populate-with-packs.util';
+import { METADATA_PACKS_CATALOG, findPackById } from '../src/modules/system/domain/packs';
 import { getDefaultAiPrompt } from '../src/modules/system/domain/prompts';
 
 describe('composePopulateWithPacks', () => {

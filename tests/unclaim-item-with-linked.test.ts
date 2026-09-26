@@ -1,7 +1,7 @@
 import { describe, expect, test, mock } from 'bun:test';
-import { UnclaimItemWithLinkedUseCase } from '../src/modules/item/application/unclaim-item-with-linked.use-case';
-import { resolveLinkGroupItemIds } from '../src/modules/item/domain/resolve-link-group-item-ids.util';
-import { AppError } from '../src/common/middlewares/error.middleware';
+import { UnclaimItemWithLinkedUseCase } from '../src/modules/item/slices/claims/use-cases/unclaim-item-with-linked.use-case';
+import { resolveLinkGroupItemIds } from '../src/modules/item/domain/utils/resolve-link-group-item-ids.util';
+import { AppError } from '../src/common/domain/errors/app-error';
 
 describe('resolveLinkGroupItemIds', () => {
   test('returns the starting item when it has no links', () => {
@@ -88,7 +88,8 @@ describe('UnclaimItemWithLinkedUseCase', () => {
     const useCase = new UnclaimItemWithLinkedUseCase(
       itemRepo as never,
       assertItemVisible as never,
-      unclaimItem as never
+      unclaimItem as never,
+      { publish: mock(() => undefined) } as never
     );
 
     const affected = await useCase.execute(primaryId, userId, true);
@@ -126,7 +127,8 @@ describe('UnclaimItemWithLinkedUseCase', () => {
     const useCase = new UnclaimItemWithLinkedUseCase(
       itemRepo as never,
       { execute: mock(async () => ({ wishlist: mutableWishlist })) } as never,
-      { execute: mock(async () => undefined) } as never
+      { execute: mock(async () => undefined) } as never,
+      { publish: mock(() => undefined) } as never
     );
 
     const affected = await useCase.execute(linkedId, userId, true);
@@ -174,7 +176,8 @@ describe('UnclaimItemWithLinkedUseCase', () => {
     const useCase = new UnclaimItemWithLinkedUseCase(
       itemRepo as never,
       { execute: mock(async () => ({ wishlist: mutableWishlist })) } as never,
-      { execute: mock(async () => undefined) } as never
+      { execute: mock(async () => undefined) } as never,
+      { publish: mock(() => undefined) } as never
     );
 
     await useCase.execute(primaryId, userId, true);
@@ -193,7 +196,8 @@ describe('UnclaimItemWithLinkedUseCase', () => {
         deleteClaimsAtomic,
       } as never,
       { execute: mock(async () => ({ wishlist: mutableWishlist })) } as never,
-      unclaimItem as never
+      unclaimItem as never,
+      { publish: mock(() => undefined) } as never
     );
 
     const affected = await useCase.execute(primaryId, userId, false);
@@ -211,7 +215,8 @@ describe('UnclaimItemWithLinkedUseCase', () => {
         deleteClaimsAtomic: mock(async () => []),
       } as never,
       { execute: mock(async () => ({ wishlist: mutableWishlist })) } as never,
-      { execute: mock(async () => undefined) } as never
+      { execute: mock(async () => undefined) } as never,
+      { publish: mock(() => undefined) } as never
     );
 
     try {

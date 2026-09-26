@@ -1,5 +1,6 @@
-import type { ListLinkToken, ListLinkTokenPublic } from '../invite.entity';
-import type { ShareRole } from '@/modules/wishlist/domain/list-share.entity';
+import type { ShareRole } from '@/modules/wishlist';
+import type { ListLinkToken } from '../interfaces/list-link-token.interface';
+import type { ListLinkTokenPublic } from '../interfaces/list-link-token-public.interface';
 
 export interface ListLinkTokenRepository {
   create(

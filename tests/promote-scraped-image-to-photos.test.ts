@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from 'bun:test';
-import { PromoteScrapedImageToPhotosUseCase } from '../src/modules/item/application/promote-scraped-image-to-photos.use-case';
-import type { Item } from '../src/modules/item/domain/item.entity';
+import { PromoteScrapedImageToPhotosUseCase } from '../src/modules/item/slices/metadata/use-cases/promote-scraped-image-to-photos.use-case';
+import type { Item } from '../src/modules/item/domain/interfaces/item.interface';
 import type { RemoteImageFetcher } from '../src/modules/item/domain/ports/remote-image-fetcher.port';
 
 function baseItem(overrides: Partial<Item> = {}): Item {
