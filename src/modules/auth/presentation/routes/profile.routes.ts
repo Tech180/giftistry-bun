@@ -1,6 +1,7 @@
 import { Elysia } from 'elysia';
 import type { AuthRoutesDeps } from '../interfaces/auth-routes-deps.interface';
 import { createOwnerAuthMiddleware } from '../middlewares/owner-auth.middleware';
+import { experimentalFeaturesBodySchema } from '../schemas/experimental-features-body.schema';
 import { onboardingBodySchema } from '../schemas/onboarding-body.schema';
 import { tutorialBodySchema } from '../schemas/tutorial-body.schema';
 import { updateProfileBodySchema } from '../schemas/update-profile-body.schema';
@@ -12,6 +13,7 @@ import {
 } from '../utils/map-onboarding-payload.util';
 import { mapUpdateProfilePayload } from '../utils/map-update-profile-payload.util';
 import { withPasskeyFlag } from '../utils/with-passkey-flag.util';
+import type { PatchExperimentalFeaturesRequest } from '../interfaces/patch-experimental-features-request.interface';
 
 export const profileRoutes = ({ useCases, userRepo }: AuthRoutesDeps) =>
   new Elysia()
@@ -72,6 +74,35 @@ export const profileRoutes = ({ useCases, userRepo }: AuthRoutesDeps) =>
         security: [{ bearerAuth: [] }],
       },
     })
+    .patch(
+      '/experimental-features',
+      async ({ getAuthUser, body: { Giftistry: { ExperimentalFeatures } } }) => {
+        const authUser = await getAuthUser();
+        const payload = (ExperimentalFeatures ?? {}) as PatchExperimentalFeaturesRequest;
+        const result = await useCases.patchExperimentalFeatures.execute(authUser.userId, {
+          features: {
+            ...(payload.ProductTutorial !== undefined
+              ? { ProductTutorial: payload.ProductTutorial === true }
+              : {}),
+          },
+        });
+        return {
+          success: true,
+          ExperimentalFeatures: result.ExperimentalFeatures,
+          User: result.User,
+        };
+      },
+      {
+        body: experimentalFeaturesBodySchema,
+        detail: {
+          tags: ['Authentication'],
+          summary: 'Update experimental feature flags',
+          description:
+            'Merge-patches allowlisted experimental feature toggles (e.g. ProductTutorial).',
+          security: [{ bearerAuth: [] }],
+        },
+      }
+    )
     .put('/profile', async ({ getAuthUser, body: { Giftistry: { Auth: profile } } }) => {
       const authUser = await getAuthUser();
       assertProfileAvatar(profile.Avatar);

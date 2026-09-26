@@ -21,6 +21,7 @@ import { GetOnboardingStateUseCase } from './slices/profile/use-cases/get-onboar
 import { CompleteUserOnboardingUseCase } from './slices/profile/use-cases/complete-user-onboarding.use-case';
 import { CompleteOwnerOnboardingUseCase } from './slices/profile/use-cases/complete-owner-onboarding.use-case';
 import { PatchTutorialUseCase } from './slices/profile/use-cases/patch-tutorial.use-case';
+import { PatchExperimentalFeaturesUseCase } from './slices/profile/use-cases/patch-experimental-features.use-case';
 import { BeginOidcLoginUseCase } from './slices/oidc/use-cases/begin-oidc-login.use-case';
 import { HandleOidcCallbackUseCase } from './slices/oidc/use-cases/handle-oidc-callback.use-case';
 import { authRoutes } from './presentation/auth.routes';
@@ -72,6 +73,7 @@ export function createAuthModule(deps: AuthModuleDeps) {
       deps.saveSystemSettingsUseCase
     ),
     patchTutorial: new PatchTutorialUseCase(deps.userRepo),
+    patchExperimentalFeatures: new PatchExperimentalFeaturesUseCase(deps.userRepo),
     beginOidcLogin: new BeginOidcLoginUseCase(oidcClient, deps.serverConfigRepo),
     handleOidcCallback: new HandleOidcCallbackUseCase(
       oidcClient,

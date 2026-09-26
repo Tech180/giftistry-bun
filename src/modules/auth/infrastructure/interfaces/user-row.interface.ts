@@ -29,4 +29,5 @@ export interface UserRow {
   IsOnboarded: boolean;
   OauthSub: string | null;
   TourJson: unknown;
+  ExperimentalFeaturesJson: unknown;
 }

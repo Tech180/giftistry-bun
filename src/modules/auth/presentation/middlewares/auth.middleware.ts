@@ -67,6 +67,7 @@ export function createAuthMiddleware(userRepo: UserRepository) {
             Policy: user.PolicyJson,
             IsOnboarded: user.IsOnboarded === true,
             Tour: user.Tour,
+            ExperimentalFeatures: user.ExperimentalFeatures ?? {},
           };
         },
         getOptionalAuthUser: async () => {

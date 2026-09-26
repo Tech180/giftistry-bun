@@ -19,6 +19,7 @@ import type { GetOnboardingStateUseCase } from '../../slices/profile/use-cases/g
 import type { CompleteUserOnboardingUseCase } from '../../slices/profile/use-cases/complete-user-onboarding.use-case';
 import type { CompleteOwnerOnboardingUseCase } from '../../slices/profile/use-cases/complete-owner-onboarding.use-case';
 import type { PatchTutorialUseCase } from '../../slices/profile/use-cases/patch-tutorial.use-case';
+import type { PatchExperimentalFeaturesUseCase } from '../../slices/profile/use-cases/patch-experimental-features.use-case';
 import type { BeginOidcLoginUseCase } from '../../slices/oidc/use-cases/begin-oidc-login.use-case';
 import type { HandleOidcCallbackUseCase } from '../../slices/oidc/use-cases/handle-oidc-callback.use-case';
 import type { ChangePasswordUseCase } from '../../slices/session/use-cases/change-password.use-case';
@@ -46,6 +47,7 @@ export interface UseCases {
   completeUserOnboarding: CompleteUserOnboardingUseCase;
   completeOwnerOnboarding: CompleteOwnerOnboardingUseCase;
   patchTutorial: PatchTutorialUseCase;
+  patchExperimentalFeatures: PatchExperimentalFeaturesUseCase;
   beginOidcLogin: BeginOidcLoginUseCase;
   handleOidcCallback: HandleOidcCallbackUseCase;
 }

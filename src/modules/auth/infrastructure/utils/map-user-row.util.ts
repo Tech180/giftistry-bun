@@ -1,6 +1,7 @@
 import { mergeUserPolicy } from '@/common/domain/utils/merge-user-policy.util';
 import { parseJsonValue } from '@/common/utils/parse-json-field.util';
 import type { User } from '../../domain/interfaces/user.interface';
+import { normalizeExperimentalFeatures } from '../../domain/utils/normalize-experimental-features.util';
 import { normalizeTourState } from '../../domain/utils/normalize-tour-state.util';
 import type { UserRow } from '../interfaces/user-row.interface';
 
@@ -38,5 +39,6 @@ export function mapUserRow(row: UserRow): User {
     IsOnboarded: row.IsOnboarded === true,
     OauthSub: row.OauthSub ?? null,
     Tour: normalizeTourState(row.TourJson),
+    ExperimentalFeatures: normalizeExperimentalFeatures(row.ExperimentalFeaturesJson),
   };
 }

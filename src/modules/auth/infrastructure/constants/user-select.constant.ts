@@ -8,5 +8,6 @@ export const USER_SELECT = `
   failed_login_count as "FailedLoginCount", force_password_change as "ForcePasswordChange",
   login_attempts_before_lockout as "LoginAttemptsBeforeLockout", session_version as "SessionVersion",
   policy_json as "PolicyJson", ai_enabled as "AiEnabled", web_search_enabled as "WebSearchEnabled",
-  is_onboarded as "IsOnboarded", oauth_sub as "OauthSub", tour_json as "TourJson"
+  is_onboarded as "IsOnboarded", oauth_sub as "OauthSub", tour_json as "TourJson",
+  experimental_features_json as "ExperimentalFeaturesJson"
 `;

@@ -48,6 +48,7 @@ export async function initializeSchema(dbSql: typeof sql = sql) {
         last_login_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
         is_onboarded BOOLEAN DEFAULT FALSE,
         tour_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+        experimental_features_json JSONB NOT NULL DEFAULT '{}'::jsonb,
         oauth_sub VARCHAR(255) UNIQUE
     )
   `;

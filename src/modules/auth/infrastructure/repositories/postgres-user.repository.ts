@@ -7,6 +7,7 @@ import type { CustomTheme } from '../../domain/interfaces/custom-theme.interface
 import type { CustomThemeInput } from '../../domain/interfaces/custom-theme-input.interface';
 import type { DeleteAccountStatus } from '../../domain/interfaces/delete-account-status.interface';
 import type { EmailVerificationLookup } from '../../domain/interfaces/email-verification-lookup.interface';
+import type { ExperimentalFeaturesMap } from '../../domain/constants/experimental-feature-keys.constant';
 import type { TourState } from '../../domain/interfaces/tour-state.interface';
 import type { TwoFactorSecrets } from '../../domain/interfaces/two-factor-secrets.interface';
 import type { User } from '../../domain/interfaces/user.interface';
@@ -136,6 +137,19 @@ export class PostgresUserRepository implements UserRepository {
     `;
     if (!row) {
       throw new Error('Failed to update tour state');
+    }
+
+    return mapUserRow(row);
+  }
+
+  async setExperimentalFeatures(id: string, features: ExperimentalFeaturesMap): Promise<User> {
+    const [row] = await sql<UserRow[]>`
+      UPDATE users SET experimental_features_json = ${sql.json(features)}
+      WHERE id = ${id}
+      RETURNING ${sql.unsafe(USER_SELECT)}
+    `;
+    if (!row) {
+      throw new Error('Failed to update experimental features');
     }
 
     return mapUserRow(row);

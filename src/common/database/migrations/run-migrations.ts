@@ -485,5 +485,10 @@ export async function runMigrations(dbSql: typeof sql = sql): Promise<void> {
       AND (tour_json = '{}'::jsonb OR tour_json IS NULL)
   `;
 
+  console.log('[INFO] Applying user experimental_features_json column...');
+  await dbSql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS experimental_features_json JSONB NOT NULL DEFAULT '{}'::jsonb
+  `;
+
   console.log('[INFO] Database migrations completed successfully.');
 }

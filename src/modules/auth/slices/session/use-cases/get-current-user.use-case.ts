@@ -38,6 +38,7 @@ export class GetCurrentUserUseCase {
       WebSearchEnabled: user.WebSearchEnabled !== false,
       IsOnboarded: user.IsOnboarded === true,
       Tour: user.Tour,
+      ExperimentalFeatures: user.ExperimentalFeatures ?? {},
     };
   }
 }

@@ -1,4 +1,5 @@
 import type { TourState } from '../../../domain/interfaces/tour-state.interface';
+import type { ExperimentalFeaturesMap } from '../../../domain/constants/experimental-feature-keys.constant';
 
 export interface CurrentUser {
   userId: string;
@@ -23,4 +24,5 @@ export interface CurrentUser {
   WebSearchEnabled?: boolean;
   IsOnboarded?: boolean;
   Tour?: TourState;
+  ExperimentalFeatures?: ExperimentalFeaturesMap;
 }

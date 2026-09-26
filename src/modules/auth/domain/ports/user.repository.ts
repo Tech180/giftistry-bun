@@ -1,3 +1,4 @@
+import type { ExperimentalFeaturesMap } from '../constants/experimental-feature-keys.constant';
 import type { User } from '../interfaces/user.interface';
 import type { TourState } from '../interfaces/tour-state.interface';
 import type { UserSearchResult } from '@/modules/friends';
@@ -20,6 +21,7 @@ export interface UserRepository {
   linkOauthSub(userId: string, oauthSub: string): Promise<User>;
   setOnboarded(id: string, isOnboarded?: boolean): Promise<User>;
   setTour(id: string, tour: TourState): Promise<User>;
+  setExperimentalFeatures(id: string, features: ExperimentalFeaturesMap): Promise<User>;
   update(id: string, updates: UserUpdateInput): Promise<User>;
   count(): Promise<number>;
   updateLastOnline(id: string): Promise<void>;

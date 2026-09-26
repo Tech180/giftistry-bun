@@ -1,4 +1,5 @@
 import type { GiftistryUserPolicy } from '@/common/domain/interfaces/giftistry-user-policy.interface';
+import type { ExperimentalFeaturesMap } from '../constants/experimental-feature-keys.constant';
 import type { TourState } from './tour-state.interface';
 
 export interface User {
@@ -34,4 +35,5 @@ export interface User {
   IsOnboarded?: boolean;
   OauthSub?: string | null;
   Tour?: TourState;
+  ExperimentalFeatures?: ExperimentalFeaturesMap;
 }
