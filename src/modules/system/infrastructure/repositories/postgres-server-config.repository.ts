@@ -1,5 +1,6 @@
 import { initializeSchema, loadConfig, saveConfig, sql } from '@/common/database';
 import { AppError } from '@/common/domain/errors/app-error';
+import { generateAvatarColor } from '@/common/utils/avatar.util';
 import type { CreateAdminUserParams } from '../../domain/interfaces/create-admin-user-params.interface';
 import type { CreateAdminUserWithLockParams } from '../../domain/interfaces/create-admin-user-with-lock-params.interface';
 import type { ServerConfig } from '../../domain/interfaces/server-config.interface';
@@ -51,8 +52,9 @@ export class PostgresServerConfigRepository implements ServerConfigRepository {
   }
 
   async createAdminUser(params: CreateAdminUserParams): Promise<void> {
+    const avatar = generateAvatarColor();
     await sql`
-      INSERT INTO users (username, email, first_name, last_name, auth_hash, is_admin, is_owner, email_verified)
+      INSERT INTO users (username, email, first_name, last_name, auth_hash, is_admin, is_owner, avatar, email_verified)
       VALUES (
         ${params.username},
         ${params.email},
@@ -61,6 +63,7 @@ export class PostgresServerConfigRepository implements ServerConfigRepository {
         ${params.authHash},
         true,
         true,
+        ${avatar},
         true
       )
     `;
@@ -93,8 +96,9 @@ export class PostgresServerConfigRepository implements ServerConfigRepository {
         }
       }
 
+      const avatar = generateAvatarColor();
       await tx`
-        INSERT INTO users (username, email, first_name, last_name, auth_hash, is_admin, is_owner, email_verified)
+        INSERT INTO users (username, email, first_name, last_name, auth_hash, is_admin, is_owner, avatar, email_verified)
         VALUES (
           ${params.username},
           ${params.email},
@@ -103,6 +107,7 @@ export class PostgresServerConfigRepository implements ServerConfigRepository {
           ${params.authHash},
           true,
           true,
+          ${avatar},
           true
         )
       `;

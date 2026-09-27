@@ -76,10 +76,15 @@ describe("Homelab Setup Wizard Endpoints", () => {
     const body = await res.json() as any;
     expect(body.Meta.Status).toBe("Success");
 
-    // Verify admin is inserted and is indeed admin
-    const [user] = await sql`SELECT is_admin, email_verified FROM users WHERE username = ${setupAdminUsername}`;
+    // Verify admin is inserted and is indeed admin with a persistent avatar color
+    const [user] = await sql`
+      SELECT is_admin, email_verified, avatar FROM users WHERE username = ${setupAdminUsername}
+    `;
     expect(user.is_admin).toBe(true);
     expect(user.email_verified).toBe(true);
+    expect(user.avatar).toMatch(
+      /^hsl\(\s*\d+(?:\.\d+)?\s*,\s*\d+(?:\.\d+)?%\s*,\s*\d+(?:\.\d+)?%\s*\)$/
+    );
   });
 
   test("System status returns initialized after setup", async () => {

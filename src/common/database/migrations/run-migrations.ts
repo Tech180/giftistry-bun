@@ -1,5 +1,6 @@
 import { sql } from '../utils/sql-proxy.util';
 import { up as runLegacyMigrations } from './legacy-up';
+import { backfillNullUserAvatars } from './backfill-null-user-avatars.util';
 
 export async function runMigrations(dbSql: typeof sql = sql): Promise<void> {
   console.log('[INFO] Running database migrations...');
@@ -489,6 +490,12 @@ export async function runMigrations(dbSql: typeof sql = sql): Promise<void> {
   await dbSql`
     ALTER TABLE users ADD COLUMN IF NOT EXISTS experimental_features_json JSONB NOT NULL DEFAULT '{}'::jsonb
   `;
+
+  console.log('[INFO] Backfilling null user avatar colors...');
+  const backfilled = await backfillNullUserAvatars(dbSql);
+  if (backfilled > 0) {
+    console.log(`[INFO] Backfilled ${backfilled} user avatar color(s)`);
+  }
 
   console.log('[INFO] Database migrations completed successfully.');
 }
