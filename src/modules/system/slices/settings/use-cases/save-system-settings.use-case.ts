@@ -6,11 +6,14 @@ import {
   clampAiCompletionTimeoutMs,
   clampAiConnectTimeoutMs,
   clampAiImportChunkItemLimit,
+  clampAiPageContextMaxChars,
+  clampAiPopulateMaxTokens,
   clampGrabInfoActiveStreamLimit,
   clampGrabInfoConcurrency,
   clampScrapeFetchTimeoutMs,
   clampScrapePlaywrightTimeoutMs,
 } from '../../../domain/utils/clamp-server-config-limits.util';
+import { normalizeAiMetadataExtractionPreset } from '../../../domain/utils/normalize-ai-metadata-extraction-preset.util';
 import { normalizeAiProvider } from '../../../domain/utils/normalize-ai-provider.util';
 import { normalizeGrabInfoConcurrencyUnlimited } from '../../../domain/utils/normalize-grab-info-concurrency-unlimited.util';
 import { resolveMaskedSecret } from '../../../domain/utils/resolve-masked-secret.util';
@@ -170,6 +173,25 @@ export class SaveSystemSettingsUseCase {
       AiImportChunkItemLimit: clampAiImportChunkItemLimit(
         settings.AiImportChunkItemLimit ?? config.AiImportChunkItemLimit
       ),
+      AiMetadataExtractionPreset: normalizeAiMetadataExtractionPreset(
+        settings.AiMetadataExtractionPreset ?? config.AiMetadataExtractionPreset
+      ),
+      AiPageContextMaxChars: (() => {
+        const raw = settings.AiPageContextMaxChars ?? config.AiPageContextMaxChars;
+        if (raw == null || raw === 0) {
+          return 0;
+        }
+        return clampAiPageContextMaxChars(raw);
+      })(),
+      AiPopulateMaxTokens: (() => {
+        const raw = settings.AiPopulateMaxTokens ?? config.AiPopulateMaxTokens;
+        if (raw == null || raw === 0) {
+          return 0;
+        }
+        return clampAiPopulateMaxTokens(raw);
+      })(),
+      AiMetadataSplitPackCalls:
+        (settings.AiMetadataSplitPackCalls ?? config.AiMetadataSplitPackCalls) === true,
       AiEnabledPackIds:
         settings.AiEnabledPackIds !== undefined
           ? sanitizeEnabledPackIds(settings.AiEnabledPackIds, catalog)

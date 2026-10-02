@@ -6,6 +6,7 @@ import {
 } from '../src/modules/item/infrastructure/scraping/utils/resolve-scrape-final-url.util';
 import { validateScrapeResult } from '../src/modules/item/infrastructure/scraping/utils/validate-scrape-result.util';
 import { MetadataScraperOrchestrator } from '../src/modules/item/infrastructure/adapters/metadata-scraper.orchestrator';
+import { ScrapeError } from '../src/modules/item/infrastructure/scraping/errors/scrape-error';
 
 describe('resolveScrapeFinalUrl', () => {
   test('accepts public https product URLs', () => {
@@ -63,9 +64,44 @@ describe('continue shopping validation', () => {
     expect(validation.reason).toContain('short-link-shell');
     expect(htmlLooksLikeContinueShoppingShell(html)).toBe(true);
   });
+
+  test('prefers short-link-shell over bot-check when captcha appears on gate page', () => {
+    const html = `
+      <!DOCTYPE html><html><head><title>Amazon.com</title></head>
+      <body>${'x'.repeat(600)}
+      <p>Click the button below to continue shopping</p>
+      <p>Solve this captcha to continue</p>
+      <button>Continue shopping</button>
+      </body></html>
+    `;
+    const validation = validateScrapeResult(
+      {
+        title: 'Amazon.com',
+        price: null,
+        description: null,
+        color: null,
+        size: null,
+        category: null,
+        imageUrl: null,
+      },
+      html,
+      'full',
+      { url: 'https://a.co/d/09RD8uDq' }
+    );
+    expect(validation.valid).toBe(false);
+    expect(validation.blocked).toBe(true);
+    expect(validation.reason).toContain('short-link-shell');
+    expect(validation.reason).not.toContain('bot-check');
+  });
 });
 
 describe('MetadataScraperOrchestrator short-link rematch', () => {
+  const productAsin = 'B0TEST1234';
+  const productUrl = `https://www.amazon.com/dp/${productAsin}`;
+  const shortUrl = 'https://a.co/d/0d2Xk8eG';
+  const decoyUrl =
+    'https://www.amazon.com/fmc/everyday-essentials-category?node=16310101&ref_=eemb_redirect_grocery';
+
   const amazonProductHtml = `
     <!DOCTYPE html><html><head><title>Product</title></head>
     <body>${'x'.repeat(400)}
@@ -84,44 +120,152 @@ describe('MetadataScraperOrchestrator short-link rematch', () => {
     </body></html>
   `;
 
-  test('uses final amazon.com URL for retailer extraction after redirect', async () => {
+  const decoyHtml = `
+    <!DOCTYPE html><html><head><title>Everyday Essentials</title></head>
+    <body>${'x'.repeat(600)}
+    <h1>Grocery</h1>
+    <p>Browse aisles</p>
+    </body></html>
+  `;
+
+  test('skips fetch product tier for Amazon and uses playwright with postGateUrl', async () => {
+    let fetchCalls = 0;
+    let playwrightCalled = false;
+    let receivedPostGate: string | undefined;
+
     const scraper = new MetadataScraperOrchestrator(
-      async () => ({
-        html: amazonProductHtml,
-        finalUrl: 'https://www.amazon.com/dp/B0TEST123',
-      }),
       async () => {
-        throw new Error('playwright should not run');
+        fetchCalls += 1;
+        return {
+          html: interstitialHtml,
+          finalUrl: productUrl,
+        };
+      },
+      async (inputUrl, _timeout, options) => {
+        playwrightCalled = true;
+        receivedPostGate = options?.postGateUrl;
+        expect(inputUrl).toBe(shortUrl);
+        return {
+          html: amazonProductHtml,
+          capturedJson: [],
+          finalUrl: productUrl,
+        };
       }
     );
 
-    const result = await scraper.scrape('https://a.co/d/0d2Xk8eG', 'full');
-    expect(result.finalUrl).toBe('https://www.amazon.com/dp/B0TEST123');
+    const result = await scraper.scrape(shortUrl, 'full');
+    expect(fetchCalls).toBe(1);
+    expect(playwrightCalled).toBe(true);
+    expect(receivedPostGate).toBe(productUrl);
+    expect(result.finalUrl).toBe(productUrl);
     expect(result.data.title).toContain('Dyson');
     expect(result.data.price).toBe(599);
     expect(result.websiteName?.toLowerCase()).toContain('amazon');
+    expect(result.diagnostics.source).toBe('playwright');
   });
 
-  test('falls back to playwright when fetch returns continue-shopping shell', async () => {
+  test('uses playwright when Amazon pre-resolve stays on short link', async () => {
     let playwrightCalled = false;
     const scraper = new MetadataScraperOrchestrator(
       async () => ({
         html: interstitialHtml,
-        finalUrl: 'https://a.co/d/0d2Xk8eG',
+        finalUrl: shortUrl,
       }),
       async () => {
         playwrightCalled = true;
         return {
           html: amazonProductHtml,
           capturedJson: [],
-          finalUrl: 'https://www.amazon.com/dp/B0TEST123',
+          finalUrl: productUrl,
         };
       }
     );
 
-    const result = await scraper.scrape('https://a.co/d/0d2Xk8eG', 'full');
+    const result = await scraper.scrape(shortUrl, 'full');
     expect(playwrightCalled).toBe(true);
-    expect(result.finalUrl).toBe('https://www.amazon.com/dp/B0TEST123');
+    expect(result.finalUrl).toBe(productUrl);
+    expect(result.data.title).toContain('Dyson');
+  });
+
+  test('ignores decoy pre-resolve and does not pass decoy as postGateUrl', async () => {
+    let receivedPostGate: string | undefined;
+
+    const scraper = new MetadataScraperOrchestrator(
+      async () => ({
+        html: decoyHtml,
+        finalUrl: decoyUrl,
+      }),
+      async (inputUrl, _timeout, options) => {
+        receivedPostGate = options?.postGateUrl;
+        expect(inputUrl).toBe(shortUrl);
+        return {
+          html: amazonProductHtml,
+          capturedJson: [],
+          finalUrl: productUrl,
+        };
+      }
+    );
+
+    const result = await scraper.scrape(shortUrl, 'full');
+    expect(receivedPostGate).toBeUndefined();
+    expect(result.finalUrl).toBe(productUrl);
+    expect(result.data.title).toContain('Dyson');
+  });
+
+  test('throws blocked when Playwright lands on non-product Amazon page', async () => {
+    const scraper = new MetadataScraperOrchestrator(
+      async () => ({
+        html: decoyHtml,
+        finalUrl: decoyUrl,
+      }),
+      async () => ({
+        html: decoyHtml,
+        capturedJson: [],
+        finalUrl: decoyUrl,
+      })
+    );
+
+    try {
+      await scraper.scrape(shortUrl, 'full');
+      expect(true).toBe(false);
+    } catch (err) {
+      expect(err).toBeInstanceOf(ScrapeError);
+      if (err instanceof ScrapeError) {
+        expect(err.diagnostics?.blocked).toBe(true);
+        expect(err.diagnostics?.validationReason).toBe('amazon-non-product-landing');
+        expect(err.diagnostics?.finalUrl).toBe(shortUrl);
+      }
+    }
+  });
+
+  test('canonicalizes tracking /dp URLs and skips HTTP pre-resolve', async () => {
+    const trackingUrl =
+      'https://www.amazon.com/ElecVoztile-Protection/dp/B0FRMQJGJB/?pd_rd_w=AzNLd&pf_rd_r=ABC';
+    let fetchCalls = 0;
+    let playwrightInput: string | undefined;
+    let receivedPostGate: string | undefined;
+
+    const scraper = new MetadataScraperOrchestrator(
+      async () => {
+        fetchCalls += 1;
+        return { html: interstitialHtml, finalUrl: trackingUrl };
+      },
+      async (inputUrl, _timeout, options) => {
+        playwrightInput = inputUrl;
+        receivedPostGate = options?.postGateUrl;
+        return {
+          html: amazonProductHtml.replace('B0TEST1234', 'B0FRMQJGJB'),
+          capturedJson: [],
+          finalUrl: 'https://www.amazon.com/dp/B0FRMQJGJB',
+        };
+      }
+    );
+
+    const result = await scraper.scrape(trackingUrl, 'full');
+    expect(fetchCalls).toBe(0);
+    expect(playwrightInput).toBe('https://www.amazon.com/dp/B0FRMQJGJB');
+    expect(receivedPostGate).toBeUndefined();
+    expect(result.finalUrl).toBe('https://www.amazon.com/dp/B0FRMQJGJB');
     expect(result.data.title).toContain('Dyson');
   });
 });

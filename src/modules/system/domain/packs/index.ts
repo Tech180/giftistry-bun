@@ -28,5 +28,5 @@ export { toCustomPackSettingsDto } from './utils/to-custom-pack-settings-dto.uti
 export { catalogForConfig, sanitizeEnabledPackIdsForConfig } from './utils/catalog-for-config.util';
 export { sanitizeEnabledPackIds } from './utils/sanitize-enabled-pack-ids.util';
 export { resolveMetadataPacks } from './utils/resolve-metadata-packs.util';
-export { composePopulateWithPacks } from './utils/compose-populate-with-packs.util';
+export { composePopulateWithPacks, buildMetadataPackSection } from './utils/compose-populate-with-packs.util';
 export { collectEnabledPackFieldsForCategory } from './utils/pack-field-definitions.util';

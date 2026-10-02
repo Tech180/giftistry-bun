@@ -32,7 +32,7 @@ Technology rules:
 - When page context lists product options (RAM, SSD, storage, memory, configuration), map them to custom fields:
   - Split combined values like "6G+128G" or "8G + 256G" into UserDefinedFields.RAM (e.g. "6GB" / "8GB") and PredefinedFields.StorageCapacity (e.g. "128GB" / "256GB") when possible.
   - Color options → PredefinedFields.Color and top-level "Color".
-  - ModelNumber should be the product model (e.g. "Pocket MICRO 2"), not the store hostname or vendor slug.
+  - ModelNumber should be the product model (e.g. "WH-1000XM5"), not the store hostname or vendor slug.
 - Selected Configuration / variant title in page context reflects the chosen RAM/storage/color combo.
 - Example: "Oura Ring 5 - Silver - Size 8 - World's Smallest Smart Ring - …" → Title: "Oura Ring 5", Color: "Silver", Size: "8" (ring size → UserDefinedFields.Size).
 - Example: "Dyson V11 Torque Drive Cordless Vacuum Cleaner, Blue" → Title: "V11 Cordless Vacuum Cleaner", Brand: "Dyson", Color: "Blue".

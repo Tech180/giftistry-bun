@@ -43,6 +43,17 @@ export const saveSettingsBodySchema = t.Object({
       AiImportPrompt: t.Optional(t.String()),
       AiImportChunkingEnabled: t.Optional(t.Boolean()),
       AiImportChunkItemLimit: t.Optional(t.Numeric()),
+      AiMetadataExtractionPreset: t.Optional(
+        t.Union([
+          t.Literal('full'),
+          t.Literal('fast'),
+          t.Literal('balanced'),
+          t.Literal('thorough'),
+        ])
+      ),
+      AiPageContextMaxChars: t.Optional(t.Numeric()),
+      AiPopulateMaxTokens: t.Optional(t.Numeric()),
+      AiMetadataSplitPackCalls: t.Optional(t.Boolean()),
       AiEnabledPackIds: t.Optional(t.Array(t.String())),
       AiCustomPacks: t.Optional(
         t.Array(

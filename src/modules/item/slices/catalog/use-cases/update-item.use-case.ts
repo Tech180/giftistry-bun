@@ -253,9 +253,11 @@ export class UpdateItemUseCase {
       );
 
       if (urlChanged) {
-        this.enrichLinkMetadata.execute(existingLink.Id, normalizedUrl, resolvedPrice).catch((err) => {
-          console.error('Background metadata enrichment failed:', err);
-        });
+        this.enrichLinkMetadata
+          .execute(existingLink.Id, normalizedUrl, resolvedPrice, currentUserId)
+          .catch((err) => {
+            console.error('Background metadata enrichment failed:', err);
+          });
         this.extractItemReviews.execute(item.Id, item.ListId, normalizedUrl).catch((err) => {
           console.error('Background AI review extraction trigger failed:', err);
         });
@@ -271,9 +273,11 @@ export class UpdateItemUseCase {
       null
     );
 
-    this.enrichLinkMetadata.execute(link.Id, normalizedUrl, price ?? null).catch((err) => {
-      console.error('Background metadata enrichment failed:', err);
-    });
+    this.enrichLinkMetadata
+      .execute(link.Id, normalizedUrl, price ?? null, currentUserId)
+      .catch((err) => {
+        console.error('Background metadata enrichment failed:', err);
+      });
     this.extractItemReviews.execute(item.Id, item.ListId, normalizedUrl).catch((err) => {
       console.error('Background AI review extraction trigger failed:', err);
     });

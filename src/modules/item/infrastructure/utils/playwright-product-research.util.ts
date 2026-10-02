@@ -20,9 +20,10 @@ import {
 export async function searchDuckDuckGo(query: string): Promise<string> {
   const searchUrl = `${DUCKDUCKGO_HTML_SEARCH_URL}${encodeURIComponent(query)}`;
   const context = await playwrightManager.acquire();
+  let page: Awaited<ReturnType<typeof context.newPage>> | null = null;
 
   try {
-    const page = await context.newPage();
+    page = await context.newPage();
     await page.goto(searchUrl, {
       waitUntil: 'domcontentloaded',
       timeout: scrapingConfig.playwrightTimeoutMs,
@@ -30,6 +31,9 @@ export async function searchDuckDuckGo(query: string): Promise<string> {
     await page.waitForSelector('.result, .result__a', { timeout: 5000 }).catch(() => {});
     return await page.content();
   } finally {
+    if (page) {
+      await page.close().catch(() => {});
+    }
     await playwrightManager.release(context);
   }
 }

@@ -1,4 +1,4 @@
-import type { Browser, BrowserContext, LaunchOptions } from 'playwright';
+import type { Browser, BrowserContext, LaunchOptions, Page } from 'playwright';
 import { chromium } from 'playwright';
 import { CHROME_USER_AGENT } from './constants/chrome-user-agent.constant';
 import {
@@ -14,6 +14,7 @@ import {
 
 class PlaywrightManager {
   private browser: Browser | null = null;
+  private sharedContext: BrowserContext | null = null;
   private activeScrapes = 0;
   private readonly maxConcurrent = scrapingConfig.playwrightMaxConcurrent;
   private shutdownRegistered = false;
@@ -44,6 +45,7 @@ class PlaywrightManager {
 
   private async ensureBrowser(): Promise<Browser> {
     if (!this.browser || !this.browser.isConnected()) {
+      this.sharedContext = null;
       const options = this.buildLaunchOptions();
       try {
         this.browser = await chromium.launch(options);
@@ -59,13 +61,11 @@ class PlaywrightManager {
     return this.browser;
   }
 
-  async acquire(): Promise<BrowserContext> {
-    while (this.activeScrapes >= this.maxConcurrent) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
+  private async ensureSharedContext(browser: Browser): Promise<BrowserContext> {
+    if (this.sharedContext) {
+      return this.sharedContext;
     }
 
-    this.registerShutdown();
-    const browser = await this.ensureBrowser();
     const context = await browser.newContext({
       userAgent: CHROME_USER_AGENT,
       locale: 'en-US',
@@ -77,19 +77,32 @@ class PlaywrightManager {
       Object.defineProperty(navigator, 'webdriver', { get: () => false });
     });
 
+    this.sharedContext = context;
+    return context;
+  }
+
+  async acquire(): Promise<BrowserContext> {
+    while (this.activeScrapes >= this.maxConcurrent) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    this.registerShutdown();
+    const browser = await this.ensureBrowser();
+    const context = await this.ensureSharedContext(browser);
     this.activeScrapes += 1;
     return context;
   }
 
-  async release(context: BrowserContext): Promise<void> {
-    try {
-      await context.close();
-    } finally {
-      this.activeScrapes = Math.max(0, this.activeScrapes - 1);
-    }
+  /** Decrements the scrape semaphore. Callers must close their own pages. */
+  async release(_context?: BrowserContext): Promise<void> {
+    this.activeScrapes = Math.max(0, this.activeScrapes - 1);
   }
 
   async shutdown(): Promise<void> {
+    if (this.sharedContext) {
+      await this.sharedContext.close().catch(() => {});
+      this.sharedContext = null;
+    }
     if (this.browser) {
       await this.browser.close();
       this.browser = null;
@@ -98,3 +111,11 @@ class PlaywrightManager {
 }
 
 export const playwrightManager = new PlaywrightManager();
+
+/** Close a page without failing the scrape cleanup path. */
+export async function closePlaywrightPage(page: Page | null | undefined): Promise<void> {
+  if (!page) {
+    return;
+  }
+  await page.close().catch(() => {});
+}

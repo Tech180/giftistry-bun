@@ -15,6 +15,7 @@ import {
 } from '../../../application/utils/publish-job-update.util';
 import { withJobHeartbeat } from '../../../application/utils/with-job-heartbeat.util';
 import { resolveDesiredQuantity } from '@/modules/item';
+import { formatBlockedScrapeMessage } from '@/modules/item/slices/metadata/utils/format-blocked-scrape-message.util';
 import {
   clearGrabPhasePayloadPatch,
   grabPhasePayloadPatch,
@@ -246,7 +247,7 @@ export class RunItemEnrichJobUseCase {
       this.jobRepo,
       this.jobProgressPublisher,
       id,
-      message,
+      formatBlockedScrapeMessage(message),
       this.notifyItemJobCompletion
     );
   }

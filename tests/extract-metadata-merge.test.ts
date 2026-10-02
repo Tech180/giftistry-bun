@@ -103,7 +103,7 @@ describe('ExtractMetadataUseCase AI merge', () => {
         diagnostics: {
           source: 'fetch',
           confidence: 'low',
-          blocked: true,
+          blocked: false,
           fieldsFound: [],
         },
         data: {
@@ -586,7 +586,7 @@ describe('ExtractMetadataUseCase AiPopulate diagnostics', () => {
         diagnostics: {
           source: 'fetch',
           confidence: 'low',
-          blocked: true,
+          blocked: false,
           fieldsFound: [],
         },
         data: {
@@ -739,8 +739,8 @@ describe('ExtractMetadataUseCase AiPopulate diagnostics', () => {
           diagnostics: {
             source: 'fetch',
             confidence: 'low',
-            blocked: true,
-            fieldsFound: [],
+            blocked: false,
+            fieldsFound: ['title'],
           },
           data: {
             title: 'AMD Ryzen 5 5600X',
@@ -803,8 +803,8 @@ describe('ExtractMetadataUseCase AiPopulate diagnostics', () => {
           diagnostics: {
             source: 'fetch',
             confidence: 'low',
-            blocked: true,
-            fieldsFound: [],
+            blocked: false,
+            fieldsFound: ['title'],
           },
           data: {
             title: 'AMD Ryzen 5 5600X',
@@ -869,7 +869,7 @@ describe('ExtractMetadataUseCase unreachable AI', () => {
           diagnostics: {
             source: 'fetch',
             confidence: 'low',
-            blocked: true,
+            blocked: false,
             fieldsFound: ['title'],
           },
           data: {

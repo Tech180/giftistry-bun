@@ -1,4 +1,6 @@
+import type { AiMetadataExtractionOptions } from '@/modules/system';
 import type { AiProvider } from '@/modules/system';
+import type { MetadataPack } from '@/modules/system';
 import type { MetadataPopulatorDeltaHandler } from '../types/metadata-populator-delta-handler.type';
 
 export interface MetadataPopulatorConfig {
@@ -10,4 +12,6 @@ export interface MetadataPopulatorConfig {
   linkedDescriptionPrompt?: string;
   linkedCategoryPrompt?: string;
   onDelta?: MetadataPopulatorDeltaHandler;
+  extractionOptions?: AiMetadataExtractionOptions;
+  packs?: readonly MetadataPack[];
 }

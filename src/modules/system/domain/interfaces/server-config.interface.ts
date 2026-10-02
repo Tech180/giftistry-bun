@@ -1,4 +1,5 @@
 import type { CustomPackSettingsDto } from '../packs';
+import type { AiMetadataExtractionPreset } from '../types/ai-metadata-extraction-preset.type';
 import type { AiProvider } from '../types/ai-provider.type';
 import type { ConnectionType } from '../types/connection-type.type';
 
@@ -43,6 +44,10 @@ export interface ServerConfig {
   AiImportPrompt?: string;
   AiImportChunkingEnabled?: boolean;
   AiImportChunkItemLimit?: number;
+  AiMetadataExtractionPreset?: AiMetadataExtractionPreset;
+  AiPageContextMaxChars?: number;
+  AiPopulateMaxTokens?: number;
+  AiMetadataSplitPackCalls?: boolean;
   AiEnabledPackIds?: string[];
   AiCustomPacks?: CustomPackSettingsDto[];
   AiCompletionTimeoutMs?: number;

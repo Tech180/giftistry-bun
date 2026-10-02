@@ -13,6 +13,10 @@ import {
 } from './compute-scrape-confidence.util';
 import type { ValidateOptions } from '../interfaces/validate-options.interface';
 import type { ValidationResult } from '../interfaces/validation-result.interface';
+import {
+  htmlLooksLikeContinueShoppingShell,
+  isAmazonShortLinkHost,
+} from './resolve-scrape-final-url.util';
 
 function stripNonVisibleHtml(html: string): string {
   return html
@@ -21,7 +25,26 @@ function stripNonVisibleHtml(html: string): string {
     .replace(/<!--[\s\S]*?-->/g, ' ');
 }
 
-function htmlIndicatesBlock(html: string): { reason: string; blocked: boolean } | null {
+function preferShortLinkShell(html: string, url?: string): boolean {
+  if (htmlLooksLikeContinueShoppingShell(html)) {
+    return true;
+  }
+
+  if (!url) {
+    return false;
+  }
+
+  try {
+    return isAmazonShortLinkHost(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
+function htmlIndicatesBlock(
+  html: string,
+  options: { url?: string } = {}
+): { reason: string; blocked: boolean } | null {
   const lowerHtml = html.toLowerCase();
 
   for (const marker of CLOUDFLARE_MARKERS) {
@@ -30,6 +53,16 @@ function htmlIndicatesBlock(html: string): { reason: string; blocked: boolean } 
 
   for (const marker of AKAMAI_MARKERS) {
     if (lowerHtml.includes(marker)) return { reason: `akamai:${marker}`, blocked: true };
+  }
+
+  // Amazon continue-shopping gates often mention captcha; classify as short-link shell first.
+  if (preferShortLinkShell(html, options.url)) {
+    for (const marker of CONTINUE_SHOPPING_MARKERS) {
+      if (lowerHtml.includes(marker)) {
+        return { reason: `short-link-shell:${marker}`, blocked: true };
+      }
+    }
+    return { reason: 'short-link-shell:amazon-gate', blocked: true };
   }
 
   for (const marker of BOT_CHECK_MARKERS) {
@@ -68,7 +101,7 @@ export function validateScrapeResult(
     return { valid: false, reason: 'empty-or-short-html', confidence, fieldsFound };
   }
 
-  const htmlBlock = htmlIndicatesBlock(visibleHtml);
+  const htmlBlock = htmlIndicatesBlock(visibleHtml, { url: options.url });
   if (htmlBlock) {
     return {
       valid: false,

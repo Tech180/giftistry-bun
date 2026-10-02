@@ -1,25 +1,47 @@
 import { PLAYWRIGHT_PRICE_READY_SELECTOR } from '../constants/amazon-continue-shopping.constant';
 import { PLAYWRIGHT_CONTENT_SELECTOR } from '../constants/playwright-content-selectors.constant';
 import type { PlaywrightFetchResult } from '../interfaces/playwright-fetch-result.interface';
-import { playwrightManager } from '../playwright-manager';
+import { closePlaywrightPage, playwrightManager } from '../playwright-manager';
 import { ScrapePlaywrightError } from '../errors/scrape-playwright-error';
 import { scrapingConfig } from './scraping-config.util';
+import { runAmazonPlaywrightNavigation } from './amazon-playwright-navigation.util';
+import { isAmazonScrapeUrl } from './amazon-scrape-url.util';
 import { tryDismissAmazonContinueShopping } from './dismiss-amazon-continue-shopping.util';
 import { NetworkJsonCapture } from './network-json-capture.util';
+import type { Page } from 'playwright';
+
+export interface PlaywrightFetchPageOptions {
+  postGateUrl?: string;
+}
 
 export async function playwrightFetchPage(
   url: string,
-  timeoutMs = scrapingConfig.playwrightTimeoutMs
+  timeoutMs = scrapingConfig.playwrightTimeoutMs,
+  options: PlaywrightFetchPageOptions = {}
 ): Promise<PlaywrightFetchResult> {
   const context = await playwrightManager.acquire();
+  let page: Page | null = null;
 
   try {
-    const page = await context.newPage();
+    page = await context.newPage();
     const capture = new NetworkJsonCapture();
     capture.attach(page);
 
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: timeoutMs });
-    await tryDismissAmazonContinueShopping(page);
+
+    const amazonNav =
+      isAmazonScrapeUrl(url) || (options.postGateUrl && isAmazonScrapeUrl(options.postGateUrl));
+    if (amazonNav) {
+      const canonicalUrl = options.postGateUrl?.trim() || url;
+      await runAmazonPlaywrightNavigation(page, {
+        postGateUrl: options.postGateUrl,
+        canonicalUrl,
+        timeoutMs,
+      });
+    } else {
+      await tryDismissAmazonContinueShopping(page);
+    }
+
     await page.waitForSelector(PLAYWRIGHT_CONTENT_SELECTOR, { timeout: 3000 }).catch(() => {});
 
     const scrollHeight = await page.evaluate(() => document.body.scrollHeight);
@@ -45,6 +67,7 @@ export async function playwrightFetchPage(
     const message = err instanceof Error ? err.message : 'Playwright scrape failed';
     throw new ScrapePlaywrightError(message);
   } finally {
+    await closePlaywrightPage(page);
     await playwrightManager.release(context);
   }
 }

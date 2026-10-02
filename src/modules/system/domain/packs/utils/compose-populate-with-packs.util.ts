@@ -9,7 +9,7 @@ function formatFieldLine(pack: MetadataPack): string[] {
   });
 }
 
-function buildPackSection(packs: readonly MetadataPack[]): string {
+export function buildMetadataPackSection(packs: readonly MetadataPack[]): string {
   const names = packs.map((pack) => pack.label).join(' / ');
   const fieldLines = packs.flatMap(formatFieldLine);
   const fragments = packs
@@ -38,5 +38,5 @@ export function composePopulateWithPacks(
 ): string {
   if (packs.length === 0) return populateBody;
   const base = populateBody.trim() || getDefaultAiPrompt('populate');
-  return `${base}\n\n${buildPackSection(packs)}`;
+  return `${base}\n\n${buildMetadataPackSection(packs)}`;
 }

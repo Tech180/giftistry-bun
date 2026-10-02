@@ -12,8 +12,11 @@ export class AiCategoryClassifier implements CategoryClassifier {
     input: CategoryClassifierInput,
     config: CategoryClassifierConfig
   ): Promise<CategoryClassificationResult> {
-    const template = config.customPrompt.trim() || getDefaultAiPrompt('category');
+    const profile = config.extractionOptions?.promptProfile ?? 'full';
+    const defaultKind = profile === 'compact' ? 'categoryCompact' : 'category';
+    const template = config.customPrompt.trim() || getDefaultAiPrompt(defaultKind);
     const prompt = compileCategoryPrompt(template, input);
+    const maxTokens = config.extractionOptions?.populateMaxTokens;
     const result = await completeTextPromptStream(
       prompt,
       {
@@ -22,6 +25,7 @@ export class AiCategoryClassifier implements CategoryClassifier {
         model: config.model,
         endpoint: config.endpoint,
         jsonResponse: true,
+        ...(maxTokens != null ? { maxTokens } : {}),
       },
       async (delta) => {
         await config.onDelta?.({ tokensPerSecond: delta.tokensPerSecond });

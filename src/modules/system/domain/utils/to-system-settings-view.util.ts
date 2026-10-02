@@ -5,6 +5,7 @@ import {
   toCustomPackSettingsDto,
 } from '../packs';
 import { DEFAULT_AI_IMPORT_CHUNK_ITEM_LIMIT } from '../constants/ai-import-chunk.constant';
+import { DEFAULT_AI_METADATA_SPLIT_PACK_CALLS } from '../constants/ai-metadata-extraction.constant';
 import {
   DEFAULT_AI_COMPLETION_TIMEOUT_MS,
   DEFAULT_AI_CONNECT_TIMEOUT_MS,
@@ -31,8 +32,10 @@ import {
 import { maskSecret } from './mask-secret.util';
 import { normalizeAiProvider } from './normalize-ai-provider.util';
 import { normalizeGrabInfoConcurrencyUnlimited } from './normalize-grab-info-concurrency-unlimited.util';
+import { resolveAiMetadataExtractionOptions } from './resolve-ai-metadata-extraction-options.util';
 
 export function toSystemSettingsView(config: ServerConfig): SystemSettingsView {
+  const extraction = resolveAiMetadataExtractionOptions(config);
   return {
     DbType: config.DbType,
     DbUrl: config.DbUrl || '',
@@ -72,6 +75,11 @@ export function toSystemSettingsView(config: ServerConfig): SystemSettingsView {
     AiImportChunkItemLimit: clampAiImportChunkItemLimit(
       config.AiImportChunkItemLimit ?? DEFAULT_AI_IMPORT_CHUNK_ITEM_LIMIT
     ),
+    AiMetadataExtractionPreset: extraction.preset,
+    AiPageContextMaxChars: extraction.pageContextMaxChars,
+    AiPopulateMaxTokens: extraction.populateMaxTokens,
+    AiMetadataSplitPackCalls:
+      config.AiMetadataSplitPackCalls ?? DEFAULT_AI_METADATA_SPLIT_PACK_CALLS,
     AiEnabledPackIds: sanitizeEnabledPackIdsForConfig(config),
     AiCustomPacks: sanitizeCustomPacks(config.AiCustomPacks).map(toCustomPackSettingsDto),
     AiCompletionTimeoutMs: clampAiCompletionTimeoutMs(

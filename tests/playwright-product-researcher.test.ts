@@ -19,6 +19,25 @@ describe('buildSearchQuery', () => {
       })
     ).toBe('AYANEO Pocket MICRO 2 AYANEO specifications');
   });
+
+  test('uses Amazon ASIN when item name is empty', () => {
+    expect(
+      buildSearchQuery({
+        itemName: '',
+        websiteName: 'Amazon',
+        url: 'https://www.amazon.com/dp/B0FHK6N2H4?th=1',
+      })
+    ).toBe('B0FHK6N2H4 Amazon product');
+  });
+
+  test('falls back to hostname when item name and ASIN are missing', () => {
+    expect(
+      buildSearchQuery({
+        itemName: '',
+        url: 'https://www.example-shop.com/p/123',
+      })
+    ).toBe('example-shop.com product specifications');
+  });
 });
 
 describe('parseSearchResults', () => {

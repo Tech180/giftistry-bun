@@ -143,10 +143,24 @@ export function isEmptyAiPopulateResult(ai: ExtractedMetadata): boolean {
 
 export function isVerboseProductTitle(title: string | null | undefined): boolean {
   const t = title?.trim() ?? '';
-  if (!t) return false;
-  if (t.length > 80) return true;
+  if (!t) {
+    return false;
+  }
+
+  if (t.length > 80) {
+    return true;
+  }
+
   const dashParts = t.split(/\s[-–—|]\s/);
-  if (dashParts.length >= 3) return true;
+  if (dashParts.length >= 3) {
+    return true;
+  }
+
+  const commaParts = t.split(/\s*[,|]\s*/).filter(Boolean);
+  if (commaParts.length >= 3) {
+    return true;
+  }
+
   return false;
 }
 

@@ -1,4 +1,5 @@
 import type { AiProvider } from '@/modules/system';
+import type { AiMetadataExtractionOptions } from '@/modules/system';
 import type { CategoryClassifierDeltaHandler } from '../types/category-classifier-delta-handler.type';
 
 export interface CategoryClassifierConfig {
@@ -8,4 +9,5 @@ export interface CategoryClassifierConfig {
   endpoint: string;
   customPrompt: string;
   onDelta?: CategoryClassifierDeltaHandler;
+  extractionOptions?: AiMetadataExtractionOptions;
 }

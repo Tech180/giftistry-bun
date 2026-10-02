@@ -1,4 +1,5 @@
 import {
+  normalizeAiMetadataExtractionPreset,
   normalizeAiProvider,
   PERSISTED_SERVER_CONFIG_KEYS,
   type ServerConfig,
@@ -130,6 +131,24 @@ export function normalizeServerConfig(data: Record<string, unknown>): ServerConf
     AiImportChunkItemLimit: (() => {
       const value = pick<unknown>(data, 'AiImportChunkItemLimit', undefined);
       return value !== undefined ? Number(value) : undefined;
+    })(),
+    AiMetadataExtractionPreset: (() => {
+      if (!hasKey(data, 'AiMetadataExtractionPreset')) {
+        return undefined;
+      }
+      return normalizeAiMetadataExtractionPreset(data.AiMetadataExtractionPreset);
+    })(),
+    AiPageContextMaxChars: (() => {
+      const value = pick<unknown>(data, 'AiPageContextMaxChars', undefined);
+      return value !== undefined ? Number(value) : undefined;
+    })(),
+    AiPopulateMaxTokens: (() => {
+      const value = pick<unknown>(data, 'AiPopulateMaxTokens', undefined);
+      return value !== undefined ? Number(value) : undefined;
+    })(),
+    AiMetadataSplitPackCalls: (() => {
+      const value = pick<unknown>(data, 'AiMetadataSplitPackCalls', undefined);
+      return value !== undefined ? Boolean(value) : undefined;
     })(),
     AiEnabledPackIds: (() => {
       if (!hasKey(data, 'AiEnabledPackIds') || !Array.isArray(data.AiEnabledPackIds)) {

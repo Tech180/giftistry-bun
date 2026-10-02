@@ -139,7 +139,10 @@ Product link metadata is scraped through a tiered pipeline in the item module.
 ```mermaid
 flowchart TD
   URL[URL] --> Orchestrator[MetadataScraperOrchestrator]
-  Orchestrator --> Fetch[Tier1_fetch]
+  Orchestrator --> AmazonCheck{AmazonURL?}
+  AmazonCheck -->|yes| PreResolve[PreResolveRedirect]
+  PreResolve --> PlaywrightAmazon[Tier2_Playwright_postGate]
+  AmazonCheck -->|no| Fetch[Tier1_fetch]
   Fetch --> Pipeline[ExtractionPipeline]
   Pipeline --> Retailer[RetailerExtractor]
   Pipeline --> JsonLd[JSON-LD]
@@ -148,9 +151,11 @@ flowchart TD
   Pipeline --> Dom[DOMFallback]
   Validate[StrictValidator] -->|pass| Result[ScrapeResult]
   Validate -->|fail| Playwright[Tier2_stealthPlaywright]
-  Playwright --> NetworkCapture[NetworkJsonCapture]
+  PlaywrightAmazon --> NetworkCapture[NetworkJsonCapture]
+  Playwright --> NetworkCapture
   NetworkCapture --> Pipeline
   Validate -->|fail both| Error[ScrapeError]
+  Error -->|blocked_and_AI| AiFallback[ExtractMetadata_AI_fallback]
 ```
 
 - **Port:** `MetadataScraper` — `src/modules/item/domain/ports/metadata-scraper.port.ts`
@@ -158,11 +163,23 @@ flowchart TD
 - **Extractors / retailers:** `src/modules/item/infrastructure/scraping/`
 - **Use cases:** `ExtractMetadataUseCase`, `EnrichLinkMetadataUseCase` (metadata slice)
 
+Amazon / short-link (`a.co`, `amzn.to`) behavior:
+
+- When the input URL already contains an ASIN (`/dp/…`, `/gp/product/…`), Playwright opens the **canonical** `https://www…/dp/{ASIN}` first (tracking query params stripped); HTTP pre-resolve is skipped.
+- Short links still pre-resolve redirects; Playwright may dismiss “Continue shopping” and navigate to a canonical `/dp/{ASIN}` `postGateUrl`, with **one** extra canonical reload+dismiss if the gate persists.
+- Shared Playwright browser context keeps cookies for the worker process lifetime (pages are closed per scrape; context is not).
+- Short-link pre-resolve only accepts product redirects (`/dp/{ASIN}`); decoy hubs (e.g. grocery category pages) are ignored and may surface as `amazon-non-product-landing` → blocked AI fallback.
+- Gate pages that mention both captcha and continue-shopping are classified as `short-link-shell:*`, not `bot-check:captcha`.
+- Hardening improves pass-rate through interstitials; hard captchas / datacenter bans can still fail with the blocked scrape message.
+- When scrape still fails with `diagnostics.blocked: true`, `ExtractMetadataUseCase` may attempt AI populate (+ web search when enabled). Page HTML is **not** re-fetched in that path. On thin blocked context (URL/ASIN only), the result is accepted only when web search returns substantive text that corroborates the AI title; otherwise the blocked `ScrapeError` is rethrown.
+- AI populate prompt size and call count follow `AiMetadataExtractionPreset` (`full` | `fast` | `balanced` | `thorough`): compact prompts / context caps for small models, optional core+pack multi-call for `thorough`. Defaults to `full`.
+- Blocked AI fallback is best-effort and fail-closed without corroborating search: datacenter IPs may still block scrape; without AI or without trusted search, the job fails with a clear message.
+
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `SCRAPE_FETCH_TIMEOUT_MS` | `8000` | Fetch tier timeout |
 | `SCRAPE_PLAYWRIGHT_TIMEOUT_MS` | `25000` | Browser navigation timeout |
-| `SCRAPE_PLAYWRIGHT_MAX_CONCURRENT` | `3` | Max concurrent browser contexts |
+| `SCRAPE_PLAYWRIGHT_MAX_CONCURRENT` | `3` | Max concurrent Playwright scrapes (shared context) |
 | `SCRAPE_PLAYWRIGHT_HEADLESS` | `true` | Headless browser |
 | `SCRAPE_PLAYWRIGHT_EXECUTABLE_PATH` | _(auto)_ | Chromium path (needed on NixOS) |
 

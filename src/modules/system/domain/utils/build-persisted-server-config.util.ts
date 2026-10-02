@@ -1,5 +1,9 @@
 import { DEFAULT_AI_IMPORT_CHUNK_ITEM_LIMIT } from '../constants/ai-import-chunk.constant';
 import {
+  DEFAULT_AI_METADATA_EXTRACTION_PRESET,
+  DEFAULT_AI_METADATA_SPLIT_PACK_CALLS,
+} from '../constants/ai-metadata-extraction.constant';
+import {
   DEFAULT_AI_COMPLETION_TIMEOUT_MS,
   DEFAULT_AI_CONNECT_TIMEOUT_MS,
 } from '../constants/ai-timeout.constant';
@@ -16,22 +20,30 @@ import {
   clampAiCompletionTimeoutMs,
   clampAiConnectTimeoutMs,
   clampAiImportChunkItemLimit,
+  clampAiPageContextMaxChars,
+  clampAiPopulateMaxTokens,
   clampGrabInfoActiveStreamLimit,
   clampGrabInfoConcurrency,
   clampScrapeFetchTimeoutMs,
   clampScrapePlaywrightTimeoutMs,
 } from './clamp-server-config-limits.util';
+import { normalizeAiMetadataExtractionPreset } from './normalize-ai-metadata-extraction-preset.util';
 import { normalizeAiProvider } from './normalize-ai-provider.util';
 import { normalizeGrabInfoConcurrencyUnlimited } from './normalize-grab-info-concurrency-unlimited.util';
+import { resolveAiMetadataExtractionOptions } from './resolve-ai-metadata-extraction-options.util';
 
 /**
  * Full on-disk config shape: every supported key present with a concrete value
  * (no `undefined`, so JSON.stringify never drops options).
  * Does not persist deprecated AdminOnboardingCompleted.
+ *
+ * AiPageContextMaxChars / AiPopulateMaxTokens use 0 to mean "no cap / omit max_tokens"
+ * (full preset default). Positive values are clamped overrides or preset defaults.
  */
 export function buildPersistedServerConfig(
   config: ServerConfig = { DbType: 'local', SmtpType: 'local' }
 ): ServerConfig {
+  const extraction = resolveAiMetadataExtractionOptions(config);
   return {
     DbType: config.DbType === 'remote' ? 'remote' : 'local',
     DbUrl: config.DbUrl ?? '',
@@ -72,6 +84,19 @@ export function buildPersistedServerConfig(
     AiImportChunkItemLimit: clampAiImportChunkItemLimit(
       config.AiImportChunkItemLimit ?? DEFAULT_AI_IMPORT_CHUNK_ITEM_LIMIT
     ),
+    AiMetadataExtractionPreset: normalizeAiMetadataExtractionPreset(
+      config.AiMetadataExtractionPreset ?? DEFAULT_AI_METADATA_EXTRACTION_PRESET
+    ),
+    AiPageContextMaxChars:
+      config.AiPageContextMaxChars != null && config.AiPageContextMaxChars > 0
+        ? clampAiPageContextMaxChars(config.AiPageContextMaxChars)
+        : (extraction.pageContextMaxChars ?? 0),
+    AiPopulateMaxTokens:
+      config.AiPopulateMaxTokens != null && config.AiPopulateMaxTokens > 0
+        ? clampAiPopulateMaxTokens(config.AiPopulateMaxTokens)
+        : (extraction.populateMaxTokens ?? 0),
+    AiMetadataSplitPackCalls:
+      config.AiMetadataSplitPackCalls ?? DEFAULT_AI_METADATA_SPLIT_PACK_CALLS,
     AiEnabledPackIds: Array.isArray(config.AiEnabledPackIds) ? [...config.AiEnabledPackIds] : [],
     AiCustomPacks: Array.isArray(config.AiCustomPacks) ? [...config.AiCustomPacks] : [],
     AiCompletionTimeoutMs: clampAiCompletionTimeoutMs(
@@ -108,8 +133,3 @@ export function buildPersistedServerConfig(
     FcmServiceAccountJson: config.FcmServiceAccountJson ?? '',
   };
 }
-
-/** Keys always written to config.json (excludes deprecated AdminOnboardingCompleted). */
-export const PERSISTED_SERVER_CONFIG_KEYS = Object.keys(
-  buildPersistedServerConfig()
-) as (keyof ServerConfig)[];

@@ -22,6 +22,8 @@ export function buildEnrichJobResult(
       Confidence: extract.diagnostics.confidence,
       FieldsFound: extract.diagnostics.fieldsFound,
       AiPopulate: extract.diagnostics.aiPopulate,
+      Blocked: extract.diagnostics.blocked,
+      ValidationReason: extract.diagnostics.validationReason,
     },
   };
 }

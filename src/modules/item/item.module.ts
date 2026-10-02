@@ -57,7 +57,8 @@ export function createItemModule(deps: ItemModuleDeps) {
   const enrichLinkMetadataUseCase = new EnrichLinkMetadataUseCase(
     deps.metadataScraper,
     deps.itemRepo,
-    promoteScrapedImageToPhotosUseCase
+    promoteScrapedImageToPhotosUseCase,
+    extractMetadataUseCase
   );
   const extractItemReviewsUseCase = new ExtractItemReviewsUseCase(
     deps.itemReviewRepo,

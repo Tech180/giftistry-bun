@@ -139,7 +139,7 @@ export class AddItemUseCase {
         null
       );
 
-      this.enrichLinkMetadata.execute(link.Id, linkUrl, price).catch((err) => {
+      this.enrichLinkMetadata.execute(link.Id, linkUrl, price, suggestedByUserId ?? undefined).catch((err) => {
         console.error('Background metadata enrichment failed:', err);
       });
 

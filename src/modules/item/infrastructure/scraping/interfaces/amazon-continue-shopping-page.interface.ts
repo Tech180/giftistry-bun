@@ -8,9 +8,22 @@ export interface AmazonContinueShoppingPage {
       click: (opts?: { timeout?: number }) => Promise<void>;
     };
   };
+  getByRole?: (
+    role: 'button',
+    opts: { name: RegExp }
+  ) => {
+    first: () => {
+      isVisible: (opts?: { timeout?: number }) => Promise<boolean>;
+      click: (opts?: { timeout?: number }) => Promise<void>;
+    };
+  };
   waitForSelector: (
     selector: string,
     opts?: { timeout?: number }
   ) => Promise<unknown>;
   waitForTimeout: (ms: number) => Promise<void>;
+  goto?: (
+    url: string,
+    opts?: { waitUntil?: string; timeout?: number }
+  ) => Promise<unknown>;
 }

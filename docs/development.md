@@ -88,6 +88,13 @@ Import `httpie-collection-giftistry.json` and `httpie-environment-local.json`. S
 | `CREDENTIALS_DIRECTORY` / `GIFTISTRY_CREDENTIALS_DIRECTORY` | — | Directory of files named after secret keys |
 | `SCRAPE_*` | no | Playwright/fetch scrape timeouts and concurrency — see [architecture.md](architecture.md) |
 
+### Scraping tips
+
+- Prefer canonical retailer URLs (e.g. `https://www.amazon.com/dp/…`) over short links (`a.co`, `amzn.to`) when pasteable — short links often hit a “Continue shopping” gate.
+- Amazon enrich may skip the HTTP fetch tier and use Playwright (canonical `/dp/{ASIN}` first when ASIN is in the URL). If Amazon still serves a bot/captcha gate, AI populate is **fail-closed**: thin URL/ASIN context alone is not enough — web search must corroborate the AI title, or extract rethrows the blocked scrape error (user enters metadata manually). See [architecture.md](architecture.md).
+- After upgrading, if blocked-link enrich still hallucinates from old prompt examples, reset **AI populate prompt** to defaults in server settings (persisted `AiPopulatePrompt` is not auto-migrated).
+- Manual repro for blocked AI trust: `bun run scripts/repro-blocked-amazon-extract.ts` (add `--with-web-search` when Playwright/`SCRAPE_PLAYWRIGHT_EXECUTABLE_PATH` is available).
+
 Use `getEnv()` from `src/common/config/utils/get-env.util.ts` for typed runtime config.
 
 ## Production hardening (quick)
@@ -98,6 +105,19 @@ Use `getEnv()` from `src/common/config/utils/get-env.util.ts` for typed runtime 
 - Password policy: min 8 chars, letter + number
 
 Server settings (remote SMTP, AI, OAuth, `PublicAppUrl`) live in `config.json` via `/api/system/settings`.
+
+### AI metadata extraction presets
+
+Owner settings key `AiMetadataExtractionPreset` controls how `ExtractMetadataUseCase` builds AI prompts:
+
+| Preset | Behavior |
+|--------|----------|
+| `full` (default) | Full populate hub + uncapped page context; single AI call |
+| `fast` | Compact prompts, ~2k context / ~2k max tokens; single call |
+| `balanced` | Compact prompts, ~4k context / ~4k max tokens; single call |
+| `thorough` | Compact core call, then pack field call(s); better for small models + packs |
+
+Optional overrides: `AiPageContextMaxChars`, `AiPopulateMaxTokens` (`0` = use preset default / no cap), `AiMetadataSplitPackCalls` (thorough only: one call per pack).
 
 ## Related
 

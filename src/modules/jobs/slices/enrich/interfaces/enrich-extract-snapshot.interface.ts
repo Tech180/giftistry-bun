@@ -16,5 +16,7 @@ export interface EnrichExtractSnapshot {
     confidence?: unknown;
     fieldsFound?: unknown;
     aiPopulate?: unknown;
+    blocked?: boolean;
+    validationReason?: string;
   };
 }

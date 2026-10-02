@@ -543,4 +543,41 @@ describe('shouldRunAiPopulate', () => {
       )
     ).toBe(true);
   });
+
+  test('runs populate when scraped title is comma SEO laundry under 80 chars', () => {
+    const title =
+      'UGREEN Ethernet Switch, 10-Port PoE Switch, 8 PoE+@60W + 2 Gigabit Uplink';
+
+    expect(isVerboseProductTitle(title)).toBe(true);
+    expect(isVerboseProductTitle('Socks, Pack of 6')).toBe(false);
+
+    expect(
+      shouldRunAiPopulate(
+        {
+          data: {
+            title,
+            price: 37.79,
+            description: 'PoE switch',
+            color: null,
+            size: null,
+            category: 'tech',
+            imageUrl: 'https://example.com/img.jpg',
+          },
+          diagnostics: { confidence: 'high', fieldsFound: ['title', 'price', 'imageUrl'] },
+        },
+        {
+          title,
+          price: 37.79,
+          description: 'PoE switch',
+          color: null,
+          size: null,
+          category: 'tech',
+          imageUrl: 'https://example.com/img.jpg',
+          predefinedFields: {},
+          userDefinedFields: { Brand: 'UGREEN' },
+        },
+        true
+      )
+    ).toBe(true);
+  });
 });

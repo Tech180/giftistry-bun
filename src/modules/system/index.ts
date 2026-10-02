@@ -3,16 +3,20 @@ export type { ServerConfigRepository } from './domain/ports/server-config.reposi
 export type { ServerConfig } from './domain/interfaces/server-config.interface';
 export type { SystemSettingsPayload } from './domain/interfaces/system-settings-payload.interface';
 export type { AiProvider } from './domain/types/ai-provider.type';
+export type { AiMetadataExtractionPreset } from './domain/types/ai-metadata-extraction-preset.type';
+export type { AiMetadataExtractionOptions } from './domain/interfaces/ai-metadata-extraction-options.interface';
 export { normalizeAiProvider } from './domain/utils/normalize-ai-provider.util';
-export {
-  buildPersistedServerConfig,
-  PERSISTED_SERVER_CONFIG_KEYS,
-} from './domain/utils/build-persisted-server-config.util';
+export { normalizeAiMetadataExtractionPreset } from './domain/utils/normalize-ai-metadata-extraction-preset.util';
+export { resolveAiMetadataExtractionOptions } from './domain/utils/resolve-ai-metadata-extraction-options.util';
+export { buildPersistedServerConfig } from './domain/utils/build-persisted-server-config.util';
+export { PERSISTED_SERVER_CONFIG_KEYS } from './domain/constants/persisted-server-config-keys.constant';
 export { resolveGrabInfoConcurrency } from './domain/utils/resolve-grab-info-concurrency.util';
 export {
   clampAiCompletionTimeoutMs,
   clampAiConnectTimeoutMs,
   clampAiImportChunkItemLimit,
+  clampAiPageContextMaxChars,
+  clampAiPopulateMaxTokens,
   clampGrabInfoActiveStreamLimit,
   clampGrabInfoConcurrency,
   clampScrapeFetchTimeoutMs,
@@ -35,12 +39,26 @@ export {
   AI_IMPORT_CHUNK_ITEM_LIMIT_MIN,
   AI_IMPORT_CHUNK_ITEM_LIMIT_MAX,
 } from './domain/constants/ai-import-chunk.constant';
+export {
+  DEFAULT_AI_METADATA_EXTRACTION_PRESET,
+  AI_METADATA_EXTRACTION_PRESETS,
+  AI_PAGE_CONTEXT_MAX_CHARS_BY_PRESET,
+  AI_POPULATE_MAX_TOKENS_BY_PRESET,
+  AI_PAGE_CONTEXT_MAX_CHARS_MIN,
+  AI_PAGE_CONTEXT_MAX_CHARS_MAX,
+  DEFAULT_AI_PAGE_CONTEXT_MAX_CHARS,
+  AI_POPULATE_MAX_TOKENS_MIN,
+  AI_POPULATE_MAX_TOKENS_MAX,
+  DEFAULT_AI_POPULATE_MAX_TOKENS,
+  DEFAULT_AI_METADATA_SPLIT_PACK_CALLS,
+} from './domain/constants/ai-metadata-extraction.constant';
 export type { CustomPackSettingsDto } from './domain/packs';
 export {
   catalogForConfig,
   collectEnabledPackFieldsForCategory,
   sanitizeEnabledPackIdsForConfig,
   composePopulateWithPacks,
+  buildMetadataPackSection,
   resolveMetadataPacks,
 } from './domain/packs';
 export { getDefaultAiPrompt, AI_DEFAULT_PROMPTS } from './domain/prompts';

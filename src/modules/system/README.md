@@ -42,6 +42,8 @@ Server setup, settings, status, AI connection probes, metadata packs, ownership 
 
 - `ServerConfig` is the domain config surface; persistence mapping stays in the repository.
 - Custom AI metadata packs are sanitized in `domain/packs/`.
+- Metadata extraction presets (`AiMetadataExtractionPreset` and related limits) are resolved by `resolveAiMetadataExtractionOptions` and consumed by item metadata populate/classify.
+- Persisted `AiPopulatePrompt` / category prompts in `config.json` are not auto-migrated on upgrade. If blocked Amazon enrich invents products from old prompt examples (e.g. handheld demo titles), reset populate prompt to defaults in admin settings.
 
 ## Related
 

@@ -36,6 +36,10 @@ export interface SystemSettingsPayload {
   AiImportPrompt?: string;
   AiImportChunkingEnabled?: boolean;
   AiImportChunkItemLimit?: number;
+  AiMetadataExtractionPreset?: string;
+  AiPageContextMaxChars?: number;
+  AiPopulateMaxTokens?: number;
+  AiMetadataSplitPackCalls?: boolean;
   AiEnabledPackIds?: string[];
   /** Client payload; sanitized to CustomPackSettingsDto[] on save. */
   AiCustomPacks?: unknown;

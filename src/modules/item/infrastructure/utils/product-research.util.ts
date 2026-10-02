@@ -2,14 +2,38 @@ import * as cheerio from 'cheerio';
 import type { ProductResearchInput } from '../../domain/interfaces/product-research-input.interface';
 import { MAX_SEARCH_RESULTS } from '../constants/product-research.constant';
 import type { SearchResultItem } from '../interfaces/search-result-item.interface';
+import { parseAmazonAsinFromUrl } from '../scraping/utils/amazon-scrape-url.util';
 
 export function buildSearchQuery(input: ProductResearchInput): string {
-  const parts = [input.itemName.trim()];
-  if (input.websiteName?.trim()) {
-    parts.push(input.websiteName.trim());
+  const itemName = input.itemName.trim();
+  if (itemName) {
+    const parts = [itemName];
+    if (input.websiteName?.trim()) {
+      parts.push(input.websiteName.trim());
+    }
+    parts.push('specifications');
+    return parts.filter(Boolean).join(' ');
   }
-  parts.push('specifications');
-  return parts.filter(Boolean).join(' ');
+
+  const url = input.url?.trim() ?? '';
+  if (url) {
+    const asin = parseAmazonAsinFromUrl(url);
+    if (asin) {
+      return `${asin} Amazon product`;
+    }
+    try {
+      const hostname = new URL(url).hostname.replace(/^www\./, '');
+      return `${hostname} product specifications`;
+    } catch {
+      return 'product specifications';
+    }
+  }
+
+  if (input.websiteName?.trim()) {
+    return `${input.websiteName.trim()} specifications`;
+  }
+
+  return 'specifications';
 }
 
 function normalizeResultUrl(raw: string): string | null {

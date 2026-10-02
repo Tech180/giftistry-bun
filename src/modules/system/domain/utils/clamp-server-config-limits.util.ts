@@ -4,6 +4,14 @@ import {
   DEFAULT_AI_IMPORT_CHUNK_ITEM_LIMIT,
 } from '../constants/ai-import-chunk.constant';
 import {
+  AI_PAGE_CONTEXT_MAX_CHARS_MAX,
+  AI_PAGE_CONTEXT_MAX_CHARS_MIN,
+  AI_POPULATE_MAX_TOKENS_MAX,
+  AI_POPULATE_MAX_TOKENS_MIN,
+  DEFAULT_AI_PAGE_CONTEXT_MAX_CHARS,
+  DEFAULT_AI_POPULATE_MAX_TOKENS,
+} from '../constants/ai-metadata-extraction.constant';
+import {
   AI_COMPLETION_TIMEOUT_MAX_MS,
   AI_COMPLETION_TIMEOUT_MIN_MS,
   AI_CONNECT_TIMEOUT_MAX_MS,
@@ -34,6 +42,22 @@ export function clampAiImportChunkItemLimit(value: unknown): number {
     min: AI_IMPORT_CHUNK_ITEM_LIMIT_MIN,
     max: AI_IMPORT_CHUNK_ITEM_LIMIT_MAX,
     fallback: DEFAULT_AI_IMPORT_CHUNK_ITEM_LIMIT,
+  });
+}
+
+export function clampAiPageContextMaxChars(value: unknown): number {
+  return clampNumber(value, {
+    min: AI_PAGE_CONTEXT_MAX_CHARS_MIN,
+    max: AI_PAGE_CONTEXT_MAX_CHARS_MAX,
+    fallback: DEFAULT_AI_PAGE_CONTEXT_MAX_CHARS,
+  });
+}
+
+export function clampAiPopulateMaxTokens(value: unknown): number {
+  return clampNumber(value, {
+    min: AI_POPULATE_MAX_TOKENS_MIN,
+    max: AI_POPULATE_MAX_TOKENS_MAX,
+    fallback: DEFAULT_AI_POPULATE_MAX_TOKENS,
   });
 }
 
