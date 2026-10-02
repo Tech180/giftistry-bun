@@ -20,6 +20,7 @@ import type { ImportFileTextExtractor } from '../domain/ports/import-file-text-e
 import type { ItemImportParser } from '../domain/ports/item-import-parser.port';
 import type { MetadataPopulator } from '../domain/ports/metadata-populator.port';
 import type { MetadataScraper } from '../domain/ports/metadata-scraper.port';
+import type { ScrapeTelemetry } from '../domain/ports/scrape-telemetry.port';
 import type { PageContextFetcher } from '../domain/ports/page-context.port';
 import type { ProductResearcher } from '../domain/ports/product-researcher.port';
 import type { RemoteImageFetcher } from '../domain/ports/remote-image-fetcher.port';
@@ -44,6 +45,7 @@ export interface ItemModuleDeps {
   userRepo: UserRepository;
   assertUserCanUseCase: AssertUserCanUseCase;
   metadataScraper: MetadataScraper;
+  scrapeTelemetry: ScrapeTelemetry;
   serverConfigRepo: ServerConfigRepository;
   middleware: RouteMiddleware;
   listChanged: ListChangedPublisher;

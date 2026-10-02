@@ -1,3 +1,4 @@
+/** Dick's Sporting Goods PDP API JSON + h1/price fallbacks. */
 import { extractFromCapturedJson } from '../extractors/utils/embedded-json.util';
 import { parseScrapePrice } from '../extractors/utils/parse-scrape-price.util';
 import type { RetailerExtractor } from './interfaces/retailer-extractor.interface';

@@ -20,6 +20,8 @@ export interface SystemSettingsPayload {
   OAuthAutoLaunch?: boolean;
   AiEnabled?: boolean;
   AiWebSearchEnabled?: boolean;
+  AiWebSearchEndpoint?: string;
+  AiWebSearchMaxPages?: number;
   AiRateLimitEnabled?: boolean;
   AiFastProvider?: string;
   AiFastEndpoint?: string;

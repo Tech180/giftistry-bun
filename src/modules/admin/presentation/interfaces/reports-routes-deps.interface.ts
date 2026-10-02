@@ -1,4 +1,4 @@
-import type { createAuthMiddleware } from '@/modules/auth/presentation/middlewares/auth.middleware';
+import type { createAuthMiddleware } from '@/modules/auth';
 import type { CreateReportUseCase } from '../../slices/reports/use-cases/create-report.use-case';
 
 export interface ReportsRoutesDeps {

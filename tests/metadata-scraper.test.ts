@@ -318,19 +318,23 @@ describe('metadata scraper use cases', () => {
   });
   test('ExtractMetadataUseCase delegates to MetadataScraper port', async () => {
     const mockScraper: MetadataScraper = {
+      resolveFinalUrl: async () => null,
+      scrapeFromCapture: async () => {
+        throw new Error('scrapeFromCapture not implemented in mock');
+      },
       scrape: async () => ({
         diagnostics: {
           source: 'fetch',
-          confidence: 'high',
-          fieldsFound: ['title', 'price'],
+          confidence: 'low',
+          fieldsFound: ['title'],
         },
         data: {
           title: 'Test Product',
-          price: 25,
-          description: 'A test item',
-          color: 'Blue',
-          size: 'M',
-          category: 'apparel_accessories',
+          price: null,
+          description: null,
+          color: null,
+          size: null,
+          category: null,
           imageUrl: null,
         },
       }),
@@ -393,13 +397,14 @@ describe('metadata scraper use cases', () => {
       mockWishlistRepo,
       mockItemRepo,
       mockConfigRepo,
-      mockPageContextFetcher
+      mockPageContextFetcher,
+      undefined,
+      (await import('../src/modules/item/infrastructure/adapters/log-scrape-telemetry')).noopScrapeTelemetry
     );
     const result = await useCase.execute('https://example.com/product', 'user-1');
 
-    expect(result.data.title).toBe('AI Title');
-    expect(result.data.price).toBe(25);
-    expect(result.diagnostics.confidence).toBe('medium');
+    expect(result.data.title).toBe('Test Product');
+    expect(result.diagnostics.source).toBe('fetch');
     expect(result.finalUrl).toBe('https://example.com/product');
   });
 
@@ -409,6 +414,10 @@ describe('metadata scraper use cases', () => {
     let updatedUrl: string | null = null;
 
     const mockScraper: MetadataScraper = {
+      resolveFinalUrl: async () => null,
+      scrapeFromCapture: async () => {
+        throw new Error('scrapeFromCapture not implemented in mock');
+      },
       scrape: async () => ({
         diagnostics: {
           source: 'fetch',
@@ -463,6 +472,10 @@ describe('metadata scraper use cases', () => {
     let updatedPrice: number | null = null;
 
     const mockScraper: MetadataScraper = {
+      resolveFinalUrl: async () => null,
+      scrapeFromCapture: async () => {
+        throw new Error('scrapeFromCapture not implemented in mock');
+      },
       scrape: async () => ({
         diagnostics: {
           source: 'fetch',
@@ -511,6 +524,10 @@ describe('metadata scraper use cases', () => {
     let called = false;
 
     const mockScraper: MetadataScraper = {
+      resolveFinalUrl: async () => null,
+      scrapeFromCapture: async () => {
+        throw new Error('scrapeFromCapture not implemented in mock');
+      },
       scrape: async () => ({
         diagnostics: {
           source: 'playwright',
@@ -577,12 +594,9 @@ describe('MetadataScraperOrchestrator failover', () => {
     expect(result.diagnostics.confidence).toBe('high');
   });
 
-  test('throws ScrapeError when both tiers fail on block page', async () => {
+  test('returns partial result when block page still has salvageable title', async () => {
     const { MetadataScraperOrchestrator } = await import(
       '@/modules/item/infrastructure/adapters/metadata-scraper.orchestrator'
-    );
-    const { ScrapeError } = await import(
-      '@/modules/item/infrastructure/scraping/errors/scrape-error'
     );
 
     const scraper = new MetadataScraperOrchestrator(
@@ -592,15 +606,11 @@ describe('MetadataScraperOrchestrator failover', () => {
       async (inputUrl) => ({ html: DICKS_BLOCK_HTML, capturedJson: [], finalUrl: inputUrl })
     );
 
-    try {
-      await scraper.scrape('https://www.dickssportinggoods.com/p/test', 'full');
-      expect(true).toBe(false);
-    } catch (err) {
-      expect(err).toBeInstanceOf(ScrapeError);
-      if (err instanceof ScrapeError) {
-        expect(err.diagnostics?.blocked).toBe(true);
-      }
-    }
+    const result = await scraper.scrape('https://www.dickssportinggoods.com/p/test', 'full');
+    expect(result.diagnostics.needsReview).toBe(true);
+    expect(result.diagnostics.outcome).toBe('blocked');
+    expect(result.diagnostics.blocked).toBe(true);
+    expect(result.data.title?.trim().length).toBeGreaterThan(0);
   });
 
   test('uses captured JSON during playwright tier', async () => {

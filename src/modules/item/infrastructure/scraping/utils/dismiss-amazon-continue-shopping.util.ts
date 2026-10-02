@@ -1,25 +1,20 @@
+import type { Page } from 'playwright';
 import {
   AMAZON_CONTINUE_SHOPPING_CTA_SELECTORS,
   AMAZON_CTA_VISIBLE_TIMEOUT_MS,
   AMAZON_PRODUCT_READY_SELECTOR,
   AMAZON_PRODUCT_READY_TIMEOUT_MS,
 } from '../constants/amazon-continue-shopping.constant';
-import type { AmazonContinueShoppingPage } from '../interfaces/amazon-continue-shopping-page.interface';
-import {
-  htmlLooksLikeContinueShoppingShell,
-  isAmazonShortLinkHost,
-} from './resolve-scrape-final-url.util';
-
-export interface DismissAmazonContinueShoppingResult {
-  dismissed: boolean;
-}
+import { htmlLooksLikeContinueShoppingShell } from './html-looks-like-continue-shopping-shell.util';
+import { isAmazonShortLinkHost } from '../../../domain/utils/amazon-url.util';
+import type { DismissAmazonContinueShoppingResult } from '../interfaces/dismiss-amazon-continue-shopping-result.interface';
 
 async function clickVisibleTarget(
   target: {
     isVisible: (opts?: { timeout?: number }) => Promise<boolean>;
     click: (opts?: { timeout?: number }) => Promise<void>;
   },
-  page: AmazonContinueShoppingPage
+  page: Page
 ): Promise<boolean> {
   if (!(await target.isVisible({ timeout: AMAZON_CTA_VISIBLE_TIMEOUT_MS }))) {
     return false;
@@ -33,7 +28,7 @@ async function clickVisibleTarget(
 }
 
 export async function tryDismissAmazonContinueShopping(
-  page: AmazonContinueShoppingPage
+  page: Page
 ): Promise<DismissAmazonContinueShoppingResult> {
   let hostname = '';
   try {

@@ -1,0 +1,9 @@
+{
+  "pageType": "product",
+  "title": ["Classic Cotton T-Shirt"],
+  "price": 24.5,
+  "currency": "USD",
+  "imageHost": "example.com",
+  "availability": null,
+  "shouldBeBlocked": false
+}

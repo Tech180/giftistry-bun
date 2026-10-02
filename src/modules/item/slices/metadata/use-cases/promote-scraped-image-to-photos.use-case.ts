@@ -1,3 +1,4 @@
+import type { ListChangedPublisher } from '@/modules/wishlist';
 import type { ItemRepository } from '../../../domain/ports/item.repository';
 import type { RemoteImageFetcher } from '../../../domain/ports/remote-image-fetcher.port';
 import { normalizeItemPhotosWrite } from '../../../domain/utils/normalize-item-photos.util';
@@ -9,7 +10,8 @@ import { normalizeItemPhotosWrite } from '../../../domain/utils/normalize-item-p
 export class PromoteScrapedImageToPhotosUseCase {
   constructor(
     private itemRepo: ItemRepository,
-    private remoteImageFetcher: RemoteImageFetcher
+    private remoteImageFetcher: RemoteImageFetcher,
+    private listChanged: ListChangedPublisher
   ) {}
 
   async execute(itemId: string, imageUrl: string | null | undefined): Promise<boolean> {
@@ -28,6 +30,10 @@ export class PromoteScrapedImageToPhotosUseCase {
       if (!photos || photos.length === 0) return false;
 
       await this.itemRepo.replacePhotos(itemId, photos);
+      this.listChanged.publish(item.ListId, {
+        reason: 'item.updated',
+        itemId: item.Id,
+      });
       return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

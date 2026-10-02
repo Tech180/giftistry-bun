@@ -1,4 +1,5 @@
 import { t } from 'elysia';
+import { scrapeDiagnosticsSchema } from './scrape-diagnostics.schema';
 
 export const itemMetadataSchema = t.Optional(
   t.Nullable(
@@ -40,6 +41,8 @@ export const itemMetadataSchema = t.Optional(
           )
         )
       ),
+      /** Optional scrape/enrich diagnostics when metadata came from a populate job. */
+      Diagnostics: t.Optional(t.Nullable(scrapeDiagnosticsSchema)),
     })
   )
 );

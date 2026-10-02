@@ -10,4 +10,6 @@ export interface CategoryClassifierConfig {
   customPrompt: string;
   onDelta?: CategoryClassifierDeltaHandler;
   extractionOptions?: AiMetadataExtractionOptions;
+  /** Optional per-request completion timeout cap (ms), e.g. remaining extract budget. */
+  timeoutMs?: number;
 }

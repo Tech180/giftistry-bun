@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { compilePopulatePrompt } from '../src/modules/item/infrastructure/utils/compile-populate-prompt.util';
+import { isVerboseProductTitle } from '../src/modules/item/domain/utils/is-verbose-product-title.util';
 import {
-  isVerboseProductTitle,
   mergeExtractedMetadata,
   mergeFieldMaps,
   shouldAiPopulate,
@@ -21,7 +21,9 @@ describe('compilePopulatePrompt', () => {
 
     expect(prompt).toContain('URL=https://shop.example/item');
     expect(prompt).toContain('Store=Example');
-    expect(prompt).toContain('Context=Title: Tee');
+    expect(prompt).toContain('<<<UNTRUSTED_PAGE_CONTEXT>>>');
+    expect(prompt).toContain('Title: Tee');
+    expect(prompt).toContain('Context=');
   });
 
   test('replaces the category token', () => {
@@ -79,7 +81,9 @@ describe('compilePopulatePrompt', () => {
     );
 
     expect(prompt).not.toContain('Notes for Fosi Audio C3 at Example (tech)');
-    expect(prompt).toContain('Classify Fosi Audio C3 from Brand: Fosi Audio');
+    expect(prompt).toContain('Classify Fosi Audio C3 from');
+    expect(prompt).toContain('<<<UNTRUSTED_PAGE_CONTEXT>>>');
+    expect(prompt).toContain('Brand: Fosi Audio');
     expect(prompt).not.toContain('{itemName}');
     expect(prompt).not.toContain('{websiteName}');
     expect(prompt).not.toContain('{pageContext}');

@@ -1,6 +1,6 @@
 import { sql } from '../utils/sql-proxy.util';
 import { up as runLegacyMigrations } from './legacy-up';
-import { backfillNullUserAvatars } from './backfill-null-user-avatars.util';
+import { backfillNullUserAvatars } from './utils/backfill-null-user-avatars.util';
 
 export async function runMigrations(dbSql: typeof sql = sql): Promise<void> {
   console.log('[INFO] Running database migrations...');

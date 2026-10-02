@@ -4,6 +4,10 @@ export type { ItemAudienceRepository } from './domain/ports/item-audience.reposi
 export type { ItemFieldRepository } from './domain/ports/item-field.repository';
 export type { ItemReviewRepository } from './domain/ports/item-review.repository';
 export type { MetadataScraper } from './domain/ports/metadata-scraper.port';
+export { ScrapeError } from './domain/errors/scrape-error';
+export { formatBlockedScrapeMessage } from './slices/metadata/utils/format-blocked-scrape-message.util';
+export type { ScrapeDiagnostics } from './domain/interfaces/scrape-diagnostics.interface';
+export { mapScrapeDiagnosticsToPascalApi } from './domain/utils/map-scrape-diagnostics-to-pascal-api.util';
 export type { ListItemsPort } from './application/ports/list-items.port';
 export type { ItemEnricherPort } from './application/ports/item-enricher.port';
 export type { ItemSummarizerPort } from './application/ports/item-summarizer.port';

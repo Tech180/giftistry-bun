@@ -42,29 +42,27 @@ describe('formatScrapeFactsForAi', () => {
 });
 
 describe('shouldAttachScrapeFacts', () => {
-  test('only when enabled and high confidence and not blocked', () => {
+  test('attaches whenever scrape has facts and page is not blocked', () => {
+    expect(shouldAttachScrapeFacts({ diagnostics: { confidence: 'high' } }, base)).toBe(true);
+    expect(shouldAttachScrapeFacts({ diagnostics: { confidence: 'low' } }, base)).toBe(true);
+    expect(shouldAttachScrapeFacts({ diagnostics: { confidence: 'medium' } }, base)).toBe(true);
     expect(
-      shouldAttachScrapeFacts(
-        { diagnostics: { confidence: 'high' } },
-        { attachScrapeFactsWhenHighConfidence: true }
-      )
-    ).toBe(true);
-    expect(
-      shouldAttachScrapeFacts(
-        { diagnostics: { confidence: 'low' } },
-        { attachScrapeFactsWhenHighConfidence: true }
-      )
-    ).toBe(false);
-    expect(
-      shouldAttachScrapeFacts(
-        { diagnostics: { confidence: 'high', blocked: true } },
-        { attachScrapeFactsWhenHighConfidence: true }
-      )
+      shouldAttachScrapeFacts({ diagnostics: { confidence: 'high', blocked: true } }, base)
     ).toBe(false);
     expect(
       shouldAttachScrapeFacts(
         { diagnostics: { confidence: 'high' } },
-        { attachScrapeFactsWhenHighConfidence: false }
+        {
+          title: '',
+          price: null,
+          description: null,
+          color: null,
+          size: null,
+          category: null,
+          imageUrl: null,
+          predefinedFields: {},
+          userDefinedFields: {},
+        }
       )
     ).toBe(false);
   });

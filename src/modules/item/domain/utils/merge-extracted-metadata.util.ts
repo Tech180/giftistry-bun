@@ -1,6 +1,7 @@
 import type { ExtractedMetadata } from '../interfaces/extracted-metadata.interface';
 import { coerceApparelSizeFields } from './coerce-apparel-size-fields.util';
-import { compactGiftTitle } from './compact-gift-title.util';
+import { isVerboseProductTitle } from './is-verbose-product-title.util';
+import { normalizeGiftFacingTitle } from './normalize-gift-facing-title.util';
 import { mergeFieldMapsByNormalizedKey } from './collapse-custom-field-maps.util';
 import { resolveDesiredQuantity } from './parse-pack-quantity.util';
 import { isUnusableProductDescription } from './product-description.util';
@@ -18,7 +19,11 @@ export function mergeExtractedMetadata(
   scrape: ExtractedMetadata,
   ai: ExtractedMetadata,
   preferScrape: boolean,
-  options: { url?: string; scrapeApparelSizeKey?: string | null } = {}
+  options: {
+    url?: string;
+    scrapeApparelSizeKey?: string | null;
+    evidenceText?: string | null;
+  } = {}
 ): ExtractedMetadata {
   /** AI-first for gift-facing text/attributes; scrape fills gaps. */
   const pickAiFirst = (scrapeVal: string | null, aiVal: string | null) => {
@@ -26,30 +31,33 @@ export function mergeExtractedMetadata(
     return scrapeVal?.trim() || null;
   };
 
-  /** High-confidence scrape wins for factual fields when preferScrape is set. */
-  const pickFact = (scrapeVal: string | null, aiVal: string | null) => {
-    if (preferScrape && scrapeVal?.trim()) return scrapeVal.trim();
-    if (aiVal?.trim()) return aiVal.trim();
+  const evidence = options.evidenceText;
+  const groundedInEvidence = (value: string | null | undefined): boolean => {
+    const trimmed = value?.trim();
+    if (!trimmed) {
+      return false;
+    }
+    // When callers omit evidenceText, keep legacy AI-first attribute behavior.
+    if (evidence === undefined) {
+      return true;
+    }
+    if (!evidence) {
+      return false;
+    }
+    return evidence.toLowerCase().includes(trimmed.toLowerCase());
+  };
+
+  const pickGroundedAttr = (scrapeVal: string | null, aiVal: string | null) => {
+    if (aiVal?.trim() && groundedInEvidence(aiVal)) {
+      return aiVal.trim();
+    }
     return scrapeVal?.trim() || null;
   };
 
-  const pickTitle = () => {
-    const aiTitle = ai.title.trim();
-    if (aiTitle) {
-      return isVerboseProductTitle(aiTitle)
-        ? compactGiftTitle(aiTitle) || aiTitle
-        : aiTitle;
-    }
-    const scrapeTitle = scrape.title.trim();
-    if (!scrapeTitle) return '';
-    if (isVerboseProductTitle(scrapeTitle)) {
-      return compactGiftTitle(scrapeTitle) || scrapeTitle;
-    }
-    return scrapeTitle;
-  };
+  const pickTitle = () => normalizeGiftFacingTitle(ai.title.trim() || scrape.title);
 
-  const color = pickAiFirst(scrape.color, ai.color);
-  const size = pickAiFirst(scrape.size, ai.size);
+  const color = pickGroundedAttr(scrape.color, ai.color);
+  const size = pickGroundedAttr(scrape.size, ai.size);
 
   const pickDescription = () => {
     const aiDescription = sanitizeProductDescription(ai.description, {
@@ -77,8 +85,31 @@ export function mergeExtractedMetadata(
 
   const scrapePrice = scrape.price;
   const aiPrice = ai.price;
+  // Scraper wins at any confidence when it has a price.
+  const price = scrapePrice ?? aiPrice;
 
-  // Attributes are always AI-first; preferScrape only affects price/imageUrl.
+  const pickImage = () => {
+    if (scrape.imageUrl?.trim()) {
+      return scrape.imageUrl.trim();
+    }
+    const aiImage = ai.imageUrl?.trim() || null;
+    if (!aiImage) {
+      return null;
+    }
+    if (!/^https?:\/\//i.test(aiImage)) {
+      return null;
+    }
+    if (evidence === undefined) {
+      return aiImage;
+    }
+    if (evidence && evidence.includes(aiImage)) {
+      return aiImage;
+    }
+    return null;
+  };
+
+  // Attributes are always AI-first when grounded; preferScrape kept for callers.
+  void preferScrape;
   const mergedPredefined = mergeFieldMaps(scrape.predefinedFields, ai.predefinedFields, false);
   const title = pickTitle();
   const category = pickAiFirst(scrape.category, ai.category);
@@ -107,12 +138,12 @@ export function mergeExtractedMetadata(
 
   return {
     title,
-    price: preferScrape && scrapePrice != null ? scrapePrice : (aiPrice ?? scrapePrice),
+    price,
     description: pickDescription(),
     color,
     size,
     category,
-    imageUrl: pickFact(scrape.imageUrl, ai.imageUrl),
+    imageUrl: pickImage(),
     predefinedFields: coercedPredefined,
     userDefinedFields: mergeFieldMaps(scrape.userDefinedFields, ai.userDefinedFields, false),
     desiredQuantity,
@@ -139,29 +170,6 @@ export function isEmptyAiPopulateResult(ai: ExtractedMetadata): boolean {
     predefinedCount === 0 &&
     userDefinedCount === 0
   );
-}
-
-export function isVerboseProductTitle(title: string | null | undefined): boolean {
-  const t = title?.trim() ?? '';
-  if (!t) {
-    return false;
-  }
-
-  if (t.length > 80) {
-    return true;
-  }
-
-  const dashParts = t.split(/\s[-–—|]\s/);
-  if (dashParts.length >= 3) {
-    return true;
-  }
-
-  const commaParts = t.split(/\s*[,|]\s*/).filter(Boolean);
-  if (commaParts.length >= 3) {
-    return true;
-  }
-
-  return false;
 }
 
 export function shouldAiPopulate(

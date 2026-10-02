@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import { EMBEDDED_JSON_SCRIPT_IDS } from '../constants/embedded-json-script-ids.constant';
 import {
   DESC_KEYS,
+  EMBEDDED_JSON_SKIP_KEY_SET,
   IMAGE_KEYS,
   PRICE_KEYS,
   TITLE_KEYS,
@@ -70,7 +71,10 @@ export function deepWalkEmbeddedJson(
   if (!acc.color && typeof record.color === 'string') acc.color = record.color;
   if (!acc.size && typeof record.size === 'string') acc.size = record.size;
 
-  for (const value of Object.values(record)) {
+  for (const [key, value] of Object.entries(record)) {
+    if (EMBEDDED_JSON_SKIP_KEY_SET.has(key.toLowerCase())) {
+      continue;
+    }
     if (value && typeof value === 'object') deepWalkEmbeddedJson(value, acc, depth + 1);
   }
 }

@@ -1,3 +1,6 @@
+import type { Availability } from '../types/availability.type';
+import type { ExtractorSource } from '../types/extractor-source.type';
+
 export interface ExtractedMetadata {
   title: string;
   price: number | null;
@@ -11,4 +14,10 @@ export interface ExtractedMetadata {
   userDefinedFields?: Record<string, string>;
   /** Pack / multi-buy quantity when > 1 (from AI or title parse). */
   desiredQuantity?: number | null;
+  currency?: string;
+  availability?: Availability;
+  brand?: string;
+  gtin?: string;
+  images?: string[];
+  fieldSources?: Partial<Record<'title' | 'price' | 'image' | 'description' | 'availability', ExtractorSource>>;
 }

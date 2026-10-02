@@ -1,8 +1,6 @@
-import {
-  EXPERIMENTAL_FEATURE_API_KEYS,
-  type ExperimentalFeatureApiKey,
-  type ExperimentalFeaturesMap,
-} from '../constants/experimental-feature-keys.constant';
+import { EXPERIMENTAL_FEATURE_API_KEYS } from '../constants/experimental-feature-keys.constant';
+import type { ExperimentalFeatureApiKey } from '../types/experimental-feature-api-key.type';
+import type { ExperimentalFeaturesMap } from '../types/experimental-features-map.type';
 
 export function isExperimentalFeatureApiKey(value: unknown): value is ExperimentalFeatureApiKey {
   return (

@@ -5,7 +5,7 @@ import {
   isExperimentalFeatureApiKey,
   mergeExperimentalFeatures,
 } from '../../../domain/utils/normalize-experimental-features.util';
-import type { ExperimentalFeaturesMap } from '../../../domain/constants/experimental-feature-keys.constant';
+import type { ExperimentalFeaturesMap } from '../../../domain/types/experimental-features-map.type';
 import type { PatchExperimentalFeaturesPayload } from '../interfaces/patch-experimental-features-payload.interface';
 import type { PatchExperimentalFeaturesResult } from '../interfaces/patch-experimental-features-result.interface';
 

@@ -1,0 +1,9 @@
+{
+  "url": "https://example.myshopify.com/products/handmade-ceramic-mug",
+  "finalUrl": "https://example.myshopify.com/products/handmade-ceramic-mug",
+  "status": 200,
+  "fetchedAt": "2026-10-01T00:00:00.000Z",
+  "tier": "fixture",
+  "platform": "shopify",
+  "tags": ["seed", "og-meta"]
+}

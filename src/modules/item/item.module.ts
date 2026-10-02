@@ -13,6 +13,7 @@ import { BuildItemClaimProjectionsUseCase } from './slices/claims/use-cases/buil
 import { ValidateItemAudienceUseCase } from './slices/catalog/use-cases/validate-item-audience.use-case';
 import { AssertItemVisibleUseCase } from './slices/catalog/use-cases/assert-item-visible.use-case';
 import { ExtractMetadataUseCase } from './slices/metadata/use-cases/extract-metadata.use-case';
+import { IngestCapturedPageUseCase } from './slices/metadata/use-cases/ingest-captured-page.use-case';
 import { EnrichLinkMetadataUseCase } from './slices/metadata/use-cases/enrich-link-metadata.use-case';
 import { ExtractItemReviewsUseCase } from './slices/metadata/use-cases/extract-item-reviews.use-case';
 import { GetItemReviewsUseCase } from './slices/metadata/use-cases/get-item-reviews.use-case';
@@ -48,11 +49,14 @@ export function createItemModule(deps: ItemModuleDeps) {
     deps.itemRepo,
     deps.serverConfigRepo,
     deps.pageContextFetcher,
-    deps.productResearcher
+    deps.productResearcher,
+    deps.scrapeTelemetry
   );
+  const ingestCapturedPageUseCase = new IngestCapturedPageUseCase(extractMetadataUseCase);
   const promoteScrapedImageToPhotosUseCase = new PromoteScrapedImageToPhotosUseCase(
     deps.itemRepo,
-    deps.remoteImageFetcher
+    deps.remoteImageFetcher,
+    listChanged
   );
   const enrichLinkMetadataUseCase = new EnrichLinkMetadataUseCase(
     deps.metadataScraper,
@@ -184,6 +188,7 @@ export function createItemModule(deps: ItemModuleDeps) {
     ),
     validateItemAudience: validateItemAudienceUseCase,
     extractMetadata: extractMetadataUseCase,
+    ingestCapturedPage: ingestCapturedPageUseCase,
     getItemReviews: getItemReviewsUseCase,
     summarizeItemDescription: summarizeItemDescriptionUseCase,
     parseImportPreview: parseImportPreviewUseCase,

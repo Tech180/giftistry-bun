@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { AmazonContinueShoppingPage } from '../src/modules/item/infrastructure/scraping/interfaces/amazon-continue-shopping-page.interface';
+import type { Page } from 'playwright';
 import { runAmazonPlaywrightNavigation } from '../src/modules/item/infrastructure/scraping/utils/amazon-playwright-navigation.util';
 
 function createFakePage(options: {
@@ -8,7 +8,7 @@ function createFakePage(options: {
   productHtml: string;
   /** When true, first CTA click clears the gate without needing goto. */
   dismissClearsGate?: boolean;
-}): AmazonContinueShoppingPage & { gotoCalls: string[] } {
+}): Page & { gotoCalls: string[] } {
   let currentUrl = options.initialUrl;
   let html = options.gateHtml;
   let dismissed = false;
@@ -22,12 +22,11 @@ function createFakePage(options: {
         if (options.dismissClearsGate) {
           html = options.productHtml;
         }
-        // Otherwise stay on gate until a goto — mimics stubborn interstitial.
       },
     }),
   };
 
-  const page: AmazonContinueShoppingPage & { gotoCalls: string[] } = {
+  const page = {
     gotoCalls,
     url: () => currentUrl,
     content: async () => html,
@@ -43,7 +42,7 @@ function createFakePage(options: {
     },
   };
 
-  return page;
+  return page as unknown as Page & { gotoCalls: string[] };
 }
 
 describe('runAmazonPlaywrightNavigation', () => {
@@ -75,6 +74,26 @@ describe('runAmazonPlaywrightNavigation', () => {
     expect(result.usedReloadRetry).toBe(false);
     expect(page.gotoCalls).toEqual(['https://www.amazon.com/dp/B0TEST1234']);
     expect(page.url()).toBe('https://www.amazon.com/dp/B0TEST1234');
+  });
+
+  test('skips postGate and reload retries when the remaining budget is too small', async () => {
+    const canonical = 'https://www.amazon.com/dp/B0TEST1234';
+    const page = createFakePage({
+      initialUrl: 'https://a.co/d/09RD8uDq',
+      gateHtml,
+      productHtml,
+    });
+
+    const result = await runAmazonPlaywrightNavigation(page, {
+      postGateUrl: canonical,
+      canonicalUrl: canonical,
+      timeoutMs: 5000,
+      deadlineAt: Date.now() + 200,
+    });
+
+    expect(result.usedPostGate).toBe(false);
+    expect(result.usedReloadRetry).toBe(false);
+    expect(page.gotoCalls).toEqual([]);
   });
 
   test('skips postGate when product is already reachable', async () => {
@@ -131,7 +150,7 @@ describe('runAmazonPlaywrightNavigation', () => {
       }),
     };
 
-    const page: AmazonContinueShoppingPage & { gotoCalls: string[] } = {
+    const page = {
       gotoCalls,
       url: () => currentUrl,
       content: async () => html,
@@ -143,7 +162,6 @@ describe('runAmazonPlaywrightNavigation', () => {
         gotoCalls.push(nextUrl);
         gotoCount += 1;
         currentUrl = nextUrl;
-        // First product goto still shows gate; second clears it.
         if (gotoCount >= 2) {
           html = productHtml;
           dismissed = true;
@@ -152,7 +170,7 @@ describe('runAmazonPlaywrightNavigation', () => {
           dismissed = false;
         }
       },
-    };
+    } as unknown as Page & { gotoCalls: string[] };
 
     const result = await runAmazonPlaywrightNavigation(page, {
       postGateUrl: productUrl,

@@ -28,6 +28,9 @@ export interface ServerConfig {
   OAuthAutoLaunch?: boolean;
   AiEnabled?: boolean;
   AiWebSearchEnabled?: boolean;
+  /** Self-hosted SearXNG base URL; empty uses DuckDuckGo fallback. */
+  AiWebSearchEndpoint?: string;
+  AiWebSearchMaxPages?: number;
   AiRateLimitEnabled?: boolean;
   AiFastProvider?: AiProvider;
   AiFastEndpoint?: string;

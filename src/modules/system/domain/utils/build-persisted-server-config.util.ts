@@ -22,11 +22,13 @@ import {
   clampAiImportChunkItemLimit,
   clampAiPageContextMaxChars,
   clampAiPopulateMaxTokens,
+  clampAiWebSearchMaxPages,
   clampGrabInfoActiveStreamLimit,
   clampGrabInfoConcurrency,
   clampScrapeFetchTimeoutMs,
   clampScrapePlaywrightTimeoutMs,
 } from './clamp-server-config-limits.util';
+import { DEFAULT_AI_WEB_SEARCH_MAX_PAGES } from '../constants/ai-web-search.constant';
 import { normalizeAiMetadataExtractionPreset } from './normalize-ai-metadata-extraction-preset.util';
 import { normalizeAiProvider } from './normalize-ai-provider.util';
 import { normalizeGrabInfoConcurrencyUnlimited } from './normalize-grab-info-concurrency-unlimited.util';
@@ -66,6 +68,10 @@ export function buildPersistedServerConfig(
     OAuthAutoLaunch: config.OAuthAutoLaunch === true,
     AiEnabled: config.AiEnabled === true,
     AiWebSearchEnabled: config.AiWebSearchEnabled === true,
+    AiWebSearchEndpoint: (config.AiWebSearchEndpoint ?? '').trim().replace(/\/+$/, ''),
+    AiWebSearchMaxPages: clampAiWebSearchMaxPages(
+      config.AiWebSearchMaxPages ?? DEFAULT_AI_WEB_SEARCH_MAX_PAGES
+    ),
     AiRateLimitEnabled: config.AiRateLimitEnabled !== false,
     AiFastProvider: normalizeAiProvider(config.AiFastProvider),
     AiFastEndpoint: config.AiFastEndpoint ?? '',

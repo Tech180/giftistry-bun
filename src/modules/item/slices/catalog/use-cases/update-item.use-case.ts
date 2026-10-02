@@ -7,6 +7,7 @@ import type { ExtractItemReviewsUseCase } from '../../metadata/use-cases/extract
 import type { NotifyClaimersItemRemovedUseCase } from '../../claims/use-cases/notify-claimers-item-removed.use-case';
 import { AppError } from '@/common/domain/errors/app-error';
 import { canUserMutateItem, isItemSuggestion } from '../../../domain/utils/item-visibility.util';
+import { assertSafeScrapeUrlOrThrow } from '../../../domain/utils/assert-safe-scrape-url.util';
 import { WishlistEntity } from '@/modules/wishlist';
 import type { ItemDescriptionMetadata } from '../../../domain/interfaces/item-description-metadata.interface';
 import { resolvePlainDescriptionText } from '../../../domain/utils/resolve-item-metadata.util';
@@ -178,7 +179,7 @@ export class UpdateItemUseCase {
     }
 
     if (linkUrl !== undefined) {
-      await this.syncItemLink(item, linkUrl, price, websiteName ?? null);
+      await this.syncItemLink(item, linkUrl, price, websiteName ?? null, currentUserId);
     }
 
     // Photos are the sole image store; clear any legacy link scrape URL.
@@ -216,7 +217,8 @@ export class UpdateItemUseCase {
     item: Item,
     linkUrl: string | null,
     price: number | null | undefined,
-    websiteName: string | null
+    websiteName: string | null,
+    currentUserId: string
   ): Promise<void> {
     const existingLinks = await this.itemRepo.findLinksByItemId(item.Id);
     const normalizedUrl = linkUrl?.trim() || null;
@@ -227,6 +229,8 @@ export class UpdateItemUseCase {
       }
       return;
     }
+
+    assertSafeScrapeUrlOrThrow(normalizedUrl);
 
     let retailerName: string | null = websiteName || null;
     if (!retailerName) {

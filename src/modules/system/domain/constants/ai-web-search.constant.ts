@@ -1,0 +1,3 @@
+export const DEFAULT_AI_WEB_SEARCH_MAX_PAGES = 3;
+export const AI_WEB_SEARCH_MAX_PAGES_MIN = 1;
+export const AI_WEB_SEARCH_MAX_PAGES_MAX = 8;

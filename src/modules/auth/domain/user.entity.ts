@@ -1,7 +1,7 @@
 import type { GiftistryUserPolicy } from '@/common/domain/interfaces/giftistry-user-policy.interface';
 import type { SitePolicy } from '@/common/domain/interfaces/site-policy.interface';
 import { DomainError } from '@/common/domain/errors/domain-error';
-import type { ExperimentalFeaturesMap } from './constants/experimental-feature-keys.constant';
+import type { ExperimentalFeaturesMap } from './types/experimental-features-map.type';
 import type { TourState } from './interfaces/tour-state.interface';
 import type { User } from './interfaces/user.interface';
 

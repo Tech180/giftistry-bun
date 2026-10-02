@@ -1,21 +1,16 @@
+import type { Page } from 'playwright';
 import {
   AMAZON_PRODUCT_READY_SELECTOR,
   AMAZON_PRODUCT_READY_TIMEOUT_MS,
 } from '../constants/amazon-continue-shopping.constant';
-import type { AmazonContinueShoppingPage } from '../interfaces/amazon-continue-shopping-page.interface';
 import { tryDismissAmazonContinueShopping } from './dismiss-amazon-continue-shopping.util';
-import {
-  htmlLooksLikeContinueShoppingShell,
-  isAmazonShortLinkHost,
-} from './resolve-scrape-final-url.util';
+import { htmlLooksLikeContinueShoppingShell } from './html-looks-like-continue-shopping-shell.util';
+import { AMAZON_NAV_RETRY_MIN_BUDGET_MS } from '../constants/scrape-budget.constant';
+import { boundTimeoutMs, isBudgetExhausted } from './scrape-deadline.util';
+import { isAmazonShortLinkHost } from '../../../domain/utils/amazon-url.util';
+import type { AmazonPlaywrightNavigationResult } from '../interfaces/amazon-playwright-navigation-result.interface';
 
-export interface AmazonPlaywrightNavigationResult {
-  dismissed: boolean;
-  usedPostGate: boolean;
-  usedReloadRetry: boolean;
-}
-
-async function stillOnAmazonGate(page: AmazonContinueShoppingPage): Promise<boolean> {
+async function stillOnAmazonGate(page: Page): Promise<boolean> {
   let hostname = '';
   try {
     hostname = new URL(page.url()).hostname;
@@ -26,14 +21,7 @@ async function stillOnAmazonGate(page: AmazonContinueShoppingPage): Promise<bool
   return isAmazonShortLinkHost(hostname) || htmlLooksLikeContinueShoppingShell(html);
 }
 
-async function gotoAndDismiss(
-  page: AmazonContinueShoppingPage,
-  targetUrl: string,
-  timeoutMs: number
-): Promise<boolean> {
-  if (!page.goto) {
-    return false;
-  }
+async function gotoAndDismiss(page: Page, targetUrl: string, timeoutMs: number): Promise<boolean> {
   await page.goto(targetUrl, {
     waitUntil: 'domcontentloaded',
     timeout: timeoutMs,
@@ -47,12 +35,14 @@ async function gotoAndDismiss(
  * canonical product URL when still gated, then one reload retry if needed.
  */
 export async function runAmazonPlaywrightNavigation(
-  page: AmazonContinueShoppingPage,
+  page: Page,
   options: {
     postGateUrl?: string;
     /** Canonical product URL for a second reload when still gated (defaults to postGateUrl). */
     canonicalUrl?: string;
     timeoutMs: number;
+    /** Absolute epoch-ms deadline; retries are skipped and waits capped when little remains. */
+    deadlineAt?: number;
   }
 ): Promise<AmazonPlaywrightNavigationResult> {
   const firstDismiss = await tryDismissAmazonContinueShopping(page);
@@ -63,19 +53,24 @@ export async function runAmazonPlaywrightNavigation(
   const postGateUrl = options.postGateUrl?.trim() || '';
   const canonicalUrl = options.canonicalUrl?.trim() || postGateUrl;
 
-  if (postGateUrl && (await stillOnAmazonGate(page))) {
-    dismissed = (await gotoAndDismiss(page, postGateUrl, options.timeoutMs)) || dismissed;
+  const canRetry = () => !isBudgetExhausted(options.deadlineAt, AMAZON_NAV_RETRY_MIN_BUDGET_MS);
+  const navTimeoutMs = () => boundTimeoutMs(options.timeoutMs, options.deadlineAt);
+
+  if (postGateUrl && canRetry() && (await stillOnAmazonGate(page))) {
+    dismissed = (await gotoAndDismiss(page, postGateUrl, navTimeoutMs())) || dismissed;
     usedPostGate = true;
   }
 
   const reloadTarget = canonicalUrl || postGateUrl;
-  if (reloadTarget && (await stillOnAmazonGate(page))) {
-    dismissed = (await gotoAndDismiss(page, reloadTarget, options.timeoutMs)) || dismissed;
+  if (reloadTarget && canRetry() && (await stillOnAmazonGate(page))) {
+    dismissed = (await gotoAndDismiss(page, reloadTarget, navTimeoutMs())) || dismissed;
     usedReloadRetry = true;
   }
 
   await page
-    .waitForSelector(AMAZON_PRODUCT_READY_SELECTOR, { timeout: AMAZON_PRODUCT_READY_TIMEOUT_MS })
+    .waitForSelector(AMAZON_PRODUCT_READY_SELECTOR, {
+      timeout: boundTimeoutMs(AMAZON_PRODUCT_READY_TIMEOUT_MS, options.deadlineAt),
+    })
     .catch(() => {});
 
   return { dismissed, usedPostGate, usedReloadRetry };

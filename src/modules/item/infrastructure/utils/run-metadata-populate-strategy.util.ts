@@ -7,8 +7,17 @@ import type { ExtractedMetadata } from '../../domain/interfaces/extracted-metada
 import type { MetadataPopulatorConfig } from '../../domain/interfaces/metadata-populator-config.interface';
 import type { MetadataPopulatorInput } from '../../domain/interfaces/metadata-populator-input.interface';
 import { compilePopulatePrompt } from './compile-populate-prompt.util';
+import { PopulateJsonValidationError } from '../errors/populate-json-validation.error';
 import { parsePopulateJson } from './parse-populate-json.util';
+import {
+  buildPopulateRepairPrompt,
+  buildPopulateTruncationRetryPrompt,
+  describePopulateFailure,
+  isTruncatedPopulateReply,
+  resolveTruncationRetryMaxTokens,
+} from './populate-retry.util';
 import { completeTextPromptStream } from './ai-text-completion.util';
+import { wrapUntrustedPageContext } from '../constants/populate-prompt-rules.constant';
 
 function emptyMetadata(): ExtractedMetadata {
   return {
@@ -51,23 +60,60 @@ function mergePopulateResults(
 async function completePopulate(
   prompt: string,
   config: MetadataPopulatorConfig,
-  maxTokens: number | null | undefined
+  maxTokens: number | null | undefined,
+  options: { compactPrompt?: () => string } = {}
 ): Promise<ExtractedMetadata> {
-  const result = await completeTextPromptStream(
-    prompt,
-    {
-      provider: config.provider,
-      apiKey: config.apiKey,
-      model: config.model,
-      endpoint: config.endpoint,
-      jsonResponse: true,
-      ...(maxTokens != null ? { maxTokens } : {}),
-    },
-    async (delta) => {
-      await config.onDelta?.({ tokensPerSecond: delta.tokensPerSecond });
+  const request = async (userPrompt: string, tokens: number | null | undefined) =>
+    completeTextPromptStream(
+      userPrompt,
+      {
+        provider: config.provider,
+        apiKey: config.apiKey,
+        model: config.model,
+        endpoint: config.endpoint,
+        jsonResponse: true,
+        temperature: 0,
+        ...(config.timeoutMs != null ? { timeoutMs: config.timeoutMs } : {}),
+        ...(tokens != null ? { maxTokens: tokens } : {}),
+      },
+      async (delta) => {
+        await config.onDelta?.({ tokensPerSecond: delta.tokensPerSecond });
+      }
+    );
+
+  const first = await request(prompt, maxTokens);
+  try {
+    return parsePopulateJson(first.text);
+  } catch (err) {
+    if (!(err instanceof PopulateJsonValidationError)) {
+      throw err;
     }
-  );
-  return parsePopulateJson(result.text);
+
+    const truncated = isTruncatedPopulateReply(err, first.finishReason);
+    const retryMaxTokens = truncated ? resolveTruncationRetryMaxTokens(maxTokens) : maxTokens;
+    const retryPrompt = truncated
+      ? buildPopulateTruncationRetryPrompt(options.compactPrompt?.() ?? prompt)
+      : buildPopulateRepairPrompt(prompt, err, first.text);
+
+    const second = await request(retryPrompt, retryMaxTokens);
+    try {
+      return parsePopulateJson(second.text);
+    } catch (retryErr) {
+      if (retryErr instanceof PopulateJsonValidationError) {
+        console.warn(
+          '[AI Populate] Populate JSON failed after retry',
+          describePopulateFailure({
+            err: retryErr,
+            text: second.text,
+            finishReason: second.finishReason,
+            maxTokens: retryMaxTokens,
+            model: config.model,
+          })
+        );
+      }
+      throw retryErr;
+    }
+  }
 }
 
 function buildPackOnlyPrompt(
@@ -93,7 +139,7 @@ ${JSON.stringify({
 })}
 
 Page context:
-${input.pageContext || 'None provided'}
+${wrapUntrustedPageContext(input.pageContext || '')}
 
 ${packSection}
 
@@ -186,7 +232,21 @@ export async function runMetadataPopulateStrategy(
     }
   );
 
-  return completePopulate(prompt, config, extraction?.populateMaxTokens);
+  return completePopulate(prompt, config, extraction?.populateMaxTokens, {
+    compactPrompt:
+      profile === 'compact'
+        ? undefined
+        : () =>
+            compilePopulatePrompt(
+              config.customPrompt,
+              input,
+              {
+                descriptionPrompt: config.linkedDescriptionPrompt,
+                categoryPrompt: config.linkedCategoryPrompt,
+              },
+              { profile: 'compact', includeCategoryHub: false }
+            ),
+  });
 }
 
 /** Test helper for merge semantics. */

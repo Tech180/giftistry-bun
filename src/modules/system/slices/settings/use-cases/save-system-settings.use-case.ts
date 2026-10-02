@@ -12,7 +12,10 @@ import {
   clampGrabInfoConcurrency,
   clampScrapeFetchTimeoutMs,
   clampScrapePlaywrightTimeoutMs,
+  clampAiWebSearchMaxPages,
 } from '../../../domain/utils/clamp-server-config-limits.util';
+import { normalizeAiWebSearchEndpoint } from '../../../domain/utils/normalize-ai-web-search-endpoint.util';
+import { DEFAULT_AI_WEB_SEARCH_MAX_PAGES } from '../../../domain/constants/ai-web-search.constant';
 import { normalizeAiMetadataExtractionPreset } from '../../../domain/utils/normalize-ai-metadata-extraction-preset.util';
 import { normalizeAiProvider } from '../../../domain/utils/normalize-ai-provider.util';
 import { normalizeGrabInfoConcurrencyUnlimited } from '../../../domain/utils/normalize-grab-info-concurrency-unlimited.util';
@@ -154,6 +157,12 @@ export class SaveSystemSettingsUseCase {
       OAuthAutoLaunch: settings.OAuthAutoLaunch ?? config.OAuthAutoLaunch,
       AiEnabled: settings.AiEnabled,
       AiWebSearchEnabled: settings.AiWebSearchEnabled,
+      AiWebSearchEndpoint: normalizeAiWebSearchEndpoint(
+        settings.AiWebSearchEndpoint ?? config.AiWebSearchEndpoint
+      ),
+      AiWebSearchMaxPages: clampAiWebSearchMaxPages(
+        settings.AiWebSearchMaxPages ?? config.AiWebSearchMaxPages ?? DEFAULT_AI_WEB_SEARCH_MAX_PAGES
+      ),
       AiRateLimitEnabled: settings.AiRateLimitEnabled !== false,
       AiFastProvider: fastProvider,
       AiFastEndpoint: fastEndpoint,

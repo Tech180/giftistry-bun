@@ -45,7 +45,9 @@ Title rules (critical):
 - Usually keep a short product-type phrase when it helps identify the item. When a model code alone clearly identifies the product, that is enough.
 - Never leave color/size/variant suffixes in the title (dash, comma, or parenthetical).
 - Category-specific title examples and niche strip rules may appear in a trailing Metadata Packs section.
+- Never copy Scraped Item Name verbatim when it contains a "|" store suffix, emoji, or a regional site name (e.g. "Razer United States"). Reduce it to the brand/model identity.
 - Example: "JNENERY Needle Felting Kit" → Title: "Needle Felting Kit", Brand: "JNENERY"
+- Example: "Ultra-Thin Razer Blade 14 Gaming Laptop | Razer United States" → Title: "Razer Blade 14", Brand: "Razer"
 
 Description rules (critical):
 - "Description" must be 1–2 plain sentences about the product itself (what it is and primary use). Aim for ~300 characters; do not paste long page copy.
@@ -55,7 +57,7 @@ Description rules (critical):
 - Bad example: "Blue size Large hoodie with cotton blend and free shipping."
 - Exclude store policies, shipping/returns, customs/duty/tax notices, "NOTICE:" boilerplate, checkout messaging, FSA/HSA eligibility, sizing-kit instructions, "size before you buy", compatibility lists, superlatives, and promotional filler.
 - Never use customs, tax, duty, shipping policy, or legal notice text as the product description.
-- When page context only has policy/legal copy, infer a short factual description from the product name and category (e.g. "Needle Felting Kit" → beginner craft kit for needle felting).
+- Base the Description only on the page context and web search context above. When the page context only has policy/legal copy and the web search context does not describe this product, use null — never invent a description from the product name alone, and never reuse wording from these instructions.
 - Use null when there is insufficient product info — never paste marketplace marketing paragraphs or store notices.
 - A trailing Metadata Packs section may add extra PredefinedFields / UserDefinedFields keys. Extract those when present on the page; omit them when unknown.
 

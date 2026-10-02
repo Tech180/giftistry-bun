@@ -1,0 +1,9 @@
+{
+  "url": "https://shop.example.com/products/missing-item",
+  "finalUrl": "https://shop.example.com/products/missing-item",
+  "status": 404,
+  "fetchedAt": "2026-10-01T00:00:00.000Z",
+  "tier": "fixture",
+  "platform": "generic",
+  "tags": ["seed", "synthetic", "http-error"]
+}

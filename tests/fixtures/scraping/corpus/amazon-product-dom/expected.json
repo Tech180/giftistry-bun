@@ -1,0 +1,9 @@
+{
+  "pageType": "product",
+  "title": ["Kindle Paperwhite"],
+  "price": 139.99,
+  "currency": "USD",
+  "imageHost": "m.media-amazon.com",
+  "availability": null,
+  "shouldBeBlocked": false
+}

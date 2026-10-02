@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from 'bun:test';
+import { noopScrapeTelemetry } from '../src/modules/item/infrastructure/adapters/log-scrape-telemetry';
 
 mock.module('../src/common/utils/probe-ai-reachability.util', () => ({
   probeAiReachability: async () => true,
@@ -14,6 +15,10 @@ describe('ExtractMetadataUseCase progress', () => {
 
     const useCase = new ExtractMetadataUseCase(
       {
+        resolveFinalUrl: async () => null,
+        scrapeFromCapture: async () => {
+          throw new Error('scrapeFromCapture not implemented in mock');
+        },
         scrape: async () => ({
           data: { title: 'Lamp', category: 'Home', description: null, price: null },
           diagnostics: {
@@ -59,7 +64,9 @@ describe('ExtractMetadataUseCase progress', () => {
         resolveWebsiteName: () => 'example.com',
         buildContextFromHtml: () => 'ctx',
         fetchContext: async () => 'ctx',
-      } as never
+      } as never,
+      undefined,
+      noopScrapeTelemetry
     );
 
     // High confidence scrape skips populate; still emits scrape + categorize.
@@ -82,6 +89,10 @@ describe('ExtractMetadataUseCase progress', () => {
 
     const useCase = new ExtractMetadataUseCase(
       {
+        resolveFinalUrl: async () => null,
+        scrapeFromCapture: async () => {
+          throw new Error('scrapeFromCapture not implemented in mock');
+        },
         scrape: async () => ({
           data: { title: 'Lamp', category: 'Home', description: null, price: null },
           diagnostics: {
@@ -112,7 +123,9 @@ describe('ExtractMetadataUseCase progress', () => {
         resolveWebsiteName: () => 'example.com',
         buildContextFromHtml: () => '',
         fetchContext: async () => '',
-      } as never
+      } as never,
+      undefined,
+      noopScrapeTelemetry
     );
 
     await useCase.execute('https://example.com/lamp', 'user-1', {

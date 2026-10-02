@@ -12,4 +12,8 @@ export interface TextCompletionConfig {
   connectTimeoutMs?: number;
   /** Max completion tokens when the provider supports it. */
   maxTokens?: number;
+  /** Sampling temperature (extraction calls use 0). */
+  temperature?: number;
+  /** Optional seed for providers that support it. */
+  seed?: number;
 }

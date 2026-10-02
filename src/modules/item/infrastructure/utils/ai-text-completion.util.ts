@@ -57,6 +57,8 @@ async function streamOpenAiCompatible(
     extraHeaders?: Record<string, string>;
     jsonResponse?: boolean;
     maxTokens?: number;
+    temperature?: number;
+    seed?: number;
     timeoutMs: number;
     connectTimeoutMs: number;
     includeUsage?: boolean;
@@ -78,6 +80,7 @@ async function streamOpenAiCompatible(
   let text = '';
   let promptTokens: number | undefined;
   let completionTokens: number | undefined;
+  let finishReason: string | undefined;
   let sseBuffer = '';
 
   const response = await fetchWithAiTimeouts(
@@ -90,6 +93,8 @@ async function streamOpenAiCompatible(
         messages: [{ role: 'user', content: prompt }],
         stream: true,
         ...(options.maxTokens != null ? { max_tokens: options.maxTokens } : {}),
+        ...(options.temperature != null ? { temperature: options.temperature } : {}),
+        ...(options.seed != null ? { seed: options.seed } : {}),
         ...(options.includeUsage ? { stream_options: { include_usage: true } } : {}),
         ...(options.jsonResponse ? { response_format: { type: 'json_object' } } : {}),
       }),
@@ -120,6 +125,7 @@ async function streamOpenAiCompatible(
       if (delta.content) {
         text += delta.content;
       }
+      if (delta.finishReason) finishReason = delta.finishReason;
       if (delta.completionTokens != null) completionTokens = delta.completionTokens;
       if (delta.promptTokens != null) promptTokens = delta.promptTokens;
       const tokenCount = completionTokens ?? estimateTokensFromText(text);
@@ -134,7 +140,7 @@ async function streamOpenAiCompatible(
 
   const usage = buildUsage(text, startedAt, promptTokens, completionTokens);
   await emit(text, usage.tokensPerSecond ?? null, true);
-  return { text, usage };
+  return { text, usage, ...(finishReason ? { finishReason } : {}) };
 }
 
 export async function completeTextPromptStream(
@@ -142,7 +148,16 @@ export async function completeTextPromptStream(
   config: TextCompletionConfig,
   onDelta?: TextCompletionDeltaHandler
 ): Promise<TextCompletionResult> {
-  const { provider, apiKey, model, endpoint, jsonResponse = false, maxTokens } = config;
+  const {
+    provider,
+    apiKey,
+    model,
+    endpoint,
+    jsonResponse = false,
+    maxTokens,
+    temperature,
+    seed,
+  } = config;
   const timeoutMs = resolveCompletionTimeoutMs(config.timeoutMs);
   const connectTimeoutMs =
     config.connectTimeoutMs !== undefined
@@ -157,6 +172,8 @@ export async function completeTextPromptStream(
       extraHeaders: { ...OPENROUTER_EXTRA_HEADERS },
       jsonResponse,
       maxTokens,
+      temperature,
+      seed,
       timeoutMs,
       connectTimeoutMs,
       includeUsage: true,
@@ -181,6 +198,8 @@ export async function completeTextPromptStream(
     headers,
     jsonResponse,
     maxTokens,
+    temperature,
+    seed,
     timeoutMs,
     connectTimeoutMs,
     includeUsage: false,

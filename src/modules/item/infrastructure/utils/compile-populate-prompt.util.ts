@@ -4,6 +4,8 @@ import {
   POPULATE_DESCRIPTION_FIELD_GUIDANCE,
   POPULATE_JSON_ONLY_FOOTER,
   RECONCILE_RULES,
+  wrapUntrustedPageContext,
+  wrapUntrustedSearchContext,
 } from '../constants/populate-prompt-rules.constant';
 import type { CompilePopulatePromptOptions } from '../interfaces/compile-populate-prompt-options.interface';
 import type { LinkedPopulatePrompts } from '../interfaces/linked-populate-prompts.interface';
@@ -18,15 +20,17 @@ export function applyPopulateTemplateTokens(
   input: MetadataPopulatorInput,
   searchContext: string
 ): string {
+  const wrappedPage = wrapUntrustedPageContext(input.pageContext || '');
+  const wrappedSearch = wrapUntrustedSearchContext(searchContext);
   return template
     .replace(/{url}/g, input.url || '')
     .replace(/{websiteName}/g, input.websiteName || '')
-    .replace(/{pageContext}/g, input.pageContext || 'None provided')
-    .replace(/{searchContext}/g, searchContext)
+    .replace(/{pageContext}/g, wrappedPage)
+    .replace(/{searchContext}/g, wrappedSearch)
     .replace(/{itemName}/g, input.itemName || '')
     .replace(/{category}/g, input.category || '')
     .replace(/{existingNotes}/g, '')
-    .replace(/{itemContext}/g, input.pageContext || 'None provided')
+    .replace(/{itemContext}/g, wrappedPage)
     .replace(/{existingCategories}/g, '')
     .replace(/{price}/g, '');
 }
@@ -68,7 +72,7 @@ export function compilePopulatePrompt(
   const resolved = applyPopulateTemplateTokens(resolvedTemplate, input, searchContext);
 
   const withReconcile =
-    input.reconcileSources && searchContext !== 'None'
+    input.reconcileSources && searchContext !== 'None' && searchContext.length > 0
       ? `${RECONCILE_RULES}\n\n${resolved}`
       : resolved;
 

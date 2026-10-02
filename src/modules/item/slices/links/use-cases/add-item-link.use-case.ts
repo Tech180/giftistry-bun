@@ -2,6 +2,7 @@ import type { ItemRepository } from '../../../domain/ports/item.repository';
 import type { ItemLink } from '../../../domain/interfaces/item-link.interface';
 import type { AssertItemVisibleUseCase } from '../../catalog/use-cases/assert-item-visible.use-case';
 import { AppError } from '@/common/domain/errors/app-error';
+import { assertSafeScrapeUrlOrThrow } from '../../../domain/utils/assert-safe-scrape-url.util';
 import type { EnrichLinkMetadataUseCase } from '../../metadata/use-cases/enrich-link-metadata.use-case';
 import type { ExtractItemReviewsUseCase } from '../../metadata/use-cases/extract-item-reviews.use-case';
 import type { ListChangedPublisher } from '@/modules/wishlist';
@@ -22,6 +23,8 @@ export class AddItemLinkUseCase {
     if (!url) {
       throw new AppError('URL is required', 400, 'BAD_REQUEST');
     }
+
+    assertSafeScrapeUrlOrThrow(url);
 
     await this.assertItemVisible.execute(itemId, currentUserId);
 

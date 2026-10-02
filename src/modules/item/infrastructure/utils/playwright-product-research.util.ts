@@ -19,11 +19,11 @@ import {
 
 export async function searchDuckDuckGo(query: string): Promise<string> {
   const searchUrl = `${DUCKDUCKGO_HTML_SEARCH_URL}${encodeURIComponent(query)}`;
-  const context = await playwrightManager.acquire();
-  let page: Awaited<ReturnType<typeof context.newPage>> | null = null;
+  const lease = await playwrightManager.acquire();
+  let page: Awaited<ReturnType<typeof lease.context.newPage>> | null = null;
 
   try {
-    page = await context.newPage();
+    page = await lease.context.newPage();
     await page.goto(searchUrl, {
       waitUntil: 'domcontentloaded',
       timeout: scrapingConfig.playwrightTimeoutMs,
@@ -34,7 +34,7 @@ export async function searchDuckDuckGo(query: string): Promise<string> {
     if (page) {
       await page.close().catch(() => {});
     }
-    await playwrightManager.release(context);
+    await lease.release();
   }
 }
 

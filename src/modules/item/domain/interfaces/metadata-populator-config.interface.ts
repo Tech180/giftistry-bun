@@ -14,4 +14,6 @@ export interface MetadataPopulatorConfig {
   onDelta?: MetadataPopulatorDeltaHandler;
   extractionOptions?: AiMetadataExtractionOptions;
   packs?: readonly MetadataPack[];
+  /** Optional per-request completion timeout cap (ms), e.g. remaining extract budget. */
+  timeoutMs?: number;
 }

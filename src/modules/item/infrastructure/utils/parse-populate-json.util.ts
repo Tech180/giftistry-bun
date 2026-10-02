@@ -1,6 +1,8 @@
 import type { ExtractedMetadata } from '../../domain/interfaces/extracted-metadata.interface';
 import { promoteProseCustomFieldsToDescription } from '../../domain/utils/promote-prose-custom-fields-to-description.util';
 import { sanitizeProductDescription } from '../../domain/utils/sanitize-product-description.util';
+import { PopulateJsonValidationError } from '../errors/populate-json-validation.error';
+import { isUnclosedJsonObject } from './is-unclosed-json-object.util';
 
 /** Pulls the first JSON object from model prose (fenced or embedded). */
 export function extractFirstJsonObject(text: string): string {
@@ -85,9 +87,70 @@ function parseFieldMap(raw: unknown): Record<string, string> {
   return result;
 }
 
+function assertStringOrNull(value: unknown, field: string): void {
+  if (value === null || value === undefined) return;
+  if (typeof value !== 'string') {
+    throw new PopulateJsonValidationError(`${field} must be a string when present`);
+  }
+}
+
+function assertFieldMap(value: unknown, field: string): void {
+  if (value === null || value === undefined) return;
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    throw new PopulateJsonValidationError(`${field} must be an object when present`);
+  }
+}
+
+export function validatePopulateJsonShape(parsed: Record<string, unknown>): void {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new PopulateJsonValidationError('Populate JSON root must be an object');
+  }
+
+  assertStringOrNull(parsed.Title, 'Title');
+  assertStringOrNull(parsed.Description, 'Description');
+  assertStringOrNull(parsed.Color, 'Color');
+  assertStringOrNull(parsed.Size, 'Size');
+  assertStringOrNull(parsed.ImageUrl, 'ImageUrl');
+  assertStringOrNull(parsed.Brand, 'Brand');
+  assertFieldMap(parsed.PredefinedFields, 'PredefinedFields');
+  assertFieldMap(parsed.UserDefinedFields, 'UserDefinedFields');
+
+  const price = parsed.Price;
+  if (
+    price !== null &&
+    price !== undefined &&
+    typeof price !== 'number' &&
+    typeof price !== 'string'
+  ) {
+    throw new PopulateJsonValidationError('Price must be a number or string when present');
+  }
+}
+
 export function parsePopulateJson(text: string): ExtractedMetadata {
   const clean = extractFirstJsonObject(text);
-  const parsed = JSON.parse(clean) as Record<string, unknown>;
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(clean) as Record<string, unknown>;
+  } catch {
+    const rawLength = text.length;
+    if (!clean.trim()) {
+      throw new PopulateJsonValidationError('Populate JSON response was empty', {
+        kind: 'empty',
+        rawLength,
+      });
+    }
+    if (isUnclosedJsonObject(clean)) {
+      throw new PopulateJsonValidationError('Populate JSON was truncated (unclosed object)', {
+        kind: 'truncated',
+        rawLength,
+      });
+    }
+    throw new PopulateJsonValidationError('Populate JSON is not valid JSON', {
+      kind: 'malformed',
+      rawLength,
+    });
+  }
+  validatePopulateJsonShape(parsed);
   const priceRaw = parsed.Price;
   let price: number | null = null;
   if (typeof priceRaw === 'number' && !Number.isNaN(priceRaw)) {

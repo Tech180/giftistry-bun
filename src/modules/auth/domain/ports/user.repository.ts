@@ -1,4 +1,4 @@
-import type { ExperimentalFeaturesMap } from '../constants/experimental-feature-keys.constant';
+import type { ExperimentalFeaturesMap } from '../types/experimental-features-map.type';
 import type { User } from '../interfaces/user.interface';
 import type { TourState } from '../interfaces/tour-state.interface';
 import type { UserSearchResult } from '@/modules/friends';

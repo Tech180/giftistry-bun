@@ -29,6 +29,8 @@ bun run scripts/ensure-test-database.ts   # optional
 | `bun run check:sql` | Forbid `sql` imports outside infrastructure allowlist |
 | `bun run check:layers` | Forbid application→infra / domain leaks |
 | `bun run collections:generate` | Regenerate HTTPie collection from OpenAPI |
+| `bun run canary:scrape` | Live scrape canary against public product URLs (network + Playwright) |
+| `bun run eval:scrape` | Offline HTML corpus replay under `tests/fixtures/scraping/corpus/` |
 | `bun run reset-database` | Destructive DB reset (guarded against test DB) |
 | `bun run giftistry-admin` | Admin CLI helpers |
 
@@ -88,11 +90,75 @@ Import `httpie-collection-giftistry.json` and `httpie-environment-local.json`. S
 | `CREDENTIALS_DIRECTORY` / `GIFTISTRY_CREDENTIALS_DIRECTORY` | — | Directory of files named after secret keys |
 | `SCRAPE_*` | no | Playwright/fetch scrape timeouts and concurrency — see [architecture.md](architecture.md) |
 
+### Live scrape canary
+
+The canary script exercises the real `MetadataScraperOrchestrator` against stable public URLs listed in `tests/fixtures/scraping/canary-urls.json`. It runs with concurrency **2**, checks optional `titleContains` / price bounds, prints pass/fail grouped by host, and exits **non-zero** when the scored pass rate falls below `minPassRate` (negative `expectFailure` entries are scored separately).
+
+```bash
+bun run canary:scrape
+# custom fixture:
+bun scripts/scrape-canary.ts --fixture=tests/fixtures/scraping/canary-urls.json
+```
+
+Requires outbound HTTPS and Chromium (same as production scraping). Tune `SCRAPE_*` env vars if fetches time out.
+
+**Cron (hourly example)** — run from the repo root as the deploy user; mail on failure:
+
+```cron
+0 * * * * cd /opt/giftistry-bun && /usr/bin/bun run canary:scrape >> /var/log/giftistry-scrape-canary.log 2>&1 || echo "scrape canary failed" | mail -s "giftistry scrape canary" ops@example.com
+```
+
+**systemd timer** — service + timer units (adjust paths and `User=`):
+
+```ini
+# /etc/systemd/system/giftistry-scrape-canary.service
+[Unit]
+Description=Giftistry live scrape canary
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/giftistry-bun
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/bun run canary:scrape
+User=giftistry
+
+# /etc/systemd/system/giftistry-scrape-canary.timer
+[Unit]
+Description=Hourly Giftistry scrape canary
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+Enable with `systemctl enable --now giftistry-scrape-canary.timer`. Check logs via `journalctl -u giftistry-scrape-canary.service`.
+
+### Client-captured product pages
+
+When server fetch is blocked (bot gate, geo, etc.), an authenticated client may POST captured retailer HTML:
+
+- **Route:** `POST /api/items/metadata/capture-page`
+- **Body:** `Giftistry.Items.Url`, `Giftistry.Items.Html` (required, ≤ ~2 MiB UTF-8), optional `CapturedJson`, optional `ListId` for category context
+- **Behavior:** `IngestCapturedPageUseCase` → `ExtractMetadataUseCase` with `capture` (no server fetch). Response mirrors enrich job fields (`Title`, `Diagnostics.NeedsReview`, `Diagnostics.FieldSources`, …).
+- Treat submitted HTML as untrusted; SSRF-safe URL validation still applies to `Url`.
+
+Admin scrape telemetry reporting is stubbed at `GET /api/admin/scrape-stats` → `{ Available: false }` until events are persisted.
+
+When a scraped product image is promoted into `Item.Photos`, the API emits **`list.changed`** (`item.updated`) on the wishlist WebSocket room so open list views (and guest preview realtime) can refetch items and show thumbnails without a full page reload.
+
 ### Scraping tips
 
+- A scrape that runs long is bounded by `SCRAPE_TOTAL_BUDGET_MS` (default: fetch + Playwright timeouts + 10s). Telemetry splits `scrapeDurationMs` from `aiDurationMs`, so slow AI stages no longer look like slow scrapes. If `[AI Populate] Populate JSON failed after retry` appears, its `kind` / `finishReason` / `maxTokens` fields say whether the reply was truncated (raise `AiPopulateMaxTokens`) or malformed (try a larger model or the `fast` preset).
+
+- **Corpus snapshots** under `tests/fixtures/scraping/corpus/` are trimmed third-party HTML saved for internal scraper regression tests only. Do not treat them as licensed content for redistribution; prefer synthetic or redacted captures when adding entries (`bun scripts/scrape-corpus-capture.ts`).
 - Prefer canonical retailer URLs (e.g. `https://www.amazon.com/dp/…`) over short links (`a.co`, `amzn.to`) when pasteable — short links often hit a “Continue shopping” gate.
 - Amazon enrich may skip the HTTP fetch tier and use Playwright (canonical `/dp/{ASIN}` first when ASIN is in the URL). If Amazon still serves a bot/captcha gate, AI populate is **fail-closed**: thin URL/ASIN context alone is not enough — web search must corroborate the AI title, or extract rethrows the blocked scrape error (user enters metadata manually). See [architecture.md](architecture.md).
-- After upgrading, if blocked-link enrich still hallucinates from old prompt examples, reset **AI populate prompt** to defaults in server settings (persisted `AiPopulatePrompt` is not auto-migrated).
+- Scrapes reject private/local URLs (SSRF guard). Fetch uses manual redirects with DNS checks per hop; Playwright aborts private-host requests.
+- Soft block markers (“continue shopping”, “access denied”) no longer scan the full page body — strong product signals (title+price+image) win over soft markers.
+- After upgrading, if blocked-link enrich still hallucinates from old prompt examples, reset **AI populate prompt** to defaults in server settings (persisted `AiPopulatePrompt` is not auto-migrated). An empty `AiPopulatePrompt` in `config.json` uses the current default. Gift-list titles are also normalized in code (`normalizeGiftFacingTitle`): emoji and `| Store Name` suffixes are removed even when the model echoes the page title.
 - Manual repro for blocked AI trust: `bun run scripts/repro-blocked-amazon-extract.ts` (add `--with-web-search` when Playwright/`SCRAPE_PLAYWRIGHT_EXECUTABLE_PATH` is available).
 
 Use `getEnv()` from `src/common/config/utils/get-env.util.ts` for typed runtime config.
@@ -105,6 +171,10 @@ Use `getEnv()` from `src/common/config/utils/get-env.util.ts` for typed runtime 
 - Password policy: min 8 chars, letter + number
 
 Server settings (remote SMTP, AI, OAuth, `PublicAppUrl`) live in `config.json` via `/api/system/settings`.
+
+### Extract / enrich AI gating
+
+`ExtractMetadataUseCase` (item-enrich jobs, capture-page ingest, blocked link fallback) runs categorize/populate AI only when **all** of the following are on: server `AiEnabled` (with a configured fast AI slot), the acting user’s AI preference and `CanUseAiFeatures` policy, and—when `listId` is passed—the wishlist’s `AiEnabled`. If any gate is off, enrich returns scrape-only fields with `Diagnostics.AiPopulate: skipped`. Blocked retailer pages do not get an AI fallback when AI is disallowed; the blocked scrape error is rethrown instead.
 
 ### AI metadata extraction presets
 

@@ -7,7 +7,7 @@ import type { CustomTheme } from '../../domain/interfaces/custom-theme.interface
 import type { CustomThemeInput } from '../../domain/interfaces/custom-theme-input.interface';
 import type { DeleteAccountStatus } from '../../domain/interfaces/delete-account-status.interface';
 import type { EmailVerificationLookup } from '../../domain/interfaces/email-verification-lookup.interface';
-import type { ExperimentalFeaturesMap } from '../../domain/constants/experimental-feature-keys.constant';
+import type { ExperimentalFeaturesMap } from '../../domain/types/experimental-features-map.type';
 import type { TourState } from '../../domain/interfaces/tour-state.interface';
 import type { TwoFactorSecrets } from '../../domain/interfaces/two-factor-secrets.interface';
 import type { User } from '../../domain/interfaces/user.interface';

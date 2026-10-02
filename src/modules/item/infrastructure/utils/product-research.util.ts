@@ -2,7 +2,7 @@ import * as cheerio from 'cheerio';
 import type { ProductResearchInput } from '../../domain/interfaces/product-research-input.interface';
 import { MAX_SEARCH_RESULTS } from '../constants/product-research.constant';
 import type { SearchResultItem } from '../interfaces/search-result-item.interface';
-import { parseAmazonAsinFromUrl } from '../scraping/utils/amazon-scrape-url.util';
+import { parseAmazonAsinFromUrl } from '../../domain/utils/amazon-url.util';
 
 export function buildSearchQuery(input: ProductResearchInput): string {
   const itemName = input.itemName.trim();

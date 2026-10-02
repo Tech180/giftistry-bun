@@ -1,6 +1,5 @@
 import type { ExtractedMetadata } from '../interfaces/extracted-metadata.interface';
-import { compactGiftTitle } from './compact-gift-title.util';
-import { isVerboseProductTitle } from './merge-extracted-metadata.util';
+import { normalizeGiftFacingTitle } from './normalize-gift-facing-title.util';
 import { isUnusableProductDescription } from './product-description.util';
 
 /**
@@ -8,10 +7,7 @@ import { isUnusableProductDescription } from './product-description.util';
  * never ship marketplace laundry lists into the add-item form.
  */
 export function polishGiftFacingMetadata(data: ExtractedMetadata): ExtractedMetadata {
-  let title = data.title?.trim() || '';
-  if (isVerboseProductTitle(title)) {
-    title = compactGiftTitle(title) || title;
-  }
+  const title = normalizeGiftFacingTitle(data.title);
 
   let description = data.description?.trim() || null;
   if (description && isUnusableProductDescription(description)) {

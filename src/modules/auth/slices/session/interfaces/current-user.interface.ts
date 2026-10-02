@@ -1,5 +1,5 @@
 import type { TourState } from '../../../domain/interfaces/tour-state.interface';
-import type { ExperimentalFeaturesMap } from '../../../domain/constants/experimental-feature-keys.constant';
+import type { ExperimentalFeaturesMap } from '../../../domain/types/experimental-features-map.type';
 
 export interface CurrentUser {
   userId: string;

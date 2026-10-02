@@ -13,14 +13,13 @@ import { DeleteAdminUserUseCase } from './slices/users/use-cases/delete-admin-us
 import { GetSitePolicyAdminUseCase } from './slices/policy/use-cases/get-site-policy-admin.use-case';
 import { SaveSitePolicyAdminUseCase } from './slices/policy/use-cases/save-site-policy-admin.use-case';
 import { ListAuditLogUseCase } from './slices/audit/use-cases/list-audit-log.use-case';
+import { GetScrapeStatsUseCase } from './slices/audit/use-cases/get-scrape-stats.use-case';
 import { ModerateCommentUseCase } from './slices/moderation/use-cases/moderate-comment.use-case';
 import { HandleReportUseCase } from './slices/reports/use-cases/handle-report.use-case';
 import { CreateReportUseCase } from './slices/reports/use-cases/create-report.use-case';
 import { createAdminAuthMiddleware } from './presentation/middlewares/admin-auth.middleware';
 import { adminRoutes } from './presentation/admin.routes';
 import { reportsRoutes } from './presentation/reports.routes';
-
-export type { AdminModuleDeps } from './interfaces/admin-module-deps.interface';
 
 export function createAdminModule(deps: AdminModuleDeps) {
   const createReport = new CreateReportUseCase(deps.reportRepo);
@@ -60,6 +59,7 @@ export function createAdminModule(deps: AdminModuleDeps) {
             deps.writeAuditLogUseCase
           ),
           listAuditLog: new ListAuditLogUseCase(deps.auditLogRepo),
+          getScrapeStats: new GetScrapeStatsUseCase(),
           moderateComment: new ModerateCommentUseCase(
             deps.moderationRepo,
             deps.writeAuditLogUseCase

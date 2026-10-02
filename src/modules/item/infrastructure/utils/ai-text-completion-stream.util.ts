@@ -26,18 +26,24 @@ export function extractOpenAiStreamDelta(payload: unknown): {
   content: string;
   completionTokens?: number;
   promptTokens?: number;
+  finishReason?: string;
 } {
   if (!payload || typeof payload !== 'object') return { content: '' };
   const record = payload as {
-    choices?: Array<{ delta?: { content?: string | null } }>;
+    choices?: Array<{ delta?: { content?: string | null }; finish_reason?: string | null }>;
     usage?: { completion_tokens?: number; prompt_tokens?: number };
   };
   const content = record.choices?.[0]?.delta?.content ?? '';
+  const finishReason = record.choices?.[0]?.finish_reason;
   const result: {
     content: string;
     completionTokens?: number;
     promptTokens?: number;
+    finishReason?: string;
   } = { content: typeof content === 'string' ? content : '' };
+  if (typeof finishReason === 'string' && finishReason) {
+    result.finishReason = finishReason;
+  }
   if (typeof record.usage?.completion_tokens === 'number') {
     result.completionTokens = record.usage.completion_tokens;
   }

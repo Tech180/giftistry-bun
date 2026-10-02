@@ -1,0 +1,1 @@
+export const SHORT_PAGE_VISIBLE_CHARS = 2_000;

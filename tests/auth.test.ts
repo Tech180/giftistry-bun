@@ -364,15 +364,12 @@ describe("Authentication & Global Endpoints", () => {
     expect(paperMarioCss).toContain("--theme-primary: #E3001B");
     expect(paperMarioCss).not.toContain("#ff00ff");
 
-    const resDynamic = await app.handle(
+    const resMissingCustom = await app.handle(
       new Request("http://localhost/api/themes/user-theme-999/dark/css", {
         method: "GET"
       })
     );
-    expect(resDynamic.status).toBe(200);
-    expect(resDynamic.headers.get("Content-Type")).toBe("text/css");
-    expect(resDynamic.headers.get("ETag")).toMatch(/^W\/"/);
-    expect(resDynamic.headers.get("Cache-Control")).toBe("public, max-age=60");
+    expect(resMissingCustom.status).toBe(404);
   });
 
   test("Core stylesheet serving endpoint with caching", async () => {
@@ -725,7 +722,8 @@ describe("Authentication & Global Endpoints", () => {
                 Text: "#ddeeff"
               },
               Advanced: {
-                Radius: { Default: "15px" }
+                Radius: { Default: "15px" },
+                Shadows: { Md: "0 4px 6px rgba(0,0,0,0.1)" }
               }
             }
           }
@@ -757,9 +755,10 @@ describe("Authentication & Global Endpoints", () => {
     expect(cssRes.status).toBe(200);
     expect(cssRes.headers.get("Content-Type")).toBe("text/css");
     const cssContent = await cssRes.text();
-    expect(cssContent).toContain("--theme-primary: #112233");
-    expect(cssContent).toContain("--theme-bg: #445566");
+    expect(cssContent).toContain("--theme-primary: #FF112233");
+    expect(cssContent).toContain("--theme-bg: #FF445566");
     expect(cssContent).toContain("--theme-radius: 0.9375rem");
+    expect(cssContent).toContain("--theme-shadow: 0 4px 6px rgba(0,0,0,0.1)");
 
     // 5. Delete custom theme
     const deleteRes = await app.handle(

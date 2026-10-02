@@ -1,0 +1,9 @@
+{
+  "pageType": "product",
+  "title": ["Next.js Running Shoes"],
+  "price": 89.99,
+  "currency": "USD",
+  "imageHost": "example.com",
+  "availability": null,
+  "shouldBeBlocked": false
+}

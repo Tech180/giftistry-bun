@@ -1,9 +1,12 @@
+import type { ScrapeDiagnostics } from '@/modules/item';
+import { mapScrapeDiagnosticsToPascalApi } from '@/modules/item';
 import type { EnrichExtractSnapshot } from '../interfaces/enrich-extract-snapshot.interface';
 
 export function buildEnrichJobResult(
   extract: EnrichExtractSnapshot,
   fallbackUrl: string
 ): Record<string, unknown> {
+  const diagnostics = extract.diagnostics as ScrapeDiagnostics;
   return {
     Title: extract.data.title,
     Price: extract.data.price,
@@ -17,13 +20,6 @@ export function buildEnrichJobResult(
       Predefined: extract.data.predefinedFields ?? {},
       UserDefined: extract.data.userDefinedFields ?? {},
     },
-    Diagnostics: {
-      Source: extract.diagnostics.source,
-      Confidence: extract.diagnostics.confidence,
-      FieldsFound: extract.diagnostics.fieldsFound,
-      AiPopulate: extract.diagnostics.aiPopulate,
-      Blocked: extract.diagnostics.blocked,
-      ValidationReason: extract.diagnostics.validationReason,
-    },
+    Diagnostics: mapScrapeDiagnosticsToPascalApi(diagnostics),
   };
 }

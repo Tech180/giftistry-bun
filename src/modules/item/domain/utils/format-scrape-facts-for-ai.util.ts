@@ -1,4 +1,3 @@
-import type { AiMetadataExtractionOptions } from '@/modules/system';
 import type { ExtractedMetadata } from '../interfaces/extracted-metadata.interface';
 
 function compactFieldMap(map: Record<string, string> | undefined): Record<string, string> | undefined {
@@ -53,14 +52,11 @@ export function formatScrapeFactsForAi(data: ExtractedMetadata): string {
 }
 
 export function shouldAttachScrapeFacts(
-  scrape: { diagnostics: { confidence: string; blocked?: boolean } },
-  extraction: Pick<AiMetadataExtractionOptions, 'attachScrapeFactsWhenHighConfidence'>
+  scrape: { diagnostics: { blocked?: boolean } },
+  data: ExtractedMetadata
 ): boolean {
-  if (!extraction.attachScrapeFactsWhenHighConfidence) {
-    return false;
-  }
   if (scrape.diagnostics.blocked) {
     return false;
   }
-  return scrape.diagnostics.confidence === 'high';
+  return formatScrapeFactsForAi(data).length > 0;
 }

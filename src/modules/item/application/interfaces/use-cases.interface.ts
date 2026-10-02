@@ -15,6 +15,7 @@ import type { AddItemLinkUseCase } from '../../slices/links/use-cases/add-item-l
 import type { SyncItemLinksUseCase } from '../../slices/links/use-cases/sync-item-links.use-case';
 import type { SyncItemRelatedUseCase } from '../../slices/links/use-cases/sync-item-related.use-case';
 import type { ExtractMetadataUseCase } from '../../slices/metadata/use-cases/extract-metadata.use-case';
+import type { IngestCapturedPageUseCase } from '../../slices/metadata/use-cases/ingest-captured-page.use-case';
 import type { GetItemReviewsUseCase } from '../../slices/metadata/use-cases/get-item-reviews.use-case';
 import type { PromoteScrapedImageToPhotosUseCase } from '../../slices/metadata/use-cases/promote-scraped-image-to-photos.use-case';
 import type { SummarizeItemDescriptionUseCase } from '../../slices/metadata/use-cases/summarize-item-description.use-case';
@@ -38,6 +39,7 @@ export interface UseCases {
   unclaimItemWithLinked: UnclaimItemWithLinkedUseCase;
   validateItemAudience: ValidateItemAudienceUseCase;
   extractMetadata: ExtractMetadataUseCase;
+  ingestCapturedPage: IngestCapturedPageUseCase;
   getItemReviews: GetItemReviewsUseCase;
   summarizeItemDescription: SummarizeItemDescriptionUseCase;
   parseImportPreview: ParseImportPreviewUseCase;

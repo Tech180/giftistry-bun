@@ -110,6 +110,16 @@ export function normalizeServerConfig(data: Record<string, unknown>): ServerConf
       const value = pick<unknown>(data, 'AiWebSearchEnabled', undefined);
       return value !== undefined ? Boolean(value) : undefined;
     })(),
+    AiWebSearchEndpoint: (() => {
+      if (!hasKey(data, 'AiWebSearchEndpoint')) {
+        return undefined;
+      }
+      return String(pick(data, 'AiWebSearchEndpoint', '')).trim();
+    })(),
+    AiWebSearchMaxPages: (() => {
+      const value = pick<unknown>(data, 'AiWebSearchMaxPages', undefined);
+      return value !== undefined ? Number(value) : undefined;
+    })(),
     AiRateLimitEnabled: rateLimitRaw !== undefined ? Boolean(rateLimitRaw) : true,
     AiFastProvider: normalizeAiProvider(fastProviderRaw ?? 'openrouter'),
     AiFastEndpoint: fastEndpoint,

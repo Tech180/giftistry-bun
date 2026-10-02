@@ -138,7 +138,10 @@ describe('job public view streams', () => {
   });
 
   test('toJobPublicView includes ItemsSummary and ActiveStreams', () => {
-    const view = toJobPublicView(baseJob, items) as Record<string, unknown>;
+    const view = toJobPublicView(baseJob, items, { activeStreamLimit: 10 }) as Record<
+      string,
+      unknown
+    >;
     expect(view.GrabInfo).toBe(true);
     expect(view.ItemsSummary).toEqual({
       Total: 3,

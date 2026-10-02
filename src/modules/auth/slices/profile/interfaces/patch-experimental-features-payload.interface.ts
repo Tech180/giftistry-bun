@@ -1,4 +1,4 @@
-import type { ExperimentalFeaturesMap } from '../../../domain/constants/experimental-feature-keys.constant';
+import type { ExperimentalFeaturesMap } from '../../../domain/types/experimental-features-map.type';
 
 export interface PatchExperimentalFeaturesPayload {
   features: ExperimentalFeaturesMap;

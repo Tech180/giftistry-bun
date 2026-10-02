@@ -5,10 +5,12 @@ import { claimsRoutes } from './routes/claims.routes';
 import { linksRoutes } from './routes/links.routes';
 import { reviewsRoutes } from './routes/reviews.routes';
 import { substitutionsRoutes } from './routes/substitutions.routes';
+import { metadataRoutes } from './routes/metadata.routes';
 
 export const itemRoutes = (deps: ItemRoutesDeps) =>
   new Elysia({ prefix: '/api' })
     .use(catalogRoutes(deps))
+    .use(metadataRoutes(deps))
     .use(claimsRoutes(deps))
     .use(linksRoutes(deps))
     .use(reviewsRoutes(deps))

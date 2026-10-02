@@ -1,0 +1,41 @@
+{
+  "overall": {
+    "title": { "minMatchRate": 1 },
+    "price": { "minMatchRate": 1 },
+    "imageUrl": { "minMatchRate": 0.83 }
+  },
+  "byPlatform": {
+    "amazon": {
+      "title": { "minMatchRate": 1 },
+      "price": { "minMatchRate": 1 },
+      "imageUrl": { "minMatchRate": 1 }
+    },
+    "shopify": {
+      "title": { "minMatchRate": 1 },
+      "price": { "minMatchRate": 1 },
+      "imageUrl": { "minMatchRate": 0.5 }
+    },
+    "generic": {
+      "title": { "minMatchRate": 1 },
+      "price": { "minMatchRate": 1 },
+      "imageUrl": { "minMatchRate": 1 }
+    },
+    "next": {
+      "title": { "minMatchRate": 1 },
+      "price": { "minMatchRate": 1 },
+      "imageUrl": { "minMatchRate": 1 }
+    }
+  },
+  "byTag": {
+    "seed": {
+      "title": { "minMatchRate": 1 },
+      "price": { "minMatchRate": 1 },
+      "imageUrl": { "minMatchRate": 0.83 }
+    },
+    "product": {
+      "title": { "minMatchRate": 1 },
+      "price": { "minMatchRate": 1 },
+      "imageUrl": { "minMatchRate": 0.83 }
+    }
+  }
+}

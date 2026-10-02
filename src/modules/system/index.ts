@@ -21,7 +21,14 @@ export {
   clampGrabInfoConcurrency,
   clampScrapeFetchTimeoutMs,
   clampScrapePlaywrightTimeoutMs,
+  clampAiWebSearchMaxPages,
 } from './domain/utils/clamp-server-config-limits.util';
+export {
+  DEFAULT_AI_WEB_SEARCH_MAX_PAGES,
+  AI_WEB_SEARCH_MAX_PAGES_MIN,
+  AI_WEB_SEARCH_MAX_PAGES_MAX,
+} from './domain/constants/ai-web-search.constant';
+export { normalizeAiWebSearchEndpoint } from './domain/utils/normalize-ai-web-search-endpoint.util';
 export { toSystemSettingsView } from './domain/utils/to-system-settings-view.util';
 export {
   DEFAULT_AI_CONNECT_TIMEOUT_MS,
@@ -52,7 +59,7 @@ export {
   DEFAULT_AI_POPULATE_MAX_TOKENS,
   DEFAULT_AI_METADATA_SPLIT_PACK_CALLS,
 } from './domain/constants/ai-metadata-extraction.constant';
-export type { CustomPackSettingsDto } from './domain/packs';
+export type { CustomPackSettingsDto, MetadataPack } from './domain/packs';
 export {
   catalogForConfig,
   collectEnabledPackFieldsForCategory,

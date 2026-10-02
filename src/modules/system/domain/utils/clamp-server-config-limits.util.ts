@@ -35,6 +35,11 @@ import {
   SCRAPE_PLAYWRIGHT_TIMEOUT_MAX_MS,
   SCRAPE_PLAYWRIGHT_TIMEOUT_MIN_MS,
 } from '../constants/scrape-timeout.constant';
+import {
+  AI_WEB_SEARCH_MAX_PAGES_MAX,
+  AI_WEB_SEARCH_MAX_PAGES_MIN,
+  DEFAULT_AI_WEB_SEARCH_MAX_PAGES,
+} from '../constants/ai-web-search.constant';
 import { clampNumber } from './clamp-number.util';
 
 export function clampAiImportChunkItemLimit(value: unknown): number {
@@ -106,5 +111,13 @@ export function clampGrabInfoActiveStreamLimit(value: unknown): number {
     min: GRAB_INFO_ACTIVE_STREAM_LIMIT_MIN,
     max: GRAB_INFO_ACTIVE_STREAM_LIMIT_MAX,
     fallback: DEFAULT_GRAB_INFO_ACTIVE_STREAM_LIMIT,
+  });
+}
+
+export function clampAiWebSearchMaxPages(value: unknown): number {
+  return clampNumber(value, {
+    min: AI_WEB_SEARCH_MAX_PAGES_MIN,
+    max: AI_WEB_SEARCH_MAX_PAGES_MAX,
+    fallback: DEFAULT_AI_WEB_SEARCH_MAX_PAGES,
   });
 }

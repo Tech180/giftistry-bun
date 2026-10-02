@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from 'bun:test';
+import { noopScrapeTelemetry } from '../src/modules/item/infrastructure/adapters/log-scrape-telemetry';
 
 mock.module('../src/common/utils/probe-ai-reachability.util', () => ({
   probeAiReachability: async () => true,
@@ -7,9 +8,7 @@ mock.module('../src/common/utils/probe-ai-reachability.util', () => ({
 const { ExtractMetadataUseCase } = await import(
   '../src/modules/item/slices/metadata/use-cases/extract-metadata.use-case'
 );
-const { ScrapeError } = await import(
-  '../src/modules/item/infrastructure/scraping/errors/scrape-error'
-);
+const { ScrapeError } = await import('../src/modules/item');
 
 const aiConfig = {
   AiEnabled: true,
@@ -41,6 +40,10 @@ describe('ExtractMetadataUseCase blocked scrape fallback', () => {
 
     const useCase = new ExtractMetadataUseCase(
       {
+        resolveFinalUrl: async () => null,
+        scrapeFromCapture: async () => {
+          throw new Error('scrapeFromCapture not implemented in mock');
+        },
         scrape: async () => {
           throw new ScrapeError('Both strategies failed: bot-check:captcha', {
             blocked: true,
@@ -87,7 +90,8 @@ describe('ExtractMetadataUseCase blocked scrape fallback', () => {
         buildContextFromHtml: () => 'ctx',
         fetchContext,
       } as never,
-      { research } as never
+      { research } as never,
+      noopScrapeTelemetry
     );
 
     const result = await useCase.execute('https://a.co/d/09RD8uDq', 'user-1', {
@@ -107,6 +111,10 @@ describe('ExtractMetadataUseCase blocked scrape fallback', () => {
   test('rethrows blocked ScrapeError when AI invents a title without search', async () => {
     const useCase = new ExtractMetadataUseCase(
       {
+        resolveFinalUrl: async () => null,
+        scrapeFromCapture: async () => {
+          throw new Error('scrapeFromCapture not implemented in mock');
+        },
         scrape: async () => {
           throw new ScrapeError('Both strategies failed: bot-check:captcha', {
             blocked: true,
@@ -140,7 +148,9 @@ describe('ExtractMetadataUseCase blocked scrape fallback', () => {
         resolveWebsiteName: () => 'Amazon',
         buildContextFromHtml: () => 'ctx',
         fetchContext: async () => 'ctx',
-      } as never
+      } as never,
+      undefined,
+      noopScrapeTelemetry
     );
 
     await expect(
@@ -151,6 +161,10 @@ describe('ExtractMetadataUseCase blocked scrape fallback', () => {
   test('rethrows blocked ScrapeError when AI is disabled', async () => {
     const useCase = new ExtractMetadataUseCase(
       {
+        resolveFinalUrl: async () => null,
+        scrapeFromCapture: async () => {
+          throw new Error('scrapeFromCapture not implemented in mock');
+        },
         scrape: async () => {
           throw new ScrapeError('Both strategies failed: bot-check:captcha', {
             blocked: true,
@@ -176,7 +190,9 @@ describe('ExtractMetadataUseCase blocked scrape fallback', () => {
         resolveWebsiteName: () => 'Amazon',
         buildContextFromHtml: () => '',
         fetchContext: async () => '',
-      } as never
+      } as never,
+      undefined,
+      noopScrapeTelemetry
     );
 
     await expect(useCase.execute('https://a.co/d/09RD8uDq', 'user-1')).rejects.toBeInstanceOf(
@@ -187,6 +203,10 @@ describe('ExtractMetadataUseCase blocked scrape fallback', () => {
   test('rethrows blocked ScrapeError when AI populate returns empty', async () => {
     const useCase = new ExtractMetadataUseCase(
       {
+        resolveFinalUrl: async () => null,
+        scrapeFromCapture: async () => {
+          throw new Error('scrapeFromCapture not implemented in mock');
+        },
         scrape: async () => {
           throw new ScrapeError('Both strategies failed: bot-check:captcha', {
             blocked: true,
@@ -220,7 +240,9 @@ describe('ExtractMetadataUseCase blocked scrape fallback', () => {
         resolveWebsiteName: () => 'Amazon',
         buildContextFromHtml: () => 'ctx',
         fetchContext: async () => 'ctx',
-      } as never
+      } as never,
+      undefined,
+      noopScrapeTelemetry
     );
 
     await expect(useCase.execute('https://a.co/d/09RD8uDq', 'user-1')).rejects.toBeInstanceOf(

@@ -1,26 +1,21 @@
 import type { ServerConfigRepository } from '@/modules/system';
-import {
-  resolveAiConnection,
-  isAiSlotConfigured,
-} from '@/common/utils/resolve-ai-connection.util';
 import { probeAiReachability } from '@/common/utils/probe-ai-reachability.util';
 import type { AssertUserCanUseCase } from '@/common/application/use-cases/user-policy.use-cases';
 import type { UserRepository } from '@/modules/auth';
 import type { MetadataScraper } from '../../../domain/ports/metadata-scraper.port';
+import type { ScrapeTelemetry } from '../../../domain/ports/scrape-telemetry.port';
+import type { ScrapeDiagnostics } from '../../../domain/interfaces/scrape-diagnostics.interface';
+import type { AiPopulateStatus } from '../../../domain/types/ai-populate-status.type';
+import type { FetchOutcomeKind } from '../../../domain/types/fetch-outcome-kind.type';
+import { buildScrapeTelemetryEvent } from '../../../domain/utils/build-scrape-telemetry-event.util';
 import type { ScrapeResult } from '../../../domain/interfaces/scrape-result.interface';
 import type { MetadataPopulator } from '../../../domain/ports/metadata-populator.port';
 import type { CategoryClassifier } from '../../../domain/ports/category-classifier.port';
-import type { CategoryClassificationResult } from '../../../domain/interfaces/category-classification-result.interface';
 import type { ProductResearcher } from '../../../domain/ports/product-researcher.port';
 import type { PageContextFetcher } from '../../../domain/ports/page-context.port';
 import type { ItemRepository } from '../../../domain/ports/item.repository';
 import type { ExtractedMetadata } from '../../../domain/interfaces/extracted-metadata.interface';
-import {
-  mergeExtractedMetadata,
-  shouldRunAiPopulate,
-  isEmptyAiPopulateResult,
-} from '../../../domain/utils/merge-extracted-metadata.util';
-import { normalizeCategoryLabel } from '../../../domain/utils/normalize-category-label.util';
+import { resolveDesiredQuantity } from '../../../domain/utils/parse-pack-quantity.util';
 import { mapScrapeToCustomFields } from '../../../domain/utils/map-scrape-to-custom-fields.util';
 import { resolveWebSearchForExtract } from '@/common/application/utils/user-web-search-access.util';
 import type { WishlistRepository } from '@/modules/wishlist';
@@ -28,36 +23,34 @@ import {
   resolveCategoryAlternatives,
   resolveItemCategory,
 } from '../../../domain/utils/resolve-item-category.util';
-import { resolveDesiredQuantity } from '../../../domain/utils/parse-pack-quantity.util';
-import {
-  catalogForConfig,
-  composePopulateWithPacks,
-  resolveAiMetadataExtractionOptions,
-  resolveMetadataPacks,
-  sanitizeEnabledPackIdsForConfig,
-} from '@/modules/system';
-import { ScrapeError } from '../../../infrastructure/scraping/errors/scrape-error';
-import { resolveScrapeFinalUrl } from '../../../infrastructure/scraping/utils/resolve-scrape-final-url.util';
-import {
-  parseAmazonAsinFromUrl,
-  resolveScrapeRedirectUrl,
-} from '../../../infrastructure/scraping/utils/amazon-scrape-url.util';
+import { resolveAiMetadataExtractionOptions } from '@/modules/system';
+import { ScrapeError } from '../../../domain/errors/scrape-error';
+import { resolveScrapeFinalUrl } from '../../../domain/utils/scrape-url-safety.util';
 import type { ExtractMetadataOptions } from '../interfaces/extract-metadata-options.interface';
 import type { ExtractMetadataProgress } from '../interfaces/extract-metadata-progress.interface';
 import {
   attachScrapeCustomFields,
   finalizeExtractedData,
   loadExistingCategories,
-  userAllowsAi,
   withAiPopulate,
 } from '../utils/extract-metadata.util';
 import {
   blockedAiFallbackTrusted,
-  buildBlockedPageContext,
   buildBlockedScrapeFallback,
 } from '../utils/blocked-scrape-fallback.util';
-import { formatScrapeFactsForAi, shouldAttachScrapeFacts } from '../../../domain/utils/format-scrape-facts-for-ai.util';
-import { trimPageContextForAi } from '../../../domain/utils/trim-page-context-for-ai.util';
+import { assertSafeScrapeUrlOrThrow } from '../../../domain/utils/assert-safe-scrape-url.util';
+import {
+  resolveExtractAiEligibility,
+  shouldSkipPopulatePath,
+  shouldSkipPopulateAfterResearch,
+} from '../utils/extract-metadata-eligibility.util';
+import { AI_STAGE_MIN_BUDGET_MS } from '../constants/ai-stage-budget.constant';
+import { resolveExtractPageContext } from '../utils/extract-metadata-page-context.util';
+import {
+  buildCategoryClassifierConfig,
+  runCategoryAndResearchStage,
+} from '../utils/extract-metadata-category-research.util';
+import { runExtractPopulateStage } from '../utils/extract-metadata-populate-stage.util';
 
 export class ExtractMetadataUseCase {
   constructor(
@@ -70,7 +63,8 @@ export class ExtractMetadataUseCase {
     private itemRepo: ItemRepository,
     private configRepo: ServerConfigRepository,
     private pageContextFetcher: PageContextFetcher,
-    private productResearcher?: ProductResearcher
+    private productResearcher: ProductResearcher | undefined,
+    private scrapeTelemetry: ScrapeTelemetry
   ) {}
 
   willUseWebSearch(userId: string, listId?: string): Promise<boolean> {
@@ -89,6 +83,27 @@ export class ExtractMetadataUseCase {
     userId: string,
     options: ExtractMetadataOptions = {}
   ): Promise<ScrapeResult> {
+    assertSafeScrapeUrlOrThrow(url);
+
+    const startedAt = Date.now();
+    const extractDeadlineAt =
+      options.deadlineMs != null && options.deadlineMs > 0
+        ? startedAt + options.deadlineMs
+        : undefined;
+    /** Remaining caller-supplied budget, or undefined when no deadline was requested. */
+    const remainingBudgetMs = (): number | undefined =>
+      extractDeadlineAt == null ? undefined : Math.max(0, extractDeadlineAt - Date.now());
+    const aiBudgetExhausted = (): boolean => {
+      const remaining = remainingBudgetMs();
+      return remaining != null && remaining < AI_STAGE_MIN_BUDGET_MS;
+    };
+    let scrapeAttempted = false;
+    let telemetryUrl = url;
+    let scrapeDiagnostics: ScrapeDiagnostics | null = null;
+    let aiPopulate: AiPopulateStatus = 'skipped';
+    let scrapeFinishedAt: number | null = null;
+    let telemetryOutcome: FetchOutcomeKind | 'error' = 'ok';
+
     const report = async (update: ExtractMetadataProgress) => {
       await options.onProgress?.(update);
     };
@@ -96,16 +111,48 @@ export class ExtractMetadataUseCase {
     await report({ phase: 'scraping' });
 
     const config = this.configRepo.load();
-    const fastConnection = resolveAiConnection(config, 'fast');
-    const serverAiReady = config.AiEnabled && isAiSlotConfigured(fastConnection);
-    const aiAllowed = serverAiReady && (await userAllowsAi(userId, this.userRepo, this.assertUserCan));
+    const { aiAllowed, fastConnection } = await resolveExtractAiEligibility(
+      config,
+      userId,
+      options.listId,
+      this.userRepo,
+      this.wishlistRepo,
+      this.assertUserCan
+    );
 
     let scrapeResult: ScrapeResult;
     let blockedScrapeError: ScrapeError | null = null;
 
     try {
-      scrapeResult = await this.metadataScraper.scrape(url, 'full');
+      const scrapeOptions = {
+        recordTelemetry: false as const,
+        deadlineMs: options.deadlineMs,
+      };
+      scrapeResult = options.capture
+        ? await this.metadataScraper.scrapeFromCapture(url, options.capture, 'full', scrapeOptions)
+        : await this.metadataScraper.scrape(url, 'full', scrapeOptions);
+      scrapeAttempted = true;
+      scrapeDiagnostics = scrapeResult.diagnostics;
+      telemetryUrl = scrapeResult.finalUrl?.trim() || url;
+      telemetryOutcome = scrapeResult.diagnostics.outcome ?? 'ok';
     } catch (err) {
+      scrapeAttempted = true;
+      if (err instanceof ScrapeError) {
+        scrapeDiagnostics = {
+          source: err.diagnostics?.tier ?? 'fetch',
+          confidence: 'low',
+          fieldsFound: [],
+          blocked: err.diagnostics?.blocked,
+          validationReason: err.diagnostics?.validationReason,
+          outcome: err.diagnostics?.outcome,
+        };
+        telemetryUrl = err.diagnostics?.finalUrl?.trim() || url;
+        telemetryOutcome =
+          err.diagnostics?.outcome ??
+          (err.diagnostics?.blocked ? 'blocked' : 'error');
+      } else {
+        telemetryOutcome = 'error';
+      }
       if (!(err instanceof ScrapeError) || !err.diagnostics?.blocked) {
         throw err;
       }
@@ -122,229 +169,281 @@ export class ExtractMetadataUseCase {
         }
       } else {
         try {
-          const redirected = await resolveScrapeRedirectUrl(url);
-          const safe = resolveScrapeFinalUrl(redirected.finalUrl, url);
-          if (safe) {
-            resolvedUrl = safe;
+          const redirected = await this.metadataScraper.resolveFinalUrl(url);
+          if (redirected) {
+            resolvedUrl = redirected;
           }
         } catch {
           /* keep url */
         }
       }
       scrapeResult = buildBlockedScrapeFallback(resolvedUrl, err.diagnostics);
+      scrapeDiagnostics = scrapeResult.diagnostics;
+      telemetryUrl = resolvedUrl;
+      telemetryOutcome = 'blocked';
+    } finally {
+      scrapeFinishedAt = Date.now();
     }
-
-    const resolvedUrl = scrapeResult.finalUrl?.trim() || url;
-    const existingCategories = await loadExistingCategories(options.listId, this.itemRepo);
-    const scrapeWithFields = attachScrapeCustomFields(scrapeResult.data, resolvedUrl);
-    const scrapeApparelKey = mapScrapeToCustomFields(scrapeResult.data, resolvedUrl).apparelSizeKey;
-    const isBlocked = Boolean(scrapeResult.diagnostics.blocked);
-
-    if (!aiAllowed) {
-      return finalizeExtractedData(
-        scrapeResult.data,
-        resolvedUrl,
-        withAiPopulate(scrapeResult.diagnostics, 'skipped'),
-        scrapeResult.websiteName ?? this.pageContextFetcher.resolveWebsiteName(resolvedUrl),
-        existingCategories,
-        resolvedUrl
-      );
-    }
-
-    const reachable = await probeAiReachability(fastConnection);
-    if (!reachable) {
-      if (blockedScrapeError) {
-        throw blockedScrapeError;
-      }
-      console.warn('[AI] Fast provider unreachable; returning scrape-only result');
-      return finalizeExtractedData(
-        scrapeWithFields,
-        resolvedUrl,
-        withAiPopulate(scrapeResult.diagnostics, 'skipped'),
-        scrapeResult.websiteName ?? this.pageContextFetcher.resolveWebsiteName(resolvedUrl),
-        existingCategories,
-        resolvedUrl
-      );
-    }
-
-    const { provider, apiKey, model, endpoint } = fastConnection;
-    const extraction = resolveAiMetadataExtractionOptions(config);
-
-    let pageHtml: string | undefined;
-    let pageContext: string;
-    if (isBlocked) {
-      pageHtml = undefined;
-      pageContext = buildBlockedPageContext(resolvedUrl);
-    } else {
-      pageHtml = scrapeResult.html?.trim()
-        ? scrapeResult.html
-        : await this.pageContextFetcher.fetchHtml(resolvedUrl);
-      pageContext = pageHtml
-        ? this.pageContextFetcher.buildContextFromHtml(pageHtml, resolvedUrl)
-        : await this.pageContextFetcher.fetchContext(resolvedUrl);
-    }
-
-    if (shouldAttachScrapeFacts(scrapeResult, extraction)) {
-      const facts = formatScrapeFactsForAi(scrapeWithFields);
-      if (facts) {
-        pageContext = `${facts}\n\n${pageContext}`;
-      }
-    }
-    pageContext = trimPageContextForAi(pageContext, extraction);
-
-    const websiteName =
-      scrapeResult.websiteName ??
-      this.pageContextFetcher.resolveWebsiteName(resolvedUrl, pageHtml);
-
-    let aiCategoryResult: CategoryClassificationResult = {
-      category: normalizeCategoryLabel(scrapeWithFields.category || 'uncategorized'),
-      alternatives: [],
-    };
 
     try {
-      await report({ phase: 'categorizing' });
-      aiCategoryResult = await this.categoryClassifier.classify(
-        {
-          url: resolvedUrl,
-          websiteName,
-          pageContext,
-          itemName: scrapeWithFields.title || '',
+      const resolvedUrl = scrapeResult.finalUrl?.trim() || url;
+      const existingCategories = await loadExistingCategories(options.listId, this.itemRepo);
+      const scrapeWithFields = attachScrapeCustomFields(scrapeResult.data, resolvedUrl);
+      const scrapeApparelKey = mapScrapeToCustomFields(scrapeResult.data, resolvedUrl).apparelSizeKey;
+      const isBlocked = Boolean(scrapeResult.diagnostics.blocked);
+
+      if (!aiAllowed) {
+        return finalizeExtractedData(
+          scrapeResult.data,
+          resolvedUrl,
+          withAiPopulate(scrapeResult.diagnostics, 'skipped'),
+          scrapeResult.websiteName ?? this.pageContextFetcher.resolveWebsiteName(resolvedUrl),
           existingCategories,
-        },
-        {
-          provider,
-          apiKey,
-          model,
-          customPrompt: config.AiCategoryPrompt || '',
-          endpoint,
-          extractionOptions: extraction,
-          onDelta: async (delta) => {
-            await report({
-              phase: 'categorizing',
-              tokensPerSecond: delta.tokensPerSecond,
-            });
-          },
-        }
-      );
-    } catch (err) {
-      console.error('[AI Category] Failed to classify item:', err);
-    }
-
-    const resolvedCategory = resolveItemCategory(aiCategoryResult.category, existingCategories);
-    const resolvedAlternatives = resolveCategoryAlternatives(
-      aiCategoryResult.alternatives,
-      resolvedCategory,
-      existingCategories
-    );
-
-    const baseData: ExtractedMetadata = {
-      ...scrapeWithFields,
-      category: resolvedCategory || scrapeWithFields.category,
-      categoryAlternatives: resolvedAlternatives,
-      desiredQuantity: resolveDesiredQuantity(null, scrapeWithFields.title),
-    };
-
-    const shouldPopulate = shouldRunAiPopulate(
-      { data: scrapeResult.data, diagnostics: scrapeResult.diagnostics },
-      scrapeWithFields,
-      true
-    );
-    const enableWebSearch = await resolveWebSearchForExtract(
-      userId,
-      options.listId,
-      this.userRepo,
-      this.wishlistRepo,
-      this.assertUserCan,
-      config
-    );
-
-    if (!shouldPopulate && !enableWebSearch && !isBlocked) {
-      return finalizeExtractedData(
-        baseData,
-        resolvedUrl,
-        withAiPopulate(scrapeResult.diagnostics, 'skipped'),
-        websiteName,
-        existingCategories,
-        resolvedUrl
-      );
-    }
-
-    let searchContext: string | undefined;
-    // When blocked, shouldPopulate is already true; still gate research on web-search permission.
-    if (enableWebSearch && this.productResearcher) {
-      try {
-        await report({ phase: 'researching' });
-        const researched = await this.productResearcher.research({
-          itemName:
-            scrapeWithFields.title || parseAmazonAsinFromUrl(resolvedUrl) || '',
-          websiteName,
-          url: resolvedUrl,
-        });
-        if (researched.trim() && researched.trim() !== 'None') {
-          searchContext = researched;
-        }
-      } catch (err) {
-        console.error('[Web Search] Failed to research product:', err);
+          resolvedUrl
+        );
       }
-    }
 
-    if (!shouldPopulate && !searchContext && !isBlocked) {
-      return finalizeExtractedData(
-        baseData,
+      const reachable = await probeAiReachability(fastConnection);
+      if (!reachable) {
+        if (blockedScrapeError) {
+          throw blockedScrapeError;
+        }
+        console.warn('[AI] Fast provider unreachable; returning scrape-only result');
+        return finalizeExtractedData(
+          scrapeWithFields,
+          resolvedUrl,
+          withAiPopulate(scrapeResult.diagnostics, 'skipped'),
+          scrapeResult.websiteName ?? this.pageContextFetcher.resolveWebsiteName(resolvedUrl),
+          existingCategories,
+          resolvedUrl
+        );
+      }
+
+      if (aiBudgetExhausted()) {
+        if (blockedScrapeError) {
+          throw blockedScrapeError;
+        }
+        console.warn('[AI] Time budget exhausted after scrape; returning scrape-only result');
+        return finalizeExtractedData(
+          scrapeWithFields,
+          resolvedUrl,
+          withAiPopulate(scrapeResult.diagnostics, 'skipped'),
+          scrapeResult.websiteName ?? this.pageContextFetcher.resolveWebsiteName(resolvedUrl),
+          existingCategories,
+          resolvedUrl
+        );
+      }
+
+      const { provider, apiKey, model, endpoint } = fastConnection;
+      const extraction = resolveAiMetadataExtractionOptions(config);
+
+      let pageHtml: string | undefined;
+      if (!isBlocked) {
+        pageHtml = scrapeResult.html?.trim()
+          ? scrapeResult.html
+          : await this.pageContextFetcher.fetchHtml(resolvedUrl);
+      }
+
+      const pageContext = await resolveExtractPageContext({
+        isBlocked,
         resolvedUrl,
-        withAiPopulate(scrapeResult.diagnostics, 'skipped'),
-        websiteName,
-        existingCategories,
-        resolvedUrl
-      );
-    }
-
-    try {
-      await report({ phase: 'populating' });
-      const catalog = catalogForConfig(config);
-      const enabledPackIds = sanitizeEnabledPackIdsForConfig(config);
-      const packs = resolveMetadataPacks({
-        enabledPackIds,
-        category: resolvedCategory,
-        itemName: scrapeWithFields.title || '',
-        catalog,
+        pageHtml,
+        scrapeWithFields,
+        scrapeResult,
+        extraction,
+        fetchContext: (targetUrl) => this.pageContextFetcher.fetchContext(targetUrl),
       });
-      // Full/single-call: packs go in the custom prompt. Thorough/split: packs
-      // are passed separately and handled by the populate strategy.
-      const customPrompt = extraction.splitCalls
-        ? config.AiPopulatePrompt || ''
-        : composePopulateWithPacks(config.AiPopulatePrompt || '', packs);
-      const aiData = await this.metadataPopulator.populate(
+
+      const websiteName =
+        scrapeResult.websiteName ??
+        this.pageContextFetcher.resolveWebsiteName(resolvedUrl, pageHtml);
+
+      const enableWebSearch = await resolveWebSearchForExtract(
+        userId,
+        options.listId,
+        this.userRepo,
+        this.wishlistRepo,
+        this.assertUserCan,
+        config
+      );
+
+      if (shouldSkipPopulatePath(scrapeResult, scrapeWithFields, enableWebSearch, isBlocked)) {
+        return finalizeExtractedData(
+          {
+            ...scrapeWithFields,
+            desiredQuantity: resolveDesiredQuantity(null, scrapeWithFields.title),
+          },
+          resolvedUrl,
+          withAiPopulate(scrapeResult.diagnostics, 'skipped'),
+          websiteName,
+          existingCategories,
+          resolvedUrl
+        );
+      }
+
+      const { aiCategoryResult, searchContext } = await runCategoryAndResearchStage(
         {
-          url: resolvedUrl,
+          resolvedUrl,
           websiteName,
           pageContext,
-          searchContext,
-          itemName: scrapeWithFields.title || '',
-          category: resolvedCategory,
-          reconcileSources: Boolean(searchContext),
+          itemTitle: scrapeWithFields.title || '',
+          existingCategories,
+          enableWebSearch,
+          fallbackCategory: scrapeWithFields.category || 'uncategorized',
         },
         {
-          provider,
-          apiKey,
-          model,
-          customPrompt,
-          endpoint,
-          linkedDescriptionPrompt: config.AiDescriptionPrompt || '',
-          linkedCategoryPrompt: config.AiCategoryPrompt || '',
-          extractionOptions: extraction,
-          packs: extraction.splitCalls ? packs : undefined,
-          onDelta: async (delta) => {
-            await report({
-              phase: 'populating',
-              tokensPerSecond: delta.tokensPerSecond,
-            });
-          },
+          categoryClassifier: this.categoryClassifier,
+          productResearcher: this.productResearcher,
+          categoryConfig: buildCategoryClassifierConfig(
+            config,
+            fastConnection,
+            extraction,
+            async (delta) => {
+              await report({
+                phase: 'categorizing',
+                tokensPerSecond: delta.tokensPerSecond,
+              });
+            },
+            remainingBudgetMs()
+          ),
+          onProgress: report,
         }
       );
 
-      if (isEmptyAiPopulateResult(aiData)) {
-        console.warn('[AI Populate] Empty populate result; keeping scrape fields');
+      const resolvedCategory = resolveItemCategory(aiCategoryResult.category, existingCategories);
+      const resolvedAlternatives = resolveCategoryAlternatives(
+        aiCategoryResult.alternatives,
+        resolvedCategory,
+        existingCategories
+      );
+
+      const baseData: ExtractedMetadata = {
+        ...scrapeWithFields,
+        category: resolvedCategory || scrapeWithFields.category,
+        categoryAlternatives: resolvedAlternatives,
+        desiredQuantity: resolveDesiredQuantity(null, scrapeWithFields.title),
+      };
+
+      if (shouldSkipPopulateAfterResearch(scrapeResult, scrapeWithFields, searchContext, isBlocked)) {
+        return finalizeExtractedData(
+          baseData,
+          resolvedUrl,
+          withAiPopulate(scrapeResult.diagnostics, 'skipped'),
+          websiteName,
+          existingCategories,
+          resolvedUrl
+        );
+      }
+
+      if (aiBudgetExhausted()) {
+        if (blockedScrapeError) {
+          throw blockedScrapeError;
+        }
+        console.warn('[AI Populate] Time budget exhausted before populate; keeping scrape fields');
+        return finalizeExtractedData(
+          baseData,
+          resolvedUrl,
+          withAiPopulate(scrapeResult.diagnostics, 'skipped'),
+          websiteName,
+          existingCategories,
+          resolvedUrl
+        );
+      }
+
+      try {
+        const populateOutcome = await runExtractPopulateStage(
+          {
+            resolvedUrl,
+            websiteName,
+            pageContext,
+            searchContext,
+            scrapeWithFields,
+            scrapeResult,
+            scrapeApparelKey,
+            resolvedCategory,
+            resolvedAlternatives,
+            baseData,
+          },
+          {
+            config,
+            extraction,
+            metadataPopulator: this.metadataPopulator,
+            populatorConfig: {
+              provider,
+              apiKey,
+              model,
+              endpoint,
+              linkedDescriptionPrompt: config.AiDescriptionPrompt || '',
+              linkedCategoryPrompt: config.AiCategoryPrompt || '',
+              extractionOptions: extraction,
+              ...(remainingBudgetMs() != null ? { timeoutMs: remainingBudgetMs() } : {}),
+              onDelta: async (delta) => {
+                await report({
+                  phase: 'populating',
+                  tokensPerSecond: delta.tokensPerSecond,
+                });
+              },
+            },
+            onProgress: report,
+          }
+        );
+
+        if (populateOutcome.kind === 'empty') {
+          console.warn('[AI Populate] Empty populate result; keeping scrape fields');
+          aiPopulate = 'failed';
+          if (blockedScrapeError) {
+            throw blockedScrapeError;
+          }
+          return finalizeExtractedData(
+            baseData,
+            resolvedUrl,
+            withAiPopulate(scrapeResult.diagnostics, 'failed'),
+            websiteName,
+            existingCategories,
+            resolvedUrl
+          );
+        }
+
+        const { finalData, droppedFields } = populateOutcome;
+
+        if (
+          isBlocked &&
+          !blockedAiFallbackTrusted(finalData, { searchContext, pageContext })
+        ) {
+          aiPopulate = 'failed';
+          if (blockedScrapeError) {
+            throw blockedScrapeError;
+          }
+          throw new ScrapeError('Both strategies failed: blocked-ai-fallback-empty', {
+            blocked: true,
+            validationReason: scrapeResult.diagnostics.validationReason,
+            finalUrl: resolvedUrl,
+            tier: scrapeResult.diagnostics.source,
+          });
+        }
+
+        aiPopulate = 'succeeded';
+        return finalizeExtractedData(
+          finalData,
+          resolvedUrl,
+          withAiPopulate(
+            {
+              ...scrapeResult.diagnostics,
+              confidence: finalData.title ? 'medium' : scrapeResult.diagnostics.confidence,
+              droppedFields: droppedFields.length ? droppedFields : undefined,
+            },
+            'succeeded'
+          ),
+          websiteName,
+          existingCategories,
+          resolvedUrl
+        );
+      } catch (err) {
+        if (err instanceof ScrapeError) {
+          throw err;
+        }
+        aiPopulate = 'failed';
+        console.error('[AI Populate] Failed to enrich scrape result:', err);
         if (blockedScrapeError) {
           throw blockedScrapeError;
         }
@@ -357,71 +456,26 @@ export class ExtractMetadataUseCase {
           resolvedUrl
         );
       }
-
-      const preferScrape = scrapeResult.diagnostics.confidence === 'high';
-      const merged = mergeExtractedMetadata(
-        { ...scrapeWithFields, category: null },
-        aiData,
-        preferScrape,
-        { url: resolvedUrl, scrapeApparelSizeKey: scrapeApparelKey }
-      );
-
-      const finalData: ExtractedMetadata = {
-        ...merged,
-        category: resolvedCategory || merged.category || scrapeWithFields.category,
-        categoryAlternatives: resolvedAlternatives,
-        desiredQuantity: resolveDesiredQuantity(
-          merged.desiredQuantity,
-          merged.title,
-          scrapeWithFields.title
-        ),
-      };
-
-      if (
-        isBlocked &&
-        !blockedAiFallbackTrusted(finalData, { searchContext, pageContext })
-      ) {
-        if (blockedScrapeError) {
-          throw blockedScrapeError;
-        }
-        throw new ScrapeError('Both strategies failed: blocked-ai-fallback-empty', {
-          blocked: true,
-          validationReason: scrapeResult.diagnostics.validationReason,
-          finalUrl: resolvedUrl,
-          tier: scrapeResult.diagnostics.source,
-        });
+    } finally {
+      if (scrapeAttempted && scrapeDiagnostics) {
+        const finishedAt = Date.now();
+        const scrapeEnd = scrapeFinishedAt ?? finishedAt;
+        this.scrapeTelemetry.record(
+          buildScrapeTelemetryEvent({
+            url: telemetryUrl,
+            tier: scrapeDiagnostics.source,
+            outcome: telemetryOutcome,
+            durationMs: finishedAt - startedAt,
+            scrapeDurationMs: scrapeEnd - startedAt,
+            aiDurationMs: finishedAt - scrapeEnd,
+            fieldsFound: scrapeDiagnostics.fieldsFound,
+            confidence: scrapeDiagnostics.confidence,
+            blockedReason: scrapeDiagnostics.validationReason,
+            aiPopulate,
+            cacheHit: false,
+          })
+        );
       }
-
-      return finalizeExtractedData(
-        finalData,
-        resolvedUrl,
-        withAiPopulate(
-          {
-            ...scrapeResult.diagnostics,
-            confidence: finalData.title ? 'medium' : scrapeResult.diagnostics.confidence,
-          },
-          'succeeded'
-        ),
-        websiteName,
-        existingCategories,
-        resolvedUrl
-      );
-    } catch (err) {
-      if (err instanceof ScrapeError) {
-        throw err;
-      }
-      console.error('[AI Populate] Failed to enrich scrape result:', err);
-      if (blockedScrapeError) {
-        throw blockedScrapeError;
-      }
-      return finalizeExtractedData(
-        baseData,
-        resolvedUrl,
-        withAiPopulate(scrapeResult.diagnostics, 'failed'),
-        websiteName,
-        existingCategories,
-        resolvedUrl
-      );
     }
   }
 }

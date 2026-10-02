@@ -1,3 +1,4 @@
+/** Target.com RED/card JSON + inline product blobs. */
 import { extractFromCapturedJson } from '../extractors/utils/embedded-json.util';
 import type { RetailerExtractor } from './interfaces/retailer-extractor.interface';
 

@@ -1,6 +1,6 @@
 {
   "name": "giftistry-api",
-  "version": "0.0.30",
+  "version": "0.0.31",
   "private": true,
   "type": "module",
   "scripts": {
@@ -16,6 +16,8 @@
     "check:layers": "STRICT_MODULES=1 bun run scripts/check-layers.ts",
     "check:contracts": "STRICT=1 bun run scripts/check-contracts.ts",
     "verify": "bun run check:sql && bun run check:layers && bun run check:contracts && bun test --parallel=1",
+    "eval:scrape": "bun scripts/scrape-eval.ts",
+    "canary:scrape": "bun scripts/scrape-canary.ts",
     "reset-database": "bun run scripts/reset-database.ts",
     "giftistry-admin": "bun run scripts/giftistry-admin.ts",
     "collections:generate": "NODE_ENV=test bun collections/generate-httpie-collection.ts",

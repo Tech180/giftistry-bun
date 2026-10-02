@@ -1,0 +1,9 @@
+{
+  "url": "https://example.com/products/classic-cotton-t-shirt",
+  "finalUrl": "https://example.com/products/classic-cotton-t-shirt",
+  "status": 200,
+  "fetchedAt": "2026-10-01T00:00:00.000Z",
+  "tier": "fixture",
+  "platform": "generic",
+  "tags": ["seed", "dom"]
+}

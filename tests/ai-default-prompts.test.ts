@@ -40,9 +40,16 @@ describe('ai-default-prompts', () => {
     expect(AI_DEFAULT_PROMPTS.populate).not.toContain('MS52372');
   });
 
+  test('populate default teaches shortening retailer SEO titles', () => {
+    expect(AI_DEFAULT_PROMPTS.populate).toContain('Title: "Razer Blade 14"');
+    expect(AI_DEFAULT_PROMPTS.populate).toContain('Never copy Scraped Item Name verbatim');
+  });
+
   test('populate default includes Description rules for item-only notes', () => {
     expect(AI_DEFAULT_PROMPTS.populate).toContain('Description rules (critical)');
     expect(AI_DEFAULT_PROMPTS.populate).toContain('FSA/HSA');
+    expect(AI_DEFAULT_PROMPTS.populate).not.toContain('beginner craft kit for needle felting');
+    expect(AI_DEFAULT_PROMPTS.populate).toContain('never invent a description from the product name alone');
     expect(AI_DEFAULT_PROMPTS.populate).toContain('Soft full-zip hoodie for everyday wear.');
     expect(AI_DEFAULT_PROMPTS.populate).not.toContain('Electronics / gaming');
     expect(AI_DEFAULT_PROMPTS.populate).not.toContain('6G+128G');

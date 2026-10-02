@@ -1,5 +1,5 @@
 import type { PageContextFetcher } from '../../domain/ports/page-context.port';
-import { buildJsonLdPageContext } from '../scraping/extractors/utils/json-ld-product.util';
+import { buildAiEvidenceFromHtml } from '../../domain/utils/build-ai-evidence.util';
 import {
   fetchPageContext,
   fetchPageHtml,
@@ -20,6 +20,6 @@ export class HttpPageContextFetcher implements PageContextFetcher {
   }
 
   buildContextFromHtml(html: string, url: string): string {
-    return buildJsonLdPageContext(html, url);
+    return buildAiEvidenceFromHtml(html, url);
   }
 }

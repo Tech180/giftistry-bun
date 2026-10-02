@@ -4,6 +4,7 @@ import {
   shouldAiPopulate,
   shouldRunAiPopulate,
 } from '../src/modules/item/domain/utils/merge-extracted-metadata.util';
+import type { ScrapeTelemetryEvent } from '../src/modules/item/domain/interfaces/scrape-telemetry-event.interface';
 import type { MetadataScraper } from '../src/modules/item/domain/ports/metadata-scraper.port';
 import type { MetadataPopulator } from '../src/modules/item/domain/ports/metadata-populator.port';
 import type { CategoryClassifier } from '../src/modules/item/domain/ports/category-classifier.port';
@@ -12,6 +13,7 @@ import type { ServerConfigRepository } from '../src/modules/system/domain/ports/
 import type { UserRepository } from '../src/modules/auth/domain/ports/user.repository';
 import type { AssertUserCanUseCase } from '../src/common/application/use-cases/user-policy.use-cases';
 import type { WishlistRepository } from '../src/modules/wishlist/domain/ports/wishlist.repository';
+import { noopScrapeTelemetry } from '../src/modules/item/infrastructure/adapters/log-scrape-telemetry';
 
 let probeReachable = true;
 
@@ -49,12 +51,16 @@ function createConfigRepo(overrides: { AiEnabledPackIds?: string[] } = {}): Serv
   } as ServerConfigRepository;
 }
 
+const defaultEvidenceHtml = `<!doctype html><html><head><title>Test Product</title></head><body><main>Test Product AI Product Brand Acme Color Blue Size M</main></body></html>`;
+
 function createPageContextFetcher(): PageContextFetcher {
+  const context =
+    'Title: Test Product\nProduct Name: Test Product\nBrand: Acme\nColor: Blue\nSize: M';
   return {
-    fetchHtml: async () => '',
-    fetchContext: async () => 'Title: Test Product',
+    fetchHtml: async () => defaultEvidenceHtml,
+    fetchContext: async () => context,
     resolveWebsiteName: () => 'Example Shop',
-    buildContextFromHtml: () => 'Title: Test Product',
+    buildContextFromHtml: () => context,
   };
 }
 
@@ -68,11 +74,14 @@ function createUserRepo(): UserRepository {
   } as unknown as UserRepository;
 }
 
-function createWishlistRepo(webSearchEnabled = true): WishlistRepository {
+function createWishlistRepo(
+  listAiEnabled = true,
+  webSearchEnabled = true
+): WishlistRepository {
   return {
     findById: async () => ({
       Id: 'list-1',
-      AiEnabled: true,
+      AiEnabled: listAiEnabled,
       WebSearchEnabled: webSearchEnabled,
     }),
   } as unknown as WishlistRepository;
@@ -99,6 +108,10 @@ describe('ExtractMetadataUseCase AI merge', () => {
     policyAllowsAi = true;
 
     const mockScraper: MetadataScraper = {
+      resolveFinalUrl: async () => null,
+      scrapeFromCapture: async () => {
+        throw new Error('scrapeFromCapture not implemented in mock');
+      },
       scrape: async () => ({
         diagnostics: {
           source: 'fetch',
@@ -149,7 +162,9 @@ describe('ExtractMetadataUseCase AI merge', () => {
       createWishlistRepo(),
       createItemRepo(),
       createConfigRepo(),
-      createPageContextFetcher()
+      createPageContextFetcher(),
+      undefined,
+      noopScrapeTelemetry
     );
     const result = await useCase.execute('https://shop.example/item', 'user-1');
 
@@ -166,6 +181,10 @@ describe('ExtractMetadataUseCase AI merge', () => {
     userAiEnabled = true;
 
     const mockScraper: MetadataScraper = {
+      resolveFinalUrl: async () => null,
+      scrapeFromCapture: async () => {
+        throw new Error('scrapeFromCapture not implemented in mock');
+      },
       scrape: async () => ({
         diagnostics: {
           source: 'fetch',
@@ -218,7 +237,9 @@ describe('ExtractMetadataUseCase AI merge', () => {
       createWishlistRepo(),
       createItemRepo(),
       createConfigRepo(),
-      createPageContextFetcher()
+      createPageContextFetcher(),
+      undefined,
+      noopScrapeTelemetry
     );
     const result = await useCase.execute('https://shop.example/shoes', 'user-1');
 
@@ -233,6 +254,10 @@ describe('ExtractMetadataUseCase AI merge', () => {
     userAiEnabled = false;
 
     const mockScraper: MetadataScraper = {
+      resolveFinalUrl: async () => null,
+      scrapeFromCapture: async () => {
+        throw new Error('scrapeFromCapture not implemented in mock');
+      },
       scrape: async () => ({
         diagnostics: {
           source: 'fetch',
@@ -285,7 +310,9 @@ describe('ExtractMetadataUseCase AI merge', () => {
       createWishlistRepo(),
       createItemRepo(),
       createConfigRepo(),
-      createPageContextFetcher()
+      createPageContextFetcher(),
+      undefined,
+      noopScrapeTelemetry
     );
     const result = await useCase.execute('https://shop.example/gadget', 'user-1');
 
@@ -295,11 +322,147 @@ describe('ExtractMetadataUseCase AI merge', () => {
     expect(result.data.price).toBe(99);
   });
 
+  test('skips AI when wishlist AI is disabled but maps scrape custom fields', async () => {
+    aiEnabled = true;
+    userAiEnabled = true;
+    policyAllowsAi = true;
+
+    const mockScraper: MetadataScraper = {
+      resolveFinalUrl: async () => null,
+      scrapeFromCapture: async () => {
+        throw new Error('scrapeFromCapture not implemented in mock');
+      },
+      scrape: async () => ({
+        diagnostics: {
+          source: 'fetch',
+          confidence: 'high',
+          blocked: false,
+          fieldsFound: ['title', 'price'],
+        },
+        data: {
+          title: 'Board Game',
+          price: 45,
+          description: null,
+          color: null,
+          size: null,
+          category: 'games',
+          imageUrl: null,
+        },
+      }),
+    };
+
+    let populateCalled = false;
+    let classifyCalled = false;
+    const mockPopulator: MetadataPopulator = {
+      populate: async () => {
+        populateCalled = true;
+        return {
+          title: 'AI',
+          price: null,
+          description: null,
+          color: null,
+          size: null,
+          category: null,
+          imageUrl: null,
+        };
+      },
+    };
+
+    const mockClassifier: CategoryClassifier = {
+      classify: async () => {
+        classifyCalled = true;
+        return { category: 'games', alternatives: [] };
+      },
+    };
+
+    const useCase = new ExtractMetadataUseCase(
+      mockScraper,
+      mockPopulator,
+      mockClassifier,
+      createUserRepo(),
+      createAssertUserCan(),
+      createWishlistRepo(false),
+      createItemRepo(),
+      createConfigRepo(),
+      createPageContextFetcher(),
+      undefined,
+      noopScrapeTelemetry
+    );
+    const result = await useCase.execute('https://shop.example/game', 'user-1', {
+      listId: 'list-1',
+    });
+
+    expect(populateCalled).toBe(false);
+    expect(classifyCalled).toBe(false);
+    expect(result.diagnostics.aiPopulate).toBe('skipped');
+    expect(result.data.title).toBe('Board Game');
+    expect(result.data.price).toBe(45);
+  });
+
+  test('rethrows blocked ScrapeError when wishlist AI is disabled', async () => {
+    aiEnabled = true;
+    userAiEnabled = true;
+    policyAllowsAi = true;
+
+    const { ScrapeError } = await import('../src/modules/item/domain/errors/scrape-error');
+
+    let populateCalled = false;
+    const mockScraper: MetadataScraper = {
+      resolveFinalUrl: async () => null,
+      scrapeFromCapture: async () => {
+        throw new Error('scrapeFromCapture not implemented in mock');
+      },
+      scrape: async () => {
+        throw new ScrapeError('Both strategies failed: bot-check:captcha', {
+          blocked: true,
+          validationReason: 'bot-check:captcha',
+          tier: 'playwright',
+        });
+      },
+    };
+
+    const useCase = new ExtractMetadataUseCase(
+      mockScraper,
+      {
+        populate: async () => {
+          populateCalled = true;
+          return {
+            title: 'AI',
+            price: null,
+            description: null,
+            color: null,
+            size: null,
+            category: null,
+            imageUrl: null,
+          };
+        },
+      },
+      { classify: async () => ({ category: 'tech', alternatives: [] }) },
+      createUserRepo(),
+      createAssertUserCan(),
+      createWishlistRepo(false),
+      createItemRepo(),
+      createConfigRepo(),
+      createPageContextFetcher(),
+      undefined,
+      noopScrapeTelemetry
+    );
+
+    await expect(
+      useCase.execute('https://www.amazon.com/dp/B0TEST1234', 'user-1', { listId: 'list-1' })
+    ).rejects.toBeInstanceOf(ScrapeError);
+    expect(populateCalled).toBe(false);
+  });
+
   test('runs populate when scrape has no mapped custom fields', async () => {
     aiEnabled = true;
     userAiEnabled = true;
 
     const mockScraper: MetadataScraper = {
+      resolveFinalUrl: async () => null,
+      scrapeFromCapture: async () => {
+        throw new Error('scrapeFromCapture not implemented in mock');
+      },
       scrape: async () => ({
         diagnostics: {
           source: 'fetch',
@@ -350,7 +513,9 @@ describe('ExtractMetadataUseCase AI merge', () => {
       createWishlistRepo(),
       createItemRepo(),
       createConfigRepo(),
-      createPageContextFetcher()
+      createPageContextFetcher(),
+      undefined,
+      noopScrapeTelemetry
     );
     const result = await useCase.execute('https://shop.example/gadget', 'user-1');
 
@@ -363,6 +528,10 @@ describe('ExtractMetadataUseCase AI merge', () => {
     userAiEnabled = true;
 
     const mockScraper: MetadataScraper = {
+      resolveFinalUrl: async () => null,
+      scrapeFromCapture: async () => {
+        throw new Error('scrapeFromCapture not implemented in mock');
+      },
       scrape: async () => ({
         diagnostics: {
           source: 'fetch',
@@ -409,13 +578,85 @@ describe('ExtractMetadataUseCase AI merge', () => {
       createWishlistRepo(),
       createItemRepo(),
       createConfigRepo(),
-      createPageContextFetcher()
+      {
+        fetchHtml: async () => '',
+        fetchContext: async () => 'Title: Hoodie\nColor: Black\nSize: L\nBrand: Acme',
+        resolveWebsiteName: () => 'Example Shop',
+        buildContextFromHtml: () => 'Title: Hoodie\nColor: Black\nSize: L\nBrand: Acme',
+      },
+      undefined,
+      noopScrapeTelemetry
     );
     const result = await useCase.execute('https://shop.example/hoodie', 'user-1');
 
     expect(result.data.predefinedFields?.Color).toBe('Black');
     expect(result.data.predefinedFields?.ShirtSize).toBe('L');
     expect(result.data.userDefinedFields?.Brand).toBe('Acme');
+  });
+
+  test('keeps scrape price and drops invented AI image when evidence is present', async () => {
+    aiEnabled = true;
+    userAiEnabled = true;
+
+    const mockScraper: MetadataScraper = {
+      resolveFinalUrl: async () => null,
+      scrapeFromCapture: async () => {
+        throw new Error('scrapeFromCapture not implemented in mock');
+      },
+      scrape: async () => ({
+        diagnostics: {
+          source: 'fetch',
+          confidence: 'medium',
+          blocked: false,
+          fieldsFound: ['title', 'price', 'imageUrl'],
+        },
+        data: {
+          title: 'Mug',
+          price: 12.5,
+          description: null,
+          color: null,
+          size: null,
+          category: null,
+          imageUrl: 'https://cdn.example/mug.jpg',
+        },
+      }),
+    };
+
+    const mockPopulator: MetadataPopulator = {
+      populate: async () => ({
+        title: 'Mug',
+        price: 999,
+        description: 'Ceramic',
+        color: 'Ultraviolet',
+        size: null,
+        category: null,
+        imageUrl: 'https://cdn.evil/hallucinated.jpg',
+      }),
+    };
+
+    const useCase = new ExtractMetadataUseCase(
+      mockScraper,
+      mockPopulator,
+      { classify: async () => ({ category: 'home', alternatives: [] }) },
+      createUserRepo(),
+      createAssertUserCan(),
+      createWishlistRepo(),
+      createItemRepo(),
+      createConfigRepo(),
+      {
+        fetchHtml: async () => '',
+        fetchContext: async () => 'Title: Mug\nPrice: 12.50',
+        resolveWebsiteName: () => 'Shop',
+        buildContextFromHtml: () => 'Title: Mug\nPrice: 12.50',
+      },
+      undefined,
+      noopScrapeTelemetry
+    );
+
+    const result = await useCase.execute('https://shop.example/mug', 'user-1');
+    expect(result.data.price).toBe(12.5);
+    expect(result.data.imageUrl).toBe('https://cdn.example/mug.jpg');
+    expect(result.data.color).toBeNull();
   });
 
   test('passes web search context to populator when list web search gates pass', async () => {
@@ -430,6 +671,10 @@ describe('ExtractMetadataUseCase AI merge', () => {
     } | null = null;
 
     const mockScraper: MetadataScraper = {
+      resolveFinalUrl: async () => null,
+      scrapeFromCapture: async () => {
+        throw new Error('scrapeFromCapture not implemented in mock');
+      },
       scrape: async () => ({
         diagnostics: {
           source: 'fetch',
@@ -471,7 +716,8 @@ describe('ExtractMetadataUseCase AI merge', () => {
     };
 
     const mockResearcher = {
-      research: async () => 'Search query: AYANEO Pocket MICRO 2 specifications',
+      research: async () =>
+        'Search query: AYANEO Pocket MICRO 2 specifications\nCompact Android gaming handheld built for portable play.',
     };
 
     const useCase = new ExtractMetadataUseCase(
@@ -484,7 +730,8 @@ describe('ExtractMetadataUseCase AI merge', () => {
       createItemRepo(),
       createConfigRepo(),
       createPageContextFetcher(),
-      mockResearcher
+      mockResearcher,
+      noopScrapeTelemetry
     );
 
     const result = await useCase.execute('https://shop.example/gadget', 'user-1', {
@@ -494,6 +741,7 @@ describe('ExtractMetadataUseCase AI merge', () => {
     expect(populateInput?.searchContext).toContain('AYANEO Pocket MICRO 2 specifications');
     expect(populateInput?.reconcileSources).toBe(true);
     expect(result.data.userDefinedFields?.RAM).toBe('8GB');
+    expect(result.data.description).toBeTruthy();
     expect(result.data.description).not.toContain('8GB');
   });
 
@@ -509,6 +757,10 @@ describe('ExtractMetadataUseCase AI merge', () => {
     } | null = null;
 
     const mockScraper: MetadataScraper = {
+      resolveFinalUrl: async () => null,
+      scrapeFromCapture: async () => {
+        throw new Error('scrapeFromCapture not implemented in mock');
+      },
       scrape: async () => ({
         diagnostics: {
           source: 'fetch',
@@ -563,7 +815,8 @@ describe('ExtractMetadataUseCase AI merge', () => {
       createItemRepo(),
       createConfigRepo(),
       createPageContextFetcher(),
-      mockResearcher
+      mockResearcher,
+      noopScrapeTelemetry
     );
 
     await useCase.execute('https://shop.example/gadget', 'user-1', {
@@ -582,6 +835,10 @@ describe('ExtractMetadataUseCase AiPopulate diagnostics', () => {
     policyAllowsAi = true;
 
     const mockScraper: MetadataScraper = {
+      resolveFinalUrl: async () => null,
+      scrapeFromCapture: async () => {
+        throw new Error('scrapeFromCapture not implemented in mock');
+      },
       scrape: async () => ({
         diagnostics: {
           source: 'fetch',
@@ -622,7 +879,9 @@ describe('ExtractMetadataUseCase AiPopulate diagnostics', () => {
       createWishlistRepo(),
       createItemRepo(),
       createConfigRepo(),
-      createPageContextFetcher()
+      createPageContextFetcher(),
+      undefined,
+      noopScrapeTelemetry
     );
 
     const result = await useCase.execute('https://shop.example/item', 'user-1');
@@ -636,6 +895,10 @@ describe('ExtractMetadataUseCase AiPopulate diagnostics', () => {
     policyAllowsAi = true;
 
     const mockScraper: MetadataScraper = {
+      resolveFinalUrl: async () => null,
+      scrapeFromCapture: async () => {
+        throw new Error('scrapeFromCapture not implemented in mock');
+      },
       scrape: async () => ({
         diagnostics: {
           source: 'fetch',
@@ -670,7 +933,9 @@ describe('ExtractMetadataUseCase AiPopulate diagnostics', () => {
       createWishlistRepo(),
       createItemRepo(),
       createConfigRepo(),
-      createPageContextFetcher()
+      createPageContextFetcher(),
+      undefined,
+      noopScrapeTelemetry
     );
 
     const result = await useCase.execute('https://shop.example/dyson', 'user-1');
@@ -679,12 +944,132 @@ describe('ExtractMetadataUseCase AiPopulate diagnostics', () => {
     expect(result.data.price).toBe(599);
   });
 
+  test('records failed aiPopulate and split durations in telemetry when populate throws', async () => {
+    aiEnabled = true;
+    userAiEnabled = true;
+    policyAllowsAi = true;
+
+    const events: ScrapeTelemetryEvent[] = [];
+    const mockScraper: MetadataScraper = {
+      resolveFinalUrl: async () => null,
+      scrapeFromCapture: async () => {
+        throw new Error('scrapeFromCapture not implemented in mock');
+      },
+      scrape: async () => ({
+        diagnostics: {
+          source: 'fetch',
+          confidence: 'high',
+          blocked: false,
+          fieldsFound: ['title', 'price'],
+        },
+        data: {
+          title: 'Dyson V11 Torque Drive Cordless Vacuum Cleaner, Blue',
+          price: 599,
+          description: null,
+          color: 'Blue',
+          size: null,
+          category: null,
+          imageUrl: null,
+        },
+      }),
+    };
+
+    const useCase = new ExtractMetadataUseCase(
+      mockScraper,
+      {
+        populate: async () => {
+          throw new Error('model unavailable');
+        },
+      },
+      { classify: async () => ({ category: 'home', alternatives: [] }) },
+      createUserRepo(),
+      createAssertUserCan(),
+      createWishlistRepo(),
+      createItemRepo(),
+      createConfigRepo(),
+      createPageContextFetcher(),
+      undefined,
+      { record: (event) => void events.push(event) }
+    );
+
+    await useCase.execute('https://shop.example/dyson', 'user-1');
+
+    expect(events).toHaveLength(1);
+    expect(events[0]?.aiPopulate).toBe('failed');
+    expect(events[0]?.scrapeDurationMs).toBeGreaterThanOrEqual(0);
+    expect(events[0]?.aiDurationMs).toBeGreaterThanOrEqual(0);
+    expect(events[0]?.durationMs).toBeGreaterThanOrEqual(
+      (events[0]?.scrapeDurationMs ?? 0) + (events[0]?.aiDurationMs ?? 0) - 1
+    );
+  });
+
+  test('skips AI stages and returns scrape-only data when the caller budget is exhausted', async () => {
+    aiEnabled = true;
+    userAiEnabled = true;
+    policyAllowsAi = true;
+
+    let populateCalls = 0;
+    const mockScraper: MetadataScraper = {
+      resolveFinalUrl: async () => null,
+      scrapeFromCapture: async () => {
+        throw new Error('scrapeFromCapture not implemented in mock');
+      },
+      scrape: async () => ({
+        diagnostics: {
+          source: 'fetch',
+          confidence: 'low',
+          blocked: false,
+          fieldsFound: ['title'],
+        },
+        data: {
+          title: 'Some Product',
+          price: null,
+          description: null,
+          color: null,
+          size: null,
+          category: null,
+          imageUrl: null,
+        },
+      }),
+    };
+
+    const useCase = new ExtractMetadataUseCase(
+      mockScraper,
+      {
+        populate: async () => {
+          populateCalls += 1;
+          throw new Error('should not be called');
+        },
+      },
+      { classify: async () => ({ category: 'home', alternatives: [] }) },
+      createUserRepo(),
+      createAssertUserCan(),
+      createWishlistRepo(),
+      createItemRepo(),
+      createConfigRepo(),
+      createPageContextFetcher(),
+      undefined,
+      noopScrapeTelemetry
+    );
+
+    // 1ms budget: exhausted before the AI stages start.
+    const result = await useCase.execute('https://shop.example/p', 'user-1', { deadlineMs: 1 });
+    await Bun.sleep(0);
+    expect(populateCalls).toBe(0);
+    expect(result.diagnostics.aiPopulate).toBe('skipped');
+    expect(result.data.title).toBe('Some Product');
+  });
+
   test('marks AiPopulate skipped when server AI is disabled', async () => {
     aiEnabled = false;
     userAiEnabled = true;
     policyAllowsAi = true;
 
     const mockScraper: MetadataScraper = {
+      resolveFinalUrl: async () => null,
+      scrapeFromCapture: async () => {
+        throw new Error('scrapeFromCapture not implemented in mock');
+      },
       scrape: async () => ({
         diagnostics: {
           source: 'fetch',
@@ -717,7 +1102,9 @@ describe('ExtractMetadataUseCase AiPopulate diagnostics', () => {
       createWishlistRepo(),
       createItemRepo(),
       createConfigRepo(),
-      createPageContextFetcher()
+      createPageContextFetcher(),
+      undefined,
+      noopScrapeTelemetry
     );
 
     const result = await useCase.execute('https://shop.example/item', 'user-1');
@@ -735,6 +1122,7 @@ describe('ExtractMetadataUseCase AiPopulate diagnostics', () => {
 
     const useCase = new ExtractMetadataUseCase(
       {
+        resolveFinalUrl: async () => null,
         scrape: async () => ({
           diagnostics: {
             source: 'fetch',
@@ -776,7 +1164,9 @@ describe('ExtractMetadataUseCase AiPopulate diagnostics', () => {
       createWishlistRepo(),
       createItemRepo(),
       createConfigRepo(),
-      createPageContextFetcher()
+      createPageContextFetcher(),
+      undefined,
+      noopScrapeTelemetry
     );
 
     const result = await useCase.execute('https://shop.example/cpu', 'user-1');
@@ -799,6 +1189,7 @@ describe('ExtractMetadataUseCase AiPopulate diagnostics', () => {
 
     const useCase = new ExtractMetadataUseCase(
       {
+        resolveFinalUrl: async () => null,
         scrape: async () => ({
           diagnostics: {
             source: 'fetch',
@@ -837,7 +1228,9 @@ describe('ExtractMetadataUseCase AiPopulate diagnostics', () => {
       createWishlistRepo(),
       createItemRepo(),
       createConfigRepo({ AiEnabledPackIds: [] }),
-      createPageContextFetcher()
+      createPageContextFetcher(),
+      undefined,
+      noopScrapeTelemetry
     );
 
     await useCase.execute('https://shop.example/cpu', 'user-1');
@@ -865,6 +1258,7 @@ describe('ExtractMetadataUseCase unreachable AI', () => {
 
     const useCase = new ExtractMetadataUseCase(
       {
+        resolveFinalUrl: async () => null,
         scrape: async () => ({
           diagnostics: {
             source: 'fetch',
@@ -890,7 +1284,9 @@ describe('ExtractMetadataUseCase unreachable AI', () => {
       createWishlistRepo(),
       createItemRepo(),
       createConfigRepo(),
-      createPageContextFetcher()
+      createPageContextFetcher(),
+      undefined,
+      noopScrapeTelemetry
     );
 
     const result = await useCase.execute('https://shop.example/item', 'user-1');

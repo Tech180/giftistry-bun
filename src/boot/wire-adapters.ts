@@ -22,6 +22,10 @@ import { PostgresItemAudienceRepository } from '@/modules/item/infrastructure/re
 import { PostgresItemFieldRepository } from '@/modules/item/infrastructure/repositories/postgres-item-field.repository';
 import { PostgresItemReviewRepository } from '@/modules/item/infrastructure/repositories/postgres-item-review.repository';
 import { MetadataScraperOrchestrator } from '@/modules/item/infrastructure/adapters/metadata-scraper.orchestrator';
+import { LogScrapeTelemetry } from '@/modules/item/infrastructure/adapters/log-scrape-telemetry';
+import { InMemoryScrapeCacheRepository } from '@/modules/item/infrastructure/repositories/in-memory-scrape-cache.repository';
+import { InMemoryDomainProfileRepository } from '@/modules/item/infrastructure/repositories/in-memory-domain-profile.repository';
+import { DomainRateLimiter } from '@/modules/item/infrastructure/scraping/utils/domain-rate-limiter.util';
 import { AiReviewExtractor } from '@/modules/item/infrastructure/adapters/ai-review-extractor';
 import { AiMetadataPopulator } from '@/modules/item/infrastructure/adapters/ai-metadata-populator';
 import { AiCategoryClassifier } from '@/modules/item/infrastructure/adapters/ai-category-classifier';
@@ -29,7 +33,7 @@ import { AiDescriptionSummarizer } from '@/modules/item/infrastructure/adapters/
 import { AiItemImportParser } from '@/modules/item/infrastructure/adapters/ai-item-import-parser';
 import { DefaultImportFileTextExtractor } from '@/modules/item/infrastructure/adapters/import-file-text-extractor';
 import { HttpPageContextFetcher } from '@/modules/item/infrastructure/adapters/http-page-context-fetcher';
-import { PlaywrightProductResearcher } from '@/modules/item/infrastructure/adapters/playwright-product-researcher';
+import { ConfigurableProductResearcher } from '@/modules/item/infrastructure/adapters/configurable-product-researcher';
 import { FetchRemoteImageAsDataUrl } from '@/modules/item/infrastructure/adapters/fetch-remote-image-as-data-url';
 import { PostgresCommentRepository } from '@/modules/comment/infrastructure/repositories/postgres-comment.repository';
 import { WebsocketCommentRealtimePublisher } from '@/modules/comment/infrastructure/adapters/websocket-comment-realtime-publisher';
@@ -71,7 +75,17 @@ export function createInfrastructureAdapters() {
   const itemAudienceRepo = new PostgresItemAudienceRepository();
   const itemFieldRepo = new PostgresItemFieldRepository();
   const itemReviewRepo = new PostgresItemReviewRepository();
-  const metadataScraper = new MetadataScraperOrchestrator();
+  const scrapeTelemetry = new LogScrapeTelemetry();
+  const scrapeCache = new InMemoryScrapeCacheRepository();
+  const domainProfileRepo = new InMemoryDomainProfileRepository();
+  const domainRateLimiter = new DomainRateLimiter(domainProfileRepo);
+  const metadataScraper = new MetadataScraperOrchestrator(
+    undefined,
+    undefined,
+    scrapeTelemetry,
+    scrapeCache,
+    domainRateLimiter
+  );
   const reviewExtractor = new AiReviewExtractor();
   const metadataPopulator = new AiMetadataPopulator();
   const categoryClassifier = new AiCategoryClassifier();
@@ -79,7 +93,6 @@ export function createInfrastructureAdapters() {
   const itemImportParser = new AiItemImportParser();
   const importFileTextExtractor = new DefaultImportFileTextExtractor();
   const pageContextFetcher = new HttpPageContextFetcher();
-  const productResearcher = new PlaywrightProductResearcher();
   const remoteImageFetcher = new FetchRemoteImageAsDataUrl();
   const commentRepo = new PostgresCommentRepository();
   const commentRealtime = new WebsocketCommentRealtimePublisher(
@@ -91,6 +104,7 @@ export function createInfrastructureAdapters() {
   const notificationRepo = new PostgresNotificationRepository();
   const pushSubscriptionRepo = new PostgresPushSubscriptionRepository();
   const serverConfigRepo = new PostgresServerConfigRepository();
+  const productResearcher = new ConfigurableProductResearcher(serverConfigRepo);
   const oidcClient = new OpenIdClientAdapter(serverConfigRepo);
   const ntfyPushAdapter = new NtfyPushAdapter(serverConfigRepo);
   const webPushAdapter = new WebPushAdapter(serverConfigRepo);
@@ -125,6 +139,10 @@ export function createInfrastructureAdapters() {
     itemAudienceRepo,
     itemFieldRepo,
     itemReviewRepo,
+    scrapeTelemetry,
+    scrapeCache,
+    domainProfileRepo,
+    domainRateLimiter,
     metadataScraper,
     reviewExtractor,
     metadataPopulator,

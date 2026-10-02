@@ -1,0 +1,9 @@
+{
+  "pageType": "product",
+  "title": ["Cool Mug"],
+  "price": 12.99,
+  "currency": "USD",
+  "imageHost": "cdn.example",
+  "availability": null,
+  "shouldBeBlocked": false
+}

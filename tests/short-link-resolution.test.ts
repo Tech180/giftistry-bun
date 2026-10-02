@@ -1,12 +1,10 @@
 import { describe, expect, test } from 'bun:test';
-import {
-  isPrivateScrapeHostname,
-  resolveScrapeFinalUrl,
-  htmlLooksLikeContinueShoppingShell,
-} from '../src/modules/item/infrastructure/scraping/utils/resolve-scrape-final-url.util';
+import { isPrivateNetworkAddress } from '../src/modules/item/domain/utils/is-private-network-address.util';
+import { resolveScrapeFinalUrl } from '../src/modules/item/domain/utils/scrape-url-safety.util';
+import { htmlLooksLikeContinueShoppingShell } from '../src/modules/item/infrastructure/scraping/utils/html-looks-like-continue-shopping-shell.util';
 import { validateScrapeResult } from '../src/modules/item/infrastructure/scraping/utils/validate-scrape-result.util';
 import { MetadataScraperOrchestrator } from '../src/modules/item/infrastructure/adapters/metadata-scraper.orchestrator';
-import { ScrapeError } from '../src/modules/item/infrastructure/scraping/errors/scrape-error';
+import { ScrapeError } from '../src/modules/item/domain/errors/scrape-error';
 
 describe('resolveScrapeFinalUrl', () => {
   test('accepts public https product URLs', () => {
@@ -31,9 +29,9 @@ describe('resolveScrapeFinalUrl', () => {
     expect(resolveScrapeFinalUrl('ftp://shop.example/p', 'https://a.co/d/x')).toBeNull();
   });
 
-  test('isPrivateScrapeHostname detects RFC1918', () => {
-    expect(isPrivateScrapeHostname('10.0.0.1')).toBe(true);
-    expect(isPrivateScrapeHostname('amazon.com')).toBe(false);
+  test('isPrivateNetworkAddress detects RFC1918', () => {
+    expect(isPrivateNetworkAddress('10.0.0.1')).toBe(true);
+    expect(isPrivateNetworkAddress('amazon.com')).toBe(false);
   });
 });
 
@@ -57,7 +55,8 @@ describe('continue shopping validation', () => {
         imageUrl: null,
       },
       html,
-      'full'
+      'full',
+      { url: 'https://www.amazon.com/dp/B0TEST1234' }
     );
     expect(validation.valid).toBe(false);
     expect(validation.blocked).toBe(true);

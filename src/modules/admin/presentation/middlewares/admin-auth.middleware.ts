@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia';
-import type { createAuthMiddleware } from '@/modules/auth/presentation/middlewares/auth.middleware';
+import type { createAuthMiddleware } from '@/modules/auth';
 import { AdminUser } from '../../domain/admin-user.entity';
 
 /** Compose after `createAuthModule` — do not call at module import time (TDZ on authMiddleware). */

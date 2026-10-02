@@ -1,8 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import {
-  extractAmazonDomPageContextLines,
-  isAmazonProductHost,
-} from '@/modules/item/infrastructure/scraping/extractors/utils/amazon-dom-page-context.util';
+import { extractAmazonDomPageContextLines } from '@/modules/item/infrastructure/scraping/extractors/utils/amazon-dom-page-context.util';
+import { isAmazonProductHost } from '@/modules/item/domain/utils/amazon-url.util';
 import { buildJsonLdPageContext } from '@/modules/item/infrastructure/scraping/extractors/utils/json-ld-product.util';
 import { isEmptyAiPopulateResult } from '@/modules/item/domain/utils/merge-extracted-metadata.util';
 

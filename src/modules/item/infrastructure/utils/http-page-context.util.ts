@@ -9,17 +9,20 @@ import {
   HTTP_PAGE_FETCH_HEADERS,
   HTTP_PAGE_FETCH_TIMEOUT_MS,
 } from '../constants/http-page-fetch.constant';
+import { safeFetch } from '../scraping/utils/safe-fetch.util';
+import { scrapingConfig } from '../scraping/utils/scraping-config.util';
 
 export async function fetchPageHtml(url: string): Promise<string> {
   try {
-    const res = await fetch(url, {
+    const result = await safeFetch(url, {
       headers: { ...HTTP_PAGE_FETCH_HEADERS },
-      signal: AbortSignal.timeout(HTTP_PAGE_FETCH_TIMEOUT_MS),
+      timeoutMs: HTTP_PAGE_FETCH_TIMEOUT_MS,
+      maxBytes: scrapingConfig.maxHtmlBytes,
     });
-    if (!res.ok) {
+    if (result.status < 200 || result.status >= 300) {
       return '';
     }
-    return await res.text();
+    return result.body;
   } catch {
     return '';
   }

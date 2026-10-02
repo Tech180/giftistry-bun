@@ -1,0 +1,9 @@
+{
+  "url": "https://shop.example.de/products/engineering-kit",
+  "finalUrl": "https://shop.example.de/products/engineering-kit",
+  "status": 200,
+  "fetchedAt": "2026-10-01T00:00:00.000Z",
+  "tier": "fixture",
+  "platform": "generic",
+  "tags": ["seed", "synthetic", "european-decimals", "product"]
+}

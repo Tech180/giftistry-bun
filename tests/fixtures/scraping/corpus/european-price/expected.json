@@ -1,0 +1,9 @@
+{
+  "pageType": "product",
+  "title": ["German Engineering Kit"],
+  "price": 1299,
+  "currency": "EUR",
+  "imageHost": "cdn.example.de",
+  "availability": null,
+  "shouldBeBlocked": false
+}

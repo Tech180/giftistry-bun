@@ -7,10 +7,12 @@ import { policyRoutes } from './routes/policy.routes';
 import { auditRoutes } from './routes/audit.routes';
 import { moderationRoutes } from './routes/moderation.routes';
 import { reportsAdminRoutes } from './routes/reports-admin.routes';
+import { scrapeStatsRoutes } from './routes/scrape-stats.routes';
 
 export const adminRoutes = (useCases: UseCases, adminAuth: AdminAuthMiddleware) =>
   new Elysia({ prefix: '/api/admin' })
     .use(overviewRoutes(useCases, adminAuth))
+    .use(scrapeStatsRoutes(useCases, adminAuth))
     .use(usersRoutes(useCases, adminAuth))
     .use(policyRoutes(useCases, adminAuth))
     .use(auditRoutes(useCases, adminAuth))

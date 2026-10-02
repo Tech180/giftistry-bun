@@ -14,8 +14,7 @@ import {
   publishJobProgress,
 } from '../../../application/utils/publish-job-update.util';
 import { withJobHeartbeat } from '../../../application/utils/with-job-heartbeat.util';
-import { resolveDesiredQuantity } from '@/modules/item';
-import { formatBlockedScrapeMessage } from '@/modules/item/slices/metadata/utils/format-blocked-scrape-message.util';
+import { formatBlockedScrapeMessage, resolveDesiredQuantity } from '@/modules/item';
 import {
   clearGrabPhasePayloadPatch,
   grabPhasePayloadPatch,
@@ -153,7 +152,8 @@ export class RunItemEnrichJobUseCase {
         { desiredQuantity: packQty, existingMetadata: current.metadata }
       );
       const category = mergePreferExtracted(extract.data.category, current.category, current.category);
-      const price = extract.data.price != null ? extract.data.price : null;
+      // undefined preserves existing link price; null would clear it in updateItem.
+      const price = extract.data.price != null ? extract.data.price : undefined;
       const websiteName = mergePreferExtracted(extract.websiteName, null, '') || null;
       const description = text ?? '';
       const resolvedLinkUrl = extract.finalUrl?.trim() || payload.url;

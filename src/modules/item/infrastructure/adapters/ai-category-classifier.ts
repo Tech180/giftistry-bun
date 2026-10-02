@@ -25,6 +25,8 @@ export class AiCategoryClassifier implements CategoryClassifier {
         model: config.model,
         endpoint: config.endpoint,
         jsonResponse: true,
+        temperature: 0,
+        ...(config.timeoutMs != null ? { timeoutMs: config.timeoutMs } : {}),
         ...(maxTokens != null ? { maxTokens } : {}),
       },
       async (delta) => {

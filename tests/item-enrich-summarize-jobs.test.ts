@@ -423,6 +423,48 @@ describe('RunItemEnrichJobUseCase', () => {
     expect(items[0]?.Status).toBe('done');
   });
 
+  test('preserves existing link price when extraction returns no price', async () => {
+    const { itemUseCases, updateItemCalls } = makeItemUseCases({
+      data: {
+        title: 'Cool Gadget',
+        description: 'A cool gadget',
+        category: 'electronics',
+        price: null,
+        imageUrl: null,
+        categoryAlternatives: [],
+        predefinedFields: {},
+        userDefinedFields: {},
+      },
+    });
+    const repo = makeRepo();
+    const job = await repo.create({
+      kind: 'item-enrich',
+      userId: 'user-1',
+      listId: 'list-1',
+      payload: {
+        intent: 'update-item',
+        listId: 'list-1',
+        url: 'https://example.com/x',
+        itemId: 'item-1',
+      },
+    });
+    await repo.insertItems(job.Id, [
+      {
+        itemId: 'item-1',
+        linkUrl: 'https://example.com/x',
+        payload: { name: 'Placeholder' },
+        status: 'pending',
+      },
+    ]);
+    await repo.updateProgress(job.Id, { status: 'running', progressTotal: 1 });
+
+    const useCase = new RunItemEnrichJobUseCase(repo, itemUseCases, noopPublisher);
+    await useCase.execute(jobs.get(job.Id)!);
+
+    expect(updateItemCalls).toHaveLength(1);
+    expect(updateItemCalls[0]![9]).toBeUndefined();
+  });
+
   test('failed extraction marks job and job item as failed', async () => {
     const itemUseCases = {
       extractMetadata: {

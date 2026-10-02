@@ -1,0 +1,107 @@
+{
+  "minPassRate": 0.72,
+  "concurrency": 2,
+  "timeoutMs": 90000,
+  "entries": [
+    {
+      "id": "amazon-hobbit",
+      "url": "https://www.amazon.com/dp/0547928220",
+      "titleContains": "Hobbit"
+    },
+    {
+      "id": "amazon-principles",
+      "url": "https://www.amazon.com/dp/0735211299",
+      "titleContains": "Principles"
+    },
+    {
+      "id": "apple-iphone",
+      "url": "https://www.apple.com/iphone/",
+      "titleContains": "iPhone"
+    },
+    {
+      "id": "microsoft-surface",
+      "url": "https://www.microsoft.com/en-us/d/surface-laptop-go-3/8xn09h547k5n",
+      "titleContains": "Surface"
+    },
+    {
+      "id": "lego-classic",
+      "url": "https://www.lego.com/en-us/product/classic-bricks-and-eyes-11003",
+      "titleContains": "LEGO"
+    },
+    {
+      "id": "nintendo-switch",
+      "url": "https://www.nintendo.com/us/store/products/nintendo-switch-2/",
+      "titleContains": "Nintendo"
+    },
+    {
+      "id": "rei-flash-pack",
+      "url": "https://www.rei.com/product/240235/rei-co-op-flash-22-pack",
+      "titleContains": "Flash"
+    },
+    {
+      "id": "patagonia-better-sweater",
+      "url": "https://www.patagonia.com/product/mens-better-sweater-fleece-jacket/25528.html",
+      "titleContains": "Better Sweater"
+    },
+    {
+      "id": "wikipedia-not-product",
+      "url": "https://en.wikipedia.org/wiki/Main_Page",
+      "expectFailure": true
+    },
+    {
+      "id": "example-domain",
+      "url": "https://example.com/",
+      "expectFailure": true
+    },
+    {
+      "id": "httpbin-html",
+      "url": "https://httpbin.org/html",
+      "expectFailure": true
+    },
+    {
+      "id": "etsy-handmade",
+      "url": "https://www.etsy.com/listing/1000000000/test-listing-not-found",
+      "expectFailure": true
+    },
+    {
+      "id": "target-milk",
+      "url": "https://www.target.com/p/horizon-organic-whole-milk/-/A-13276134",
+      "titleContains": "Milk"
+    },
+    {
+      "id": "bestbuy-logitech",
+      "url": "https://www.bestbuy.com/site/logitech-mx-master-3s-performance-wireless-mouse/6509659.p",
+      "titleContains": "Logitech"
+    },
+    {
+      "id": "newegg-thermal-paste",
+      "url": "https://www.newegg.com/arctic-silver-5-high-density-polysynthetic-silver-thermal-compound/p/N82E16835100080",
+      "titleContains": "Arctic"
+    },
+    {
+      "id": "bandcamp-album",
+      "url": "https://bandcamp.com",
+      "titleContains": "Bandcamp"
+    },
+    {
+      "id": "steam-portal",
+      "url": "https://store.steampowered.com/app/400/Portal/",
+      "titleContains": "Portal"
+    },
+    {
+      "id": "adobe-acrobat",
+      "url": "https://www.adobe.com/acrobat.html",
+      "titleContains": "Acrobat"
+    },
+    {
+      "id": "github-home",
+      "url": "https://github.com/",
+      "titleContains": "GitHub"
+    },
+    {
+      "id": "mozilla-firefox",
+      "url": "https://www.mozilla.org/en-US/firefox/new/",
+      "titleContains": "Firefox"
+    }
+  ]
+}

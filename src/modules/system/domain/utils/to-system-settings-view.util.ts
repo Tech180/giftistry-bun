@@ -28,6 +28,7 @@ import {
   clampGrabInfoConcurrency,
   clampScrapeFetchTimeoutMs,
   clampScrapePlaywrightTimeoutMs,
+  clampAiWebSearchMaxPages,
 } from './clamp-server-config-limits.util';
 import { maskSecret } from './mask-secret.util';
 import { normalizeAiProvider } from './normalize-ai-provider.util';
@@ -57,6 +58,8 @@ export function toSystemSettingsView(config: ServerConfig): SystemSettingsView {
     OAuthAutoLaunch: !!config.OAuthAutoLaunch,
     AiEnabled: !!config.AiEnabled,
     AiWebSearchEnabled: !!config.AiWebSearchEnabled,
+    AiWebSearchEndpoint: config.AiWebSearchEndpoint || '',
+    AiWebSearchMaxPages: clampAiWebSearchMaxPages(config.AiWebSearchMaxPages),
     AiRateLimitEnabled: config.AiRateLimitEnabled !== false,
     AiFastProvider: normalizeAiProvider(config.AiFastProvider),
     AiFastEndpoint: config.AiFastEndpoint || '',

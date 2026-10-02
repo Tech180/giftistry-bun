@@ -154,20 +154,27 @@ flowchart TD
   PlaywrightAmazon --> NetworkCapture[NetworkJsonCapture]
   Playwright --> NetworkCapture
   NetworkCapture --> Pipeline
-  Validate -->|fail both| Error[ScrapeError]
+  Validate -->|fail both| Partial{title_or_image?}
+  Partial -->|yes| Review[ScrapeResult_needsReview]
+  Partial -->|no| Error[ScrapeError]
   Error -->|blocked_and_AI| AiFallback[ExtractMetadata_AI_fallback]
+  Capture[POST_capture-page_HTML] --> Pipeline
 ```
 
-- **Port:** `MetadataScraper` — `src/modules/item/domain/ports/metadata-scraper.port.ts`
+- **Port:** `MetadataScraper` — `src/modules/item/domain/ports/metadata-scraper.port.ts` (`scrape`, `resolveFinalUrl`)
 - **Orchestrator / scrapers:** `src/modules/item/infrastructure/adapters/`
 - **Extractors / retailers:** `src/modules/item/infrastructure/scraping/`
-- **Use cases:** `ExtractMetadataUseCase`, `EnrichLinkMetadataUseCase` (metadata slice)
+- **SSRF guard:** `safeFetch` / `installPlaywrightNetworkGuard` under `scraping/utils/` (DNS validation per hop, body cap, Playwright route abort for private hosts). Bun cannot pin TCP to the validated DNS answer while preserving SNI; residual risk is validate-then-fetch plus Playwright `serverAddr` checks.
+- **Use cases:** `ExtractMetadataUseCase`, `IngestCapturedPageUseCase`, `EnrichLinkMetadataUseCase` (metadata slice)
+- **Partial results:** When validation fails or confidence is low but a title or image was extracted, the orchestrator returns `ScrapeResult` with `diagnostics.confidence: low`, `needsReview: true`, and a typed `outcome` (`blocked` / `empty`) instead of throwing. Unsafe URLs, HTTP not-found, and blocked pages with no salvageable fields still throw `ScrapeError`.
+- **Client capture API:** Authenticated `POST /api/items/metadata/capture-page` accepts untrusted HTML/JSON (≈2 MiB cap), runs extractors + AI populate without server fetch. See [Development](development.md#client-captured-product-pages).
 
 Amazon / short-link (`a.co`, `amzn.to`) behavior:
 
 - When the input URL already contains an ASIN (`/dp/…`, `/gp/product/…`), Playwright opens the **canonical** `https://www…/dp/{ASIN}` first (tracking query params stripped); HTTP pre-resolve is skipped.
 - Short links still pre-resolve redirects; Playwright may dismiss “Continue shopping” and navigate to a canonical `/dp/{ASIN}` `postGateUrl`, with **one** extra canonical reload+dismiss if the gate persists.
-- Shared Playwright browser context keeps cookies for the worker process lifetime (pages are closed per scrape; context is not).
+- Each scrape leases a **fresh Playwright BrowserContext** (network guard installed); contexts are closed on release. The browser recycles after ~200 pages or on disconnect.
+- HTTP 404/410 short-circuit without Playwright; 401/403/429/503 escalate to Playwright with `diagnostics.outcome` set.
 - Short-link pre-resolve only accepts product redirects (`/dp/{ASIN}`); decoy hubs (e.g. grocery category pages) are ignored and may surface as `amazon-non-product-landing` → blocked AI fallback.
 - Gate pages that mention both captcha and continue-shopping are classified as `short-link-shell:*`, not `bot-check:captcha`.
 - Hardening improves pass-rate through interstitials; hard captchas / datacenter bans can still fail with the blocked scrape message.
@@ -179,9 +186,18 @@ Amazon / short-link (`a.co`, `amzn.to`) behavior:
 |----------|---------|---------|
 | `SCRAPE_FETCH_TIMEOUT_MS` | `8000` | Fetch tier timeout |
 | `SCRAPE_PLAYWRIGHT_TIMEOUT_MS` | `25000` | Browser navigation timeout |
-| `SCRAPE_PLAYWRIGHT_MAX_CONCURRENT` | `3` | Max concurrent Playwright scrapes (shared context) |
+| `SCRAPE_PLAYWRIGHT_MAX_CONCURRENT` | `3` | Max concurrent Playwright scrapes (semaphore) |
+| `SCRAPE_QUEUE_TIMEOUT_MS` | `15000` | Wait timeout when Playwright slots are busy |
+| `SCRAPE_TOTAL_BUDGET_MS` | fetch + Playwright timeouts + 10000 | Total wall-clock budget for one scrape across all tiers |
+| `SCRAPE_MAX_HTML_BYTES` | `5242880` | Max HTML body size (5 MB) for safeFetch |
 | `SCRAPE_PLAYWRIGHT_HEADLESS` | `true` | Headless browser |
 | `SCRAPE_PLAYWRIGHT_EXECUTABLE_PATH` | _(auto)_ | Chromium path (needed on NixOS) |
+
+**Time budget.** Each `scrape()` computes one absolute `deadlineAt` (from `deadlineMs` when provided, otherwise `SCRAPE_TOTAL_BUDGET_MS`) and shares it across every tier. Per-tier timeouts are `min(tier default, remaining)`; the acquisition ladder stops escalating once less than 1s remains; Amazon post-gate / reload retries are skipped when less than 5s remains; Playwright waits are capped by the remaining time and the page is closed at the deadline. When `ExtractMetadataUseCase` receives `deadlineMs`, AI stages are skipped (scrape-only result, or the blocked error) when less than 3s remains, and populate / category calls get the remaining time as their completion timeout.
+
+**Populate JSON recovery.** `parsePopulateJson` classifies failures as `truncated` (unclosed object), `malformed`, `empty`, or `schema`. The completion layer reports the provider `finish_reason`. One retry follows a failure: truncated replies (or `finish_reason: length`) retry with a compact "complete, compact JSON" prompt and `maxTokens` raised 1.5x (capped at 16384); other failures retry with a repair prompt that includes the previous reply (capped at 2000 chars). If the retry also fails, a warning logs `kind`, `finishReason`, `rawLength`, `maxTokens`, `model` and a 200-char snippet, and the scrape-only result is returned with `diagnostics.aiPopulate: "failed"`.
+
+**Telemetry.** One `scrape_telemetry` event per extract: `durationMs` (total), `scrapeDurationMs`, `aiDurationMs`, and `aiPopulate` (`succeeded` | `failed` | `skipped`; `failed` now covers populate errors, empty results and rejected blocked-AI fallbacks).
 
 On NixOS, point Playwright at a Nix browser (`SCRAPE_PLAYWRIGHT_EXECUTABLE_PATH`) or enable `programs.nix-ld`. Heavily protected retailers may return `diagnostics.blocked: true` rather than empty success.
 

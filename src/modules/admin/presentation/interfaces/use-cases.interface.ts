@@ -11,6 +11,7 @@ import type { DeleteAdminUserUseCase } from '../../slices/users/use-cases/delete
 import type { GetSitePolicyAdminUseCase } from '../../slices/policy/use-cases/get-site-policy-admin.use-case';
 import type { SaveSitePolicyAdminUseCase } from '../../slices/policy/use-cases/save-site-policy-admin.use-case';
 import type { ListAuditLogUseCase } from '../../slices/audit/use-cases/list-audit-log.use-case';
+import type { GetScrapeStatsUseCase } from '../../slices/audit/use-cases/get-scrape-stats.use-case';
 import type { ModerateCommentUseCase } from '../../slices/moderation/use-cases/moderate-comment.use-case';
 import type { HandleReportUseCase } from '../../slices/reports/use-cases/handle-report.use-case';
 
@@ -28,6 +29,7 @@ export interface UseCases {
   getSitePolicy: GetSitePolicyAdminUseCase;
   saveSitePolicy: SaveSitePolicyAdminUseCase;
   listAuditLog: ListAuditLogUseCase;
+  getScrapeStats: GetScrapeStatsUseCase;
   moderateComment: ModerateCommentUseCase;
   handleReport: HandleReportUseCase;
 }

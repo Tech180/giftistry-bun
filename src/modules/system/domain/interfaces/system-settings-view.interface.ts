@@ -24,6 +24,8 @@ export interface SystemSettingsView {
   OAuthAutoLaunch: boolean;
   AiEnabled: boolean;
   AiWebSearchEnabled: boolean;
+  AiWebSearchEndpoint: string;
+  AiWebSearchMaxPages: number;
   AiRateLimitEnabled: boolean;
   AiFastProvider: AiProvider;
   AiFastEndpoint: string;

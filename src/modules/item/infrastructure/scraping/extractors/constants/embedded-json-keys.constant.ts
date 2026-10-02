@@ -18,3 +18,20 @@ export const IMAGE_KEYS = [
   'thumbnail',
   'heroImage',
 ] as const;
+
+/** Subtrees that contaminate product walks with recommendations/ads. */
+export const EMBEDDED_JSON_SKIP_KEYS = [
+  'recommendations',
+  'similar',
+  'related',
+  'carousel',
+  'sponsored',
+  'upsell',
+  'crossSell',
+  'recentlyViewed',
+  'ads',
+] as const;
+
+export const EMBEDDED_JSON_SKIP_KEY_SET = new Set<string>(
+  EMBEDDED_JSON_SKIP_KEYS.map((k) => k.toLowerCase())
+);

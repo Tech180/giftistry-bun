@@ -27,6 +27,8 @@ export const saveSettingsBodySchema = t.Object({
       ...oauthSettingsFields,
       AiEnabled: t.Optional(t.Boolean()),
       AiWebSearchEnabled: t.Optional(t.Boolean()),
+      AiWebSearchEndpoint: t.Optional(t.String()),
+      AiWebSearchMaxPages: t.Optional(t.Numeric()),
       AiRateLimitEnabled: t.Optional(t.Boolean()),
       AiFastProvider: t.Optional(t.String()),
       AiFastEndpoint: t.Optional(t.String()),

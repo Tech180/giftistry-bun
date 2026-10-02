@@ -1,0 +1,1 @@
+export const DEFAULT_DOMAIN_MIN_INTERVAL_MS = 1_000;

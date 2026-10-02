@@ -1,3 +1,4 @@
+/** Walmart.com buy box + captured Next.js product JSON. */
 import * as cheerio from 'cheerio';
 import { extractFromCapturedJson } from '../extractors/utils/embedded-json.util';
 import { parseScrapePrice } from '../extractors/utils/parse-scrape-price.util';

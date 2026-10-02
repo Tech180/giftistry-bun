@@ -3,23 +3,10 @@ import type { ScrapeResult } from '../../../domain/interfaces/scrape-result.inte
 import {
   isAmazonScrapeUrl,
   parseAmazonAsinFromUrl,
-} from '../../../infrastructure/scraping/utils/amazon-scrape-url.util';
+} from '../../../domain/utils/amazon-url.util';
 import type { BlockedAiFallbackTrustContext } from '../interfaces/blocked-ai-fallback-trust-context.interface';
 import type { BlockedScrapeDiagnostics } from '../interfaces/blocked-scrape-diagnostics.interface';
-
-const TITLE_STOP_WORDS = new Set([
-  'a',
-  'an',
-  'and',
-  'for',
-  'in',
-  'of',
-  'on',
-  'or',
-  'the',
-  'to',
-  'with',
-]);
+import { TITLE_STOP_WORDS } from '../constants/title-stop-words.constant';
 
 export function emptyExtractedMetadata(): ExtractedMetadata {
   return {

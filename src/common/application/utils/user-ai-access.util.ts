@@ -1,6 +1,26 @@
 import type { UserRepository } from '@/modules/auth';
+import type { WishlistRepository } from '@/modules/wishlist';
+import type { Wishlist } from '@/modules/wishlist';
 import type { AssertUserCanUseCase } from '@/common/application/use-cases/user-policy.use-cases';
 import { AppError } from '@/common/domain/errors/app-error';
+
+export function wishlistAllowsExtractAi(
+  wishlist: Pick<Wishlist, 'AiEnabled'> | null
+): boolean {
+  return Boolean(wishlist?.AiEnabled);
+}
+
+export async function listAllowsExtractAi(
+  listId: string | undefined,
+  wishlistRepo: WishlistRepository
+): Promise<boolean> {
+  const trimmed = listId?.trim();
+  if (!trimmed) {
+    return true;
+  }
+  const wishlist = await wishlistRepo.findById(trimmed);
+  return wishlistAllowsExtractAi(wishlist);
+}
 
 export async function assertOwnerCanEnableListAi(
   userId: string,

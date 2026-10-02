@@ -1,0 +1,736 @@
+{
+  "version": 1,
+  "generatedAt": "2026-10-02T01:09:29.043Z",
+  "corpusRoot": "/home/tech180/Documents/projects/giftistry-bun/tests/fixtures/scraping/corpus",
+  "entryCount": 9,
+  "aggregates": {
+    "overall": {
+      "entryCount": 9,
+      "fields": [
+        {
+          "field": "title",
+          "scored": 6,
+          "matched": 6,
+          "matchRate": 1
+        },
+        {
+          "field": "price",
+          "scored": 6,
+          "matched": 6,
+          "matchRate": 1
+        },
+        {
+          "field": "imageUrl",
+          "scored": 6,
+          "matched": 5,
+          "matchRate": 0.8333333333333334
+        }
+      ]
+    },
+    "byPlatform": {
+      "amazon": {
+        "entryCount": 1,
+        "fields": [
+          {
+            "field": "title",
+            "scored": 1,
+            "matched": 1,
+            "matchRate": 1
+          },
+          {
+            "field": "price",
+            "scored": 1,
+            "matched": 1,
+            "matchRate": 1
+          },
+          {
+            "field": "imageUrl",
+            "scored": 1,
+            "matched": 1,
+            "matchRate": 1
+          }
+        ]
+      },
+      "generic": {
+        "entryCount": 4,
+        "fields": [
+          {
+            "field": "title",
+            "scored": 2,
+            "matched": 2,
+            "matchRate": 1
+          },
+          {
+            "field": "price",
+            "scored": 2,
+            "matched": 2,
+            "matchRate": 1
+          },
+          {
+            "field": "imageUrl",
+            "scored": 2,
+            "matched": 2,
+            "matchRate": 1
+          }
+        ]
+      },
+      "dicks": {
+        "entryCount": 1,
+        "fields": [
+          {
+            "field": "title",
+            "scored": 0,
+            "matched": 0,
+            "matchRate": 1
+          },
+          {
+            "field": "price",
+            "scored": 0,
+            "matched": 0,
+            "matchRate": 1
+          },
+          {
+            "field": "imageUrl",
+            "scored": 0,
+            "matched": 0,
+            "matchRate": 1
+          }
+        ]
+      },
+      "next": {
+        "entryCount": 1,
+        "fields": [
+          {
+            "field": "title",
+            "scored": 1,
+            "matched": 1,
+            "matchRate": 1
+          },
+          {
+            "field": "price",
+            "scored": 1,
+            "matched": 1,
+            "matchRate": 1
+          },
+          {
+            "field": "imageUrl",
+            "scored": 1,
+            "matched": 1,
+            "matchRate": 1
+          }
+        ]
+      },
+      "shopify": {
+        "entryCount": 2,
+        "fields": [
+          {
+            "field": "title",
+            "scored": 2,
+            "matched": 2,
+            "matchRate": 1
+          },
+          {
+            "field": "price",
+            "scored": 2,
+            "matched": 2,
+            "matchRate": 1
+          },
+          {
+            "field": "imageUrl",
+            "scored": 2,
+            "matched": 1,
+            "matchRate": 0.5
+          }
+        ]
+      }
+    },
+    "byTag": {
+      "seed": {
+        "entryCount": 9,
+        "fields": [
+          {
+            "field": "title",
+            "scored": 6,
+            "matched": 6,
+            "matchRate": 1
+          },
+          {
+            "field": "price",
+            "scored": 6,
+            "matched": 6,
+            "matchRate": 1
+          },
+          {
+            "field": "imageUrl",
+            "scored": 6,
+            "matched": 5,
+            "matchRate": 0.8333333333333334
+          }
+        ]
+      },
+      "amazon-dom": {
+        "entryCount": 1,
+        "fields": [
+          {
+            "field": "title",
+            "scored": 1,
+            "matched": 1,
+            "matchRate": 1
+          },
+          {
+            "field": "price",
+            "scored": 1,
+            "matched": 1,
+            "matchRate": 1
+          },
+          {
+            "field": "imageUrl",
+            "scored": 1,
+            "matched": 1,
+            "matchRate": 1
+          }
+        ]
+      },
+      "product": {
+        "entryCount": 2,
+        "fields": [
+          {
+            "field": "title",
+            "scored": 2,
+            "matched": 2,
+            "matchRate": 1
+          },
+          {
+            "field": "price",
+            "scored": 2,
+            "matched": 2,
+            "matchRate": 1
+          },
+          {
+            "field": "imageUrl",
+            "scored": 2,
+            "matched": 2,
+            "matchRate": 1
+          }
+        ]
+      },
+      "cloudflare": {
+        "entryCount": 1,
+        "fields": [
+          {
+            "field": "title",
+            "scored": 0,
+            "matched": 0,
+            "matchRate": 1
+          },
+          {
+            "field": "price",
+            "scored": 0,
+            "matched": 0,
+            "matchRate": 1
+          },
+          {
+            "field": "imageUrl",
+            "scored": 0,
+            "matched": 0,
+            "matchRate": 1
+          }
+        ]
+      },
+      "block-page": {
+        "entryCount": 2,
+        "fields": [
+          {
+            "field": "title",
+            "scored": 0,
+            "matched": 0,
+            "matchRate": 1
+          },
+          {
+            "field": "price",
+            "scored": 0,
+            "matched": 0,
+            "matchRate": 1
+          },
+          {
+            "field": "imageUrl",
+            "scored": 0,
+            "matched": 0,
+            "matchRate": 1
+          }
+        ]
+      },
+      "akamai": {
+        "entryCount": 1,
+        "fields": [
+          {
+            "field": "title",
+            "scored": 0,
+            "matched": 0,
+            "matchRate": 1
+          },
+          {
+            "field": "price",
+            "scored": 0,
+            "matched": 0,
+            "matchRate": 1
+          },
+          {
+            "field": "imageUrl",
+            "scored": 0,
+            "matched": 0,
+            "matchRate": 1
+          }
+        ]
+      },
+      "dom": {
+        "entryCount": 1,
+        "fields": [
+          {
+            "field": "title",
+            "scored": 1,
+            "matched": 1,
+            "matchRate": 1
+          },
+          {
+            "field": "price",
+            "scored": 1,
+            "matched": 1,
+            "matchRate": 1
+          },
+          {
+            "field": "imageUrl",
+            "scored": 1,
+            "matched": 1,
+            "matchRate": 1
+          }
+        ]
+      },
+      "synthetic": {
+        "entryCount": 3,
+        "fields": [
+          {
+            "field": "title",
+            "scored": 2,
+            "matched": 2,
+            "matchRate": 1
+          },
+          {
+            "field": "price",
+            "scored": 2,
+            "matched": 2,
+            "matchRate": 1
+          },
+          {
+            "field": "imageUrl",
+            "scored": 2,
+            "matched": 1,
+            "matchRate": 0.5
+          }
+        ]
+      },
+      "european-decimals": {
+        "entryCount": 1,
+        "fields": [
+          {
+            "field": "title",
+            "scored": 1,
+            "matched": 1,
+            "matchRate": 1
+          },
+          {
+            "field": "price",
+            "scored": 1,
+            "matched": 1,
+            "matchRate": 1
+          },
+          {
+            "field": "imageUrl",
+            "scored": 1,
+            "matched": 1,
+            "matchRate": 1
+          }
+        ]
+      },
+      "http-error": {
+        "entryCount": 1,
+        "fields": [
+          {
+            "field": "title",
+            "scored": 0,
+            "matched": 0,
+            "matchRate": 1
+          },
+          {
+            "field": "price",
+            "scored": 0,
+            "matched": 0,
+            "matchRate": 1
+          },
+          {
+            "field": "imageUrl",
+            "scored": 0,
+            "matched": 0,
+            "matchRate": 1
+          }
+        ]
+      },
+      "next-data": {
+        "entryCount": 1,
+        "fields": [
+          {
+            "field": "title",
+            "scored": 1,
+            "matched": 1,
+            "matchRate": 1
+          },
+          {
+            "field": "price",
+            "scored": 1,
+            "matched": 1,
+            "matchRate": 1
+          },
+          {
+            "field": "imageUrl",
+            "scored": 1,
+            "matched": 1,
+            "matchRate": 1
+          }
+        ]
+      },
+      "false-positive": {
+        "entryCount": 1,
+        "fields": [
+          {
+            "field": "title",
+            "scored": 1,
+            "matched": 1,
+            "matchRate": 1
+          },
+          {
+            "field": "price",
+            "scored": 1,
+            "matched": 1,
+            "matchRate": 1
+          },
+          {
+            "field": "imageUrl",
+            "scored": 1,
+            "matched": 0,
+            "matchRate": 0
+          }
+        ]
+      },
+      "continue-shopping": {
+        "entryCount": 1,
+        "fields": [
+          {
+            "field": "title",
+            "scored": 1,
+            "matched": 1,
+            "matchRate": 1
+          },
+          {
+            "field": "price",
+            "scored": 1,
+            "matched": 1,
+            "matchRate": 1
+          },
+          {
+            "field": "imageUrl",
+            "scored": 1,
+            "matched": 0,
+            "matchRate": 0
+          }
+        ]
+      },
+      "og-meta": {
+        "entryCount": 1,
+        "fields": [
+          {
+            "field": "title",
+            "scored": 1,
+            "matched": 1,
+            "matchRate": 1
+          },
+          {
+            "field": "price",
+            "scored": 1,
+            "matched": 1,
+            "matchRate": 1
+          },
+          {
+            "field": "imageUrl",
+            "scored": 1,
+            "matched": 1,
+            "matchRate": 1
+          }
+        ]
+      }
+    }
+  },
+  "entries": [
+    {
+      "id": "amazon-product-dom",
+      "platform": "amazon",
+      "tags": [
+        "seed",
+        "amazon-dom",
+        "product"
+      ],
+      "url": "https://www.amazon.com/dp/B0KINDLE123",
+      "validation": {
+        "valid": true,
+        "confidence": "high"
+      },
+      "fields": [
+        {
+          "field": "title",
+          "matched": true,
+          "score": 1,
+          "expected": "Kindle Paperwhite",
+          "actual": "Kindle Paperwhite"
+        },
+        {
+          "field": "price",
+          "matched": true,
+          "expected": 139.99,
+          "actual": 139.99
+        },
+        {
+          "field": "imageUrl",
+          "matched": true,
+          "expected": "m.media-amazon.com",
+          "actual": "m.media-amazon.com"
+        }
+      ]
+    },
+    {
+      "id": "cloudflare-challenge",
+      "platform": "generic",
+      "tags": [
+        "seed",
+        "cloudflare",
+        "block-page"
+      ],
+      "url": "https://blocked.example.com/item",
+      "validation": {
+        "valid": false,
+        "blocked": true,
+        "reason": "cloudflare:cf-browser-verification",
+        "confidence": "low"
+      },
+      "blockedExpectationMet": true,
+      "fields": []
+    },
+    {
+      "id": "dicks-akamai-block",
+      "platform": "dicks",
+      "tags": [
+        "seed",
+        "akamai",
+        "block-page"
+      ],
+      "url": "https://www.dickssportinggoods.com/p/birkenstock-sandals",
+      "validation": {
+        "valid": false,
+        "blocked": true,
+        "reason": "akamai:site maintenance",
+        "confidence": "low"
+      },
+      "blockedExpectationMet": true,
+      "fields": []
+    },
+    {
+      "id": "dom-only-product",
+      "platform": "generic",
+      "tags": [
+        "seed",
+        "dom"
+      ],
+      "url": "https://example.com/products/classic-cotton-t-shirt",
+      "validation": {
+        "valid": true,
+        "confidence": "high"
+      },
+      "fields": [
+        {
+          "field": "title",
+          "matched": true,
+          "score": 1,
+          "expected": "Classic Cotton T-Shirt",
+          "actual": "Classic Cotton T-Shirt"
+        },
+        {
+          "field": "price",
+          "matched": true,
+          "expected": 24.5,
+          "actual": 24.5
+        },
+        {
+          "field": "imageUrl",
+          "matched": true,
+          "expected": "example.com",
+          "actual": "example.com"
+        }
+      ]
+    },
+    {
+      "id": "european-price",
+      "platform": "generic",
+      "tags": [
+        "seed",
+        "synthetic",
+        "european-decimals",
+        "product"
+      ],
+      "url": "https://shop.example.de/products/engineering-kit",
+      "validation": {
+        "valid": true,
+        "confidence": "high"
+      },
+      "fields": [
+        {
+          "field": "title",
+          "matched": true,
+          "score": 1,
+          "expected": "German Engineering Kit",
+          "actual": "German Engineering Kit"
+        },
+        {
+          "field": "price",
+          "matched": true,
+          "expected": 1299,
+          "actual": 1299
+        },
+        {
+          "field": "imageUrl",
+          "matched": true,
+          "expected": "cdn.example.de",
+          "actual": "cdn.example.de"
+        }
+      ]
+    },
+    {
+      "id": "http-404-not-found",
+      "platform": "generic",
+      "tags": [
+        "seed",
+        "synthetic",
+        "http-error"
+      ],
+      "url": "https://shop.example.com/products/missing-item",
+      "validation": {
+        "valid": false,
+        "reason": "missing-price-or-description-full",
+        "confidence": "low"
+      },
+      "fields": []
+    },
+    {
+      "id": "next-data-product",
+      "platform": "next",
+      "tags": [
+        "seed",
+        "next-data"
+      ],
+      "url": "https://example.com/products/next-js-running-shoes",
+      "validation": {
+        "valid": true,
+        "confidence": "high"
+      },
+      "fields": [
+        {
+          "field": "title",
+          "matched": true,
+          "score": 1,
+          "expected": "Next.js Running Shoes",
+          "actual": "Next.js Running Shoes"
+        },
+        {
+          "field": "price",
+          "matched": true,
+          "expected": 89.99,
+          "actual": 89.99
+        },
+        {
+          "field": "imageUrl",
+          "matched": true,
+          "expected": "example.com",
+          "actual": "example.com"
+        }
+      ]
+    },
+    {
+      "id": "shopify-continue-shopping-fp",
+      "platform": "shopify",
+      "tags": [
+        "seed",
+        "synthetic",
+        "false-positive",
+        "continue-shopping"
+      ],
+      "url": "https://shop.example/products/cool-mug",
+      "validation": {
+        "valid": true,
+        "confidence": "medium"
+      },
+      "fields": [
+        {
+          "field": "title",
+          "matched": true,
+          "score": 1,
+          "expected": "Cool Mug",
+          "actual": "Cool Mug"
+        },
+        {
+          "field": "price",
+          "matched": true,
+          "expected": 12.99,
+          "actual": 12.99
+        },
+        {
+          "field": "imageUrl",
+          "matched": false,
+          "expected": "cdn.example",
+          "actual": null,
+          "reason": "missing_host"
+        }
+      ]
+    },
+    {
+      "id": "shopify-product",
+      "platform": "shopify",
+      "tags": [
+        "seed",
+        "og-meta"
+      ],
+      "url": "https://example.myshopify.com/products/handmade-ceramic-mug",
+      "validation": {
+        "valid": true,
+        "confidence": "high"
+      },
+      "fields": [
+        {
+          "field": "title",
+          "matched": true,
+          "score": 1,
+          "expected": "Handmade Ceramic Mug",
+          "actual": "Handmade Ceramic Mug"
+        },
+        {
+          "field": "price",
+          "matched": true,
+          "expected": 18,
+          "actual": 18
+        },
+        {
+          "field": "imageUrl",
+          "matched": true,
+          "expected": "cdn.shopify.com",
+          "actual": "cdn.shopify.com"
+        }
+      ]
+    }
+  ]
+}

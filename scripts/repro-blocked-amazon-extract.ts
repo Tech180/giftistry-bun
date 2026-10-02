@@ -12,7 +12,8 @@
 import { existsSync } from 'node:fs';
 import { createInfrastructureAdapters } from '../src/boot/wire-adapters';
 import { ExtractMetadataUseCase } from '../src/modules/item/slices/metadata/use-cases/extract-metadata.use-case';
-import { ScrapeError } from '../src/modules/item/infrastructure/scraping/errors/scrape-error';
+import { ScrapeError } from '../src/modules/item';
+import { noopScrapeTelemetry } from '../src/modules/item/infrastructure/adapters/log-scrape-telemetry';
 
 const args = process.argv.slice(2).filter((a) => a !== '--with-web-search');
 const withWebSearch = process.argv.includes('--with-web-search');
@@ -33,6 +34,7 @@ const productResearcher = withWebSearch
 
 const useCase = new ExtractMetadataUseCase(
   {
+    resolveFinalUrl: async () => null,
     scrape: async () => {
       throw new ScrapeError('Both strategies failed: short-link-shell:amazon-gate', {
         blocked: true,
@@ -50,7 +52,8 @@ const useCase = new ExtractMetadataUseCase(
   adapters.itemRepo,
   adapters.serverConfigRepo,
   adapters.pageContextFetcher,
-  productResearcher
+  productResearcher,
+  noopScrapeTelemetry
 );
 
 console.log('Simulating blocked Amazon scrape for:', url);

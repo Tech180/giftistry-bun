@@ -1,6 +1,6 @@
 import type { MetadataScraper } from '../../../domain/ports/metadata-scraper.port';
 import type { ItemRepository } from '../../../domain/ports/item.repository';
-import { ScrapeError } from '../../../infrastructure/scraping/errors/scrape-error';
+import { ScrapeError } from '../../../domain/errors/scrape-error';
 import { formatBlockedScrapeMessage } from '../utils/format-blocked-scrape-message.util';
 import type { ExtractMetadataUseCase } from './extract-metadata.use-case';
 import type { PromoteScrapedImageToPhotosUseCase } from './promote-scraped-image-to-photos.use-case';
@@ -41,7 +41,12 @@ export class EnrichLinkMetadataUseCase {
         userId
       ) {
         try {
-          const extract = await this.extractMetadata.execute(url, userId);
+          const itemId = await this.itemRepo.findItemIdByLinkId(linkId);
+          const item =
+            itemId != null ? await this.itemRepo.findById(itemId) : null;
+          const extract = await this.extractMetadata.execute(url, userId, {
+            listId: item?.ListId,
+          });
           await this.applyScrape(linkId, url, userPrice, {
             title: extract.data.title,
             price: extract.data.price,
