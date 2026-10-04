@@ -2,6 +2,7 @@ import type { RouteMiddleware } from '@/boot/interfaces/route-middleware.interfa
 import type { AssertUserCanUseCase } from '@/common/application/use-cases/user-policy.use-cases';
 import type { ListShareRepository, WishlistRepository } from '@/modules/wishlist';
 import type { CommentRepository } from '../domain/ports/comment.repository';
+import type { CreateNotificationUseCase } from '@/modules/notifications';
 import type { CommentRealtimePublisher } from '../domain/ports/comment-realtime-publisher.port';
 
 export interface CommentModuleDeps {
@@ -10,5 +11,6 @@ export interface CommentModuleDeps {
   listShareRepo: ListShareRepository;
   assertUserCanUseCase: AssertUserCanUseCase;
   commentRealtime: CommentRealtimePublisher;
+  createNotification?: CreateNotificationUseCase;
   middleware: RouteMiddleware;
 }

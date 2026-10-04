@@ -87,6 +87,7 @@ Import `httpie-collection-giftistry.json` and `httpie-environment-local.json`. S
 | `GIFTISTRY_PROCESS_ROLE` | no | `all` (default), `api`, or `worker` |
 | `SMTP_*` / `SMTP_PASS` | mixed | Default/local SMTP |
 | `OPENROUTER_API_KEY`, `GEMINI_API_KEY`, `OAUTH_CLIENT_SECRET` | **yes** | AI / OAuth fallbacks |
+| `GIFTISTRY_GIPHY_API_KEY` | **yes** | Bootstrap GIPHY key for comment GIF search when `config.json` → `GiphyApiKey` is unset. Saved owner `GiphyApiKey` wins once set. |
 | `CREDENTIALS_DIRECTORY` / `GIFTISTRY_CREDENTIALS_DIRECTORY` | — | Directory of files named after secret keys |
 | `SCRAPE_*` | no | Playwright/fetch scrape timeouts and concurrency — see [architecture.md](architecture.md) |
 

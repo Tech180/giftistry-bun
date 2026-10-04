@@ -14,6 +14,7 @@ import { assertWishlistMutable } from '@/modules/wishlist';
 import type { ListChangedPublisher } from '@/modules/wishlist';
 import type { AssertUserCanUseCase } from '@/common/application/use-cases/user-policy.use-cases';
 import { actorCanManageListItems } from '../utils/actor-can-manage-list-items.util';
+import { assertMoneyAmount } from '@/common/domain/utils/parse-money-amount.util';
 
 export class UpdateItemSubstitutionUseCase {
   constructor(
@@ -33,6 +34,9 @@ export class UpdateItemSubstitutionUseCase {
     if (!name) {
       throw new AppError('Substitution name is required', 400, 'BAD_REQUEST');
     }
+
+    const substitutionPrice =
+      payload.Price !== undefined ? assertMoneyAmount(payload.Price) : undefined;
 
     const row = await this.itemRepo.findSubstitutionById(substitutionId);
     if (!row) {
@@ -111,7 +115,7 @@ export class UpdateItemSubstitutionUseCase {
           child.Id,
           payload.LinkUrl.trim(),
           payload.WebsiteName?.trim() || null,
-          payload.Price != null ? Number(payload.Price) : null,
+          substitutionPrice ?? null,
           null
         );
       }

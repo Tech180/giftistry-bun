@@ -1,3 +1,4 @@
+import { parseMoneyAmount } from '@/common/domain/utils/parse-money-amount.util';
 import type { ImportedItemPreview } from '../interfaces/imported-item-preview.interface';
 import {
   classifyImportedCustomFields,
@@ -5,6 +6,7 @@ import {
   hasClassifiedCustomFields,
 } from './classify-imported-custom-fields.util';
 import {
+  GIFTISTRY_LEGACY_IMPORT_TABULAR_LABEL_TO_KEY,
   GIFTISTRY_TABULAR_COLUMN_KEYS,
   GIFTISTRY_TABULAR_HEADERS,
   WEBSITE_HEADER_ALIASES,
@@ -48,6 +50,9 @@ const TABULAR_HEADER_LABEL_TO_KEY = (() => {
   }
   for (const alias of WEBSITE_HEADER_ALIASES) {
     map.set(alias, 'website');
+  }
+  for (const [label, key] of Object.entries(GIFTISTRY_LEGACY_IMPORT_TABULAR_LABEL_TO_KEY)) {
+    map.set(label, key);
   }
   return map;
 })();
@@ -201,15 +206,18 @@ export function parsePriceValue(raw: unknown): number | null {
   if (raw === null || raw === undefined || raw === '') {
     return null;
   }
-  if (typeof raw === 'number' && Number.isFinite(raw)) {
-    return raw;
-  }
-  const cleaned = String(raw).replace(/[^0-9.-]/g, '');
-  if (!cleaned) {
+  try {
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+      return parseMoneyAmount(raw);
+    }
+    const cleaned = String(raw).replace(/[^0-9.-]/g, '');
+    if (!cleaned) {
+      return null;
+    }
+    return parseMoneyAmount(cleaned);
+  } catch {
     return null;
   }
-  const parsed = Number(cleaned);
-  return Number.isFinite(parsed) ? parsed : null;
 }
 
 export function normalizeImportedItem(item: Partial<ImportedItemPreview> & { name?: string }): ImportedItemPreview | null {

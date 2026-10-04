@@ -43,6 +43,14 @@ function buildUseCase() {
         LastName: 'Lovelace',
         Username: 'ada',
       })),
+    } as never,
+    {
+      execute: mock(async () => ({
+        listId: 'list-1',
+        role: 'owner',
+        isExpired: false,
+        isActive: true,
+      })),
     } as never
   );
 }

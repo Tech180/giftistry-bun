@@ -83,6 +83,7 @@ export class SaveSystemSettingsUseCase {
       settings.AiIntelligentApiKey,
       config.AiIntelligentApiKey
     );
+    const giphyApiKey = resolveMaskedSecret(settings.GiphyApiKey, config.GiphyApiKey);
 
     if (settings.AiEnabled) {
       if (fastProvider === 'local') {
@@ -247,6 +248,7 @@ export class SaveSystemSettingsUseCase {
         settings.FcmServiceAccountJson,
         config.FcmServiceAccountJson
       ),
+      GiphyApiKey: giphyApiKey,
     });
   }
 }

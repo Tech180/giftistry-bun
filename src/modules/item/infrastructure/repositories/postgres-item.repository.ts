@@ -12,22 +12,7 @@ import type { ItemRow } from '../interfaces/item-row.interface';
 import type { ItemSubstitutionDbRow } from '../interfaces/item-substitution-db-row.interface';
 import { mapItemRow } from '../utils/map-item-row.util';
 import { mapItemSubstitutionRow } from '../utils/map-item-substitution-row.util';
-
-function metadataDefaults(metadata?: ItemMetadataWrite | null) {
-  return {
-    isFavorite: metadata?.IsFavorite === true,
-    isPinned: metadata?.IsPinned === true,
-    desiredQuantity:
-      metadata?.DesiredQuantity !== undefined ? metadata.DesiredQuantity : null,
-    multiCount: metadata?.MultiCount === true,
-    otherUsersCanSee:
-      metadata?.OtherUsersCanSee !== undefined ? metadata.OtherUsersCanSee : null,
-    allowSubstitutions: metadata?.AllowSubstitutions !== false,
-    customFields: metadata?.CustomFields ?? {},
-    variations: metadata?.Variations ?? [],
-    photos: (metadata?.Photos ?? []) as ItemPhoto[],
-  };
-}
+import { metadataDefaults } from '../utils/metadata-defaults.util';
 
 export class PostgresItemRepository implements ItemRepository {
   async findById(id: string): Promise<Item | null> {
@@ -105,6 +90,78 @@ export class PostgresItemRepository implements ItemRepository {
     `;
     if (!row) throw new Error('Failed to create item');
     return mapItemRow(row);
+  }
+
+  async createItemWithOptionalLink(
+    listId: string,
+    priorityId: string | null,
+    suggestedByUserId: string | null,
+    name: string,
+    description: string | null,
+    isHiddenIdea: boolean,
+    category: string = 'uncategorized',
+    isSuggestion: boolean = false,
+    priority: number | null = null,
+    metadata: ItemMetadataWrite | null = null,
+    linkUrl: string | null = null,
+    retailerName: string | null = null,
+    extractedPrice: number | null = null
+  ): Promise<{ item: Item; link: ItemLink | null }> {
+    const meta = metadataDefaults(metadata);
+    const trimmedLink = linkUrl?.trim() || null;
+
+    return await sql.begin(async (tx) => {
+      const [row] = await tx<ItemRow[]>`
+        INSERT INTO items (
+          list_id, priority_id, suggested_by_user_id, name, description,
+          is_hidden_idea, category, is_suggestion, priority,
+          is_favorite, is_pinned, desired_quantity, multi_count,
+          other_users_can_see, allow_substitutions, custom_fields, variations, photos
+        )
+        VALUES (
+          ${listId}, ${priorityId}, ${suggestedByUserId}, ${name}, ${description},
+          ${isHiddenIdea}, ${category}, ${isSuggestion}, ${priority},
+          ${meta.isFavorite}, ${meta.isPinned}, ${meta.desiredQuantity}, ${meta.multiCount},
+          ${meta.otherUsersCanSee}, ${meta.allowSubstitutions},
+          ${sql.json(meta.customFields as never)},
+          ${sql.json(meta.variations as never)},
+          ${sql.json(meta.photos as never)}
+        )
+        RETURNING id as "Id", list_id as "ListId", priority_id as "PriorityId",
+                  suggested_by_user_id as "SuggestedByUserId", name as "Name",
+                  description as "Description", is_hidden_idea as "IsHiddenIdea",
+                  is_suggestion as "IsSuggestion", category as "Category",
+                  priority as "Priority", created_at as "CreatedAt",
+                  is_favorite as "IsFavorite", is_pinned as "IsPinned",
+                  desired_quantity as "DesiredQuantity", multi_count as "MultiCount",
+                  other_users_can_see as "OtherUsersCanSee",
+                  custom_fields as "CustomFields", variations as "Variations",
+                  photos as "Photos"
+      `;
+      if (!row) throw new Error('Failed to create item');
+      const item = mapItemRow(row);
+
+      if (!trimmedLink) {
+        return { item, link: null };
+      }
+
+      const [linkRow] = await tx<any[]>`
+        INSERT INTO item_links (item_id, url, retailer_name, extracted_price, extracted_image_url)
+        VALUES (${item.Id}, ${trimmedLink}, ${retailerName}, ${extractedPrice}, ${null})
+        RETURNING id as "Id", item_id as "ItemId", url as "Url", retailer_name as "RetailerName",
+                  extracted_price as "ExtractedPrice", extracted_image_url as "ExtractedImageUrl"
+      `;
+      if (!linkRow) throw new Error('Failed to create item link');
+      const link: ItemLink = {
+        Id: linkRow.Id,
+        ItemId: linkRow.ItemId,
+        Url: linkRow.Url,
+        RetailerName: linkRow.RetailerName,
+        ExtractedPrice: linkRow.ExtractedPrice ? Number(linkRow.ExtractedPrice) : null,
+        ExtractedImageUrl: linkRow.ExtractedImageUrl,
+      };
+      return { item, link };
+    });
   }
 
   async createLink(

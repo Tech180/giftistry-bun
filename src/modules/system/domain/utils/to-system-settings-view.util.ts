@@ -117,6 +117,7 @@ export function toSystemSettingsView(config: ServerConfig): SystemSettingsView {
     FcmEnabled: !!config.FcmEnabled,
     FcmProjectId: config.FcmProjectId || '',
     FcmServiceAccountJson: maskSecret(config.FcmServiceAccountJson),
+    GiphyApiKey: maskSecret(config.GiphyApiKey),
     AiDefaultPrompts: {
       Review: AI_DEFAULT_PROMPTS.review,
       Description: AI_DEFAULT_PROMPTS.description,

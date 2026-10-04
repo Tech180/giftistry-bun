@@ -101,6 +101,7 @@ export const saveSettingsBodySchema = t.Object({
       FcmEnabled: t.Optional(t.Boolean()),
       FcmProjectId: t.Optional(t.String()),
       FcmServiceAccountJson: t.Optional(t.String()),
+      GiphyApiKey: t.Optional(t.String()),
     }),
   }),
 });

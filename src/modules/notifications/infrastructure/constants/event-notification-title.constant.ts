@@ -4,4 +4,5 @@ export const EVENT_NOTIFICATION_TITLE = {
   list_shared: 'Wishlist shared with you',
   invite_accepted: 'Invite accepted',
   item_deleted: 'Item deleted',
+  comment: 'Comment mention',
 } as const;

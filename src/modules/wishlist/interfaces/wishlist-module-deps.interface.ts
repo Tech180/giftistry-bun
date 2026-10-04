@@ -18,6 +18,7 @@ import type { ThemeResolver } from '../application/ports/theme-resolver.port';
 import type { PdfGenerator } from '../application/ports/pdf-generator.port';
 import type { ListReviewBackfillPort, ListItemsPort } from '@/modules/item';
 import type { InvitesUseCases } from '@/modules/invites';
+import type { CheckListAccessUseCase } from '../slices/access/use-cases/check-list-access.use-case';
 
 export interface WishlistModuleDeps {
   wishlistRepo: WishlistRepository;
@@ -39,4 +40,5 @@ export interface WishlistModuleDeps {
   pdfGenerator: PdfGenerator;
   listItems: ListItemsPort;
   backfillListReviews: ListReviewBackfillPort;
+  checkListAccess: CheckListAccessUseCase;
 }

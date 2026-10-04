@@ -2,6 +2,7 @@ import type { createAuthMiddleware } from '@/modules/auth/presentation/middlewar
 import type { createAuthModule } from '@/modules/auth/auth.module';
 import type { createAdminModule } from '@/modules/admin/admin.module';
 import type { createCommentModule } from '@/modules/comment/comment.module';
+import type { createGiphyModule } from '@/modules/giphy/giphy.module';
 import type { createFriendsModule } from '@/modules/friends/friends.module';
 import type { createInvitesModule } from '@/modules/invites/invites.module';
 import type { createItemModule } from '@/modules/item/item.module';
@@ -28,6 +29,7 @@ export interface AppContainer {
   jobRepo: BackgroundJobRepository;
   notifyItemJobCompletion: NotifyItemJobCompletionUseCase;
   commentModule: ReturnType<typeof createCommentModule>;
+  giphyModule: ReturnType<typeof createGiphyModule>;
   friendsModule: ReturnType<typeof createFriendsModule>;
   notificationsModule: ReturnType<typeof createNotificationsModule>;
   invitesModule: ReturnType<typeof createInvitesModule>['module'];

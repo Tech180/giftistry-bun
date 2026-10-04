@@ -17,6 +17,7 @@ export function createHttpApp(deps: CreateHttpAppDeps): AnyElysia {
     itemModule,
     jobsModule,
     commentModule,
+    giphyModule,
     friendsModule,
     invitesModule,
     registrationInviteModule,
@@ -63,6 +64,7 @@ export function createHttpApp(deps: CreateHttpAppDeps): AnyElysia {
     .use(itemModule)
     .use(jobsModule)
     .use(commentModule)
+    .use(giphyModule)
     .use(friendsModule)
     .use(invitesModule)
     .use(registrationInviteModule)

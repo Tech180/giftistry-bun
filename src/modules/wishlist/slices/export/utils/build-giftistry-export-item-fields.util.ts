@@ -9,7 +9,6 @@ import type { RelationExportItem } from '@/modules/item';
 import type { WishlistExportContext } from '../interfaces/wishlist-export-context.interface';
 import type { WishlistExportItem } from '../interfaces/wishlist-export-item.interface';
 import type { WishlistExportLink } from '../interfaces/wishlist-export-link.interface';
-import { formatAudienceForExport } from './format-audience-for-export.util';
 import { formatSuggestionForExport } from './format-suggestion-for-export.util';
 import { getSiteName } from './get-site-name.util';
 import type { GiftistryExportItemFields } from '../interfaces/giftistry-export-item-fields.interface';
@@ -81,12 +80,7 @@ export function buildGiftistryExportItemFields(params: {
     star: item.isFav ? '*' : '',
     isFavorite: item.isFav === true,
     description: parsed.text || '',
-    audience: formatAudienceForExport(
-      item.SharedWith,
-      exportContext.currentUserId,
-      item.SuggestedByUserId
-    ),
-    suggestion: formatSuggestionForExport(item, exportContext.isOwner),
+    suggestion: formatSuggestionForExport(item, exportContext.listRole),
     linkedItems: linkedPeerNames.join(', '),
     relatedItems: relatedPeerNames.join(', '),
     linkedPeerNames,
@@ -108,7 +102,6 @@ export function giftistryExportItemToTabularCells(
     link?.priceLabel || '',
     link?.url || '',
     fields.description,
-    fields.audience,
     fields.suggestion,
     fields.linkedItems,
     fields.relatedItems,

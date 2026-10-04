@@ -92,12 +92,14 @@ export function createWishlistModule(deps: WishlistModuleDeps) {
       listItemsUseCase,
       deps.userRepo,
       themeResolver,
-      pdfGenerator
+      pdfGenerator,
+      deps.checkListAccess
     ),
     exportWishlistData: new ExportWishlistDataUseCase(
       deps.wishlistRepo,
       listItemsUseCase,
-      deps.userRepo
+      deps.userRepo,
+      deps.checkListAccess
     ),
   };
 

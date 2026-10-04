@@ -17,6 +17,7 @@ import { assertWishlistMutable } from '@/modules/wishlist';
 import type { ListChangedPublisher } from '@/modules/wishlist';
 import { assertLinkGroupSupportsLinkedItems } from '../../../domain/utils/item-supports-linked-items.util';
 import { toMetadataWrite } from '../utils/to-metadata-write.util';
+import { assertMoneyAmount } from '@/common/domain/utils/parse-money-amount.util';
 
 
 export class UpdateItemUseCase {
@@ -53,6 +54,10 @@ export class UpdateItemUseCase {
     }
     if (!name) {
       throw new AppError('Item name is required', 400, 'BAD_REQUEST');
+    }
+
+    if (price !== undefined) {
+      assertMoneyAmount(price);
     }
 
     const visible = await this.assertItemVisible.execute(itemId, currentUserId);

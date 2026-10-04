@@ -2,6 +2,7 @@ import type { WishlistRepository } from '../../../domain/ports/wishlist.reposito
 import type { ListItemsPort } from '@/modules/item';
 import type { UserRepository } from '@/modules/auth';
 import { AppError } from '@/common/domain/errors/app-error';
+import type { CheckListAccessUseCase } from '../../access/use-cases/check-list-access.use-case';
 import type { WishlistExportContext } from '../interfaces/wishlist-export-context.interface';
 import type { WishlistExportResult } from '../interfaces/wishlist-export-result.interface';
 import type { WishlistExportFormat } from '../types/wishlist-export-format.type';
@@ -20,7 +21,8 @@ export class ExportWishlistDataUseCase {
   constructor(
     private wishlistRepo: WishlistRepository,
     private listItemsUseCase: ListItemsPort,
-    private userRepo: UserRepository
+    private userRepo: UserRepository,
+    private checkListAccess: CheckListAccessUseCase
   ) {}
 
   async execute(
@@ -33,15 +35,16 @@ export class ExportWishlistDataUseCase {
       throw new AppError('Wishlist not found', 404, 'NOT_FOUND');
     }
 
+    const access = await this.checkListAccess.execute(currentUserId, { listId });
     const { Items } = await this.listItemsUseCase.execute(listId, currentUserId);
     const activeUser = await this.userRepo.findById(currentUserId);
     const exporterName = activeUser ? getAudienceDisplayName(activeUser) : undefined;
-    const isOwner = currentUserId === wishlist.UserId;
 
     const exportContext: WishlistExportContext = {
       exporterName,
-      isOwner,
+      isOwner: access.role === 'owner',
       currentUserId,
+      listRole: access.role,
     };
 
     const sorted = getSortedItemsWithPriority(toWishlistExportItems(Items));

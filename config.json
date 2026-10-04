@@ -61,5 +61,6 @@
   "WebPushSubject": "mailto:admin@localhost",
   "FcmEnabled": false,
   "FcmProjectId": "",
-  "FcmServiceAccountJson": ""
+  "FcmServiceAccountJson": "",
+  "GiphyApiKey": ""
 }

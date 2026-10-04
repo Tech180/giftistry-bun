@@ -24,4 +24,5 @@ export interface RuntimeConfig {
   OPENROUTER_API_KEY: string | undefined;
   GEMINI_API_KEY: string | undefined;
   OAUTH_CLIENT_SECRET: string | undefined;
+  GIFTISTRY_GIPHY_API_KEY: string | undefined;
 }

@@ -8,7 +8,6 @@ export interface GiftistryExportItemFields {
   star: string;
   isFavorite: boolean;
   description: string;
-  audience: string;
   suggestion: string;
   linkedItems: string;
   relatedItems: string;

@@ -1,7 +1,7 @@
 import { expect, test, describe, beforeAll, afterAll } from "bun:test";
 import { app } from '../src/index';
 import { createTestUser, createTestWishlist, shareTestWishlist, cleanUpUser, cleanUpWishlist } from './helper';
-import { sql } from '../src/common/database';
+import { loadConfig, saveConfig, sql } from '../src/common/database';
 
 describe("Items, Links & Claims", () => {
   let owner: any;
@@ -309,6 +309,158 @@ describe("Items, Links & Claims", () => {
     expect(Number(updatedItem.Links[0].ExtractedPrice)).toBe(549.99);
   });
 
+  test("Rejects add item when price exceeds DECIMAL(10,2) max and does not orphan a row", async () => {
+    const orphanName = `Overflow Item ${Date.now()}`;
+    const addRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${owner.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              Name: orphanName,
+              LinkUrl: "https://example.com/expensive",
+              Price: 100_000_000,
+            },
+          },
+        }),
+      })
+    );
+    expect([400, 422]).toContain(addRes.status);
+    const addBody = (await addRes.json()) as { Message?: string; Result?: { Message?: string } };
+    const message = String(addBody.Result?.Message ?? addBody.Message ?? "");
+    expect(message.toLowerCase()).not.toContain("numeric overflow");
+
+    const listRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${owner.token}` },
+      })
+    );
+    expect(listRes.status).toBe(200);
+    const items = ((await listRes.json()) as any).Result.Items as { Name: string }[];
+    expect(items.some((item) => item.Name === orphanName)).toBe(false);
+  });
+
+  test("Rejects update item when price exceeds max", async () => {
+    let targetItemId = itemId;
+    if (!targetItemId) {
+      const seedRes = await app.handle(
+        new Request(`http://localhost/api/wishlists/${listId}/items`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${owner.token}`,
+          },
+          body: JSON.stringify({
+            Giftistry: {
+              Items: {
+                Name: "Price cap seed item",
+                LinkUrl: "https://example.com/seed",
+                Price: 10,
+              },
+            },
+          }),
+        })
+      );
+      expect(seedRes.status).toBe(200);
+      targetItemId = ((await seedRes.json()) as any).Result.Id;
+    }
+
+    const beforeRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${owner.token}` },
+      })
+    );
+    const beforeItems = ((await beforeRes.json()) as any).Result.Items as {
+      Id: string;
+      Links?: { ExtractedPrice?: number | null }[];
+    }[];
+    const beforeItem = beforeItems.find((i) => i.Id === targetItemId);
+    const priorPrice = beforeItem?.Links?.[0]?.ExtractedPrice;
+
+    const updateRes = await app.handle(
+      new Request(`http://localhost/api/items/${targetItemId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${owner.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              Name: "PlayStation 5 Pro",
+              LinkUrl: "https://www.target.com/ps5-pro",
+              WebsiteName: "Target",
+              Price: 100_000_000,
+            },
+          },
+        }),
+      })
+    );
+    expect([400, 422]).toContain(updateRes.status);
+
+    const afterRes = await app.handle(
+      new Request(`http://localhost/api/wishlists/${listId}/items`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${owner.token}` },
+      })
+    );
+    const afterItem = ((await afterRes.json()) as any).Result.Items.find(
+      (i: { Id: string }) => i.Id === targetItemId
+    );
+    expect(Number(afterItem.Links[0].ExtractedPrice)).toBe(Number(priorPrice));
+  });
+
+  test("Rejects claim when amount exceeds max", async () => {
+    let targetItemId = itemId;
+    if (!targetItemId) {
+      const seedRes = await app.handle(
+        new Request(`http://localhost/api/wishlists/${listId}/items`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${owner.token}`,
+          },
+          body: JSON.stringify({
+            Giftistry: {
+              Items: {
+                Name: "Claim cap seed item",
+                LinkUrl: "https://example.com/claim-seed",
+                Price: 25,
+              },
+            },
+          }),
+        })
+      );
+      expect(seedRes.status).toBe(200);
+      targetItemId = ((await seedRes.json()) as any).Result.Id;
+    }
+
+    const res = await app.handle(
+      new Request(`http://localhost/api/items/${targetItemId}/claims`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${unrelated.token}`,
+        },
+        body: JSON.stringify({
+          Giftistry: {
+            Items: {
+              Amount: 100_000_000,
+              ClaimedByName: "Big Spender",
+            },
+          },
+        }),
+      })
+    );
+    expect([400, 422]).toContain(res.status);
+  });
+
   test("Collaborator cannot claim items on the list", async () => {
     const res = await app.handle(
       new Request(`http://localhost/api/items/${itemId}/claims`, {
@@ -454,26 +606,35 @@ describe("Items, Links & Claims", () => {
   });
 
   test("Fetch dynamic optional field definitions for Tech includes CPU keys", async () => {
-    const res = await app.handle(
-      new Request("http://localhost/api/items/field-definitions?category=tech", {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${owner.token}`
-        }
-      })
-    );
-    expect(res.status).toBe(200);
-    const body = await res.json() as any;
-    expect(body.Meta.Status).toBe("Success");
-    const keys = body.Result.map((d: any) => d.FieldKey);
-    expect(keys).toContain("ModelNumber");
-    expect(keys).toContain("Cores");
-    expect(keys).toContain("Threads");
-    expect(keys).toContain("BaseClock");
-    expect(keys).toContain("BoostClock");
-    expect(keys).toContain("Socket");
-    expect(keys).toContain("Tdp");
-    expect(keys).toContain("Cache");
+    const previousConfig = { ...loadConfig() };
+    saveConfig({
+      ...previousConfig,
+      AiEnabledPackIds: ["technology", "technology.cpu"],
+    });
+    try {
+      const res = await app.handle(
+        new Request("http://localhost/api/items/field-definitions?category=tech", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${owner.token}`
+          }
+        })
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json() as any;
+      expect(body.Meta.Status).toBe("Success");
+      const keys = body.Result.map((d: any) => d.FieldKey);
+      expect(keys).toContain("ModelNumber");
+      expect(keys).toContain("Cores");
+      expect(keys).toContain("Threads");
+      expect(keys).toContain("BaseClock");
+      expect(keys).toContain("BoostClock");
+      expect(keys).toContain("Socket");
+      expect(keys).toContain("Tdp");
+      expect(keys).toContain("Cache");
+    } finally {
+      saveConfig(previousConfig);
+    }
   });
 
   test("Anonymous claims redact name for other viewers", async () => {

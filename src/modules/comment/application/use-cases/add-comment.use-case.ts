@@ -9,6 +9,7 @@ import type { AssertUserCanUseCase } from '@/common/application/use-cases/user-p
 import type { CommentRealtimePublisher } from '../../domain/ports/comment-realtime-publisher.port';
 import { validateMentionsInAudience } from '../../domain/utils/validate-mentions-in-audience.util';
 import { validateVisibilityPayload } from '../../domain/utils/validate-visibility-payload.util';
+import type { NotifyCommentMentionsUseCase } from './notify-comment-mentions.use-case';
 
 export class AddCommentUseCase {
   constructor(
@@ -16,7 +17,8 @@ export class AddCommentUseCase {
     private wishlistRepo: WishlistRepository,
     private assertUserCan: AssertUserCanUseCase,
     private listShareRepo: ListShareRepository,
-    private commentRealtime: CommentRealtimePublisher
+    private commentRealtime: CommentRealtimePublisher,
+    private notifyCommentMentions?: NotifyCommentMentionsUseCase
   ) {}
 
   async execute(
@@ -94,6 +96,26 @@ export class AddCommentUseCase {
     });
 
     this.commentRealtime.publish(listId, 'comment.created', { Comment: comment });
+
+    if (this.notifyCommentMentions) {
+      const listHasExpired = wishlist.ExpiresAt
+        ? new Date() > new Date(wishlist.ExpiresAt)
+        : false;
+
+      void this.notifyCommentMentions
+        .execute({
+          listId,
+          listTitle: wishlist.Title ?? '',
+          comment,
+          commenterName,
+          authorUserId: userId,
+          wishlistOwnerId: wishlist.UserId,
+          listHasExpired,
+        })
+        .catch((err) => {
+          console.error('[Comments] Failed to notify mention recipients:', err);
+        });
+    }
 
     return comment;
   }

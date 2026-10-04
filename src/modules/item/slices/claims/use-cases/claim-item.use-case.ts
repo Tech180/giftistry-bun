@@ -14,6 +14,7 @@ import {
 import { assertWishlistMutable } from '@/modules/wishlist';
 import type { ListChangedPublisher } from '@/modules/wishlist';
 import { isItemSuggestion } from '../../../domain/utils/item-visibility.util';
+import { assertMoneyAmount } from '@/common/domain/utils/parse-money-amount.util';
 
 export class ClaimItemUseCase {
   constructor(
@@ -185,6 +186,7 @@ export class ClaimItemUseCase {
     const itemPrice = links.reduce((max, link) => Math.max(max, Number(link.ExtractedPrice || 0)), 0);
 
     if (amount !== null && amount > 0) {
+      assertMoneyAmount(amount);
       if (!wishlist.AllowGroupFunds) {
         throw new AppError('Group funding is not enabled for this wishlist', 400, 'BAD_REQUEST');
       }

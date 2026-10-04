@@ -37,5 +37,6 @@ export function loadRuntimeConfig(secrets: SecretSource = getSecretSource()): Ru
     OPENROUTER_API_KEY: secrets.get('OPENROUTER_API_KEY'),
     GEMINI_API_KEY: secrets.get('GEMINI_API_KEY'),
     OAUTH_CLIENT_SECRET: secrets.get('OAUTH_CLIENT_SECRET'),
+    GIFTISTRY_GIPHY_API_KEY: secrets.get('GIFTISTRY_GIPHY_API_KEY'),
   };
 }

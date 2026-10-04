@@ -1,5 +1,6 @@
 import { t } from 'elysia';
 import { itemMetadataSchema } from './item-metadata.schema';
+import { moneyNumericSchema } from './money-numeric.schema';
 
 export const addItemBodySchema = t.Object({
   Giftistry: t.Object({
@@ -9,7 +10,7 @@ export const addItemBodySchema = t.Object({
       PriorityId: t.Optional(t.Nullable(t.String())),
       IsHiddenIdea: t.Optional(t.Boolean()),
       LinkUrl: t.Optional(t.Nullable(t.String())),
-      Price: t.Optional(t.Nullable(t.Numeric())),
+      Price: moneyNumericSchema,
       WebsiteName: t.Optional(t.Nullable(t.String())),
       Category: t.Optional(t.Nullable(t.String())),
       IsSuggestion: t.Optional(t.Boolean()),

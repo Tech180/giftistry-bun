@@ -6,6 +6,7 @@ import type { ItemSubstitutionRow } from '../interfaces/item-substitution-row.in
 import type { CreateClaimInput } from '../interfaces/create-claim-input.interface';
 import type { ItemMetadataWrite } from '../interfaces/item-metadata-write.interface';
 import type { CreateSubstitutionItemInput } from '../interfaces/create-substitution-item-input.interface';
+import type { CreateItemWithOptionalLinkResult } from '../interfaces/create-item-with-optional-link-result.interface';
 
 export interface ItemRepository {
   findById(id: string): Promise<Item | null>;
@@ -22,6 +23,23 @@ export interface ItemRepository {
     priority?: number | null,
     metadata?: ItemMetadataWrite | null
   ): Promise<Item>;
+
+  /** Inserts item and optional first link atomically (same transaction). */
+  createItemWithOptionalLink(
+    listId: string,
+    priorityId: string | null,
+    suggestedByUserId: string | null,
+    name: string,
+    description: string | null,
+    isHiddenIdea: boolean,
+    category: string,
+    isSuggestion: boolean | undefined,
+    priority: number | null | undefined,
+    metadata: ItemMetadataWrite | null | undefined,
+    linkUrl: string | null | undefined,
+    retailerName: string | null | undefined,
+    extractedPrice: number | null | undefined
+  ): Promise<CreateItemWithOptionalLinkResult>;
 
   createLink(
     itemId: string,

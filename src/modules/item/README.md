@@ -2,6 +2,8 @@
 
 Wishlist items: CRUD, claims, substitutions, links/related, metadata scrape, AI enrich/summarize, import, group funding.
 
+**Money:** Link `extracted_price` and claim `amount` use Postgres `DECIMAL(10,2)` (max **99,999,999.99**). Validated via `Money` / `assertMoneyAmount` before writes; add-item creates item + first link in one transaction.
+
 ## Layers
 
 | Folder | Role |

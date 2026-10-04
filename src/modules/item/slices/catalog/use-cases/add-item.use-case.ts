@@ -15,6 +15,7 @@ import { assertWishlistMutable } from '@/modules/wishlist';
 import type { ListChangedPublisher } from '@/modules/wishlist';
 import { assertLinkGroupSupportsLinkedItems } from '../../../domain/utils/item-supports-linked-items.util';
 import { toMetadataWrite } from '../utils/to-metadata-write.util';
+import { assertMoneyAmount } from '@/common/domain/utils/parse-money-amount.util';
 
 
 export class AddItemUseCase {
@@ -51,6 +52,8 @@ export class AddItemUseCase {
     if (!name) {
       throw new AppError('Item name is required', 400, 'BAD_REQUEST');
     }
+
+    const validatedPrice = assertMoneyAmount(price);
 
     const wishlist = await this.wishlistRepo.findById(listId);
     if (!wishlist) {
@@ -105,7 +108,7 @@ export class AddItemUseCase {
       }
     }
 
-    const item = await this.itemRepo.create(
+    const { item, link } = await this.itemRepo.createItemWithOptionalLink(
       listId,
       priorityId,
       suggestedByUserId,
@@ -115,7 +118,10 @@ export class AddItemUseCase {
       category,
       isSuggestion,
       priority,
-      metadataWrite
+      metadataWrite,
+      linkUrl,
+      retailerName,
+      validatedPrice
     );
 
     if (metadata?.LinkedItemIds?.length) {
@@ -130,20 +136,12 @@ export class AddItemUseCase {
 
     const sharedWith = await this.audienceRepo.setAudience(item.Id, sharedWithUserIds);
 
-    if (linkUrl) {
-      const link = await this.itemRepo.createLink(
-        item.Id,
-        linkUrl,
-        retailerName,
-        price,
-        null
-      );
-
-      this.enrichLinkMetadata.execute(link.Id, linkUrl, price, suggestedByUserId ?? undefined).catch((err) => {
+    if (link) {
+      this.enrichLinkMetadata.execute(link.Id, linkUrl!, validatedPrice, suggestedByUserId ?? undefined).catch((err) => {
         console.error('Background metadata enrichment failed:', err);
       });
 
-      this.extractItemReviews.execute(item.Id, listId, linkUrl).catch((err) => {
+      this.extractItemReviews.execute(item.Id, listId, linkUrl!).catch((err) => {
         console.error('Background AI review extraction trigger failed:', err);
       });
 

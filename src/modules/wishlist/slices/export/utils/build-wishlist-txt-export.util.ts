@@ -3,13 +3,11 @@ import type { RelationExportItem } from '@/modules/item';
 import type { WishlistExportContext } from '../interfaces/wishlist-export-context.interface';
 import type { WishlistExportItem } from '../interfaces/wishlist-export-item.interface';
 import type { WishlistExportResult } from '../interfaces/wishlist-export-result.interface';
+import { appendTxtLabeledLine } from './append-txt-labeled-line.util';
 import { buildGiftistryExportItemFields } from './build-giftistry-export-item-fields.util';
 import { getExportFilename } from './export-filename.util';
 import { groupExportItemsByCategory } from './group-export-items-by-category.util';
-
-function labeled(label: string, value: string): string {
-  return `    ${label}: ${value}`;
-}
+import { isPopulatedExportString } from './is-populated-export-string.util';
 
 export function buildWishlistTxtExport(params: {
   wishlistTitle: string;
@@ -43,20 +41,22 @@ export function buildWishlistTxtExport(params: {
         exportContext,
       });
       const starPrefix = fields.isFavorite ? '★ ' : '  ';
-      const priorityLabel = fields.priority === null ? '' : `(Priority: ${fields.priority})`;
-      const links = fields.links.length > 0 ? fields.links : [null];
+      const prioritySuffix =
+        fields.priority === null ? '' : `(Priority: ${fields.priority})`;
+      const linksWithUrl = fields.links.filter((link) => isPopulatedExportString(link.url));
+      const links = linksWithUrl.length > 0 ? linksWithUrl : [null];
 
       for (const link of links) {
         const priceStr = link?.priceLabel ? ` - ${link.priceLabel}` : '';
-        sections.push(`${starPrefix}${fields.name}${priceStr} ${priorityLabel}`.trimEnd());
+        const titleLine = `${starPrefix}${fields.name}${priceStr}${prioritySuffix ? ` ${prioritySuffix}` : ''}`.trimEnd();
+        sections.push(titleLine);
         if (link?.url) {
           sections.push(`    Link: ${link.retailer || 'Store'} (${link.url})`);
         }
-        sections.push(labeled(GIFTISTRY_TXT_LABELS.description, fields.description));
-        sections.push(labeled(GIFTISTRY_TXT_LABELS.audience, fields.audience));
-        sections.push(labeled(GIFTISTRY_TXT_LABELS.suggestion, fields.suggestion));
-        sections.push(labeled(GIFTISTRY_TXT_LABELS.linkedItems, fields.linkedItems));
-        sections.push(labeled(GIFTISTRY_TXT_LABELS.relatedItems, fields.relatedItems));
+        appendTxtLabeledLine(sections, GIFTISTRY_TXT_LABELS.description, fields.description);
+        appendTxtLabeledLine(sections, GIFTISTRY_TXT_LABELS.suggestion, fields.suggestion);
+        appendTxtLabeledLine(sections, GIFTISTRY_TXT_LABELS.linkedItems, fields.linkedItems);
+        appendTxtLabeledLine(sections, GIFTISTRY_TXT_LABELS.relatedItems, fields.relatedItems);
       }
       sections.push('');
     }

@@ -66,6 +66,7 @@ export interface SystemSettingsView {
   FcmEnabled: boolean;
   FcmProjectId: string;
   FcmServiceAccountJson: string;
+  GiphyApiKey: string;
   AiDefaultPrompts: {
     Review: string;
     Description: string;

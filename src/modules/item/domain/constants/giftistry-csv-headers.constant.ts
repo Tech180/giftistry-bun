@@ -6,7 +6,6 @@ export const GIFTISTRY_TABULAR_COLUMN_KEYS = [
   'price',
   'website',
   'description',
-  'audience',
   'suggestion',
   'linkedItems',
   'relatedItems',
@@ -21,19 +20,30 @@ export const GIFTISTRY_TABULAR_HEADERS = [
   'Price',
   'Website Link',
   'Description',
-  'Audience',
   'Suggestion',
   'Linked Items',
   'Related Items',
 ] as const;
 
+/** Import-only columns removed from new exports (legacy files may still include them). */
+export const GIFTISTRY_LEGACY_IMPORT_TABULAR_LABEL_TO_KEY = {
+  Audience: 'audience',
+} as const;
+
 /** Older exports ended at Suggestion and omitted linked/related columns. */
 export const GIFTISTRY_LEGACY_TABULAR_COLUMN_COUNT = 9;
 
-export const GIFTISTRY_LEGACY_TABULAR_HEADERS = GIFTISTRY_TABULAR_HEADERS.slice(
-  0,
-  GIFTISTRY_LEGACY_TABULAR_COLUMN_COUNT
-);
+export const GIFTISTRY_LEGACY_TABULAR_HEADERS = [
+  'Category',
+  'Priority',
+  'Item',
+  'Star',
+  'Price',
+  'Website Link',
+  'Description',
+  'Audience',
+  'Suggestion',
+] as const;
 
 /** @deprecated Use GIFTISTRY_LEGACY_TABULAR_HEADERS or GIFTISTRY_TABULAR_HEADERS. */
 export const GIFTISTRY_CSV_HEADERS = GIFTISTRY_LEGACY_TABULAR_HEADERS;

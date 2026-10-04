@@ -3,12 +3,10 @@ import type { RelationExportItem } from '@/modules/item';
 import type { WishlistExportContext } from '../interfaces/wishlist-export-context.interface';
 import type { WishlistExportItem } from '../interfaces/wishlist-export-item.interface';
 import type { WishlistExportResult } from '../interfaces/wishlist-export-result.interface';
+import { appendMdMetaBullet } from './append-md-meta-bullet.util';
 import { buildGiftistryExportItemFields } from './build-giftistry-export-item-fields.util';
 import { getExportFilename } from './export-filename.util';
-
-function bullet(label: string, value: string): string {
-  return `- ${label}: ${value}`;
-}
+import { isPopulatedExportString } from './is-populated-export-string.util';
 
 export function buildWishlistMdExport(params: {
   wishlistTitle: string;
@@ -27,26 +25,27 @@ export function buildWishlistMdExport(params: {
       relationNameById,
       exportContext,
     });
-    const link = fields.links[0];
+    const link = fields.links.find((entry) => isPopulatedExportString(entry.url));
     blocks.push(`# ${fields.name}`, '');
-    blocks.push(bullet(GIFTISTRY_MD_META_KEYS.category, fields.category));
+    appendMdMetaBullet(blocks, GIFTISTRY_MD_META_KEYS.category, fields.category);
     if (fields.priorityLabel) {
-      blocks.push(bullet(GIFTISTRY_MD_META_KEYS.priority, fields.priorityLabel));
+      appendMdMetaBullet(blocks, GIFTISTRY_MD_META_KEYS.priority, fields.priorityLabel);
     }
-    blocks.push(bullet(GIFTISTRY_MD_META_KEYS.favorite, fields.isFavorite ? 'yes' : 'no'));
+    if (fields.isFavorite) {
+      appendMdMetaBullet(blocks, GIFTISTRY_MD_META_KEYS.favorite, 'yes');
+    }
     if (link?.priceLabel) {
-      blocks.push(bullet(GIFTISTRY_MD_META_KEYS.price, link.priceLabel.replace(/^\$/, '')));
+      appendMdMetaBullet(blocks, GIFTISTRY_MD_META_KEYS.price, link.priceLabel.replace(/^\$/, ''));
     }
     if (link?.url) {
-      blocks.push(bullet(GIFTISTRY_MD_META_KEYS.link, link.url));
+      appendMdMetaBullet(blocks, GIFTISTRY_MD_META_KEYS.link, link.url);
     }
     if (link?.retailer) {
-      blocks.push(bullet(GIFTISTRY_MD_META_KEYS.retailer, link.retailer));
+      appendMdMetaBullet(blocks, GIFTISTRY_MD_META_KEYS.retailer, link.retailer);
     }
-    blocks.push(bullet(GIFTISTRY_MD_META_KEYS.audience, fields.audience));
-    blocks.push(bullet(GIFTISTRY_MD_META_KEYS.suggestion, fields.suggestion));
-    blocks.push(bullet(GIFTISTRY_MD_META_KEYS.linkedItems, fields.linkedItems));
-    blocks.push(bullet(GIFTISTRY_MD_META_KEYS.relatedItems, fields.relatedItems));
+    appendMdMetaBullet(blocks, GIFTISTRY_MD_META_KEYS.suggestion, fields.suggestion);
+    appendMdMetaBullet(blocks, GIFTISTRY_MD_META_KEYS.linkedItems, fields.linkedItems);
+    appendMdMetaBullet(blocks, GIFTISTRY_MD_META_KEYS.relatedItems, fields.relatedItems);
     blocks.push('');
     if (fields.description) {
       blocks.push(fields.description, '');

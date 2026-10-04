@@ -9,6 +9,7 @@ export interface CreateHttpAppDeps {
   itemModule: AnyElysia;
   jobsModule: AnyElysia;
   commentModule: AnyElysia;
+  giphyModule: AnyElysia;
   friendsModule: AnyElysia;
   invitesModule: AnyElysia;
   registrationInviteModule: AnyElysia;

@@ -6,4 +6,5 @@ export const SECRET_NAMES = [
   'GEMINI_API_KEY',
   'OAUTH_CLIENT_SECRET',
   'PGPASSWORD',
+  'GIFTISTRY_GIPHY_API_KEY',
 ] as const;

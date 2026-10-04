@@ -15,6 +15,7 @@ import { createAuthModule, authMiddleware } from '@/modules/auth/auth.module';
 import { createWishlistModule, createCheckListAccessUseCase } from '@/modules/wishlist/wishlist.module';
 import { createItemModule } from '@/modules/item/item.module';
 import { createCommentModule } from '@/modules/comment/comment.module';
+import { createGiphyModule } from '@/modules/giphy/giphy.module';
 import { createFriendsModule } from '@/modules/friends/friends.module';
 import { createInvitesModule } from '@/modules/invites/invites.module';
 import { createNotificationsModule } from '@/modules/notifications/notifications.module';
@@ -215,6 +216,7 @@ export function createAppContainer(options: CreateAppContainerOptions = {}): App
     pdfGenerator,
     listItems: itemUseCases.listItems,
     backfillListReviews,
+    checkListAccess: checkListAccessUseCase,
   });
 
   const { module: jobsModule, runner: jobRunner } = createJobsModule({
@@ -235,7 +237,13 @@ export function createAppContainer(options: CreateAppContainerOptions = {}): App
     listShareRepo,
     assertUserCanUseCase,
     commentRealtime,
+    createNotification: createNotificationUseCase,
     middleware: routeMiddleware,
+  });
+
+  const giphyModule = createGiphyModule({
+    serverConfigRepo,
+    assertUserCanUseCase,
   });
 
   const friendsModule = createFriendsModule({
@@ -279,6 +287,7 @@ export function createAppContainer(options: CreateAppContainerOptions = {}): App
     jobRepo,
     notifyItemJobCompletion,
     commentModule,
+    giphyModule,
     friendsModule,
     notificationsModule,
     invitesModule,

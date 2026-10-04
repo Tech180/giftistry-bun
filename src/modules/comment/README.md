@@ -23,6 +23,7 @@ Compact module — use cases live under `application/` (no behavior slices). Cro
 ## Notes
 
 - Delivery/visibility respects owner-visible flags and audience lists (`should-deliver-comment-event`).
+- On create, `NotifyCommentMentionsUseCase` sends type `comment` in-app/push notifications to @mentioned users who pass `canUserViewComment` (respects **Comments** notification pref).
 
 ## Related
 

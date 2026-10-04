@@ -23,7 +23,7 @@ Cross-module imports should use the public barrel `@/modules/wishlist`. Composit
 | `lists` | create/get/list/update/delete, activate/deactivate, expired |
 | `shares` | list/update/remove shares, bulk share |
 | `priorities` | create/list/delete priorities |
-| `export` | CSV/XLSX/TXT/JSON + PDF export |
+| `export` | CSV/XLSX/TXT/JSON + PDF export; omit empty optional fields; no audience column; suggestion metadata only for **viewer** role exports (legacy imports may still include audience) |
 | `rollover` | rollover + duplicate wishlist |
 | `access` | `CheckListAccessUseCase` (shared with list-access middleware) |
 

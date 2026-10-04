@@ -59,6 +59,14 @@ describe('ExportWishlistDataUseCase linked/related columns', () => {
           LastName: 'Lovelace',
           Username: 'ada',
         })),
+      } as never,
+      {
+        execute: mock(async () => ({
+          listId: 'list-1',
+          role: 'owner',
+          isExpired: false,
+          isActive: true,
+        })),
       } as never
     );
   }
@@ -69,6 +77,7 @@ describe('ExportWishlistDataUseCase linked/related columns', () => {
     const csv = result.data as string;
     expect(csv).toContain('Linked Items');
     expect(csv).toContain('Related Items');
+    expect(csv.split('\r\n')[0]).not.toContain('Audience');
     expect(csv.split('\r\n')[0]).toContain('Suggestion');
     expect(csv).toContain('Socks');
     expect(csv).toContain('Shirt');

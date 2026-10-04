@@ -74,4 +74,6 @@ export interface ServerConfig {
   FcmEnabled?: boolean;
   FcmProjectId?: string;
   FcmServiceAccountJson?: string;
+  /** GIPHY API key for comment GIF search (server-side proxy). */
+  GiphyApiKey?: string;
 }

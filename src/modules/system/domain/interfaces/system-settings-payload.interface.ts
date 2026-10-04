@@ -63,4 +63,5 @@ export interface SystemSettingsPayload {
   FcmEnabled?: boolean;
   FcmProjectId?: string;
   FcmServiceAccountJson?: string;
+  GiphyApiKey?: string;
 }

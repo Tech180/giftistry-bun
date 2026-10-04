@@ -4,11 +4,13 @@ import type { UserRepository } from '@/modules/auth';
 import { AppError } from '@/common/domain/errors/app-error';
 import type { ThemeResolver } from '../../../application/ports/theme-resolver.port';
 import type { PdfGenerator } from '../../../application/ports/pdf-generator.port';
+import type { CheckListAccessUseCase } from '../../access/use-cases/check-list-access.use-case';
 import { getAudienceDisplayName } from '../utils/format-audience-for-export.util';
 import { buildRelationNameById } from '../utils/format-relation-items-for-export.util';
 import { buildGiftistryExportItemFields } from '../utils/build-giftistry-export-item-fields.util';
 import { toRelationExportItems } from '../utils/to-relation-export-items.util';
 import { toWishlistExportItems } from '../utils/to-wishlist-export-items.util';
+import type { WishlistExportContext } from '../interfaces/wishlist-export-context.interface';
 
 export class ExportWishlistPdfUseCase {
   constructor(
@@ -16,7 +18,8 @@ export class ExportWishlistPdfUseCase {
     private listItemsUseCase: ListItemsPort,
     private userRepo: UserRepository,
     private themeResolver: ThemeResolver,
-    private pdfGenerator: PdfGenerator
+    private pdfGenerator: PdfGenerator,
+    private checkListAccess: CheckListAccessUseCase
   ) {}
 
   async execute(listId: string, currentUserId: string): Promise<Uint8Array> {
@@ -25,19 +28,21 @@ export class ExportWishlistPdfUseCase {
       throw new AppError('Wishlist not found', 404, 'NOT_FOUND');
     }
 
+    const access = await this.checkListAccess.execute(currentUserId, { listId });
     const user = await this.userRepo.findById(wishlist.UserId);
     const themeColors = await this.themeResolver.resolveThemeColors(user?.Theme || 'default');
 
     const { Items } = await this.listItemsUseCase.execute(listId, currentUserId);
     const activeUser = await this.userRepo.findById(currentUserId);
+    const exportContext: WishlistExportContext = {
+      exporterName: activeUser ? getAudienceDisplayName(activeUser) : undefined,
+      isOwner: access.role === 'owner',
+      currentUserId,
+      listRole: access.role,
+    };
     const exportItems = toWishlistExportItems(Items as unknown as Record<string, unknown>[]);
     const relationItems = toRelationExportItems(exportItems);
     const relationNameById = buildRelationNameById(relationItems);
-    const exportContext = {
-      exporterName: activeUser ? getAudienceDisplayName(activeUser) : undefined,
-      isOwner: currentUserId === wishlist.UserId,
-      currentUserId,
-    };
     const fieldsById = new Map(
       exportItems.map((item) => [
         item.Id,
@@ -54,7 +59,6 @@ export class ExportWishlistPdfUseCase {
       return {
         ...item,
         IsFavorite: fields?.isFavorite ?? item.IsFavorite,
-        ExportAudience: fields?.audience ?? '',
         ExportSuggestion: fields?.suggestion ?? '',
         ExportLinkedNames: fields?.linkedPeerNames ?? [],
         ExportRelatedNames: fields?.relatedPeerNames ?? [],

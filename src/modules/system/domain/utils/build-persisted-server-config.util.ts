@@ -137,5 +137,6 @@ export function buildPersistedServerConfig(
     FcmEnabled: config.FcmEnabled === true,
     FcmProjectId: config.FcmProjectId ?? '',
     FcmServiceAccountJson: config.FcmServiceAccountJson ?? '',
+    GiphyApiKey: config.GiphyApiKey ?? '',
   };
 }

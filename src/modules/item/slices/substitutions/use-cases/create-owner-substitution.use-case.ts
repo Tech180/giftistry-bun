@@ -16,6 +16,7 @@ import {
   toSubstitutionMetadataWrite,
 } from '../utils/substitution-payload.util';
 import { actorCanManageListItems } from '../utils/actor-can-manage-list-items.util';
+import { assertMoneyAmount } from '@/common/domain/utils/parse-money-amount.util';
 
 export class CreateOwnerSubstitutionUseCase {
   constructor(
@@ -35,6 +36,8 @@ export class CreateOwnerSubstitutionUseCase {
     if (!name) {
       throw new AppError('Substitution name is required', 400, 'BAD_REQUEST');
     }
+
+    const substitutionPrice = assertMoneyAmount(payload.Price ?? null);
 
     const parent = await this.itemRepo.findById(parentItemId);
     if (!parent) {
@@ -106,7 +109,7 @@ export class CreateOwnerSubstitutionUseCase {
         row.SubstitutionItemId,
         payload.LinkUrl.trim(),
         payload.WebsiteName?.trim() || null,
-        payload.Price != null ? Number(payload.Price) : null,
+        substitutionPrice,
         null
       );
     }

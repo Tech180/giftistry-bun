@@ -220,6 +220,7 @@ export function normalizeServerConfig(data: Record<string, unknown>): ServerConf
     })(),
     FcmProjectId: String(pick(data, 'FcmProjectId', '')).trim() || undefined,
     FcmServiceAccountJson: String(pick(data, 'FcmServiceAccountJson', '')).trim() || undefined,
+    GiphyApiKey: String(pick(data, 'GiphyApiKey', '')).trim() || undefined,
   };
 }
 

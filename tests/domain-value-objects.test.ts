@@ -17,6 +17,10 @@ describe('domain value objects', () => {
     expect(Money.create('$19.99')?.toNumber()).toBe(19.99);
     expect(Money.create(null)).toBeNull();
     expect(() => Money.create(-5)).toThrow(DomainError);
+    expect(Money.create(99_999_999.99)?.toNumber()).toBe(99_999_999.99);
+    expect(() => Money.create(100_000_000)).toThrow(DomainError);
+    expect(() => Money.create(Number.POSITIVE_INFINITY)).toThrow(DomainError);
+    expect(() => Money.create(1.999)).toThrow(DomainError);
   });
 
   test('Username.create enforces length and charset', () => {
