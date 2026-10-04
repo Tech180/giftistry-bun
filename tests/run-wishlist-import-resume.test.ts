@@ -216,6 +216,9 @@ describe('RunWishlistImportJobUseCase resume', () => {
           };
         },
       },
+      applyImportedItemMetadata: {
+        execute: async () => ({ warnings: [] }),
+      },
       listItems: {
         execute: async () => ({
           Items: wishlistLinks.map((row) => ({

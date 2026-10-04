@@ -9,15 +9,18 @@ Existing categories on the list (optional): "{existingCategories}"
 File content:
 {fileContent}
 
-Giftistry CSV exports use columns:
-Category, Priority, Item, Star, Price, Website Link, Description, Audience, Suggestion
+Giftistry CSV and XLSX exports use columns:
+Category, Priority, Item, Star, Price, Website Link, Description, Audience, Suggestion, Linked Items, Related Items
 - Category section rows look like "Toys:" in the Category column.
 - Item rows often leave Category blank and inherit the last section.
 - Star "*" means favorite.
-- Audience and Suggestion are informational only — do NOT invent share recipients from them.
+- Linked Items and Related Items are comma-separated item names from the same list.
+- Audience and Suggestion are informational. Do not invent share recipients.
 
 Giftistry JSON exports look like:
-{ "wishlistTitle", "exportedAt", "items": [{ "name", "category", "priority", "isFavorite", "description", "links": [{ "url", "retailer", "price" }] }] }
+{ "wishlistTitle", "exportedAt", "items": [{ "name", "category", "priority", "isFavorite", "description", "audience", "suggestion", "linkedItems", "relatedItems", "links": [{ "url", "retailer", "price" }] }] }
+
+TXT and Markdown exports carry the same fields as labeled lines (Audience, Suggestion, Linked Items, Related Items).
 
 Rules:
 1. Extract every distinct gift item you can identify. Skip empty/header-only rows.

@@ -1,16 +1,9 @@
 import type { RelationExportItem } from '@/modules/item';
-import {
-  getLinkedItemIdsFromExportItem,
-  getRelatedItemIdsFromExportItem,
-  parseItemDescription,
-  resolveRelationPeerNames,
-} from '@/modules/item';
 import type { WishlistExportContext } from '../interfaces/wishlist-export-context.interface';
 import type { WishlistExportItem } from '../interfaces/wishlist-export-item.interface';
 import type { WishlistExportResult } from '../interfaces/wishlist-export-result.interface';
+import { buildGiftistryExportItemFields } from './build-giftistry-export-item-fields.util';
 import { getExportFilename } from './export-filename.util';
-import { formatAudienceForExport } from './format-audience-for-export.util';
-import { formatSuggestionForExport } from './format-suggestion-for-export.util';
 
 export function buildWishlistJsonExport(params: {
   wishlistTitle: string;
@@ -18,59 +11,38 @@ export function buildWishlistJsonExport(params: {
   exportContext: WishlistExportContext;
   relationItems: RelationExportItem[];
   relationNameById: Map<string, string>;
-  includeSuggestionColumn: boolean;
 }): WishlistExportResult {
-  const {
-    wishlistTitle,
-    items,
-    exportContext,
-    relationItems,
-    relationNameById,
-    includeSuggestionColumn,
-  } = params;
+  const { wishlistTitle, items, exportContext, relationItems, relationNameById } = params;
 
   const formattedItems = items.map((item) => {
-    const parsed = parseItemDescription(item.Description);
-    const parsedDesc = parsed.isJson && parsed.metadata ? parsed.metadata : item.Description;
-    const audience = formatAudienceForExport(item.SharedWith, exportContext.currentUserId, item.SuggestedByUserId);
-    const suggestion = includeSuggestionColumn
-      ? formatSuggestionForExport(item, exportContext.isOwner)
-      : '';
-    const linkedItems = resolveRelationPeerNames(
-      item.Id,
+    const fields = buildGiftistryExportItemFields({
+      item,
       relationItems,
       relationNameById,
-      getLinkedItemIdsFromExportItem
-    );
-    const relatedItems = resolveRelationPeerNames(
-      item.Id,
-      relationItems,
-      relationNameById,
-      getRelatedItemIdsFromExportItem
-    );
-
+      exportContext,
+    });
     return {
-      name: item.Name,
-      category: item.categoryFormatted,
-      priority: item.Priority,
-      isFavorite: item.isFav,
-      description: parsedDesc,
-      audience,
-      ...(includeSuggestionColumn && suggestion ? { suggestion } : {}),
-      ...(linkedItems.length ? { linkedItems } : {}),
-      ...(relatedItems.length ? { relatedItems } : {}),
-      links: (item.Links || []).map((link) => ({
-        url: link.Url || '',
-        retailer: link.RetailerName || '',
-        price: link.ExtractedPrice
-      }))
+      name: fields.name,
+      category: fields.category,
+      priority: fields.priority,
+      isFavorite: fields.isFavorite,
+      description: fields.description,
+      audience: fields.audience,
+      suggestion: fields.suggestion,
+      linkedItems: fields.linkedPeerNames,
+      relatedItems: fields.relatedPeerNames,
+      links: fields.links.map((link) => ({
+        url: link.url,
+        retailer: link.retailer,
+        price: link.price,
+      })),
     };
   });
 
   const data = {
     wishlistTitle,
     exportedAt: new Date().toISOString(),
-    items: formattedItems
+    items: formattedItems,
   };
 
   return {

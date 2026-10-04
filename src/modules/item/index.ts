@@ -75,3 +75,15 @@ export type { RelationIdsGetter } from './domain/types/relation-ids-getter.type'
 export { sortWishlistItemsByExportOrder } from './domain/utils/sort-wishlist-items.util';
 export type { SortableWishlistItem } from './domain/interfaces/sortable-wishlist-item.interface';
 export { parseItemDescription } from './domain/utils/item-description.util';
+export {
+  GIFTISTRY_CSV_HEADERS,
+  GIFTISTRY_LEGACY_TABULAR_COLUMN_COUNT,
+  GIFTISTRY_LEGACY_TABULAR_HEADERS,
+  GIFTISTRY_MD_META_KEYS,
+  GIFTISTRY_TABULAR_COLUMN_KEYS,
+  GIFTISTRY_TABULAR_HEADERS,
+  GIFTISTRY_TXT_LABELS,
+  WEBSITE_HEADER_ALIASES,
+} from './domain/constants/giftistry-csv-headers.constant';
+export type { GiftistryTabularColumnKey } from './domain/types/giftistry-tabular-column-key.type';
+export { splitExportRelationNames } from './domain/utils/split-export-relation-names.util';

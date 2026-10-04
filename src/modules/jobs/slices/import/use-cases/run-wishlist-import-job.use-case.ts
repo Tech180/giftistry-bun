@@ -120,6 +120,9 @@ export class RunWishlistImportJobUseCase {
           failedCount = addResult.failedCount;
         }
 
+        await this.applyImportedMetadata(job, listId);
+        if (await this.jobRepo.shouldStop(job.Id)) return;
+
         const jobItems = await this.jobRepo.listItems(job.Id);
         const hasGrabWork = payload.grabInfo && jobItems.some(jobItemNeedsGrab);
 
@@ -185,6 +188,9 @@ export class RunWishlistImportJobUseCase {
         { createdCount: 0, failedCount: 0, progressTotal: validItems.length }
       );
       if (!addResult) return;
+
+      await this.applyImportedMetadata(job, listId);
+      if (await this.jobRepo.shouldStop(job.Id)) return;
 
       const jobItems = await this.jobRepo.listItems(job.Id);
       const hasGrabWork = payload.grabInfo && jobItems.some(jobItemPendingGrab);
@@ -320,6 +326,44 @@ export class RunWishlistImportJobUseCase {
     }
 
     return { createdCount, failedCount };
+  }
+
+  private async applyImportedMetadata(job: BackgroundJob, listId: string): Promise<void> {
+    const jobItems = await this.jobRepo.listItems(job.Id);
+    const rows = jobItems.flatMap((item) => {
+      if (!item.ItemId) {
+        return [];
+      }
+      const payload = item.Payload as Partial<CreatedImportRow>;
+      return [
+        {
+          itemId: item.ItemId,
+          category: payload.category,
+          linkedPeerNames: payload.linkedPeerNames,
+          relatedPeerNames: payload.relatedPeerNames,
+          audienceLabel: payload.audienceLabel,
+          suggestionLabel: payload.suggestionLabel,
+        },
+      ];
+    });
+    if (rows.length === 0) {
+      return;
+    }
+    const { warnings } = await this.itemUseCases.applyImportedItemMetadata.execute(
+      listId,
+      job.UserId,
+      rows
+    );
+    if (warnings.length === 0) {
+      return;
+    }
+    const current = await this.jobRepo.findById(job.Id);
+    await this.patch(job.Id, {
+      result: {
+        ...(current?.Result ?? {}),
+        ImportWarnings: warnings,
+      },
+    });
   }
 
   private async insertJobItemsIdempotent(jobId: string, rows: CreatedImportRow[]): Promise<void> {

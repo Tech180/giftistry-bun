@@ -12,4 +12,8 @@ export interface BulkAddItemInput {
   priority?: number | null;
   sharedWithUserIds?: string[];
   metadata?: ItemDescriptionMetadata | null;
+  linkedPeerNames?: string[];
+  relatedPeerNames?: string[];
+  audienceLabel?: string;
+  suggestionLabel?: string;
 }

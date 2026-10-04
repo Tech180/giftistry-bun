@@ -4,6 +4,11 @@ import type { UserRepository } from '@/modules/auth';
 import { AppError } from '@/common/domain/errors/app-error';
 import type { ThemeResolver } from '../../../application/ports/theme-resolver.port';
 import type { PdfGenerator } from '../../../application/ports/pdf-generator.port';
+import { getAudienceDisplayName } from '../utils/format-audience-for-export.util';
+import { buildRelationNameById } from '../utils/format-relation-items-for-export.util';
+import { buildGiftistryExportItemFields } from '../utils/build-giftistry-export-item-fields.util';
+import { toRelationExportItems } from '../utils/to-relation-export-items.util';
+import { toWishlistExportItems } from '../utils/to-wishlist-export-items.util';
 
 export class ExportWishlistPdfUseCase {
   constructor(
@@ -24,6 +29,37 @@ export class ExportWishlistPdfUseCase {
     const themeColors = await this.themeResolver.resolveThemeColors(user?.Theme || 'default');
 
     const { Items } = await this.listItemsUseCase.execute(listId, currentUserId);
+    const activeUser = await this.userRepo.findById(currentUserId);
+    const exportItems = toWishlistExportItems(Items as unknown as Record<string, unknown>[]);
+    const relationItems = toRelationExportItems(exportItems);
+    const relationNameById = buildRelationNameById(relationItems);
+    const exportContext = {
+      exporterName: activeUser ? getAudienceDisplayName(activeUser) : undefined,
+      isOwner: currentUserId === wishlist.UserId,
+      currentUserId,
+    };
+    const fieldsById = new Map(
+      exportItems.map((item) => [
+        item.Id,
+        buildGiftistryExportItemFields({
+          item,
+          relationItems,
+          relationNameById,
+          exportContext,
+        }),
+      ])
+    );
+    const pdfItems = Items.map((item) => {
+      const fields = fieldsById.get(item.Id);
+      return {
+        ...item,
+        IsFavorite: fields?.isFavorite ?? item.IsFavorite,
+        ExportAudience: fields?.audience ?? '',
+        ExportSuggestion: fields?.suggestion ?? '',
+        ExportLinkedNames: fields?.linkedPeerNames ?? [],
+        ExportRelatedNames: fields?.relatedPeerNames ?? [],
+      };
+    });
 
     const ownerName = (wishlist.OwnerFirstName && wishlist.OwnerLastName)
       ? `${wishlist.OwnerFirstName} ${wishlist.OwnerLastName}`
@@ -37,7 +73,7 @@ export class ExportWishlistPdfUseCase {
 
     return await this.pdfGenerator.generateWishlistPdf(
       wishlist,
-      Items,
+      pdfItems,
       themeColors,
       ownerInfo,
       currentUserId

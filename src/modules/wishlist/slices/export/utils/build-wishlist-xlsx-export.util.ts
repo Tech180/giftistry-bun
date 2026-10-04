@@ -1,17 +1,14 @@
+import { GIFTISTRY_TABULAR_HEADERS } from '@/modules/item';
 import type { RelationExportItem } from '@/modules/item';
-import { parseItemDescription } from '@/modules/item';
 import ExcelJS from 'exceljs';
 import type { WishlistExportContext } from '../interfaces/wishlist-export-context.interface';
 import type { WishlistExportItem } from '../interfaces/wishlist-export-item.interface';
 import type { WishlistExportResult } from '../interfaces/wishlist-export-result.interface';
-import { getExportFilename } from './export-filename.util';
-import { formatAudienceForExport } from './format-audience-for-export.util';
 import {
-  formatLinkedItemsForExport,
-  formatRelatedItemsForExport,
-} from './format-relation-items-for-export.util';
-import { formatSuggestionForExport } from './format-suggestion-for-export.util';
-import { getSiteName } from './get-site-name.util';
+  buildGiftistryExportItemFields,
+  giftistryExportItemToTabularCells,
+} from './build-giftistry-export-item-fields.util';
+import { getExportFilename } from './export-filename.util';
 import { groupExportItemsByCategory } from './group-export-items-by-category.util';
 
 export async function buildWishlistXlsxExport(params: {
@@ -20,49 +17,17 @@ export async function buildWishlistXlsxExport(params: {
   exportContext: WishlistExportContext;
   relationItems: RelationExportItem[];
   relationNameById: Map<string, string>;
-  includeSuggestionColumn: boolean;
 }): Promise<WishlistExportResult> {
-  const {
-    wishlistTitle,
-    items,
-    exportContext,
-    relationItems,
-    relationNameById,
-    includeSuggestionColumn,
-  } = params;
+  const { wishlistTitle, items, exportContext, relationItems, relationNameById } = params;
 
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Wishlist');
+  const widths = [18, 12, 28, 8, 12, 28, 45, 18, 22, 28, 28];
+  widths.forEach((width, index) => {
+    worksheet.getColumn(index + 1).width = width;
+  });
 
-  worksheet.getColumn(1).width = 18;
-  worksheet.getColumn(2).width = 12;
-  worksheet.getColumn(3).width = 28;
-  worksheet.getColumn(4).width = 8;
-  worksheet.getColumn(5).width = 12;
-  worksheet.getColumn(6).width = 18;
-  worksheet.getColumn(7).width = 45;
-  worksheet.getColumn(8).width = 18;
-  let nextCol = 9;
-  if (includeSuggestionColumn) {
-    worksheet.getColumn(nextCol).width = 22;
-    nextCol += 1;
-  }
-  worksheet.getColumn(nextCol).width = 28;
-  worksheet.getColumn(nextCol + 1).width = 28;
-
-  const headers = [
-    'Category',
-    'Priority',
-    'Item',
-    'Star',
-    'Price',
-    'Website',
-    'Description',
-    'Audience',
-    ...(includeSuggestionColumn ? ['Suggestion'] : []),
-    'Linked Items',
-    'Related Items',
-  ];
+  const headers = [...GIFTISTRY_TABULAR_HEADERS];
   const headerRow = worksheet.addRow(headers);
   headerRow.height = 24;
   headerRow.eachCell((cell) => {
@@ -70,17 +35,17 @@ export async function buildWishlistXlsxExport(params: {
       name: 'Inter',
       size: 11,
       bold: true,
-      color: { argb: 'FFFFFFFF' }
+      color: { argb: 'FFFFFFFF' },
     };
     cell.fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FF5E6AD2' }
+      fgColor: { argb: 'FF5E6AD2' },
     };
     cell.alignment = {
       vertical: 'middle',
       horizontal: 'left',
-      wrapText: true
+      wrapText: true,
     };
   });
 
@@ -98,7 +63,7 @@ export async function buildWishlistXlsxExport(params: {
       name: 'Inter',
       size: 13,
       bold: true,
-      color: { argb: 'FF111111' }
+      color: { argb: 'FF111111' },
     };
     catCell.alignment = { vertical: 'middle', wrapText: true };
 
@@ -107,64 +72,39 @@ export async function buildWishlistXlsxExport(params: {
       continue;
     }
     for (const item of catItems) {
-      const priorityVal = item.Priority !== null && item.Priority !== undefined ? item.Priority : '';
-      const starVal = item.isFav ? '*' : '';
-      const parsed = parseItemDescription(item.Description);
-      const formattedDesc = parsed.text || '';
-      const audience = formatAudienceForExport(item.SharedWith, exportContext.currentUserId, item.SuggestedByUserId);
-      const suggestion = includeSuggestionColumn
-        ? formatSuggestionForExport(item, exportContext.isOwner)
-        : null;
-      const linkedItems = formatLinkedItemsForExport(item.Id, relationItems, relationNameById);
-      const relatedItems = formatRelatedItemsForExport(item.Id, relationItems, relationNameById);
-
-      let priceVal = '';
-      let websiteLabel = '';
-      let linkUrl = '';
-
-      const link = item.Links?.[0];
-      if (link) {
-        priceVal =
-          link.ExtractedPrice != null ? `$${link.ExtractedPrice.toFixed(2)}` : '';
-        websiteLabel = link.RetailerName || (link.Url ? getSiteName(link.Url) : 'Store');
-        linkUrl = link.Url || '';
+      const fields = buildGiftistryExportItemFields({
+        item,
+        relationItems,
+        relationNameById,
+        exportContext,
+      });
+      const link = fields.links[0] ?? null;
+      const rowValues = giftistryExportItemToTabularCells(fields, link);
+      if (link?.retailer) {
+        rowValues[5] = link.retailer;
       }
-
-      const rowValues = [
-        '',
-        priorityVal,
-        item.Name,
-        starVal,
-        priceVal,
-        websiteLabel,
-        formattedDesc,
-        audience,
-        ...(includeSuggestionColumn ? [suggestion] : []),
-        linkedItems,
-        relatedItems,
-      ];
       const itemRow = worksheet.addRow(rowValues);
 
       itemRow.eachCell((cell, colNumber) => {
-        if (colNumber === 6 && linkUrl) {
-          cell.value = { text: websiteLabel, hyperlink: linkUrl };
+        if (colNumber === 6 && link?.url) {
+          cell.value = { text: link.retailer || link.url, hyperlink: link.url };
           cell.font = {
             name: 'Inter',
             size: 10,
             color: { argb: 'FF0055FF' },
-            underline: true
+            underline: true,
           };
         } else {
           cell.font = {
             name: 'Inter',
             size: 10,
-            color: { argb: 'FF333333' }
+            color: { argb: 'FF333333' },
           };
         }
         cell.alignment = {
           vertical: 'middle',
           horizontal: 'left',
-          wrapText: true
+          wrapText: true,
         };
       });
     }

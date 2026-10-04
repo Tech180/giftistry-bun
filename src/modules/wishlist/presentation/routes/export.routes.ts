@@ -37,7 +37,7 @@ export const exportRoutes = (useCases: UseCases, middleware: RouteMiddleware) =>
         const result = await useCases.exportWishlistData.execute(
           listId,
           user.userId,
-          format as 'csv' | 'xlsx' | 'txt' | 'json'
+          format as 'csv' | 'xlsx' | 'txt' | 'json' | 'md'
         );
         const body = typeof result.data === 'string' ? result.data : Buffer.from(result.data);
         return new Response(body, {
@@ -54,12 +54,13 @@ export const exportRoutes = (useCases: UseCases, middleware: RouteMiddleware) =>
             t.Literal('xlsx'),
             t.Literal('txt'),
             t.Literal('json'),
+            t.Literal('md'),
           ]),
         }),
         detail: {
           tags: ['Wishlists'],
           summary: 'Export wishlist data',
-          description: 'Generates and downloads a wishlist in CSV, XLSX, TXT, or JSON formats.',
+          description: 'Generates and downloads a wishlist in CSV, XLSX, TXT, JSON, or Markdown formats.',
           security: [{ bearerAuth: [] }],
         },
       }

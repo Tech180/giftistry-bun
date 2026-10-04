@@ -331,4 +331,22 @@ describe('ParseImportPreviewUseCase allowAi', () => {
 
     expect(parse).not.toHaveBeenCalled();
   });
+
+  test('rejects PDF even when allowAi is true', async () => {
+    const { useCase, parse } = buildUseCase();
+    try {
+      await useCase.execute('user-1', {
+        fileName: 'catalog.pdf',
+        format: 'pdf',
+        content: 'base64data',
+        contentEncoding: 'base64',
+        allowAi: true,
+      });
+      throw new Error('expected failure');
+    } catch (err) {
+      expect(err).toBeInstanceOf(AppError);
+      expect((err as AppError).message).toContain('PDF import is not supported');
+    }
+    expect(parse).not.toHaveBeenCalled();
+  });
 });

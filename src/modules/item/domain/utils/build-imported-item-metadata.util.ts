@@ -65,6 +65,10 @@ export function mapImportedPreviewToBulkFields(item: ImportedItemPreview): {
   category: string | null;
   priority: number | null;
   metadata: ItemDescriptionMetadata | null;
+  linkedPeerNames?: string[];
+  relatedPeerNames?: string[];
+  audienceLabel?: string;
+  suggestionLabel?: string;
 } {
   const payload = buildImportedItemCreatePayload(item);
   return {
@@ -75,5 +79,9 @@ export function mapImportedPreviewToBulkFields(item: ImportedItemPreview): {
     category: item.category?.trim() || null,
     priority: item.priority ?? null,
     metadata: payload.metadata,
+    linkedPeerNames: item.linkedPeerNames,
+    relatedPeerNames: item.relatedPeerNames,
+    audienceLabel: item.audienceLabel,
+    suggestionLabel: item.suggestionLabel,
   };
 }

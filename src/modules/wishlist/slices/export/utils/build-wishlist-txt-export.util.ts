@@ -1,16 +1,15 @@
+import { GIFTISTRY_TXT_LABELS } from '@/modules/item';
 import type { RelationExportItem } from '@/modules/item';
-import { parseItemDescription } from '@/modules/item';
 import type { WishlistExportContext } from '../interfaces/wishlist-export-context.interface';
 import type { WishlistExportItem } from '../interfaces/wishlist-export-item.interface';
 import type { WishlistExportResult } from '../interfaces/wishlist-export-result.interface';
+import { buildGiftistryExportItemFields } from './build-giftistry-export-item-fields.util';
 import { getExportFilename } from './export-filename.util';
-import { formatAudienceForExport } from './format-audience-for-export.util';
-import {
-  formatLinkedItemsForExport,
-  formatRelatedItemsForExport,
-} from './format-relation-items-for-export.util';
-import { formatSuggestionForExport } from './format-suggestion-for-export.util';
 import { groupExportItemsByCategory } from './group-export-items-by-category.util';
+
+function labeled(label: string, value: string): string {
+  return `    ${label}: ${value}`;
+}
 
 export function buildWishlistTxtExport(params: {
   wishlistTitle: string;
@@ -18,16 +17,8 @@ export function buildWishlistTxtExport(params: {
   exportContext: WishlistExportContext;
   relationItems: RelationExportItem[];
   relationNameById: Map<string, string>;
-  includeSuggestionColumn: boolean;
 }): WishlistExportResult {
-  const {
-    wishlistTitle,
-    items,
-    exportContext,
-    relationItems,
-    relationNameById,
-  } = params;
-
+  const { wishlistTitle, items, exportContext, relationItems, relationNameById } = params;
   const sections: string[] = [];
   sections.push('============================================================');
   sections.push(`WISHLIST REGISTRY: ${wishlistTitle.toUpperCase()}`);
@@ -45,40 +36,27 @@ export function buildWishlistTxtExport(params: {
       continue;
     }
     for (const item of catItems) {
-      const starPrefix = item.isFav ? '★ ' : '  ';
-      const priorityLabel = item.Priority !== null && item.Priority !== undefined ? `(Priority: ${item.Priority})` : '';
-      const parsed = parseItemDescription(item.Description);
-      const descText = parsed.text || '';
-      const descStr = descText ? `\n    Description: ${descText}` : '';
-      const audience = formatAudienceForExport(item.SharedWith, exportContext.currentUserId, item.SuggestedByUserId);
-      const suggestion = formatSuggestionForExport(item, exportContext.isOwner);
-      const linkedItems = formatLinkedItemsForExport(item.Id, relationItems, relationNameById);
-      const relatedItems = formatRelatedItemsForExport(item.Id, relationItems, relationNameById);
-      const metaStr = `\n    Audience: ${audience}${suggestion ? `\n    Suggestion: ${suggestion}` : ''}${
-        linkedItems ? `\n    Linked Items: ${linkedItems}` : ''
-      }${relatedItems ? `\n    Related Items: ${relatedItems}` : ''}`;
+      const fields = buildGiftistryExportItemFields({
+        item,
+        relationItems,
+        relationNameById,
+        exportContext,
+      });
+      const starPrefix = fields.isFavorite ? '★ ' : '  ';
+      const priorityLabel = fields.priority === null ? '' : `(Priority: ${fields.priority})`;
+      const links = fields.links.length > 0 ? fields.links : [null];
 
-      if (item.Links && item.Links.length > 0) {
-        for (const link of item.Links) {
-          const priceStr = link.ExtractedPrice !== null && link.ExtractedPrice !== undefined
-            ? ` - $${link.ExtractedPrice.toFixed(2)}`
-            : '';
-          const retailer = link.RetailerName || 'Store';
-          sections.push(`${starPrefix}${item.Name}${priceStr} ${priorityLabel}`);
-          if (link.Url) {
-            sections.push(`    Link: ${retailer} (${link.Url})`);
-          }
-          if (descStr) {
-            sections.push(descStr);
-          }
-          sections.push(metaStr);
+      for (const link of links) {
+        const priceStr = link?.priceLabel ? ` - ${link.priceLabel}` : '';
+        sections.push(`${starPrefix}${fields.name}${priceStr} ${priorityLabel}`.trimEnd());
+        if (link?.url) {
+          sections.push(`    Link: ${link.retailer || 'Store'} (${link.url})`);
         }
-      } else {
-        sections.push(`${starPrefix}${item.Name} ${priorityLabel}`);
-        if (descStr) {
-          sections.push(descStr);
-        }
-        sections.push(metaStr);
+        sections.push(labeled(GIFTISTRY_TXT_LABELS.description, fields.description));
+        sections.push(labeled(GIFTISTRY_TXT_LABELS.audience, fields.audience));
+        sections.push(labeled(GIFTISTRY_TXT_LABELS.suggestion, fields.suggestion));
+        sections.push(labeled(GIFTISTRY_TXT_LABELS.linkedItems, fields.linkedItems));
+        sections.push(labeled(GIFTISTRY_TXT_LABELS.relatedItems, fields.relatedItems));
       }
       sections.push('');
     }

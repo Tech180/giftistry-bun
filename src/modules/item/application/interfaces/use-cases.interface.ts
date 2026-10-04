@@ -9,6 +9,7 @@ import type { ClaimItemUseCase } from '../../slices/claims/use-cases/claim-item.
 import type { ClaimItemWithLinkedUseCase } from '../../slices/claims/use-cases/claim-item-with-linked.use-case';
 import type { UnclaimItemUseCase } from '../../slices/claims/use-cases/unclaim-item.use-case';
 import type { UnclaimItemWithLinkedUseCase } from '../../slices/claims/use-cases/unclaim-item-with-linked.use-case';
+import type { ApplyImportedItemMetadataUseCase } from '../../slices/import/use-cases/apply-imported-item-metadata.use-case';
 import type { BulkAddItemsUseCase } from '../../slices/import/use-cases/bulk-add-items.use-case';
 import type { ParseImportPreviewUseCase } from '../../slices/import/use-cases/parse-import-preview.use-case';
 import type { AddItemLinkUseCase } from '../../slices/links/use-cases/add-item-link.use-case';
@@ -44,6 +45,7 @@ export interface UseCases {
   summarizeItemDescription: SummarizeItemDescriptionUseCase;
   parseImportPreview: ParseImportPreviewUseCase;
   bulkAddItems: BulkAddItemsUseCase;
+  applyImportedItemMetadata: ApplyImportedItemMetadataUseCase;
   syncItemLinks: SyncItemLinksUseCase;
   syncItemRelated: SyncItemRelatedUseCase;
   buildItemClaimProjections: BuildItemClaimProjectionsUseCase;

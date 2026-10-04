@@ -1,6 +1,17 @@
 import type { ImportedItemPreview } from '../interfaces/imported-item-preview.interface';
 import { isGiftistryExportJson, normalizeImportedItem, parsePriceValue } from './giftistry-export-detect.util';
+import { splitExportRelationNames } from './split-export-relation-names.util';
 import type { ParseGiftistryJsonResult } from '../interfaces/parse-giftistry-json-result.interface';
+
+function stringList(raw: unknown): string[] {
+  if (Array.isArray(raw)) {
+    return raw.map((entry) => (typeof entry === 'string' ? entry.trim() : '')).filter(Boolean);
+  }
+  if (typeof raw === 'string') {
+    return splitExportRelationNames(raw);
+  }
+  return [];
+}
 
 export function tryParseGiftistryExportJson(text: string): ParseGiftistryJsonResult | null {
   let parsed: unknown;
@@ -59,7 +70,17 @@ export function tryParseGiftistryExportJson(text: string): ParseGiftistryJsonRes
     });
 
     if (normalized) {
-      items.push(normalized);
+      const audienceLabel = typeof raw.audience === 'string' ? raw.audience.trim() : '';
+      const suggestionLabel = typeof raw.suggestion === 'string' ? raw.suggestion.trim() : '';
+      const linkedPeerNames = stringList(raw.linkedItems);
+      const relatedPeerNames = stringList(raw.relatedItems);
+      items.push({
+        ...normalized,
+        ...(audienceLabel ? { audienceLabel } : {}),
+        ...(suggestionLabel ? { suggestionLabel } : {}),
+        ...(linkedPeerNames.length ? { linkedPeerNames } : {}),
+        ...(relatedPeerNames.length ? { relatedPeerNames } : {}),
+      });
     }
   }
 

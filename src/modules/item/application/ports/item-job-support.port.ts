@@ -14,4 +14,5 @@ export type ItemJobSupportPort = Pick<
   | 'summarizeItemDescription'
   | 'parseImportPreview'
   | 'bulkAddItems'
+  | 'applyImportedItemMetadata'
 >;

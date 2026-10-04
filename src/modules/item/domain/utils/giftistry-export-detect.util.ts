@@ -4,7 +4,12 @@ import {
   cleanImportedCustomFieldsMaps,
   hasClassifiedCustomFields,
 } from './classify-imported-custom-fields.util';
-import { GIFTISTRY_CSV_HEADERS, WEBSITE_HEADER_ALIASES } from '../constants/giftistry-csv-headers.constant';
+import {
+  GIFTISTRY_TABULAR_COLUMN_KEYS,
+  GIFTISTRY_TABULAR_HEADERS,
+  WEBSITE_HEADER_ALIASES,
+} from '../constants/giftistry-csv-headers.constant';
+import type { GiftistryTabularColumnKey } from '../types/giftistry-tabular-column-key.type';
 import type { GiftistryTabularDelimiter } from '../types/giftistry-tabular-delimiter.type';
 import type { GiftistryTabularHeader } from '../interfaces/giftistry-tabular-header.interface';
 
@@ -32,16 +37,54 @@ export function splitExportLines(text: string): string[] {
   return text.replace(/^\uFEFF/, '').split(/\r?\n/);
 }
 
-function matchesGiftistryHeaderCells(cells: string[]): boolean {
-  if (cells.length < GIFTISTRY_CSV_HEADERS.length) {
-    return false;
-  }
-  return GIFTISTRY_CSV_HEADERS.every((header, index) => {
-    if (index === 5) {
-      return WEBSITE_HEADER_ALIASES.has(cells[index]?.trim() ?? '');
+const TABULAR_HEADER_LABEL_TO_KEY = (() => {
+  const map = new Map<string, GiftistryTabularColumnKey>();
+  for (let index = 0; index < GIFTISTRY_TABULAR_HEADERS.length; index++) {
+    const label = GIFTISTRY_TABULAR_HEADERS[index];
+    const key = GIFTISTRY_TABULAR_COLUMN_KEYS[index];
+    if (label && key) {
+      map.set(label, key);
     }
-    return cells[index]?.trim() === header;
-  });
+  }
+  for (const alias of WEBSITE_HEADER_ALIASES) {
+    map.set(alias, 'website');
+  }
+  return map;
+})();
+
+function tabularColumnKeyForHeaderLabel(label: string): GiftistryTabularColumnKey | null {
+  return TABULAR_HEADER_LABEL_TO_KEY.get(label.trim()) ?? null;
+}
+
+function matchTabularHeader(
+  cells: string[]
+): { columnCount: number; columnIndexByKey: Partial<Record<GiftistryTabularColumnKey, number>> } | null {
+  const columnIndexByKey: Partial<Record<GiftistryTabularColumnKey, number>> = {};
+  let hasItem = false;
+
+  for (let index = 0; index < cells.length; index++) {
+    const key = tabularColumnKeyForHeaderLabel(cells[index] ?? '');
+    if (!key) {
+      continue;
+    }
+
+    if (columnIndexByKey[key] === undefined) {
+      columnIndexByKey[key] = index;
+    }
+
+    if (key === 'item') {
+      hasItem = true;
+    }
+  }
+
+  if (!hasItem) {
+    return null;
+  }
+
+  return {
+    columnCount: cells.length,
+    columnIndexByKey,
+  };
 }
 
 export function parseDelimitedLine(line: string, delimiter: GiftistryTabularDelimiter): string[] {
@@ -60,13 +103,15 @@ export function findGiftistryTabularHeader(text: string): GiftistryTabularHeader
     }
 
     const tabCells = parseDelimitedLine(raw, '\t').map((cell) => cell.trim());
-    if (tabCells.length >= GIFTISTRY_CSV_HEADERS.length && matchesGiftistryHeaderCells(tabCells)) {
-      return { headerIndex: i, delimiter: '\t', lines };
+    const tabMatch = matchTabularHeader(tabCells);
+    if (tabMatch) {
+      return { headerIndex: i, delimiter: '\t', lines, ...tabMatch };
     }
 
     const csvCells = parseDelimitedLine(raw, ',').map((cell) => cell.trim());
-    if (csvCells.length >= GIFTISTRY_CSV_HEADERS.length && matchesGiftistryHeaderCells(csvCells)) {
-      return { headerIndex: i, delimiter: ',', lines };
+    const csvMatch = matchTabularHeader(csvCells);
+    if (csvMatch) {
+      return { headerIndex: i, delimiter: ',', lines, ...csvMatch };
     }
   }
   return null;

@@ -11,4 +11,8 @@ export interface ImportedItemPreview {
   size?: string;
   desiredQuantity?: number;
   customFields?: ImportedItemCustomFields;
+  audienceLabel?: string;
+  suggestionLabel?: string;
+  linkedPeerNames?: string[];
+  relatedPeerNames?: string[];
 }

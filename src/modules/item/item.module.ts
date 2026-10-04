@@ -20,6 +20,7 @@ import { GetItemReviewsUseCase } from './slices/metadata/use-cases/get-item-revi
 import { SummarizeItemDescriptionUseCase } from './slices/metadata/use-cases/summarize-item-description.use-case';
 import { ParseImportPreviewUseCase } from './slices/import/use-cases/parse-import-preview.use-case';
 import { BulkAddItemsUseCase } from './slices/import/use-cases/bulk-add-items.use-case';
+import { ApplyImportedItemMetadataUseCase } from './slices/import/use-cases/apply-imported-item-metadata.use-case';
 import { SyncItemLinksUseCase } from './slices/links/use-cases/sync-item-links.use-case';
 import { SyncItemRelatedUseCase } from './slices/links/use-cases/sync-item-related.use-case';
 import { ListItemSubstitutionsUseCase } from './slices/substitutions/use-cases/list-item-substitutions.use-case';
@@ -193,6 +194,11 @@ export function createItemModule(deps: ItemModuleDeps) {
     summarizeItemDescription: summarizeItemDescriptionUseCase,
     parseImportPreview: parseImportPreviewUseCase,
     bulkAddItems: new BulkAddItemsUseCase(addItemUseCase, validateItemAudienceUseCase),
+    applyImportedItemMetadata: new ApplyImportedItemMetadataUseCase(
+      deps.itemRepo,
+      deps.audienceRepo,
+      deps.listShareRepo
+    ),
     syncItemLinks: new SyncItemLinksUseCase(deps.itemRepo, deps.wishlistRepo, listChanged),
     syncItemRelated: new SyncItemRelatedUseCase(deps.itemRepo, listChanged),
     listItemSubstitutions: new ListItemSubstitutionsUseCase(deps.itemRepo, deps.wishlistRepo),

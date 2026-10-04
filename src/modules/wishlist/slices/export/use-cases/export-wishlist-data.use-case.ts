@@ -7,6 +7,7 @@ import type { WishlistExportResult } from '../interfaces/wishlist-export-result.
 import type { WishlistExportFormat } from '../types/wishlist-export-format.type';
 import { buildWishlistCsvExport } from '../utils/build-wishlist-csv-export.util';
 import { buildWishlistJsonExport } from '../utils/build-wishlist-json-export.util';
+import { buildWishlistMdExport } from '../utils/build-wishlist-md-export.util';
 import { buildWishlistTxtExport } from '../utils/build-wishlist-txt-export.util';
 import { buildWishlistXlsxExport } from '../utils/build-wishlist-xlsx-export.util';
 import { getAudienceDisplayName } from '../utils/format-audience-for-export.util';
@@ -44,7 +45,6 @@ export class ExportWishlistDataUseCase {
     };
 
     const sorted = getSortedItemsWithPriority(toWishlistExportItems(Items));
-    const includeSuggestionColumn = !isOwner;
     const relationItems = toRelationExportItems(sorted);
     const relationNameById = buildRelationNameById(relationItems);
 
@@ -54,7 +54,6 @@ export class ExportWishlistDataUseCase {
       exportContext,
       relationItems,
       relationNameById,
-      includeSuggestionColumn,
     };
 
     switch (format) {
@@ -66,6 +65,8 @@ export class ExportWishlistDataUseCase {
         return buildWishlistTxtExport(builderParams);
       case 'json':
         return buildWishlistJsonExport(builderParams);
+      case 'md':
+        return buildWishlistMdExport(builderParams);
     }
   }
 }

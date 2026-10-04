@@ -148,6 +148,58 @@ describe('giftistry export deterministic parse', () => {
     });
   });
 
+  test('parses the 11-column tabular export including linked and related names', () => {
+    const tabular = [
+      'Category,Priority,Item,Star,Price,Website Link,Description,Audience,Suggestion,Linked Items,Related Items',
+      'Home:,,,,,,,,,,',
+      ',1,Coffee Maker,*,$49.99,https://example.com/a,Drip coffee,Everyone,,Socks,Hat',
+    ].join('\n');
+    expect(isGiftistryExportCsv(tabular)).toBe(true);
+    const result = tryParseGiftistryExportDeterministic(tabular, 'csv');
+    expect(result?.items[0]).toMatchObject({
+      name: 'Coffee Maker',
+      audienceLabel: 'Everyone',
+      linkedPeerNames: ['Socks'],
+      relatedPeerNames: ['Hat'],
+    });
+  });
+
+  test('parses owner-style 10-column tabular without Suggestion column', () => {
+    const tabular = [
+      'Category,Priority,Item,Star,Price,Website,Description,Audience,Linked Items,Related Items',
+      'Digital & Tech:,,,,,,,,,',
+      ',,USB Hub,,$19.99,https://example.com/hub,Compact hub,Everyone,Keyboard,Mouse',
+    ].join('\n');
+    expect(isGiftistryExportCsv(tabular)).toBe(true);
+    const result = tryParseGiftistryExportDeterministic(tabular, 'csv');
+    expect(result?.items[0]).toMatchObject({
+      name: 'USB Hub',
+      category: 'Digital & Tech',
+      websiteLink: 'https://example.com/hub',
+      audienceLabel: 'Everyone',
+      linkedPeerNames: ['Keyboard'],
+      relatedPeerNames: ['Mouse'],
+    });
+  });
+
+  test('parses tabular export when columns are reordered by header name', () => {
+    const tabular = [
+      'Item,Category,Price,Star,Priority,Website Link,Description,Audience,Suggestion,Linked Items,Related Items',
+      ',Apparel:,,,,,,,,,,',
+      'Socks,Apparel,$12.00,,2,,Warm,,,Shirt,',
+    ].join('\n');
+    expect(isGiftistryExportCsv(tabular)).toBe(true);
+    const result = tryParseGiftistryExportDeterministic(tabular, 'csv');
+    expect(result?.items[0]).toMatchObject({
+      name: 'Socks',
+      category: 'Apparel',
+      priority: 2,
+      price: 12,
+      description: 'Warm',
+      linkedPeerNames: ['Shirt'],
+    });
+  });
+
   test('parses Giftistry XLSX extract (tab + Website header + sheet preamble)', () => {
     expect(isGiftistryExportCsv(sampleXlsxText)).toBe(true);
     const result = tryParseGiftistryExportDeterministic(sampleXlsxText, 'xlsx');

@@ -1,4 +1,5 @@
 import type { ImportedItemPreview } from '../interfaces/imported-item-preview.interface';
+import { GIFTISTRY_TXT_LABELS } from '../constants/giftistry-csv-headers.constant';
 import {
   CATEGORY_RE,
   DESCRIPTION_RE,
@@ -6,6 +7,7 @@ import {
   REGISTRY_RE,
   TITLE_LINE_RE,
 } from '../constants/giftistry-export-txt-patterns.constant';
+import { splitExportRelationNames } from './split-export-relation-names.util';
 import {
   isGiftistryExportTxt,
   normalizeImportedItem,
@@ -13,6 +15,14 @@ import {
   splitExportLines,
 } from './giftistry-export-detect.util';
 import type { ParseGiftistryTxtResult } from '../interfaces/parse-giftistry-txt-result.interface';
+
+function parseLabeledLine(line: string): { label: string; value: string } | null {
+  const match = /^\s{0,4}([^:]+):\s*(.*)\s*$/.exec(line);
+  if (!match?.[1]) {
+    return null;
+  }
+  return { label: match[1].trim(), value: match[2]?.trim() ?? '' };
+}
 
 function titleCaseWords(value: string): string {
   return value
@@ -91,8 +101,30 @@ export function tryParseGiftistryExportTxt(text: string): ParseGiftistryTxtResul
       continue;
     }
 
-    if (/^\s*Audience:/i.test(line) || /^\s*Suggestion:/i.test(line)) {
-      continue;
+    const labeled = parseLabeledLine(line);
+    if (labeled && openItem) {
+      if (labeled.label === GIFTISTRY_TXT_LABELS.audience) {
+        openItem.audienceLabel = labeled.value || undefined;
+        continue;
+      }
+      if (labeled.label === GIFTISTRY_TXT_LABELS.suggestion) {
+        openItem.suggestionLabel = labeled.value || undefined;
+        continue;
+      }
+      if (labeled.label === GIFTISTRY_TXT_LABELS.linkedItems) {
+        const names = splitExportRelationNames(labeled.value);
+        if (names.length) {
+          openItem.linkedPeerNames = names;
+        }
+        continue;
+      }
+      if (labeled.label === GIFTISTRY_TXT_LABELS.relatedItems) {
+        const names = splitExportRelationNames(labeled.value);
+        if (names.length) {
+          openItem.relatedPeerNames = names;
+        }
+        continue;
+      }
     }
 
     const descriptionMatch = line.match(DESCRIPTION_RE);

@@ -22,6 +22,7 @@ import {
 import { clampAiImportChunkItemLimit } from '@/modules/system';
 import { tokensPerSecondRate } from '@/modules/jobs';
 import { IMPORT_FORMAT_UNSUPPORTED_MESSAGE } from '../constants/import-format-unsupported-message.constant';
+import { PDF_IMPORT_UNSUPPORTED_MESSAGE } from '../constants/pdf-import-unsupported-message.constant';
 import { XLSX_HEADER_PROBE_ROWS } from '../constants/xlsx-header-probe-rows.constant';
 import type { ParseImportPreviewInput } from '../interfaces/parse-import-preview-input.interface';
 import type { ParseImportPreviewProgress } from '../interfaces/parse-import-preview-progress.interface';
@@ -49,6 +50,9 @@ export class ParseImportPreviewUseCase {
     }
     if (!input.content) {
       throw new AppError('File content is required', 400, 'BAD_REQUEST');
+    }
+    if (input.format === 'pdf' || input.fileName.toLowerCase().endsWith('.pdf')) {
+      throw new AppError(PDF_IMPORT_UNSUPPORTED_MESSAGE, 422, 'IMPORT_FORMAT_UNSUPPORTED');
     }
 
     let wishlistTitle = '';

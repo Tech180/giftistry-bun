@@ -7,4 +7,8 @@ export interface CreatedImportRow {
   priority: number | null;
   price: number | null;
   websiteName: string | null;
+  linkedPeerNames?: string[];
+  relatedPeerNames?: string[];
+  audienceLabel?: string;
+  suggestionLabel?: string;
 }

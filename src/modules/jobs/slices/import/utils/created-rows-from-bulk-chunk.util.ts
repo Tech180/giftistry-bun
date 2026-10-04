@@ -1,7 +1,14 @@
 import type { CreatedImportRow } from '../interfaces/created-import-row.interface';
 
 export function createdRowsFromBulkChunk(params: {
-  chunk: Array<{ linkUrl?: string | null; price?: number | null }>;
+  chunk: Array<{
+    linkUrl?: string | null;
+    price?: number | null;
+    linkedPeerNames?: string[];
+    relatedPeerNames?: string[];
+    audienceLabel?: string;
+    suggestionLabel?: string;
+  }>;
   failedIndexes: Set<number>;
   createdItems: Array<{
     Id: string;
@@ -39,6 +46,10 @@ export function createdRowsFromBulkChunk(params: {
       priority: created.Priority ?? null,
       price: link?.ExtractedPrice ?? inputRow?.price ?? null,
       websiteName: link?.RetailerName ?? null,
+      linkedPeerNames: inputRow?.linkedPeerNames,
+      relatedPeerNames: inputRow?.relatedPeerNames,
+      audienceLabel: inputRow?.audienceLabel,
+      suggestionLabel: inputRow?.suggestionLabel,
     });
   }
 

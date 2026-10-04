@@ -353,7 +353,7 @@ export class PdfLibGenerator implements PdfGenerator {
 
       for (const item of sortedItems) {
         // Star indicator for favorites
-        const isFav = item.Description ? item.Description.includes('★') || item.Description.includes('⭐') : false;
+        const isFav = item.IsFavorite === true || item.isFav === true;
         const starPrefix = isFav ? '★ ' : '';
 
         // Price, Link, and Priority extraction
@@ -643,6 +643,28 @@ export class PdfLibGenerator implements PdfGenerator {
           }
         }
 
+        const audienceLine =
+          typeof item.ExportAudience === 'string' && item.ExportAudience
+            ? `Audience: ${item.ExportAudience}`
+            : '';
+        const suggestionLine =
+          typeof item.ExportSuggestion === 'string' && item.ExportSuggestion
+            ? `Suggestion: ${item.ExportSuggestion}`
+            : '';
+        for (const metaLine of [audienceLine, suggestionLine]) {
+          if (!metaLine) {
+            continue;
+          }
+          await drawText(metaLine, {
+            font: font,
+            size: PDF_DESCRIPTION_SIZE,
+            color: colors.textMuted,
+            lineHeight: PDF_DESCRIPTION_LINE_HEIGHT,
+            indent: PDF_ITEM_INDENT,
+            maxWidth: PDF_CONTENT_WIDTH - PDF_ITEM_INDENT,
+          });
+        }
+
         // Gather badges: linked peers first, then custom fields
         const badges: Array<{
           text: string;
@@ -651,14 +673,23 @@ export class PdfLibGenerator implements PdfGenerator {
           border?: ReturnType<typeof rgb>;
         }> = [];
 
-        for (const peerName of resolveRelationPeerNames(
-          item.Id,
-          items,
-          nameById,
-          getLinkedItemIdsFromExportItem
-        )) {
+        const linkedNames: string[] = Array.isArray(item.ExportLinkedNames)
+          ? item.ExportLinkedNames
+          : resolveRelationPeerNames(item.Id, items, nameById, getLinkedItemIdsFromExportItem);
+        const relatedNames: string[] = Array.isArray(item.ExportRelatedNames)
+          ? item.ExportRelatedNames
+          : [];
+        for (const peerName of linkedNames) {
           badges.push({
             text: `${PDF_LINKED_BADGE_PREFIX}${peerName}`,
+            bg: colors.customFieldBg,
+            fg: colors.primary,
+            border: colors.customFieldBorder,
+          });
+        }
+        for (const peerName of relatedNames) {
+          badges.push({
+            text: `${PDF_RELATED_BADGE_LABEL} ${peerName}`,
             bg: colors.customFieldBg,
             fg: colors.primary,
             border: colors.customFieldBorder,

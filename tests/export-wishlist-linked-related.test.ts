@@ -69,6 +69,7 @@ describe('ExportWishlistDataUseCase linked/related columns', () => {
     const csv = result.data as string;
     expect(csv).toContain('Linked Items');
     expect(csv).toContain('Related Items');
+    expect(csv.split('\r\n')[0]).toContain('Suggestion');
     expect(csv).toContain('Socks');
     expect(csv).toContain('Shirt');
     expect(csv).toContain('Hat');

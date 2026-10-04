@@ -12,6 +12,7 @@ import {
   parsePriceValue,
   splitExportLines,
 } from './giftistry-export-detect.util';
+import { splitExportRelationNames } from './split-export-relation-names.util';
 import { classifyImportedCustomFields } from './classify-imported-custom-fields.util';
 import type { ImportedCustomFieldEntry } from '../interfaces/imported-custom-field-entry.interface';
 import type { ParseGiftistryMdResult } from '../interfaces/parse-giftistry-md-result.interface';
@@ -85,7 +86,13 @@ export function tryParseGiftistryExportMd(text: string): ParseGiftistryMdResult 
         : undefined,
     });
     if (normalized) {
-      items.push(normalized);
+      items.push({
+        ...normalized,
+        ...(current.audienceLabel ? { audienceLabel: current.audienceLabel } : {}),
+        ...(current.suggestionLabel ? { suggestionLabel: current.suggestionLabel } : {}),
+        ...(current.linkedPeerNames?.length ? { linkedPeerNames: current.linkedPeerNames } : {}),
+        ...(current.relatedPeerNames?.length ? { relatedPeerNames: current.relatedPeerNames } : {}),
+      });
     }
     current = null;
     descriptionLines = [];
@@ -172,7 +179,18 @@ export function tryParseGiftistryExportMd(text: string): ParseGiftistryMdResult 
           }
           break;
         case 'retailer':
-          // Retailer is informational; import preview has no retailer field.
+          break;
+        case 'audience':
+          current.audienceLabel = value || undefined;
+          break;
+        case 'suggestion':
+          current.suggestionLabel = value || undefined;
+          break;
+        case 'linked items':
+          current.linkedPeerNames = splitExportRelationNames(value);
+          break;
+        case 'related items':
+          current.relatedPeerNames = splitExportRelationNames(value);
           break;
         default:
           break;

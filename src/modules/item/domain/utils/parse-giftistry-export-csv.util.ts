@@ -1,3 +1,4 @@
+import type { GiftistryTabularColumnKey } from '../types/giftistry-tabular-column-key.type';
 import type { ImportedItemPreview } from '../interfaces/imported-item-preview.interface';
 import {
   findGiftistryTabularHeader,
@@ -6,7 +7,40 @@ import {
   parseDelimitedLine,
   parsePriceValue,
 } from './giftistry-export-detect.util';
+import { splitExportRelationNames } from './split-export-relation-names.util';
 import type { ParseGiftistryCsvResult } from '../interfaces/parse-giftistry-csv-result.interface';
+
+function cellAt(
+  cells: string[],
+  columns: Partial<Record<GiftistryTabularColumnKey, number>>,
+  key: GiftistryTabularColumnKey
+): string {
+  const index = columns[key];
+  if (index === undefined) {
+    return '';
+  }
+  return cells[index] ?? '';
+}
+
+function attachRelationFields(
+  item: ImportedItemPreview,
+  audience: string,
+  suggestion: string,
+  linked: string,
+  related: string
+): ImportedItemPreview {
+  const audienceLabel = audience.trim() || undefined;
+  const suggestionLabel = suggestion.trim() || undefined;
+  const linkedPeerNames = splitExportRelationNames(linked);
+  const relatedPeerNames = splitExportRelationNames(related);
+  return {
+    ...item,
+    ...(audienceLabel ? { audienceLabel } : {}),
+    ...(suggestionLabel ? { suggestionLabel } : {}),
+    ...(linkedPeerNames.length ? { linkedPeerNames } : {}),
+    ...(relatedPeerNames.length ? { relatedPeerNames } : {}),
+  };
+}
 
 export function tryParseGiftistryExportCsv(text: string): ParseGiftistryCsvResult | null {
   const header = findGiftistryTabularHeader(text);
@@ -14,7 +48,7 @@ export function tryParseGiftistryExportCsv(text: string): ParseGiftistryCsvResul
     return null;
   }
 
-  const { headerIndex, delimiter, lines } = header;
+  const { headerIndex, delimiter, lines, columnCount, columnIndexByKey } = header;
   const warnings: string[] = [];
   const items: ImportedItemPreview[] = [];
   let currentCategory = '';
@@ -29,28 +63,30 @@ export function tryParseGiftistryExportCsv(text: string): ParseGiftistryCsvResul
     }
 
     const cells = parseDelimitedLine(line, delimiter);
-    while (cells.length < 9) {
+    while (cells.length < columnCount) {
       cells.push('');
     }
 
-    const categoryCell = cells[0] ?? '';
-    const priorityCell = cells[1] ?? '';
-    const itemCell = cells[2] ?? '';
-    const starCell = cells[3] ?? '';
-    const priceCell = cells[4] ?? '';
-    const linkCell = cells[5] ?? '';
-    const descriptionCell = cells[6] ?? '';
+    const categoryCell = cellAt(cells, columnIndexByKey, 'category');
+    const priorityCell = cellAt(cells, columnIndexByKey, 'priority');
+    const itemCell = cellAt(cells, columnIndexByKey, 'item');
+    const starCell = cellAt(cells, columnIndexByKey, 'star');
+    const priceCell = cellAt(cells, columnIndexByKey, 'price');
+    const linkCell = cellAt(cells, columnIndexByKey, 'website');
+    const descriptionCell = cellAt(cells, columnIndexByKey, 'description');
+    const audienceCell = cellAt(cells, columnIndexByKey, 'audience');
+    const suggestionCell = cellAt(cells, columnIndexByKey, 'suggestion');
+    const linkedCell = cellAt(cells, columnIndexByKey, 'linkedItems');
+    const relatedCell = cellAt(cells, columnIndexByKey, 'relatedItems');
 
     const categoryTrimmed = categoryCell.trim();
     const itemTrimmed = itemCell.trim();
 
-    // Category section header: "Toys:" with empty item
     if (categoryTrimmed.endsWith(':') && !itemTrimmed) {
       currentCategory = categoryTrimmed.replace(/:$/, '').trim();
       continue;
     }
 
-    // Empty spacer rows
     if (!itemTrimmed && !linkCell.trim() && !descriptionCell.trim()) {
       continue;
     }
@@ -72,6 +108,12 @@ export function tryParseGiftistryExportCsv(text: string): ParseGiftistryCsvResul
         } else if (linkCell.trim()) {
           warnings.push(`Item "${itemTrimmed}" has multiple links; keeping the first only.`);
         }
+        if (!existing.linkedPeerNames?.length && linkedCell.trim()) {
+          existing.linkedPeerNames = splitExportRelationNames(linkedCell);
+        }
+        if (!existing.relatedPeerNames?.length && relatedCell.trim()) {
+          existing.relatedPeerNames = splitExportRelationNames(relatedCell);
+        }
       }
       continue;
     }
@@ -87,7 +129,9 @@ export function tryParseGiftistryExportCsv(text: string): ParseGiftistryCsvResul
     });
 
     if (normalized) {
-      items.push(normalized);
+      items.push(
+        attachRelationFields(normalized, audienceCell, suggestionCell, linkedCell, relatedCell)
+      );
     }
   }
 
