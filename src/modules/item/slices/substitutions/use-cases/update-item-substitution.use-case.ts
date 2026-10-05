@@ -60,8 +60,11 @@ export class UpdateItemSubstitutionUseCase {
       actorUserId,
       this.listShareRepo
     );
-    const isCreator = row.CreatedByUserId === actorUserId;
-    if (!canManage && !isCreator) {
+    const canModify =
+      row.Kind === 'owner_approved'
+        ? canManage
+        : row.CreatedByUserId === actorUserId;
+    if (!canModify) {
       throw new AppError('Forbidden', 403, 'FORBIDDEN');
     }
 

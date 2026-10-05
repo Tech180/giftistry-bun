@@ -19,11 +19,11 @@ Wishlist items: CRUD, claims, substitutions, links/related, metadata scrape, AI 
 
 | Slice | Owns |
 |-------|------|
-| `catalog` | add/update/delete/list, field definitions, audience visibility |
+| `catalog` | add/update/delete/list, field definitions, audience visibility; list items sorted by category then display tier (favorited+priority → priority → favorited → neither), then priority value, name, id |
 | `claims` | claim/unclaim (+ linked), projections, item-removed notify |
 | `substitutions` | owner/claimer substitution CRUD and reorder |
 | `links` | add link, sync links/related |
-| `metadata` | extract/enrich/summarize/reviews/backfill/promote image |
+| `metadata` | extract/enrich/summarize/reviews/backfill/promote image; generic retailer shell titles (e.g. bare “Amazon”) are stripped before partial salvage and enrich write-back |
 | `import` | parse preview, bulk add |
 | `funding` | group-fund comment + contributor notify |
 

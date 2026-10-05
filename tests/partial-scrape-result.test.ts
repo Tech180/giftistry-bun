@@ -68,6 +68,41 @@ describe('partial scrape policy', () => {
     expect(partial!.data.title).toBe('Salvaged Title');
   });
 
+  test('clears generic shell titles from partial salvage', () => {
+    const html = `<!doctype html><html><head><title>Amazon</title></head><body>${'x'.repeat(600)}</body></html>`;
+    const partial = resolvePartialScrapeResult({
+      extraction: {
+        metadata: {
+          title: 'Amazon',
+          price: 9.99,
+          description: null,
+          color: null,
+          size: null,
+          category: null,
+          imageUrl: 'https://cdn.example/x.jpg',
+        },
+        fieldsFound: ['title', 'price', 'imageUrl'],
+        titleFromSlug: false,
+        confidence: 'low',
+      },
+      validation: {
+        valid: false,
+        reason: 'generic-retailer-shell',
+        blocked: true,
+        confidence: 'low',
+        fieldsFound: ['price', 'imageUrl'],
+      },
+      source: 'playwright',
+      finalUrl: 'https://www.amazon.com/dp/B0TEST',
+      html,
+      blockedHint: true,
+    });
+
+    expect(partial).not.toBeNull();
+    expect(partial!.data.title).toBe('');
+    expect(partial!.data.price).toBe(9.99);
+  });
+
   test('returns null when blocked page has no salvageable fields', () => {
     const partial = resolvePartialScrapeResult({
       extraction: {

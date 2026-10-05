@@ -1,6 +1,8 @@
 import { describe, expect, it, mock, beforeEach } from 'bun:test';
 import { CreateOwnerSubstitutionUseCase } from './create-owner-substitution.use-case';
 import { CreateClaimerSubstitutionUseCase } from './create-claimer-substitution.use-case';
+import { UpdateItemSubstitutionUseCase } from './update-item-substitution.use-case';
+import { DeleteItemSubstitutionUseCase } from './delete-item-substitution.use-case';
 import type { Item } from '../../../domain/interfaces/item.interface';
 import type { Wishlist } from '@/modules/wishlist';
 
@@ -212,5 +214,107 @@ describe('CreateClaimerSubstitutionUseCase', () => {
     expect(itemRepo.createSubstitution).toHaveBeenCalledWith(
       expect.objectContaining({ isHiddenIdea: false })
     );
+  });
+});
+
+describe('UpdateItemSubstitutionUseCase authorization', () => {
+  const substitutionRow = (kind: 'owner_approved' | 'claimer_custom') => ({
+    Id: 'row-1',
+    ParentItemId: PARENT_ID,
+    SubstitutionItemId: 'child-1',
+    Kind: kind,
+    CreatedByUserId: kind === 'owner_approved' ? OWNER_ID : CLAIMER_ID,
+    SortOrder: 0,
+    CreatedAt: new Date(),
+  });
+
+  it('forbids list managers from updating claimer_custom', async () => {
+    const itemRepo = {
+      findSubstitutionById: mock(() => Promise.resolve(substitutionRow('claimer_custom'))),
+      findById: mock((id: string) =>
+        Promise.resolve(
+          id === 'child-1'
+            ? baseItem({ Id: 'child-1', Name: 'Custom', IsSubstitution: true })
+            : baseItem()
+        )
+      ),
+      update: mock(() => Promise.resolve()),
+      findLinksByItemId: mock(() => Promise.resolve([])),
+      findClaimsByItemId: mock(() => Promise.resolve([])),
+    };
+    const wishlistRepo = { findById: mock(() => Promise.resolve(baseWishlist())) };
+    const useCase = new UpdateItemSubstitutionUseCase(
+      itemRepo as never,
+      wishlistRepo as never,
+      { execute: mock(() => Promise.resolve()) } as never,
+      { findByListIdAndUserId: mock(() => Promise.resolve(null)) } as never,
+      { publish: mock(() => undefined) } as never
+    );
+
+    await expect(useCase.execute('row-1', OWNER_ID, { Name: 'Nope' })).rejects.toThrow(/Forbidden/);
+  });
+
+  it('allows the claimer_custom author to update', async () => {
+    const itemRepo = {
+      findSubstitutionById: mock(() => Promise.resolve(substitutionRow('claimer_custom'))),
+      findById: mock((id: string) =>
+        Promise.resolve(
+          id === 'child-1'
+            ? baseItem({ Id: 'child-1', Name: 'Custom', IsSubstitution: true })
+            : baseItem()
+        )
+      ),
+      update: mock(() => Promise.resolve()),
+      findLinksByItemId: mock(() => Promise.resolve([])),
+      findClaimsByItemId: mock(() => Promise.resolve([])),
+    };
+    const wishlistRepo = { findById: mock(() => Promise.resolve(baseWishlist())) };
+    const useCase = new UpdateItemSubstitutionUseCase(
+      itemRepo as never,
+      wishlistRepo as never,
+      { execute: mock(() => Promise.resolve()) } as never,
+      undefined,
+      { publish: mock(() => undefined) } as never
+    );
+
+    const result = await useCase.execute('row-1', CLAIMER_ID, { Name: 'Updated alt' });
+    expect(result.Kind).toBe('claimer_custom');
+    expect(itemRepo.update).toHaveBeenCalled();
+  });
+});
+
+describe('DeleteItemSubstitutionUseCase authorization', () => {
+  const substitutionRow = (kind: 'owner_approved' | 'claimer_custom') => ({
+    Id: 'row-1',
+    ParentItemId: PARENT_ID,
+    SubstitutionItemId: 'child-1',
+    Kind: kind,
+    CreatedByUserId: kind === 'owner_approved' ? OWNER_ID : CLAIMER_ID,
+    SortOrder: 0,
+    CreatedAt: new Date(),
+  });
+
+  it('forbids list managers from deleting claimer_custom', async () => {
+    const itemRepo = {
+      findSubstitutionById: mock(() => Promise.resolve(substitutionRow('claimer_custom'))),
+      findById: mock((id: string) =>
+        Promise.resolve(
+          id === 'child-1'
+            ? baseItem({ Id: 'child-1', Name: 'Custom', IsSubstitution: true })
+            : baseItem()
+        )
+      ),
+      deleteSubstitution: mock(() => Promise.resolve()),
+    };
+    const wishlistRepo = { findById: mock(() => Promise.resolve(baseWishlist())) };
+    const useCase = new DeleteItemSubstitutionUseCase(
+      itemRepo as never,
+      wishlistRepo as never,
+      undefined,
+      { findByListIdAndUserId: mock(() => Promise.resolve({ Role: 'editor' })) } as never,
+      { publish: mock(() => undefined) } as never
+    );
+
+    await expect(useCase.execute('row-1', OWNER_ID)).rejects.toThrow(/Forbidden/);
   });
 });

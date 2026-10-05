@@ -6,16 +6,17 @@ import {
 } from '../constants/gift-title-normalization.constant';
 import { compactGiftTitle } from './compact-gift-title.util';
 import { isVerboseProductTitle } from './is-verbose-product-title.util';
+import { stripAmazonRetailSeoTitle } from './strip-amazon-retail-seo-title.util';
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-const LEADING_FLUFF_PATTERNS = GIFT_TITLE_LEADING_FLUFF.map(
+const GIFT_TITLE_LEADING_FLUFF_PATTERNS = GIFT_TITLE_LEADING_FLUFF.map(
   (phrase) => new RegExp(`^${escapeRegExp(phrase)}\\s+`, 'i')
 );
 
-const TRAILING_TYPE_PATTERNS = GIFT_TITLE_TRAILING_PRODUCT_TYPES.map(
+const GIFT_TITLE_TRAILING_TYPE_PATTERNS = GIFT_TITLE_TRAILING_PRODUCT_TYPES.map(
   (phrase) => new RegExp(`\\s+${escapeRegExp(phrase)}$`, 'i')
 );
 
@@ -25,7 +26,7 @@ function wordCount(text: string): number {
 
 function stripLeadingFluff(title: string): string {
   let result = title;
-  for (const pattern of LEADING_FLUFF_PATTERNS) {
+  for (const pattern of GIFT_TITLE_LEADING_FLUFF_PATTERNS) {
     const stripped = result.replace(pattern, '');
     if (stripped !== result && stripped.length > 0) {
       result = stripped;
@@ -35,7 +36,7 @@ function stripLeadingFluff(title: string): string {
 }
 
 function stripTrailingProductType(title: string): string {
-  for (const pattern of TRAILING_TYPE_PATTERNS) {
+  for (const pattern of GIFT_TITLE_TRAILING_TYPE_PATTERNS) {
     const stripped = title.replace(pattern, '');
     if (stripped !== title && wordCount(stripped) >= 2) {
       return stripped;
@@ -53,6 +54,7 @@ export function normalizeGiftFacingTitle(title: string | null | undefined): stri
   let result = (title ?? '').replace(GIFT_TITLE_SYMBOL_PATTERN, '').replace(/\s+/g, ' ').trim();
   if (!result) return '';
 
+  result = stripAmazonRetailSeoTitle(result) || result;
   result = result.split(GIFT_TITLE_PIPE_SUFFIX_PATTERN)[0]?.trim() || result;
 
   if (isVerboseProductTitle(result)) {

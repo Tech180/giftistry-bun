@@ -6,7 +6,7 @@ import {
   AMAZON_PRODUCT_READY_TIMEOUT_MS,
 } from '../constants/amazon-continue-shopping.constant';
 import { htmlLooksLikeContinueShoppingShell } from './html-looks-like-continue-shopping-shell.util';
-import { isAmazonShortLinkHost } from '../../../domain/utils/amazon-url.util';
+import { isAmazonProductHost, isAmazonShortLinkHost } from '../../../domain/utils/amazon-url.util';
 import type { DismissAmazonContinueShoppingResult } from '../interfaces/dismiss-amazon-continue-shopping-result.interface';
 
 async function clickVisibleTarget(
@@ -38,8 +38,11 @@ export async function tryDismissAmazonContinueShopping(
   }
 
   const html = await page.content();
+  const lacksProductTitle = !/id=["']productTitle["']/i.test(html);
   const looksLikeGate =
-    isAmazonShortLinkHost(hostname) || htmlLooksLikeContinueShoppingShell(html);
+    isAmazonShortLinkHost(hostname) ||
+    htmlLooksLikeContinueShoppingShell(html) ||
+    (isAmazonProductHost(hostname) && lacksProductTitle);
   if (!looksLikeGate) {
     return { dismissed: false };
   }

@@ -1,5 +1,4 @@
 import type { ImportedItemPreview } from '@/modules/item';
-import { resolveDesiredQuantity } from '@/modules/item';
 import { resolveImportCategoryWithOptimize } from '@/modules/item';
 import { MAX_BULK_ADD_BATCH } from '@/modules/item';
 import type { ItemJobSupportPort } from '@/modules/item';
@@ -14,8 +13,8 @@ import type { WishlistImportJobPayload } from '../../../domain/interfaces/wishli
 import type { JobProgressPublisher } from '../../../domain/ports/job-progress-publisher.port';
 import { createThrottledAsync } from '../../../application/utils/create-throttled-async.util';
 import { withJobHeartbeat } from '../../../application/utils/with-job-heartbeat.util';
-import { mergeGrabInfoDescription } from '../../../application/utils/merge-grab-info-description.util';
-import { mergePreferExtracted } from '../../../application/utils/merge-prefer-extracted.util';
+import { resolveEnrichWriteBackFields } from '../../../application/utils/resolve-enrich-write-back-fields.util';
+import type { ScrapeDiagnostics } from '@/modules/item';
 import {
   failBackgroundJob,
   publishJobProgress,
@@ -498,50 +497,45 @@ export class RunWishlistImportJobUseCase {
             },
           })
         );
-        const name = mergePreferExtracted(extract.data.title, row.name, row.name);
-        const packQty = resolveDesiredQuantity(
-          extract.data.desiredQuantity,
-          name,
-          row.name,
-          extract.data.title
-        );
-        const description = mergeGrabInfoDescription(
-          row.description,
-          extract.data.description,
-          extract.data.predefinedFields,
-          extract.data.userDefinedFields,
-          { desiredQuantity: packQty }
-        );
-        const category =
-          resolveImportCategoryWithOptimize(
-            row.category,
-            extract.data.category,
-            optimizeCategories
-          ) ?? row.category;
-        const price = extract.data.price != null ? extract.data.price : row.price;
-        const websiteName =
-          mergePreferExtracted(extract.websiteName, row.websiteName, '') || null;
-        const resolvedLinkUrl = extract.finalUrl?.trim() || row.linkUrl;
+        const writeBack = resolveEnrichWriteBackFields({
+          extract: extract.data,
+          diagnostics: extract.diagnostics as ScrapeDiagnostics,
+          current: {
+            name: row.name,
+            description: row.description ?? '',
+            category: row.category,
+          },
+          fallbackUrl: row.linkUrl!,
+          finalUrl: extract.finalUrl,
+          websiteName: extract.websiteName,
+          priceFallback: row.price,
+          resolveCategory: (extractCategory) =>
+            resolveImportCategoryWithOptimize(
+              row.category,
+              extractCategory,
+              optimizeCategories
+            ) ?? row.category,
+        });
 
         await this.itemUseCases.updateItem.execute(
           row.itemId,
           job.UserId,
-          name,
-          description,
+          writeBack.name,
+          writeBack.description,
           null,
-          category,
+          writeBack.category ?? row.category,
           row.priority,
           undefined,
-          resolvedLinkUrl,
-          price,
-          websiteName,
+          writeBack.linkUrl,
+          writeBack.price,
+          writeBack.websiteName,
           undefined,
           undefined,
           null
         );
         await this.itemUseCases.promoteScrapedImageToPhotos.execute(
           row.itemId,
-          extract.data.imageUrl
+          writeBack.imageUrl
         );
         if (jobItem) {
           jobItem.Status = 'done';

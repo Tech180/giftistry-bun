@@ -2,6 +2,7 @@
 import * as cheerio from 'cheerio';
 import type { RetailerExtractor } from './interfaces/retailer-extractor.interface';
 import { parseScrapePrice } from '../extractors/utils/parse-scrape-price.util';
+import { resolveAmazonScrapeTitle } from '../extractors/utils/resolve-amazon-scrape-title.util';
 import {
   AMAZON_BUY_BOX_SELECTORS,
   AMAZON_PRICE_EXCLUDE_CONTAINERS,
@@ -12,7 +13,7 @@ export const amazonExtractor: RetailerExtractor = {
   priority: 60,
   extract({ html, mode }) {
     const $ = cheerio.load(html);
-    const title = $('#productTitle').first().text().trim() || null;
+    const title = resolveAmazonScrapeTitle($);
 
     let priceText = '';
     for (const selector of AMAZON_BUY_BOX_SELECTORS) {

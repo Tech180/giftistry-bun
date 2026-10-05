@@ -35,7 +35,8 @@ function extractTitleAndH1(html: string): string {
 }
 
 function hasStrongProductSignal(result: ExtractedMetadata): boolean {
-  const hasTitle = Boolean(result.title?.trim());
+  const title = result.title?.trim() ?? '';
+  const hasTitle = Boolean(title) && !isGenericTitle(title);
   const hasPrice = result.price != null;
   const hasImage = Boolean(result.imageUrl?.trim());
   return hasTitle && hasPrice && hasImage;

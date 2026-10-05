@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 import { isAmazonProductHost } from '../../../../domain/utils/amazon-url.util';
 import { normalizeAmazonBrand } from './normalize-amazon-brand.util';
+import { resolveAmazonProductTitleFromDom } from './resolve-amazon-product-title-from-dom.util';
 
 /**
  * Amazon product pages often omit JSON-LD. Pull DOM signals the AI populate
@@ -18,7 +19,7 @@ export function extractAmazonDomPageContextLines(html: string, url: string): str
   const $ = cheerio.load(html);
   const lines: string[] = [];
 
-  const productTitle = $('#productTitle').first().text().replace(/\s+/g, ' ').trim();
+  const productTitle = resolveAmazonProductTitleFromDom($);
   if (productTitle) lines.push(`Product Name: ${productTitle}`);
 
   const brand = normalizeAmazonBrand(

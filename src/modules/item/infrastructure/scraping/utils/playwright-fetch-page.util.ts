@@ -5,6 +5,7 @@ import { closePlaywrightPage, playwrightManager } from '../playwright-manager';
 import { ScrapePlaywrightError } from '../errors/scrape-playwright-error';
 import { scrapingConfig } from './scraping-config.util';
 import { runAmazonPlaywrightNavigation } from './amazon-playwright-navigation.util';
+import { recoverAmazonProductPageInSession } from './recover-amazon-product-page-in-session.util';
 import { isAmazonScrapeUrl } from '../../../domain/utils/amazon-url.util';
 import { tryDismissAmazonContinueShopping } from './dismiss-amazon-continue-shopping.util';
 import { dismissConsentBanners } from './dismiss-consent-banners.util';
@@ -66,6 +67,9 @@ export async function playwrightFetchPage(
         timeoutMs,
         deadlineAt,
       });
+      if (!isBudgetExhausted(deadlineAt, SCRAPE_MIN_TIER_BUDGET_MS)) {
+        await recoverAmazonProductPageInSession(page, { timeoutMs, deadlineAt });
+      }
     } else {
       await tryDismissAmazonContinueShopping(page);
       await dismissConsentBanners(page);

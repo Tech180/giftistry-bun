@@ -11,6 +11,7 @@ import {
   extractOgSiteName,
   resolveWebsiteName,
 } from '../../scraping/extractors/utils/resolve-website-name.util';
+import { sanitizeProductTitleForWrite } from '../../../domain/utils/sanitize-product-title-for-write.util';
 
 export function resolvePartialScrapeResult(input: {
   extraction: ExtractionResult;
@@ -30,8 +31,12 @@ export function resolvePartialScrapeResult(input: {
     input.validation.fieldsFound ??
     input.extraction.fieldsFound.map((field) => String(field));
 
+  const metadata = { ...input.extraction.metadata };
+  const sanitizedTitle = sanitizeProductTitleForWrite(metadata.title);
+  metadata.title = sanitizedTitle ?? '';
+
   return {
-    data: input.extraction.metadata,
+    data: metadata,
     diagnostics: buildPartialScrapeDiagnostics({
       source: input.source,
       outcome,

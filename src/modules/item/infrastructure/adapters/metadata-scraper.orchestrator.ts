@@ -193,21 +193,24 @@ export class MetadataScraperOrchestrator implements MetadataScraper {
         if (asinInInput) {
           effectiveUrl = canonicalizeAmazonProductUrl(url);
         } else {
+          let redirectHtml: string | undefined;
+          let redirectFinalUrl: string | null | undefined;
           try {
             const redirected = await resolveScrapeRedirectUrl(url, (target) =>
               this.fetchHtml(target, resolveHttpFetchTimeoutMs(deadlineAt))
             );
-            const productTarget = resolveAmazonProductTargetUrl(
-              redirected.finalUrl ?? '',
-              redirected.html
-            );
-            if (productTarget) {
-              effectiveUrl = productTarget;
-            } else {
-              effectiveUrl = url;
-            }
+            redirectHtml = redirected.html;
+            redirectFinalUrl = redirected.finalUrl;
           } catch {
-            /* keep effectiveUrl */
+            /* redirect fetch failed; still try URL/HTML hints below */
+          }
+
+          const productTarget = resolveAmazonProductTargetUrl(
+            redirectFinalUrl ?? url,
+            redirectHtml
+          );
+          if (productTarget) {
+            effectiveUrl = productTarget;
           }
         }
       }

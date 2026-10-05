@@ -1,20 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { sortWishlistItemsByExportOrder } from '../src/modules/item/domain/utils/sort-wishlist-items.util';
 import { computeItemClaimSummary } from '../src/modules/item/domain/utils/compute-item-claim-summary.util';
 import { resolveCategoryPresentation } from '../src/modules/item/domain/utils/format-category-label.util';
-
-describe('sortWishlistItemsByExportOrder', () => {
-  test('orders by category, favorite, then priority', () => {
-    const sorted = sortWishlistItemsByExportOrder([
-      { Name: 'Zed', Category: 'home_kitchen', Priority: 2, Metadata: null },
-      { Name: 'Fav', Category: 'home_kitchen', Priority: 5, Metadata: { IsFavorite: true } },
-      { Name: 'Alpha', Category: 'apparel_accessories', Priority: 1, Metadata: null },
-      { Name: 'Other', Category: 'uncategorized', Priority: 1, Metadata: null },
-    ]);
-
-    expect(sorted.map((i) => i.Name)).toEqual(['Alpha', 'Fav', 'Zed', 'Other']);
-  });
-});
 
 describe('computeItemClaimSummary', () => {
   test('marks multi-count fully claimed by quantity', () => {

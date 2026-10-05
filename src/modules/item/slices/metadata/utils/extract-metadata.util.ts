@@ -7,6 +7,7 @@ import type { AiPopulateStatus } from '../../../domain/types/ai-populate-status.
 import { coerceApparelSizeFields } from '../../../domain/utils/coerce-apparel-size-fields.util';
 import { mapScrapeToCustomFields } from '../../../domain/utils/map-scrape-to-custom-fields.util';
 import { polishGiftFacingMetadata } from '../../../domain/utils/polish-gift-facing-metadata.util';
+import { sanitizeProductTitleForWrite } from '../../../domain/utils/sanitize-product-title-for-write.util';
 import { resolveDesiredQuantity } from '../../../domain/utils/parse-pack-quantity.util';
 import {
   resolveCategoryAlternatives,
@@ -65,6 +66,8 @@ export function finalizeExtractedData(
 ): ScrapeResult {
   let finalized = attachScrapeCustomFields(data, url);
   finalized = polishGiftFacingMetadata(finalized);
+  const sanitizedTitle = sanitizeProductTitleForWrite(finalized.title);
+  finalized = { ...finalized, title: sanitizedTitle };
   const mapped = mapScrapeToCustomFields(finalized, url);
   finalized = {
     ...finalized,

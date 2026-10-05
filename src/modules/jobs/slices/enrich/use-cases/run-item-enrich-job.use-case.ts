@@ -6,15 +6,14 @@ import type { ItemEnrichJobPayload } from '../../../domain/interfaces/item-enric
 import type { JobProgressPublisher } from '../../../domain/ports/job-progress-publisher.port';
 import type { NotifyItemJobCompletionUseCase } from '../../../application/use-cases/notify-item-job-completion.use-case';
 import { createThrottledAsync } from '../../../application/utils/create-throttled-async.util';
-import { mergeGrabInfoMetadata } from '../../../application/utils/merge-grab-info-description.util';
-import { mergePreferExtracted } from '../../../application/utils/merge-prefer-extracted.util';
+import { resolveEnrichWriteBackFields } from '../../../application/utils/resolve-enrich-write-back-fields.util';
 import {
   failBackgroundJob,
   notifyItemJobTerminal,
   publishJobProgress,
 } from '../../../application/utils/publish-job-update.util';
 import { withJobHeartbeat } from '../../../application/utils/with-job-heartbeat.util';
-import { formatBlockedScrapeMessage, resolveDesiredQuantity } from '@/modules/item';
+import { formatBlockedScrapeMessage, type ScrapeDiagnostics } from '@/modules/item';
 import {
   clearGrabPhasePayloadPatch,
   grabPhasePayloadPatch,
@@ -137,47 +136,35 @@ export class RunItemEnrichJobUseCase {
         })
       );
 
-      const name = mergePreferExtracted(extract.data.title, current.name, current.name);
-      const packQty = resolveDesiredQuantity(
-        extract.data.desiredQuantity,
-        name,
-        current.name,
-        extract.data.title
-      );
-      const { text, metadata } = mergeGrabInfoMetadata(
-        current.description,
-        extract.data.description,
-        extract.data.predefinedFields,
-        extract.data.userDefinedFields,
-        { desiredQuantity: packQty, existingMetadata: current.metadata }
-      );
-      const category = mergePreferExtracted(extract.data.category, current.category, current.category);
-      // undefined preserves existing link price; null would clear it in updateItem.
-      const price = extract.data.price != null ? extract.data.price : undefined;
-      const websiteName = mergePreferExtracted(extract.websiteName, null, '') || null;
-      const description = text ?? '';
-      const resolvedLinkUrl = extract.finalUrl?.trim() || payload.url;
+      const writeBack = resolveEnrichWriteBackFields({
+        extract: extract.data,
+        diagnostics: extract.diagnostics as ScrapeDiagnostics,
+        current,
+        fallbackUrl: payload.url,
+        finalUrl: extract.finalUrl,
+        websiteName: extract.websiteName,
+      });
 
       await this.itemUseCases.updateItem.execute(
         itemId,
         job.UserId,
-        name,
-        description,
+        writeBack.name,
+        writeBack.description,
         null,
-        category,
+        writeBack.category ?? current.category,
         current.priority,
         undefined,
-        resolvedLinkUrl,
-        price,
-        websiteName,
-        metadata ?? undefined,
+        writeBack.linkUrl,
+        writeBack.price,
+        writeBack.websiteName,
+        writeBack.metadata ?? undefined,
         undefined,
         null
       );
 
       await this.itemUseCases.promoteScrapedImageToPhotos.execute(
         itemId,
-        extract.data.imageUrl
+        writeBack.imageUrl
       );
 
       if (jobItem) {

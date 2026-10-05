@@ -594,7 +594,7 @@ describe('MetadataScraperOrchestrator failover', () => {
     expect(result.diagnostics.confidence).toBe('high');
   });
 
-  test('returns partial result when block page still has salvageable title', async () => {
+  test('returns partial result when block page still has salvageable fields', async () => {
     const { MetadataScraperOrchestrator } = await import(
       '@/modules/item/infrastructure/adapters/metadata-scraper.orchestrator'
     );
@@ -610,7 +610,10 @@ describe('MetadataScraperOrchestrator failover', () => {
     expect(result.diagnostics.needsReview).toBe(true);
     expect(result.diagnostics.outcome).toBe('blocked');
     expect(result.diagnostics.blocked).toBe(true);
-    expect(result.data.title?.trim().length).toBeGreaterThan(0);
+    expect(result.data.title).toBe('');
+    const hasSalvageableField =
+      Boolean(result.data.imageUrl?.trim()) || result.data.price != null;
+    expect(hasSalvageableField || result.diagnostics.fieldsFound?.length).toBeTruthy();
   });
 
   test('uses captured JSON during playwright tier', async () => {

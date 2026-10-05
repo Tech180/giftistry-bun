@@ -1,0 +1,9 @@
+{
+  "url": "https://a.co/d/example-gate",
+  "finalUrl": "https://a.co/d/example-gate",
+  "status": 200,
+  "fetchedAt": "2026-10-04T00:00:00.000Z",
+  "tier": "fixture",
+  "platform": "amazon",
+  "tags": ["amazon", "short-link", "gate", "seo-title-fallback"]
+}

@@ -7,6 +7,8 @@ export type { MetadataScraper } from './domain/ports/metadata-scraper.port';
 export { ScrapeError } from './domain/errors/scrape-error';
 export { formatBlockedScrapeMessage } from './slices/metadata/utils/format-blocked-scrape-message.util';
 export type { ScrapeDiagnostics } from './domain/interfaces/scrape-diagnostics.interface';
+export type { ExtractedMetadata } from './domain/interfaces/extracted-metadata.interface';
+export { sanitizeProductTitleForWrite } from './domain/utils/sanitize-product-title-for-write.util';
 export { mapScrapeDiagnosticsToPascalApi } from './domain/utils/map-scrape-diagnostics-to-pascal-api.util';
 export type { ListItemsPort } from './application/ports/list-items.port';
 export type { ItemEnricherPort } from './application/ports/item-enricher.port';
@@ -73,6 +75,7 @@ export {
 export type { RelationExportItem } from './domain/interfaces/relation-export-item.interface';
 export type { RelationIdsGetter } from './domain/types/relation-ids-getter.type';
 export { sortWishlistItemsByExportOrder } from './domain/utils/sort-wishlist-items.util';
+export { sortWishlistItemsForListDisplay } from './domain/utils/sort-wishlist-items-for-list-display.util';
 export type { SortableWishlistItem } from './domain/interfaces/sortable-wishlist-item.interface';
 export { parseItemDescription } from './domain/utils/item-description.util';
 export {

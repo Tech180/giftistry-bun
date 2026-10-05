@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-02T01:09:29.126Z",
+  "generatedAt": "2026-10-04T23:38:43.886Z",
   "corpusRoot": "/home/tech180/Documents/projects/giftistry-bun/tests/fixtures/scraping/corpus",
-  "entryCount": 9,
+  "entryCount": 10,
   "aggregates": {
     "overall": {
-      "entryCount": 9,
+      "entryCount": 10,
       "fields": [
         {
           "field": "title",
@@ -29,7 +29,7 @@
     },
     "byPlatform": {
       "amazon": {
-        "entryCount": 1,
+        "entryCount": 2,
         "fields": [
           {
             "field": "title",
@@ -210,6 +210,98 @@
             "field": "imageUrl",
             "scored": 2,
             "matched": 2,
+            "matchRate": 1
+          }
+        ]
+      },
+      "amazon": {
+        "entryCount": 1,
+        "fields": [
+          {
+            "field": "title",
+            "scored": 0,
+            "matched": 0,
+            "matchRate": 1
+          },
+          {
+            "field": "price",
+            "scored": 0,
+            "matched": 0,
+            "matchRate": 1
+          },
+          {
+            "field": "imageUrl",
+            "scored": 0,
+            "matched": 0,
+            "matchRate": 1
+          }
+        ]
+      },
+      "short-link": {
+        "entryCount": 1,
+        "fields": [
+          {
+            "field": "title",
+            "scored": 0,
+            "matched": 0,
+            "matchRate": 1
+          },
+          {
+            "field": "price",
+            "scored": 0,
+            "matched": 0,
+            "matchRate": 1
+          },
+          {
+            "field": "imageUrl",
+            "scored": 0,
+            "matched": 0,
+            "matchRate": 1
+          }
+        ]
+      },
+      "gate": {
+        "entryCount": 1,
+        "fields": [
+          {
+            "field": "title",
+            "scored": 0,
+            "matched": 0,
+            "matchRate": 1
+          },
+          {
+            "field": "price",
+            "scored": 0,
+            "matched": 0,
+            "matchRate": 1
+          },
+          {
+            "field": "imageUrl",
+            "scored": 0,
+            "matched": 0,
+            "matchRate": 1
+          }
+        ]
+      },
+      "seo-title-fallback": {
+        "entryCount": 1,
+        "fields": [
+          {
+            "field": "title",
+            "scored": 0,
+            "matched": 0,
+            "matchRate": 1
+          },
+          {
+            "field": "price",
+            "scored": 0,
+            "matched": 0,
+            "matchRate": 1
+          },
+          {
+            "field": "imageUrl",
+            "scored": 0,
+            "matched": 0,
             "matchRate": 1
           }
         ]
@@ -504,6 +596,25 @@
           "actual": "m.media-amazon.com"
         }
       ]
+    },
+    {
+      "id": "amazon-short-link-gate",
+      "platform": "amazon",
+      "tags": [
+        "amazon",
+        "short-link",
+        "gate",
+        "seo-title-fallback"
+      ],
+      "url": "https://a.co/d/example-gate",
+      "validation": {
+        "valid": false,
+        "blocked": true,
+        "reason": "short-link-shell:continue shopping",
+        "confidence": "low"
+      },
+      "blockedExpectationMet": true,
+      "fields": []
     },
     {
       "id": "cloudflare-challenge",

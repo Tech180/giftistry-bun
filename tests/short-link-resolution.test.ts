@@ -163,6 +163,37 @@ describe('MetadataScraperOrchestrator short-link rematch', () => {
     expect(result.diagnostics.source).toBe('playwright');
   });
 
+  test('derives postGateUrl from ASIN embedded in gate HTML when redirect stays on short link', async () => {
+    const gateWithAsin = `
+      <!DOCTYPE html><html><head><title>Amazon.com</title>
+      <link rel="canonical" href="https://www.amazon.com/dp/${productAsin}" /></head>
+      <body>${'x'.repeat(600)}
+      <p>Click the button below to continue shopping</p>
+      </body></html>
+    `;
+    let receivedPostGate: string | undefined;
+
+    const scraper = new MetadataScraperOrchestrator(
+      async () => ({
+        html: gateWithAsin,
+        finalUrl: shortUrl,
+      }),
+      async (inputUrl, _timeout, options) => {
+        receivedPostGate = options?.postGateUrl;
+        expect(inputUrl).toBe(shortUrl);
+        return {
+          html: amazonProductHtml,
+          capturedJson: [],
+          finalUrl: productUrl,
+        };
+      }
+    );
+
+    const result = await scraper.scrape(shortUrl, 'full');
+    expect(receivedPostGate).toBe(productUrl);
+    expect(result.data.title).toContain('Dyson');
+  });
+
   test('uses playwright when Amazon pre-resolve stays on short link', async () => {
     let playwrightCalled = false;
     const scraper = new MetadataScraperOrchestrator(
